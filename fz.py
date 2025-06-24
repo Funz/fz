@@ -52,29 +52,28 @@ class fz:
         - output_prefix : préfixe pour les fichiers générés.
           Par défaut, on utilise le nom de base du fichier d'entrée.
         - use_dirs : si True, crée une arborescence de répertoires basée sur
-          les valeurs des variables non groupées. Les fichiers générés sont
-          alors placés dans ces répertoires et ne contiennent plus ces
-          variables dans leur nom.
+          les valeurs des variables non groupées. Les dossiers sont classés
+          par variable en commençant par celles ayant le moins de valeurs
+          afin de limiter le nombre de répertoires créés. Les fichiers générés
+          sont alors placés dans ces répertoires et ne contiennent plus ces
+          variables dans leur nom
         """
         template_text = self._load_jdd(input_file)
 
-        # Préparation des listes de variables groupées et non groupées
-        if group_variables is None:
-            group_vars = []
+                # Détermination de l'ordre des variables non groupées
+        if use_dirs:
+            sort_key = lambda k: (len(input_variables[k]), k)
         else:
-            group_vars = list(group_variables)
-
-        # Variables non groupées, triées par ordre alphabétique
-        ungroup_vars = sorted([k for k in input_variables.keys() if k not in group_vars])
+            sort_key = lambda k: k
+        ungroup_vars = sorted([k for k in input_variables.keys() if k not in group_vars], key=sort_key)
 
         # Construction des combinaisons en fonction de group_variables
         if not group_vars:
-            # Produit cartésien sur toutes les variables (ordre alphabétique)
-            keys = sorted(input_variables.keys())
+            # Produit cartésien sur toutes les variables
+            keys = ungroup_vars
             lists_of_values = [input_variables[k] for k in keys]
             combos = [dict(zip(keys, combo)) for combo in product(*lists_of_values)]
-        else:
-            
+        else:           
             # Combinaisons pour les variables non groupées
             if ungroup_vars:
                 ungroup_lists = [input_variables[k] for k in ungroup_vars]
