@@ -56,17 +56,11 @@ class fz:
           par variable en commençant par celles ayant le moins de valeurs
           afin de limiter le nombre de répertoires créés. Les fichiers générés
           sont alors placés dans ces répertoires et ne contiennent plus ces
-          variables dans leur nom.
+          variables dans leur nom
         """
         template_text = self._load_jdd(input_file)
 
-        # Préparation des listes de variables groupées et non groupées
-        if group_variables is None:
-            group_vars = []
-        else:
-            group_vars = list(group_variables)
-
-        # Détermination de l'ordre des variables non groupées
+                # Détermination de l'ordre des variables non groupées
         if use_dirs:
             sort_key = lambda k: (len(input_variables[k]), k)
         else:
@@ -79,8 +73,7 @@ class fz:
             keys = ungroup_vars
             lists_of_values = [input_variables[k] for k in keys]
             combos = [dict(zip(keys, combo)) for combo in product(*lists_of_values)]
-        else:
-            
+        else:           
             # Combinaisons pour les variables non groupées
             if ungroup_vars:
                 ungroup_lists = [input_variables[k] for k in ungroup_vars]
