@@ -59,6 +59,7 @@ class fz:
           variables dans leur nom
         """
         template_text = self._load_jdd(input_file)
+        group_vars = list(group_variables) if group_variables else []
 
                 # Détermination de l'ordre des variables non groupées
         if use_dirs:
