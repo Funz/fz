@@ -28,7 +28,7 @@ class fz:
         found_vars = self._detect_variables(text)
         return found_vars
 
-    def CompileInput(self, input_file, input_variables, output_prefix=None, group_variables=None):
+    def CompileInput(self, input_file, input_variables, output_prefix=None, group_variables=None, use_dirs=False):
         """
         Lit un fichier paramétré (input_file),
         et pour chaque combinaison des valeurs spécifiées dans input_variables
@@ -51,20 +51,35 @@ class fz:
 
         - output_prefix : préfixe pour les fichiers générés.
           Par défaut, on utilise le nom de base du fichier d'entrée.
+        - use_dirs : si True, crée une arborescence de répertoires basée sur
+          les valeurs des variables non groupées. Les dossiers sont classés
+          par variable en commençant par celles ayant le moins de valeurs
+          afin de limiter le nombre de répertoires créés. Les fichiers générés
+          sont alors placés dans ces répertoires et ne contiennent plus ces
+          variables dans leur nom.
         """
         template_text = self._load_jdd(input_file)
 
-        # Construction des combinaisons en fonction de group_variables
+        # Préparation des listes de variables groupées et non groupées
         if group_variables is None:
-            # Produit cartésien sur toutes les variables (ordre alphabétique)
-            keys = sorted(input_variables.keys())
+            group_vars = []
+        else:
+            group_vars = list(group_variables)
+
+        # Détermination de l'ordre des variables non groupées
+        if use_dirs:
+            sort_key = lambda k: (len(input_variables[k]), k)
+        else:
+            sort_key = lambda k: k
+        ungroup_vars = sorted([k for k in input_variables.keys() if k not in group_vars], key=sort_key)
+
+        # Construction des combinaisons en fonction de group_variables
+        if not group_vars:
+            # Produit cartésien sur toutes les variables
+            keys = ungroup_vars
             lists_of_values = [input_variables[k] for k in keys]
             combos = [dict(zip(keys, combo)) for combo in product(*lists_of_values)]
         else:
-            # Variables à grouper
-            group_vars = list(group_variables)
-            # Variables non groupées, triées par ordre alphabétique
-            ungroup_vars = sorted([k for k in input_variables.keys() if k not in group_vars])
             
             # Combinaisons pour les variables non groupées
             if ungroup_vars:
@@ -109,9 +124,26 @@ class fz:
             final_text = self._parse_and_replace_at_braces_format(text_after_rblocks)
 
             # 5) Écriture dans un fichier de sortie
-            # Utilisation d'un ordre déterministe pour le nommage (ordre alphabétique)
-            scenario_suffix = "_".join(f"{k}={scenario_dict[k]}" for k in sorted(scenario_dict.keys()))
-            out_filename = f"{output_prefix}_{scenario_suffix}.pij"
+            # Construction du chemin de sortie selon use_dirs
+            if use_dirs and ungroup_vars:
+                dir_path = os.path.join(*(f"{k}={scenario_dict[k]}" for k in ungroup_vars))
+                os.makedirs(dir_path, exist_ok=True)
+            else:
+                dir_path = ""
+
+            # Détermination des variables à inclure dans le nom de fichier
+            if use_dirs:
+                suffix_keys = group_vars
+            else:
+                suffix_keys = sorted(scenario_dict.keys())
+
+            scenario_suffix = "_".join(f"{k}={scenario_dict[k]}" for k in suffix_keys)
+            if scenario_suffix:
+                fname = f"{output_prefix}_{scenario_suffix}.pij"
+            else:
+                fname = f"{output_prefix}.pij"
+
+            out_filename = os.path.join(dir_path, fname)
 
             with open(out_filename, 'w', encoding='utf-8') as f:
                 f.write(final_text)
@@ -253,7 +285,7 @@ if __name__ == "__main__":
         "r1": [0.64706, 0.6500],
         "r2": [0.09091, 0.1000],
     }
-    f.CompileInput(input_file="Pumet2.pij", input_variables=input_variables_full)
+    f.CompileInput(input_file="Pumet2.pij", input_variables=input_variables_full, use_dirs=True)
 
     # Exemple avec group_variables (r0, r1, r2 liés)
     input_variables_grouped = {
@@ -264,4 +296,5 @@ if __name__ == "__main__":
     }
     f.CompileInput(input_file="Pumet2.pij",
                    input_variables=input_variables_grouped,
-                   group_variables=["r0", "r1", "r2"])
+                   group_variables=["r0", "r1", "r2"],
+                   use_dirs=True)
