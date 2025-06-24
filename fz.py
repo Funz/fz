@@ -57,9 +57,14 @@ class fz:
           afin de limiter le nombre de répertoires créés. Les fichiers générés
           sont alors placés dans ces répertoires et ne contiennent plus ces
           variables dans leur nom
+        - À la fin de l'exécution, un fichier ``generated_files.txt`` contenant
+          les chemins relatifs de tous les fichiers créés est sauvegardé dans le
+          répertoire du fichier d'entrée
         """
         template_text = self._load_jdd(input_file)
         group_vars = list(group_variables) if group_variables else []
+        input_dir = os.path.dirname(os.path.abspath(input_file)) or "."
+        generated_files = []
 
                 # Détermination de l'ordre des variables non groupées
         if use_dirs:
@@ -144,6 +149,12 @@ class fz:
                 f.write(final_text)
 
             print(f"Generated : {out_filename} with {scenario_dict}")
+            generated_files.append(os.path.relpath(out_filename, start=input_dir))
+
+        list_file = os.path.join(input_dir, "generated_files.txt")
+        with open(list_file, "w", encoding="utf-8") as lf:
+            lf.write("\n".join(generated_files))
+        print(f"List of generated files written to {list_file}")
 
     # --------------------------------------------------------------------------
     # Méthodes "privées"
