@@ -99,9 +99,10 @@ class fz:
                         scenario_dict[k] = group_combo[i]
                     combos.append(scenario_dict)
 
+        basename = os.path.basename(input_file)
+        output_prefix_from_file, ext = os.path.splitext(basename)
         if output_prefix is None:
-            basename = os.path.basename(input_file)
-            output_prefix = os.path.splitext(basename)[0]
+            output_prefix = output_prefix_from_file
 
         for scenario_dict in combos:
             # 1) Utilisation directe du texte
@@ -133,9 +134,9 @@ class fz:
 
             scenario_suffix = "_".join(f"{k}={scenario_dict[k]}" for k in suffix_keys)
             if scenario_suffix:
-                fname = f"{output_prefix}_{scenario_suffix}.pij"
+                fname = f"{output_prefix}_{scenario_suffix}{ext}"
             else:
-                fname = f"{output_prefix}.pij"
+                fname = f"{output_prefix}{ext}"
 
             out_filename = os.path.join(dir_path, fname)
 
