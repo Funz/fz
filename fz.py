@@ -235,11 +235,14 @@ class fz:
 
     def _fallback_to_python_format(self, fallback_str):
         """
-        Interprète fallback_str comme ex. 
+        Interprète fallback_str comme ex.
+          "0"         => .0f  (format entier)
           "0.00"       => .2f  (2 décimales en notation fixe)
           "0.0000"     => .4f  (4 décimales en notation fixe)
           "0.0000E00"  => .4E  (4 décimales en notation scientifique)
         """
+        if fallback_str == "0":
+            return ".0f"
         m_decimal = re.match(r'^0\.(0+)$', fallback_str)
         if m_decimal:
             count_zero = len(m_decimal.group(1))
