@@ -28,7 +28,7 @@ class fz:
         found_vars = self._detect_variables(text)
         return found_vars
 
-    def CompileInput(self, input_file, input_variables, output_prefix=None, group_variables=None, use_dirs=False):
+    def CompileInput(self, input_file, input_variables, output_prefix=None, group_variables=None, use_dirs=False, filename_template=None):
         """
         Lit un fichier paramétré (input_file),
         et pour chaque combinaison des valeurs spécifiées dans input_variables
@@ -51,6 +51,9 @@ class fz:
 
         - output_prefix : préfixe pour les fichiers générés.
           Par défaut, on utilise le nom de base du fichier d'entrée.
+        - filename_template : gabarit ``str.format`` pour nommer les fichiers.
+          Les clés disponibles sont ``prefix``, ``ext``, ``scenario`` et les
+          noms de variables.
         - use_dirs : si True, crée une arborescence de répertoires basée sur
           les valeurs des variables non groupées. Les dossiers sont classés
           par variable en commençant par celles ayant le moins de valeurs
@@ -138,10 +141,20 @@ class fz:
                 suffix_keys = sorted(scenario_dict.keys())
 
             scenario_suffix = "_".join(f"{k}={scenario_dict[k]}" for k in suffix_keys)
-            if scenario_suffix:
-                fname = f"{output_prefix}_{scenario_suffix}{ext}"
+
+            if filename_template is None:
+                if scenario_suffix:
+                    fname = f"{output_prefix}_{scenario_suffix}{ext}"
+                else:
+                    fname = f"{output_prefix}{ext}"
             else:
-                fname = f"{output_prefix}{ext}"
+                format_vars = {
+                    "prefix": output_prefix,
+                    "ext": ext,
+                    "scenario": scenario_suffix,
+                    **scenario_dict,
+                }
+                fname = filename_template.format(**format_vars)
 
             out_filename = os.path.join(dir_path, fname)
 
