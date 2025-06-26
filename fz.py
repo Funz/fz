@@ -155,7 +155,12 @@ class fz:
                     "scenario": scenario_suffix,
                     **scenario_dict,
                 }
-                fname = filename_template.format(**format_vars)
+                try:
+                    fname = filename_template.format(**format_vars)
+                except KeyError as e:
+                    raise ValueError(
+                        f"Unknown variable in filename_template: {e.args[0]}"
+                    )
 
             out_filename = os.path.join(dir_path, fname)
 
