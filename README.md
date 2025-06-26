@@ -6,6 +6,8 @@ Suite of Funz commands ``fz*`:
   datasets is written to the same directory as the input file.
   File names can be customized with the ``filename_template`` option of
   ``CompileInput``.
+  Example:
+    CompileInput(..., filename_template="{prefix}_R{r0:.0f}{ext}")
 * `fzp`: parse output files (almost like `Funz ParseResults ...`)
 * `fzr`: run input files (almost like `Funz Run ...`)
 * `fzd`: apply design/algorithm on command (almost like `Funz Design ...`)

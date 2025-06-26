@@ -54,6 +54,7 @@ class fz:
         - filename_template : gabarit ``str.format`` pour nommer les fichiers.
           Les clés disponibles sont ``prefix``, ``ext``, ``scenario`` et les
           noms de variables.
+            Exemple d'appel : f.CompileInput(..., filename_template="{prefix}_R{r0:.0f}{ext}") pour formater r0 en entier.
         - use_dirs : si True, crée une arborescence de répertoires basée sur
           les valeurs des variables non groupées. Les dossiers sont classés
           par variable en commençant par celles ayant le moins de valeurs
