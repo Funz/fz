@@ -182,6 +182,17 @@ class fz:
                     cf.write(",".join([info["file"]] + [str(x) for x in row]) + "\n")
             print(f"Detailed scenario info written to {csv_file}")
 
+        # Write detailed scenario information to CSV
+        if scenario_infos:
+            csv_file = os.path.join(input_dir, "generated_files.csv")
+            var_names = sorted({k for d in scenario_infos for k in d.keys() if k != "file"})
+            with open(csv_file, "w", encoding="utf-8", newline="") as cf:
+                cf.write("file," + ",".join(var_names) + "\n")
+                for info in scenario_infos:
+                    row = [info.get(var, "") for var in var_names]
+                    cf.write(",".join([info["file"]] + [str(x) for x in row]) + "\n")
+            print(f"Detailed scenario info written to {csv_file}")
+
     # --------------------------------------------------------------------------
     # Méthodes "privées"
     # --------------------------------------------------------------------------
