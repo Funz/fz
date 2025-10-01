@@ -13,9 +13,12 @@ import time
 import uuid
 import signal
 from pathlib import Path
-from typing import Dict, List, Union, Any, Optional, Tuple
+from typing import Dict, List, Union, Any, Optional, Tuple, TYPE_CHECKING
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+
+if TYPE_CHECKING:
+    import pandas
 
 try:
     import pandas as pd
