@@ -205,7 +205,7 @@ def create_comprehensive_test_cases():
     return test_cases
 
 
-def test_single_case(case, attempt_num=1):
+def run_single_case(case, attempt_num=1):
     """Test a single case and return result"""
     case_name = f"{case['name']}_attempt_{attempt_num}"
 
@@ -273,7 +273,7 @@ def run_comprehensive_test(num_iterations=3):
         iteration_results = []
 
         for case in test_cases:
-            result = test_single_case(case, iteration)
+            result = run_single_case(case, iteration)
             iteration_results.append(result)
             all_results.append(result)
 

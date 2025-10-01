@@ -42,8 +42,8 @@ def debug_full_resolution(command: str, original_cwd: str):
             continue
 
         print(f"\n  [{i}] Processing segment: '{segment}'")
-        resolved_segment = _resolve_paths_in_segment(segment, original_cwd)
-        print(f"       Result: '{resolved_segment}'")
+        resolved_segment, was_changed = _resolve_paths_in_segment(segment, original_cwd)
+        print(f"       Result: '{resolved_segment}' (changed: {was_changed})")
         resolved_segments.append(resolved_segment)
 
     result = ' '.join(resolved_segments)
