@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fz"
+version = "0.1.0"
+description = "Parametric scientific computing package"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "FZ Team"}
+]
+maintainers = [
+    {name = "FZ Team"}
+]
+keywords = ["parametric", "computing", "simulation", "scientific", "hpc", "ssh"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "paramiko>=2.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "black",
+    "flake8",
+]
+
+[project.urls]
+"Bug Reports" = "https://github.com/funz/fz/issues"
+"Source" = "https://github.com/funz/fz"
+
+[project.scripts]
+fz = "fz.cli:main"
+
+[tool.setuptools]
+packages = ["fz"]
+
+[tool.setuptools.package-data]
+fz = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
