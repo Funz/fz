@@ -603,7 +603,17 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             result_output = fzo(result_dir, model)
             log_debug(f"🔄 [Thread {thread_id}] {case_name}: Parsed output: {list(result_output.keys())}")
             for key in output_keys:
-                result[key] = result_output.get(key)
+                value = result_output.get(key)
+                # Extract scalar from pandas Series if applicable
+                if hasattr(value, 'iloc'):
+                    # It's a pandas Series, extract first (and only) value
+                    result[key] = value.iloc[0] if len(value) > 0 else None
+                elif isinstance(value, list):
+                    # It's a list (dict mode), extract first value
+                    result[key] = value[0] if len(value) > 0 else None
+                else:
+                    # Already a scalar
+                    result[key] = value
         except Exception as e:
             log_warning(f"⚠️ [Thread {thread_id}] {case_name}: Could not parse output from result directory: {e}")
             # Add more debugging for parse failures
