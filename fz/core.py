@@ -1,6 +1,7 @@
 """
 Core functions for fz package: fzi, fzc, fzo, fzr
 """
+
 import os
 import re
 import shutil
@@ -12,16 +13,31 @@ import logging
 import time
 import uuid
 import signal
+import sys
+import io
+import platform
 from pathlib import Path
 from typing import Dict, List, Union, Any, Optional, Tuple, TYPE_CHECKING
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+
+# Configure UTF-8 encoding for Windows to handle emoji output
+if platform.system() == "Windows":
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
+    if hasattr(sys.stderr, "buffer"):
+        sys.stderr = io.TextIOWrapper(
+            sys.stderr.buffer, encoding="utf-8", errors="replace"
+        )
 
 if TYPE_CHECKING:
     import pandas
 
 try:
     import pandas as pd
+
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
@@ -48,25 +64,22 @@ from .helpers import (
     run_cases_parallel,
     compile_to_result_directories,
     prepare_temp_directories,
-    prepare_case_directories
+    prepare_case_directories,
 )
 from .io import (
     ensure_unique_directory,
     create_hash_file,
     resolve_cache_paths,
     find_cache_match,
-    load_aliases
+    load_aliases,
 )
 from .engine import (
     parse_variables_from_path,
     replace_variables_in_content,
     evaluate_formulas,
-    cast_output
+    cast_output,
 )
-from .runners import (
-    resolve_calculators,
-    run_calculation
-)
+from .runners import resolve_calculators, run_calculation
 
 
 # Global interrupt flag for graceful shutdown
@@ -162,12 +175,16 @@ class CalculatorManager:
             with self._lock:
                 self._calculator_owners[calculator_id] = thread_id
             original_uri = self.get_original_uri(calculator_id)
-            log_debug(f"🔒 [Thread {thread_id}] Acquired calculator: {original_uri} (ID: {calculator_id})")
+            log_debug(
+                f"🔒 [Thread {thread_id}] Acquired calculator: {original_uri} (ID: {calculator_id})"
+            )
             return True
         else:
             current_owner = self._calculator_owners.get(calculator_id, "unknown")
             original_uri = self.get_original_uri(calculator_id)
-            log_debug(f"⏳ [Thread {thread_id}] Calculator {original_uri} (ID: {calculator_id}) is busy (owned by thread {current_owner})")
+            log_debug(
+                f"⏳ [Thread {thread_id}] Calculator {original_uri} (ID: {calculator_id}) is busy (owned by thread {current_owner})"
+            )
             return False
 
     def release_calculator(self, calculator_id: str, thread_id: int):
@@ -186,12 +203,18 @@ class CalculatorManager:
             calc_lock = self._calculator_locks[calculator_id]
             calc_lock.release()
             original_uri = self.get_original_uri(calculator_id)
-            log_debug(f"🔓 [Thread {thread_id}] Released calculator: {original_uri} (ID: {calculator_id})")
+            log_debug(
+                f"🔓 [Thread {thread_id}] Released calculator: {original_uri} (ID: {calculator_id})"
+            )
         except Exception as e:
             original_uri = self.get_original_uri(calculator_id)
-            log_warning(f"⚠️ [Thread {thread_id}] Error releasing calculator {original_uri} (ID: {calculator_id}): {e}")
+            log_warning(
+                f"⚠️ [Thread {thread_id}] Error releasing calculator {original_uri} (ID: {calculator_id}): {e}"
+            )
 
-    def get_available_calculator(self, calculator_ids: List[str], thread_id: int, case_index: int) -> Optional[str]:
+    def get_available_calculator(
+        self, calculator_ids: List[str], thread_id: int, case_index: int
+    ) -> Optional[str]:
         """
         Get an available calculator from the list, preferring round-robin distribution
 
@@ -235,7 +258,9 @@ class CalculatorManager:
                     # Try to release the lock (may fail if not held)
                     if calc_id in self._calculator_owners:
                         thread_id = self._calculator_owners[calc_id]
-                        log_debug(f"🧹 Cleanup: Force-releasing calculator {calc_id} from thread {thread_id}")
+                        log_debug(
+                            f"🧹 Cleanup: Force-releasing calculator {calc_id} from thread {thread_id}"
+                        )
                         calc_lock.release()
                 except Exception as e:
                     # Lock might not be held, which is fine
@@ -290,10 +315,13 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
         os.chdir(_ORIGINAL_LAUNCH_DIRECTORY)
 
 
-
-
-def fzc(input_path: str, model: Union[str, Dict], varvalues: Dict,
-        engine: str = None, outputdir: str = "output") -> None:
+def fzc(
+    input_path: str,
+    model: Union[str, Dict],
+    varvalues: Dict,
+    engine: str = None,
+    outputdir: str = "output",
+) -> None:
     """
     Compile input file(s) replacing variables with values
 
@@ -355,7 +383,7 @@ def fzc(input_path: str, model: Union[str, Dict], varvalues: Dict,
 
         def compile_file(src_path: Path, dst_path: Path):
             try:
-                with open(src_path, 'r', encoding='utf-8') as f:
+                with open(src_path, "r", encoding="utf-8") as f:
                     content = f.read()
             except UnicodeDecodeError:
                 # Copy binary files as-is
@@ -369,7 +397,7 @@ def fzc(input_path: str, model: Union[str, Dict], varvalues: Dict,
             content = evaluate_formulas(content, model, var_combo, engine)
 
             # Write compiled content
-            with open(dst_path, 'w', encoding='utf-8') as f:
+            with open(dst_path, "w", encoding="utf-8") as f:
                 f.write(content)
 
         if input_path.is_file():
@@ -391,7 +419,9 @@ def fzc(input_path: str, model: Union[str, Dict], varvalues: Dict,
     os.chdir(_ORIGINAL_LAUNCH_DIRECTORY)
 
 
-def fzo(output_path: str, model: Union[str, Dict]) -> Union[Dict[str, Any], 'pandas.DataFrame']:
+def fzo(
+    output_path: str, model: Union[str, Dict]
+) -> Union[Dict[str, Any], "pandas.DataFrame"]:
     """
     Read and parse output file(s) according to model
 
@@ -429,13 +459,17 @@ def fzo(output_path: str, model: Union[str, Dict]) -> Union[Dict[str, Any], 'pan
         if subdirs:
             for subdir in subdirs:
                 subdir_name = subdir.name
-                row = {'path': subdir_name}  # Relative path to subdirectory
+                row = {"path": subdir_name}  # Relative path to subdirectory
 
                 for key, command in output_spec.items():
                     try:
                         # Execute shell command in subdirectory
                         result = subprocess.run(
-                            command, shell=True, capture_output=True, text=True, cwd=str(subdir)
+                            command,
+                            shell=True,
+                            capture_output=True,
+                            text=True,
+                            cwd=str(subdir),
                         )
 
                         if result.returncode == 0:
@@ -444,17 +478,21 @@ def fzo(output_path: str, model: Union[str, Dict]) -> Union[Dict[str, Any], 'pan
                             parsed_value = cast_output(raw_output)
                             row[key] = parsed_value
                         else:
-                            log_warning(f"Warning: Command for '{subdir_name}/{key}' failed: {result.stderr}")
+                            log_warning(
+                                f"Warning: Command for '{subdir_name}/{key}' failed: {result.stderr}"
+                            )
                             row[key] = None
 
                     except Exception as e:
-                        log_warning(f"Warning: Error executing command for '{subdir_name}/{key}': {e}")
+                        log_warning(
+                            f"Warning: Error executing command for '{subdir_name}/{key}': {e}"
+                        )
                         row[key] = None
 
                 rows.append(row)
         else:
             # No subdirectories, create single row with '.' as path
-            row = {'path': '.'}
+            row = {"path": "."}
 
             for key, command in output_spec.items():
                 try:
@@ -469,7 +507,9 @@ def fzo(output_path: str, model: Union[str, Dict]) -> Union[Dict[str, Any], 'pan
                         parsed_value = cast_output(raw_output)
                         row[key] = parsed_value
                     else:
-                        log_warning(f"Warning: Command for '{key}' failed: {result.stderr}")
+                        log_warning(
+                            f"Warning: Command for '{key}' failed: {result.stderr}"
+                        )
                         row[key] = None
 
                 except Exception as e:
@@ -486,24 +526,24 @@ def fzo(output_path: str, model: Union[str, Dict]) -> Union[Dict[str, Any], 'pan
         df = pd.DataFrame(rows)
 
         # Check if all 'path' values follow the "key1=val1,key2=val2,..." pattern
-        if len(df) > 0 and 'path' in df.columns:
+        if len(df) > 0 and "path" in df.columns:
             # Try to parse all path values
             parsed_vars = {}
             all_parseable = True
 
-            for path_val in df['path']:
-                if path_val == '.':
+            for path_val in df["path"]:
+                if path_val == ".":
                     # Single directory case, not a key=value pattern
                     all_parseable = False
                     break
 
                 # Try to parse "key1=val1,key2=val2,..." pattern
                 try:
-                    parts = path_val.split(',')
+                    parts = path_val.split(",")
                     row_vars = {}
                     for part in parts:
-                        if '=' in part:
-                            key, val = part.split('=', 1)
+                        if "=" in part:
+                            key, val = part.split("=", 1)
                             row_vars[key.strip()] = val.strip()
                         else:
                             # Not a key=value pattern
@@ -531,7 +571,7 @@ def fzo(output_path: str, model: Union[str, Dict]) -> Union[Dict[str, Any], 'pan
                     for v in values:
                         try:
                             # Try int first
-                            if '.' not in v:
+                            if "." not in v:
                                 cast_values.append(int(v))
                             else:
                                 cast_values.append(float(v))
@@ -546,17 +586,14 @@ def fzo(output_path: str, model: Union[str, Dict]) -> Union[Dict[str, Any], 'pan
         return rows[0] if rows else {}
 
 
-
-
-
-
-
-
-
-
-def fzr(input_path: str, model: Union[str, Dict], varvalues: Dict,
-        engine: str = None, resultsdir: str = "results",
-        calculators: Union[str, List[str]] = None) -> Union[Dict[str, List[Any]], 'pandas.DataFrame']:
+def fzr(
+    input_path: str,
+    model: Union[str, Dict],
+    varvalues: Dict,
+    engine: str = None,
+    resultsdir: str = "results",
+    calculators: Union[str, List[str]] = None,
+) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
     """
     Run full parametric calculations
 
@@ -627,8 +664,9 @@ def fzr(input_path: str, model: Union[str, Dict], varvalues: Dict,
             else:
                 list_values.append([val])
 
-        var_combinations = [dict(zip(var_names, combo))
-                           for combo in itertools.product(*list_values)]
+        var_combinations = [
+            dict(zip(var_names, combo)) for combo in itertools.product(*list_values)
+        ]
     else:
         var_combinations = [varvalues]
 
@@ -647,7 +685,9 @@ def fzr(input_path: str, model: Union[str, Dict], varvalues: Dict,
         temp_path = Path(temp_dir)
 
         # Compile all combinations directly to result directories, then prepare temp directories
-        compile_to_result_directories(input_path, model, varvalues, engine, var_combinations, resultsdir)
+        compile_to_result_directories(
+            input_path, model, varvalues, engine, var_combinations, resultsdir
+        )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)
         prepare_temp_directories(var_combinations, temp_path, resultsdir)
@@ -655,8 +695,15 @@ def fzr(input_path: str, model: Union[str, Dict], varvalues: Dict,
         # Run calculations in parallel across cases
         try:
             case_results = run_cases_parallel(
-                var_combinations, temp_path, resultsdir, calculators, model,
-                original_input_was_dir, var_names, output_keys, original_cwd
+                var_combinations,
+                temp_path,
+                resultsdir,
+                calculators,
+                model,
+                original_input_was_dir,
+                var_names,
+                output_keys,
+                original_cwd,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
@@ -703,5 +750,3 @@ def fzr(input_path: str, model: Union[str, Dict], varvalues: Dict,
         return pd.DataFrame(results)
     else:
         return results
-
-
