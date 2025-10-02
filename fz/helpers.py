@@ -799,6 +799,10 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
     # Track timing
     start_time = time.time()
 
+    # Show initial progress for multiple cases
+    if len(var_combinations) > 1:
+        log_progress(f"📊 Progress: 0/{len(var_combinations)} cases completed (0.0%)")
+
     # Run cases in parallel
     if len(var_combinations) == 1 or max_workers == 1:
         # Single case or single calculator - run sequentially
