@@ -17,10 +17,13 @@ from fz import fzr
 def test_absolute_path_resolution():
     """Test that shows all paths are converted to absolute"""
 
-    # Create test files
-    with open('test_script.sh', 'w') as f:
-        f.write('#!/bin/bash\necho "Script executed successfully"\necho "result = 123" > result_output.txt\n')
-    os.chmod('test_script.sh', 0o755)
+    # Create test files - use Python for cross-platform compatibility
+    with open('test_script.py', 'w') as f:
+        f.write('#!/usr/bin/env python3\n')
+        f.write('print("Script executed successfully")\n')
+        f.write('with open("result_output.txt", "w") as f:\n')
+        f.write('    f.write("result = 123\\n")\n')
+    os.chmod('test_script.py', 0o755)
 
     print("🧪 Testing Complete Absolute Path Resolution")
     print("=" * 50)
@@ -31,7 +34,7 @@ def test_absolute_path_resolution():
             input_path=".",
             model={"output": {"value": "echo 'Execution completed'"}},
             varvalues={},
-            calculators=["sh://bash test_script.sh"],
+            calculators=["python test_script.py"],
             resultsdir="absolute_test_result"
         )
 
@@ -56,8 +59,8 @@ def test_absolute_path_resolution():
 
     finally:
         # Cleanup
-        if os.path.exists('test_script.sh'):
-            os.remove('test_script.sh')
+        if os.path.exists('test_script.py'):
+            os.remove('test_script.py')
         if os.path.exists('result_output.txt'):
             os.remove('result_output.txt')
 

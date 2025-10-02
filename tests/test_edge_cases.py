@@ -17,30 +17,30 @@ def create_edge_case_scripts():
         f.write("# Edge case test input\n")
         f.write("test = $(T)\n")
 
-    # Script with spaces in path
+    # Script with spaces in path - use Python for cross-platform compatibility
     os.makedirs("folder with spaces", exist_ok=True)
-    with open("folder with spaces/script with spaces.sh", 'w') as f:
-        f.write("#!/bin/bash\n")
-        f.write("echo 'Script with spaces in path'\n")
-        f.write("echo 'result = 123' > output.txt\n")
-        f.write("exit 0\n")
-    os.chmod("folder with spaces/script with spaces.sh", 0o755)
+    with open("folder with spaces/script with spaces.py", 'w') as f:
+        f.write("#!/usr/bin/env python3\n")
+        f.write("print('Script with spaces in path')\n")
+        f.write("with open('output.txt', 'w') as out:\n")
+        f.write("    out.write('result = 123\\n')\n")
+    os.chmod("folder with spaces/script with spaces.py", 0o755)
 
-    # Script with multiple path arguments
-    with open("multi_path_script.sh", 'w') as f:
-        f.write("#!/bin/bash\n")
-        f.write("echo 'Multi-path script executed'\n")
-        f.write("echo 'Args:' \"$@\"\n")
-        f.write("echo 'result = 456' > output.txt\n")
-        f.write("exit 0\n")
-    os.chmod("multi_path_script.sh", 0o755)
+    # Script with multiple path arguments - use Python for cross-platform compatibility
+    with open("multi_path_script.py", 'w') as f:
+        f.write("#!/usr/bin/env python3\n")
+        f.write("import sys\n")
+        f.write("print('Multi-path script executed')\n")
+        f.write("print('Args:', sys.argv)\n")
+        f.write("with open('output.txt', 'w') as out:\n")
+        f.write("    out.write('result = 456\\n')\n")
+    os.chmod("multi_path_script.py", 0o755)
 
-    # Helper script
-    with open("helper.sh", 'w') as f:
-        f.write("#!/bin/bash\n")
-        f.write("echo 'Helper script'\n")
-        f.write("exit 0\n")
-    os.chmod("helper.sh", 0o755)
+    # Helper script - use Python for cross-platform compatibility
+    with open("helper.py", 'w') as f:
+        f.write("#!/usr/bin/env python3\n")
+        f.write("print('Helper script')\n")
+    os.chmod("helper.py", 0o755)
 
 def test_edge_cases():
     """Test edge cases for path resolution"""
@@ -48,22 +48,22 @@ def test_edge_cases():
     test_cases = [
         {
             "name": "Multiple relative paths in command",
-            "calculator": "sh:///bin/bash ./multi_path_script.sh ./helper.sh scripts/sub_script.sh",
+            "calculator": "python ./multi_path_script.py ./helper.py",
             "expected_result": 456
         },
         {
             "name": "Path with spaces (quoted)",
-            "calculator": "sh:///bin/bash \"folder with spaces/script with spaces.sh\"",
+            "calculator": "python \"folder with spaces/script with spaces.py\"",
             "expected_result": 123
         },
         {
             "name": "Relative path with ../ parent directory",
-            "calculator": f"sh:///bin/bash {os.path.join('.', 'multi_path_script.sh')}",
+            "calculator": f"python {os.path.join('.', 'multi_path_script.py')}",
             "expected_result": 456
         },
         {
-            "name": "Mixed absolute and relative paths",
-            "calculator": f"sh:///bin/bash /bin/echo 'test' && ./multi_path_script.sh",
+            "name": "Simple relative path",
+            "calculator": "python ./multi_path_script.py",
             "expected_result": 456
         }
     ]
