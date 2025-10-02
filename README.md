@@ -1,7 +1,9 @@
 # FZ - Parametric Scientific Computing Framework
 
 [![CI](https://github.com/Funz/fz/workflows/CI/badge.svg)](https://github.com/Funz/fz/actions/workflows/ci.yml)
-[![Python Version](https://img.shields.io/pypi/pyversions/fz.svg)](https://pypi.org/project/fz/)
+<!--
+[![Python Version](https://img.shields.io/pypi/pyversions/funz.svg)](https://pypi.org/project/funz/)
+-->
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](https://github.com/Funz/fz/releases)
 
