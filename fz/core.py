@@ -476,8 +476,31 @@ def fzo(
     elif output_path.is_dir():
         os.chdir(output_path)
         work_path = "."
-        # Find all subdirectories
-        subdirs = [d for d in Path(".").iterdir() if d.is_dir()]
+        # Find all subdirectories and sort them to match fzr() creation order
+        # fzr() creates directories in the order of itertools.product()
+        # Directory names follow pattern: key1=val1,key2=val2,...
+        # We need to sort by parsing the key=value pairs and sorting by tuple of values
+        def parse_dir_name(dirname: str):
+            """Parse 'key1=val1,key2=val2' into list of values in original order"""
+            parts = dirname.split(',')
+            values = []
+            for part in parts:
+                if '=' in part:
+                    key, val = part.split('=', 1)
+                    # Try to convert to numeric for proper sorting
+                    try:
+                        if '.' in val:
+                            val_sorted = float(val)
+                        else:
+                            val_sorted = int(val)
+                    except ValueError:
+                        val_sorted = val
+                    values.append(val_sorted)
+            # Return values in their original order (matches the order in directory name)
+            return tuple(values)
+
+        all_dirs = [d for d in Path(".").iterdir() if d.is_dir()]
+        subdirs = sorted(all_dirs, key=lambda d: parse_dir_name(d.name))
     else:
         raise FileNotFoundError(f"Output path '{output_path}' not found")
 
@@ -609,8 +632,67 @@ def fzo(
 
         return df
     else:
-        # Return first row as dict for backward compatibility when no pandas
-        return rows[0] if rows else {}
+        # Return dict with lists for backward compatibility when no pandas
+        if not rows:
+            return {}
+
+        # Convert list of dicts to dict of lists
+        result_dict = {}
+        for row in rows:
+            for key, value in row.items():
+                if key not in result_dict:
+                    result_dict[key] = []
+                result_dict[key].append(value)
+
+        # Also parse variable values from path if applicable
+        if len(rows) > 0 and "path" in result_dict:
+            parsed_vars = {}
+            all_parseable = True
+
+            for path_val in result_dict["path"]:
+                if path_val == ".":
+                    all_parseable = False
+                    break
+
+                try:
+                    parts = path_val.split(",")
+                    row_vars = {}
+                    for part in parts:
+                        if "=" in part:
+                            key, val = part.split("=", 1)
+                            row_vars[key.strip()] = val.strip()
+                        else:
+                            all_parseable = False
+                            break
+
+                    if not all_parseable:
+                        break
+
+                    for key in row_vars:
+                        if key not in parsed_vars:
+                            parsed_vars[key] = []
+                        parsed_vars[key].append(row_vars[key])
+
+                except Exception:
+                    all_parseable = False
+                    break
+
+            # If all paths were parseable, add the extracted columns
+            if all_parseable and parsed_vars:
+                for key, values in parsed_vars.items():
+                    # Try to cast values to appropriate types
+                    cast_values = []
+                    for v in values:
+                        try:
+                            if "." not in v:
+                                cast_values.append(int(v))
+                            else:
+                                cast_values.append(float(v))
+                        except ValueError:
+                            cast_values.append(v)
+                    result_dict[key] = cast_values
+
+        return result_dict
 
 
 def fzr(
@@ -702,6 +784,7 @@ def fzr(
     output_keys = list(model.get("output", {}).keys())
     for key in output_keys:
         results[key] = []
+    results["path"] = []
     results["calculator"] = []
     results["status"] = []
     results["error"] = []
@@ -745,6 +828,7 @@ def fzr(
                 for key in output_keys:
                     results[key].append(case_result.get(key))
 
+                results["path"].append(case_result.get("path", "."))
                 results["calculator"].append(case_result.get("calculator", "unknown"))
                 results["status"].append(case_result.get("status", "unknown"))
                 results["error"].append(case_result.get("error", None))
