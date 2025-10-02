@@ -784,6 +784,7 @@ def fzr(
     output_keys = list(model.get("output", {}).keys())
     for key in output_keys:
         results[key] = []
+    results["path"] = []
     results["calculator"] = []
     results["status"] = []
     results["error"] = []
@@ -827,6 +828,7 @@ def fzr(
                 for key in output_keys:
                     results[key].append(case_result.get(key))
 
+                results["path"].append(case_result.get("path", "."))
                 results["calculator"].append(case_result.get("calculator", "unknown"))
                 results["status"].append(case_result.get("status", "unknown"))
                 results["error"].append(case_result.get("error", None))

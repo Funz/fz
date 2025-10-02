@@ -495,6 +495,9 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     # Prepare result
     result = {"var_combo": var_combo}
 
+    # Add relative path to results directory
+    result["path"] = case_name
+
     # Always copy files back from temp to result directories, regardless of calculation success/failure
     # This ensures that log.txt and other output files are preserved even for failed calculations
     if calc_result:
