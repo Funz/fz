@@ -3,10 +3,17 @@
 Test script to verify the logging system works correctly at different levels
 """
 import os
+import sys
 import tempfile
+import platform
 from pathlib import Path
+import pytest
 from fz import fzr, LogLevel, set_log_level
 
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Test uses bash-specific syntax that doesn't work reliably on Windows"
+)
 def test_logging_levels():
     """Test the logging system at different verbosity levels"""
 
