@@ -632,8 +632,67 @@ def fzo(
 
         return df
     else:
-        # Return first row as dict for backward compatibility when no pandas
-        return rows[0] if rows else {}
+        # Return dict with lists for backward compatibility when no pandas
+        if not rows:
+            return {}
+
+        # Convert list of dicts to dict of lists
+        result_dict = {}
+        for row in rows:
+            for key, value in row.items():
+                if key not in result_dict:
+                    result_dict[key] = []
+                result_dict[key].append(value)
+
+        # Also parse variable values from path if applicable
+        if len(rows) > 0 and "path" in result_dict:
+            parsed_vars = {}
+            all_parseable = True
+
+            for path_val in result_dict["path"]:
+                if path_val == ".":
+                    all_parseable = False
+                    break
+
+                try:
+                    parts = path_val.split(",")
+                    row_vars = {}
+                    for part in parts:
+                        if "=" in part:
+                            key, val = part.split("=", 1)
+                            row_vars[key.strip()] = val.strip()
+                        else:
+                            all_parseable = False
+                            break
+
+                    if not all_parseable:
+                        break
+
+                    for key in row_vars:
+                        if key not in parsed_vars:
+                            parsed_vars[key] = []
+                        parsed_vars[key].append(row_vars[key])
+
+                except Exception:
+                    all_parseable = False
+                    break
+
+            # If all paths were parseable, add the extracted columns
+            if all_parseable and parsed_vars:
+                for key, values in parsed_vars.items():
+                    # Try to cast values to appropriate types
+                    cast_values = []
+                    for v in values:
+                        try:
+                            if "." not in v:
+                                cast_values.append(int(v))
+                            else:
+                                cast_values.append(float(v))
+                        except ValueError:
+                            cast_values.append(v)
+                    result_dict[key] = cast_values
+
+        return result_dict
 
 
 def fzr(
