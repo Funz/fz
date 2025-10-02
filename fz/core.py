@@ -23,7 +23,31 @@ from contextlib import contextmanager
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
-    # Use reconfigure() method to change encoding without breaking pytest capture
+    # Monkey-patch the builtin open() to use UTF-8 by default on Windows
+    import builtins
+
+    _original_open = builtins.open
+
+    def utf8_open(
+        file,
+        mode="r",
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+        closefd=True,
+        opener=None,
+    ):
+        # Use UTF-8 as default encoding if not specified and mode involves text
+        if encoding is None and ("b" not in mode):
+            encoding = "utf-8"
+        return _original_open(
+            file, mode, buffering, encoding, errors, newline, closefd, opener
+        )
+
+    builtins.open = utf8_open
+
+    # Also reconfigure existing stdout/stderr streams
     if hasattr(sys.stdout, "reconfigure"):
         try:
             sys.stdout.reconfigure(encoding="utf-8", errors="replace")
