@@ -8,7 +8,8 @@ import tempfile
 import platform
 from pathlib import Path
 import pytest
-from fz import fzr, LogLevel, set_log_level
+from fz import fzr, set_log_level
+from fz.logging import LogLevel
 
 @pytest.mark.skipif(
     platform.system() == "Windows",

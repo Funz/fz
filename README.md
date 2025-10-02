@@ -771,7 +771,7 @@ export FZ_DEFAULT_FORMULA_ENGINE=python
 ### Python Configuration
 
 ```python
-from fz.config import get_config, set_config
+from fz import get_config
 
 # Get current config
 config = get_config()
