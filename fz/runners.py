@@ -681,16 +681,24 @@ def run_local_calculation(
         executable = None
         if platform.system() == "Windows":
             # On Windows, use bash if available (Git Bash, WSL, etc.)
-            bash_paths = [
+            # Check common Git Bash installation paths first
+            git_bash_paths = [
                 r"C:\Program Files\Git\bin\bash.exe",
                 r"C:\Program Files (x86)\Git\bin\bash.exe",
-                shutil.which("bash"),
             ]
-            for bash_path in bash_paths:
-                if bash_path and os.path.exists(bash_path):
+
+            for bash_path in git_bash_paths:
+                if os.path.exists(bash_path):
                     executable = bash_path
                     log_debug(f"Using bash at: {executable}")
                     break
+
+            # If not found in common paths, try system PATH
+            if not executable:
+                bash_in_path = shutil.which("bash")
+                if bash_in_path:
+                    executable = bash_in_path
+                    log_debug(f"Using bash from PATH: {executable}")
 
             if not executable:
                 log_warning(
