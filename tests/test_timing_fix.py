@@ -19,7 +19,7 @@ def test_timing_fix():
     """Test that files are properly written with timing fix"""
 
     # Create a script that creates multiple files with some potential timing complexity
-    with open('timing_test_script.sh', 'w') as f:
+    with open('timing_test_script.py', 'w') as f:
         f.write('''#!/bin/bash
 # Script to test file timing
 echo "Starting timing test..." > timing_log.txt
@@ -46,7 +46,7 @@ echo "All files created" >> timing_log.txt
 echo "Script completed successfully"
 echo "Final stderr message" >&2
 ''')
-    os.chmod('timing_test_script.sh', 0o755)
+    os.chmod('timing_test_script.py', 0o755)
 
     with open('timing_input.txt', 'w') as f:
         f.write('timing test input data\n')
@@ -63,7 +63,7 @@ echo "Final stderr message" >&2
                 input_path="timing_input.txt",
                 model={"output": {"value": "echo 'Timing test completed'"}},
                 varvalues={},
-                calculators=["sh://bash timing_test_script.sh"],
+                calculators=["python timing_test_script.py"],
                 resultsdir=f"timing_test_{test_num + 1}"
             )
 
@@ -144,7 +144,7 @@ echo "Final stderr message" >&2
 
     finally:
         # Cleanup
-        for f in ['timing_test_script.sh', 'timing_input.txt']:
+        for f in ['timing_test_script.py', 'timing_input.txt']:
             if os.path.exists(f):
                 os.remove(f)
 

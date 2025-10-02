@@ -18,9 +18,9 @@ def test_debug_command_flow():
     """Debug where command tracking gets lost"""
 
     # Create test files
-    with open('debug_script.sh', 'w') as f:
-        f.write('#!/bin/bash\necho "Debug script"\necho "result = 789" > debug_output.txt\n')
-    os.chmod('debug_script.sh', 0o755)
+    with open('debug_script.py', 'w') as f:
+        f.write('#!/usr/bin/env python3\necho "Debug script"\necho "result = 789" > debug_output.txt\n')
+    os.chmod('debug_script.py', 0o755)
 
     with open('debug_input.txt', 'w') as f:
         f.write('debug data\n')
@@ -33,7 +33,7 @@ def test_debug_command_flow():
             input_path="debug_input.txt",
             model={"output": {"value": "echo 'Debug test'"}},
             varvalues={},
-            calculators=["sh://bash debug_script.sh"],
+            calculators=["python debug_script.py"],
             resultsdir="debug_result"
         )
 
@@ -51,7 +51,7 @@ def test_debug_command_flow():
 
     finally:
         # Cleanup
-        for f in ['debug_script.sh', 'debug_input.txt', 'debug_output.txt']:
+        for f in ['debug_script.py', 'debug_input.txt', 'debug_output.txt']:
             if os.path.exists(f):
                 os.remove(f)
 

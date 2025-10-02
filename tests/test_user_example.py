@@ -27,12 +27,12 @@ def test_user_example():
     print('    "T_celsius": [20,30,40],')
     print('    "V_L": 1,')
     print('    "n_mol": 1')
-    print('}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], resultsdir="results")')
+    print('}, engine="python", calculators=["python ./PerfectGazPressure.py","python ./PerfectGazPressure.py"], resultsdir="results")')
     print("=" * 60)
 
     # Check if required files exist
     input_file = "input.txt"
-    script_file = "./PerfectGazPressure.sh"
+    script_file = "./PerfectGazPressure.py"
 
     if not os.path.exists(input_file):
         print(f"Creating dummy {input_file}")
@@ -76,7 +76,7 @@ def test_user_example():
             "T_celsius": [20,30,40],
             "V_L": 1,
             "n_mol": 1
-        }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], resultsdir="results")
+        }, engine="python", calculators=["python ./PerfectGazPressure.py","python ./PerfectGazPressure.py"], resultsdir="results")
 
         elapsed = time.time() - start_time
         print(f"\n🏁 Test completed in {elapsed:.2f}s")

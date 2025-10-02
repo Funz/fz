@@ -19,32 +19,39 @@ def test_case_directory_creation():
     """Test that case directories exist in results dir before calculators run"""
 
     # Create a script that checks if it's already in the results directory
-    with open('check_location_script.sh', 'w') as f:
-        f.write('''#!/bin/bash
-echo "Script running from: $(pwd)" > location_check.txt
-echo "Current directory contents:" >> location_check.txt
-ls -la >> location_check.txt
-echo "Parent directory:" >> location_check.txt
-ls -la .. >> location_check.txt
+    with open('check_location_script.py', 'w') as f:
+        f.write('''#!/usr/bin/env python3
+import os
+import subprocess
 
-# Check if we're in a results directory by looking for expected files
-if [ -f "test_case_input.txt" ]; then
-    echo "✅ Input file found in current directory" >> location_check.txt
-else
-    echo "❌ Input file NOT found in current directory" >> location_check.txt
-fi
+with open("location_check.txt", "w") as f:
+    f.write(f"Script running from: {os.getcwd()}\\n")
+    f.write("Current directory contents:\\n")
+    result = subprocess.run(["ls", "-la"], capture_output=True, text=True)
+    f.write(result.stdout)
+    f.write("Parent directory:\\n")
+    result = subprocess.run(["ls", "-la", ".."], capture_output=True, text=True)
+    f.write(result.stdout)
 
-if [ -f ".fz_hash" ]; then
-    echo "✅ Hash file found in current directory" >> location_check.txt
-else
-    echo "❌ Hash file NOT found in current directory" >> location_check.txt
-fi
+    # Check if we're in a results directory by looking for expected files
+    if os.path.exists("test_case_input.txt"):
+        f.write("✅ Input file found in current directory\\n")
+    else:
+        f.write("❌ Input file NOT found in current directory\\n")
+
+    if os.path.exists(".fz_hash"):
+        f.write("✅ Hash file found in current directory\\n")
+    else:
+        f.write("❌ Hash file NOT found in current directory\\n")
 
 # Final result
-echo "result = 123" > script_result.txt
-echo "Location check completed" >> location_check.txt
+with open("script_result.txt", "w") as f:
+    f.write("result = 123\\n")
+
+with open("location_check.txt", "a") as f:
+    f.write("Location check completed\\n")
 ''')
-    os.chmod('check_location_script.sh', 0o755)
+    os.chmod('check_location_script.py', 0o755)
 
     with open('test_case_input.txt', 'w') as f:
         f.write('test input for case directory verification\n')
@@ -59,7 +66,7 @@ echo "Location check completed" >> location_check.txt
             input_path="test_case_input.txt",
             model={"output": {"value": "echo 'Single case test'"}},
             varvalues={},
-            calculators=["sh://bash check_location_script.sh"],
+            calculators=["python check_location_script.py"],
             resultsdir="single_case_test"
         )
 
@@ -93,7 +100,7 @@ echo "Location check completed" >> location_check.txt
             input_path="test_case_input.txt",
             model={"output": {"value": "echo 'Multiple case test'"}},
             varvalues={"param1": ["a", "b"], "param2": ["1", "2"]},
-            calculators=["sh://bash check_location_script.sh"],
+            calculators=["python check_location_script.py"],
             resultsdir="multi_case_test"
         )
 
@@ -143,7 +150,7 @@ echo "Location check completed" >> location_check.txt
 
     finally:
         # Cleanup
-        for f in ['check_location_script.sh', 'test_case_input.txt']:
+        for f in ['check_location_script.py', 'test_case_input.txt']:
             if os.path.exists(f):
                 os.remove(f)
 

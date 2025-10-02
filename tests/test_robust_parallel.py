@@ -53,9 +53,9 @@ sync  # Force write to disk
 
 echo 'Done'
 """
-    with open("RobustCalc.sh", "w") as f:
+    with open("RobustCalc.py", "w") as f:
         f.write(script_content)
-    os.chmod("RobustCalc.sh", 0o755)
+    os.chmod("RobustCalc.py", 0o755)
 
 def test_robust_parallel():
     """Test robust parallel execution"""
@@ -77,8 +77,8 @@ def test_robust_parallel():
     }
 
     calculators = [
-        "sh://bash ./RobustCalc.sh",
-        "sh://bash ./RobustCalc.sh"
+        "python ./RobustCalc.py",
+        "python ./RobustCalc.py"
     ]
 
     try:
@@ -167,7 +167,7 @@ def test_robust_parallel():
         return False
     finally:
         # Cleanup
-        for f in ["input.txt", "RobustCalc.sh", "calc.log"]:
+        for f in ["input.txt", "RobustCalc.py", "calc.log"]:
             if os.path.exists(f):
                 os.remove(f)
         if os.path.exists("results"):

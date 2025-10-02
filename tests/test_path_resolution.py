@@ -24,37 +24,37 @@ def create_test_environment():
         f.write("value = $(X)\n")
 
     # Script 1: In current directory (relative path)
-    with open("local_script.sh", 'w') as f:
+    with open("local_script.py", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("echo 'Local script executed'\n")
         f.write("echo 'result = 100' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("local_script.sh", 0o755)
+    os.chmod("local_script.py", 0o755)
 
     # Script 2: In subdirectory (relative path)
-    with open("scripts/sub_script.sh", 'w') as f:
+    with open("scripts/sub_script.py", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("echo 'Sub script executed'\n")
         f.write("echo 'result = 200' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("scripts/sub_script.sh", 0o755)
+    os.chmod("scripts/sub_script.py", 0o755)
 
     # Script 3: With arguments and relative paths
-    with open("tools/bin/complex_script.sh", 'w') as f:
+    with open("tools/bin/complex_script.py", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("echo 'Complex script executed with args:' \"$@\"\n")
         f.write("echo 'result = 300' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("tools/bin/complex_script.sh", 0o755)
+    os.chmod("tools/bin/complex_script.py", 0o755)
 
     # Script 4: That uses relative paths internally
-    with open("path_dependent.sh", 'w') as f:
+    with open("path_dependent.py", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("echo 'Working directory:' $(pwd)\n")
         f.write("ls -la > dir_listing.txt\n")
         f.write("echo 'result = 400' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("path_dependent.sh", 0o755)
+    os.chmod("path_dependent.py", 0o755)
 
 def test_various_path_formats():
     """Test different sh:// command formats with paths"""
@@ -62,27 +62,27 @@ def test_various_path_formats():
     test_cases = [
         {
             "name": "Relative script in current directory",
-            "calculator": "sh:///bin/bash ./local_script.sh",
+            "calculator": "python ./local_script.py",
             "expected_result": 100
         },
         {
             "name": "Relative script in subdirectory",
-            "calculator": "sh:///bin/bash scripts/sub_script.sh",
+            "calculator": "python scripts/sub_script.py",
             "expected_result": 200
         },
         {
             "name": "Relative script with complex path",
-            "calculator": "sh:///bin/bash tools/bin/complex_script.sh arg1 arg2",
+            "calculator": "python tools/bin/complex_script.sh arg1 arg2",
             "expected_result": 300
         },
         {
             "name": "Script with working directory dependency",
-            "calculator": "sh:///bin/bash ./path_dependent.sh",
+            "calculator": "python ./path_dependent.py",
             "expected_result": 400
         },
         {
             "name": "Already absolute path (should not change)",
-            "calculator": f"sh:///bin/bash {os.path.abspath('local_script.sh')}",
+            "calculator": f"python {os.path.abspath('local_script.py')}",
             "expected_result": 100
         },
         {

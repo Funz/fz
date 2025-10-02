@@ -23,11 +23,11 @@ def test_path_resolution_with_failures():
     # Create test files in current directory
     test_files = {
         'test_input.txt': 'line1\nline2\nline3\n',
-        'simple_script.sh': '''#!/bin/bash
+        'simple_script.py': '''#!/bin/bash
 echo "Simple script executed"
 echo "result = 42" > output.txt
 ''',
-        'random_script.sh': '''#!/bin/bash
+        'random_script.py': '''#!/bin/bash
 # Random failure script
 if [ $((RANDOM % 3)) -eq 0 ]; then
     echo "Random failure!" >&2
@@ -37,7 +37,7 @@ else
     echo "result = 100" > output.txt
 fi
 ''',
-        'path_script.sh': '''#!/bin/bash
+        'path_script.py': '''#!/bin/bash
 # Script that uses relative paths
 if [ -f test_input.txt ]; then
     wc -l test_input.txt > count.txt
@@ -52,7 +52,7 @@ fi
     for filename, content in test_files.items():
         with open(filename, 'w') as f:
             f.write(content)
-        if filename.endswith('.sh'):
+        if filename.endswith('.py'):
             os.chmod(filename, 0o755)
 
     print("🧪 Testing sh:// Path Resolution with Random Failures")
@@ -62,17 +62,17 @@ fi
     test_cases = [
         {
             "name": "simple_success",
-            "calculator": "sh://bash simple_script.sh",
+            "calculator": "python simple_script.py",
             "should_succeed": True
         },
         {
             "name": "path_dependent",
-            "calculator": "sh://bash path_script.sh",
+            "calculator": "python path_script.py",
             "should_succeed": True
         },
         {
             "name": "random_failure_1",
-            "calculator": "sh://bash random_script.sh",
+            "calculator": "python random_script.py",
             "should_succeed": "random"
         },
         {
@@ -82,7 +82,7 @@ fi
         },
         {
             "name": "random_failure_2",
-            "calculator": "sh://bash random_script.sh",
+            "calculator": "python random_script.py",
             "should_succeed": "random"
         }
     ]

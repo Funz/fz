@@ -29,37 +29,48 @@ n_mol=$n_mol
         f.write(input_content)
 
     # Create a more robust calculator script
-    script_content = """#!/bin/bash
-set -e  # Exit on any error
+    script_content = """#!/usr/bin/env python3
+import re
+import time
+from datetime import datetime
 
 # read input file
-source $1
+with open("input.txt") as f:
+    content = f.read()
 
-echo "Calculator starting for T_celsius=$T_celsius at $(date +%H:%M:%S.%3N)"
+T_celsius = float(re.search(r'T_celsius=([\d.]+)', content).group(1))
+V_L = float(re.search(r'V_L=([\d.]+)', content).group(1))
+n_mol = float(re.search(r'n_mol=([\d.]+)', content).group(1))
+
+print(f"Calculator starting for T_celsius={T_celsius} at {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
 
 # Simulate calculation time
-sleep 2
+time.sleep(2)
 
 # Calculate pressure using ideal gas law: P = nRT/V
 # R = 8.314 J/(mol·K), T in Kelvin, V in m³, P in Pa
-pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc)
+pressure = n_mol * 8.314 * (T_celsius + 273.15) / (V_L / 1000)
 
 # Write output
-echo "pressure = $pressure" > output.txt
+with open("output.txt", "w") as f:
+    f.write(f"pressure = {pressure:.4f}\\n")
 
 # Write additional output files for debugging
-echo "Calculation completed successfully" > status.txt
-echo "T_celsius=$T_celsius" > debug.txt
-echo "V_L=$V_L" >> debug.txt
-echo "n_mol=$n_mol" >> debug.txt
-echo "pressure=$pressure" >> debug.txt
+with open("status.txt", "w") as f:
+    f.write("Calculation completed successfully\\n")
 
-echo "Calculator finished for T_celsius=$T_celsius at $(date +%H:%M:%S.%3N)"
-echo 'Done'
+with open("debug.txt", "w") as f:
+    f.write(f"T_celsius={T_celsius}\\n")
+    f.write(f"V_L={V_L}\\n")
+    f.write(f"n_mol={n_mol}\\n")
+    f.write(f"pressure={pressure}\\n")
+
+print(f"Calculator finished for T_celsius={T_celsius} at {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+print('Done')
 """
-    with open("PerfectGazPressure.sh", "w") as f:
+    with open("PerfectGazPressure.py", "w") as f:
         f.write(script_content)
-    os.chmod("PerfectGazPressure.sh", 0o755)
+    os.chmod("PerfectGazPressure.py", 0o755)
 
 def test_complete_parallel_execution():
     """Test that all cases complete successfully with results"""
@@ -81,8 +92,8 @@ def test_complete_parallel_execution():
     }
 
     calculators = [
-        "sh://bash ./PerfectGazPressure.sh",
-        "sh://bash ./PerfectGazPressure.sh"
+        "python ./PerfectGazPressure.py",
+        "python ./PerfectGazPressure.py"
     ]
 
     try:
@@ -173,7 +184,7 @@ def test_complete_parallel_execution():
         return False
     finally:
         # Cleanup
-        for f in ["input.txt", "PerfectGazPressure.sh"]:
+        for f in ["input.txt", "PerfectGazPressure.py"]:
             if os.path.exists(f):
                 os.remove(f)
         if os.path.exists("results"):

@@ -28,7 +28,7 @@ n_mol=$n_mol
         f.write(input_content)
 
     # Create a calculator script with extensive debugging
-    script_content = """#!/bin/bash
+    script_content = """#!/usr/bin/env python3
 set -e  # Exit on any error
 
 echo "=== DEBUG: Script starting ===" >&2
@@ -71,9 +71,9 @@ fi
 echo "=== DEBUG: Script completed successfully ===" >&2
 echo 'Done'
 """
-    with open("DebugCalc.sh", "w") as f:
+    with open("DebugCalc.py", "w") as f:
         f.write(script_content)
-    os.chmod("DebugCalc.sh", 0o755)
+    os.chmod("DebugCalc.py", 0o755)
 
 def test_debug_execution():
     """Test with debugging to see what fails"""
@@ -95,8 +95,8 @@ def test_debug_execution():
     }
 
     calculators = [
-        "sh://bash ./DebugCalc.sh",
-        "sh://bash ./DebugCalc.sh"
+        "python ./DebugCalc.py",
+        "python ./DebugCalc.py"
     ]
 
     try:
@@ -188,7 +188,7 @@ def test_debug_execution():
         return False
     finally:
         # Cleanup
-        for f in ["input.txt", "DebugCalc.sh"]:
+        for f in ["input.txt", "DebugCalc.py"]:
             if os.path.exists(f):
                 os.remove(f)
         if os.path.exists("results"):

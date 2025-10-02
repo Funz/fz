@@ -56,9 +56,11 @@ def test_fzo_fzr_coherence_single_case():
         with open('input.txt', 'w') as f:
             f.write('Temperature: ${T} K\n')
 
-        with open('calc.sh', 'w') as f:
-            f.write('#!/bin/bash\necho "result = 42" > output.txt\n')
-        os.chmod('calc.sh', 0o755)
+        with open('calc.py', 'w') as f:
+            f.write('#!/usr/bin/env python3\n')
+            f.write('with open("output.txt", "w") as f:\n')
+            f.write('    f.write("result = 42\\n")\n')
+        os.chmod('calc.py', 0o755)
 
         model = {
             "varprefix": "$",
@@ -69,7 +71,7 @@ def test_fzo_fzr_coherence_single_case():
 
         # Run fzr
         fzr_result = fz.fzr("input.txt", model, variables,
-                            calculators="sh://bash calc.sh",
+                            calculators="python calc.py",
                             resultsdir="test_results")
 
         # Parse with fzo
@@ -417,10 +419,11 @@ def test_fzo_fzr_coherence_simple_echo():
         with open('input.txt', 'w') as f:
             f.write('x=${x}\ny=${y}\n')
 
-        with open('calc.sh', 'w') as f:
-            f.write('#!/bin/sh\n')
-            f.write('echo "output = test" > output.txt\n')
-        os.chmod('calc.sh', 0o755)
+        with open('calc.py', 'w') as f:
+            f.write('#!/usr/bin/env python3\n')
+            f.write('with open("output.txt", "w") as f:\n')
+            f.write('    f.write("output = test\\n")\n')
+        os.chmod('calc.py', 0o755)
 
         model = {
             "varprefix": "$",
@@ -431,7 +434,7 @@ def test_fzo_fzr_coherence_simple_echo():
 
         # Run fzr
         fzr_result = fz.fzr("input.txt", model, variables,
-                            calculators="sh://sh calc.sh",
+                            calculators="python calc.py",
                             resultsdir="echo_results")
 
         # Parse with fzo
@@ -469,10 +472,11 @@ def test_fzo_fzr_coherence_three_variables():
         with open('input.txt', 'w') as f:
             f.write('a=${a}\nb=${b}\nc=${c}\n')
 
-        with open('calc.sh', 'w') as f:
-            f.write('#!/bin/sh\n')
-            f.write('echo "result = ok" > output.txt\n')
-        os.chmod('calc.sh', 0o755)
+        with open('calc.py', 'w') as f:
+            f.write('#!/usr/bin/env python3\n')
+            f.write('with open("output.txt", "w") as f:\n')
+            f.write('    f.write("result = ok\\n")\n')
+        os.chmod('calc.py', 0o755)
 
         model = {
             "varprefix": "$",
@@ -484,7 +488,7 @@ def test_fzo_fzr_coherence_three_variables():
 
         # Run fzr
         fzr_result = fz.fzr("input.txt", model, variables,
-                            calculators="sh://sh calc.sh",
+                            calculators="python calc.py",
                             resultsdir="three_var_results")
 
         # Parse with fzo
@@ -520,10 +524,11 @@ def test_fzo_fzr_coherence_float_values():
         with open('input.txt', 'w') as f:
             f.write('temp=${temp}\npressure=${pressure}\n')
 
-        with open('calc.sh', 'w') as f:
-            f.write('#!/bin/sh\n')
-            f.write('echo "measurement = 42.5" > output.txt\n')
-        os.chmod('calc.sh', 0o755)
+        with open('calc.py', 'w') as f:
+            f.write('#!/usr/bin/env python3\n')
+            f.write('with open("output.txt", "w") as f:\n')
+            f.write('    f.write("measurement = 42.5\\n")\n')
+        os.chmod('calc.py', 0o755)
 
         model = {
             "varprefix": "$",
@@ -535,7 +540,7 @@ def test_fzo_fzr_coherence_float_values():
 
         # Run fzr
         fzr_result = fz.fzr("input.txt", model, variables,
-                            calculators="sh://sh calc.sh",
+                            calculators="python calc.py",
                             resultsdir="float_results")
 
         # Parse with fzo
@@ -567,10 +572,11 @@ def test_fzo_fzr_coherence_large_grid():
         with open('input.txt', 'w') as f:
             f.write('p1=${p1}\np2=${p2}\n')
 
-        with open('calc.sh', 'w') as f:
-            f.write('#!/bin/sh\n')
-            f.write('echo "value = computed" > output.txt\n')
-        os.chmod('calc.sh', 0o755)
+        with open('calc.py', 'w') as f:
+            f.write('#!/usr/bin/env python3\n')
+            f.write('with open("output.txt", "w") as f:\n')
+            f.write('    f.write("value = computed\\n")\n')
+        os.chmod('calc.py', 0o755)
 
         model = {
             "varprefix": "$",
@@ -582,7 +588,7 @@ def test_fzo_fzr_coherence_large_grid():
 
         # Run fzr
         fzr_result = fz.fzr("input.txt", model, variables,
-                            calculators="sh://sh calc.sh",
+                            calculators="python calc.py",
                             resultsdir="large_grid_results")
 
         # Parse with fzo

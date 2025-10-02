@@ -37,33 +37,33 @@ def create_comprehensive_test_environment():
     # Create test scripts that will be used in commands
 
     # 1. Script that uses file operations
-    with open("file_ops.sh", 'w') as f:
-        f.write("#!/bin/bash\n")
+    with open("file_ops.py", 'w') as f:
+        f.write("#!/usr/bin/env python3\n")
         f.write("# File operations script\n")
         f.write("cp data.txt backup/data_copy.txt\n")
         f.write("echo 'result = 100' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("file_ops.sh", 0o755)
+    os.chmod("file_ops.py", 0o755)
 
     # 2. Script that processes input file and creates output
-    with open("process_data.sh", 'w') as f:
-        f.write("#!/bin/bash\n")
+    with open("process_data.py", 'w') as f:
+        f.write("#!/usr/bin/env python3\n")
         f.write("# Data processing script\n")
         f.write("grep 'value' config.ini > temp.txt\n")
         f.write("wc -l data.txt >> temp.txt\n")
         f.write("echo 'result = 200' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("process_data.sh", 0o755)
+    os.chmod("process_data.py", 0o755)
 
     # 3. Script that uses complex file operations
-    with open("complex_ops.sh", 'w') as f:
-        f.write("#!/bin/bash\n")
+    with open("complex_ops.py", 'w') as f:
+        f.write("#!/usr/bin/env python3\n")
         f.write("# Complex operations script\n")
         f.write("cat input.dat | sed 's/input/processed/g' > processed.dat\n")
         f.write("find subdir -name '*.txt' -exec cp {} backup/ \\;\n")
         f.write("echo 'result = 300' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("complex_ops.sh", 0o755)
+    os.chmod("complex_ops.py", 0o755)
 
     # 4. Python script that processes files
     with open("process.py", 'w') as f:
@@ -92,7 +92,7 @@ def test_comprehensive_path_resolution():
         },
         {
             "name": "Script execution with file arguments",
-            "calculator": "sh://bash file_ops.sh",
+            "calculator": "python file_ops.py",
             "expected_status": "done"
         },
         {
@@ -127,7 +127,7 @@ def test_comprehensive_path_resolution():
         },
         {
             "name": "Complex script with internal file operations",
-            "calculator": "sh://bash complex_ops.sh",
+            "calculator": "python complex_ops.py",
             "expected_status": "done"
         }
     ]

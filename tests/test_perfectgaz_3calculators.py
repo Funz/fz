@@ -64,9 +64,9 @@ def test_perfectgaz_3calculators():
                 "pressure_pa": pressures
             },
             calculators=[
-                "sh:///bin/bash ./PerfectGazPressure.sh",
-                "sh:///bin/bash ./PerfectGazVolume.sh",
-                "sh:///bin/bash ./PerfectGazTemperature.sh"
+                "python ./PerfectGazPressure.py",
+                "python ./PerfectGazVolume.py",
+                "python ./PerfectGazTemperature.py"
             ],
             resultsdir="perfectgaz_3calc_results"
         )

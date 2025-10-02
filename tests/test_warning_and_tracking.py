@@ -18,9 +18,9 @@ def test_warning_and_tracking():
     """Test that path resolution warnings are displayed and commands tracked"""
 
     # Create test files
-    with open('test_warning_script.sh', 'w') as f:
+    with open('test_warning_script.py', 'w') as f:
         f.write('#!/bin/bash\necho "Script with path resolution"\necho "result = 456" > test_output.txt\n')
-    os.chmod('test_warning_script.sh', 0o755)
+    os.chmod('test_warning_script.py', 0o755)
 
     with open('input_data.txt', 'w') as f:
         f.write('test data\n')
@@ -34,7 +34,7 @@ def test_warning_and_tracking():
             input_path="input_data.txt",
             model={"output": {"value": "echo 'Completed'"}},
             varvalues={},
-            calculators=["sh://bash test_warning_script.sh"],
+            calculators=["python test_warning_script.py"],
             resultsdir="warning_test_result"
         )
 
@@ -70,7 +70,7 @@ def test_warning_and_tracking():
 
     finally:
         # Cleanup
-        for f in ['test_warning_script.sh', 'input_data.txt', 'test_output.txt']:
+        for f in ['test_warning_script.py', 'input_data.txt', 'test_output.txt']:
             if os.path.exists(f):
                 os.remove(f)
 

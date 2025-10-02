@@ -56,7 +56,7 @@ def test_perfectgaz_sourced():
                 "n_mol": amounts,
                 "V_m3": volumes
             },
-            calculators=["sh:///bin/bash ./PerfectGazPressure.sh"],
+            calculators=["python ./PerfectGazPressure.py"],
             resultsdir="perfectgaz_sourced_results"
         )
 
@@ -206,7 +206,7 @@ def test_perfectgaz_sourced():
         success_rate = (len(case_dirs) - len(missing_files_summary)) / len(case_dirs) * 100 if case_dirs else 0
         if success_rate >= 95:
             print(f"\n🎉 SUCCESS: {success_rate:.1f}% of cases completed successfully!")
-            print(f"   Command '/bin/bash ./PerfectGazPressure.sh' working correctly")
+            print(f"   Command '/bin/bash ./PerfectGazPressure.py' working correctly")
             print(f"   All expected files present in case directories")
         else:
             print(f"\n⚠️  PARTIAL SUCCESS: {success_rate:.1f}% success rate")

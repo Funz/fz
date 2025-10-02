@@ -28,7 +28,7 @@ def setup_test_environment():
         'config.ini': '[settings]\nvalue=100\nmode=test\n',
         'data.csv': 'name,value\ntest1,50\ntest2,75\n',
         'helper.py': 'print("Helper script executed")',
-        'process_data.sh': '''#!/bin/bash
+        'process_data.py': '''#!/bin/bash
 echo "Processing data..."
 if [ -f input.txt ]; then
     echo "result = $(wc -l < input.txt)" > output.txt
@@ -36,7 +36,7 @@ else
     echo "result = 0" > output.txt
 fi
 ''',
-        'random_fail.sh': '''#!/bin/bash
+        'random_fail.py': '''#!/bin/bash
 # Script that randomly fails to test error handling
 RANDOM_NUM=$((RANDOM % 10))
 if [ $RANDOM_NUM -lt 3 ]; then
@@ -47,7 +47,7 @@ else
     echo "result = $RANDOM_NUM" > output.txt
 fi
 ''',
-        'complex_ops.sh': '''#!/bin/bash
+        'complex_ops.py': '''#!/bin/bash
 # Complex file operations script
 set -e
 echo "Starting complex operations..."
@@ -68,7 +68,7 @@ echo "result = $(wc -l < combined.txt)" > output.txt
 # Cleanup
 rm -f temp1.txt temp2.txt
 ''',
-        'file_chain.sh': '''#!/bin/bash
+        'file_chain.py': '''#!/bin/bash
 # Script that depends on multiple files
 if [ ! -f input.txt ]; then
     echo "Missing input.txt" >&2
@@ -101,7 +101,7 @@ rm -f temp_config.txt temp_count.txt
             f.write(content)
 
         # Make shell scripts executable
-        if filename.endswith('.sh'):
+        if filename.endswith('.py'):
             os.chmod(filename, 0o755)
 
     # Create subdirectories with files
@@ -109,16 +109,16 @@ rm -f temp_config.txt temp_count.txt
     os.makedirs('data', exist_ok=True)
     os.makedirs('tools/bin', exist_ok=True)
 
-    with open('scripts/sub_script.sh', 'w') as f:
+    with open('scripts/sub_script.py', 'w') as f:
         f.write('#!/bin/bash\necho "Subscript result"\necho "result = 42" > output.txt\n')
-    os.chmod('scripts/sub_script.sh', 0o755)
+    os.chmod('scripts/sub_script.py', 0o755)
 
     with open('data/sample.txt', 'w') as f:
         f.write('sample data\nfor testing\n')
 
-    with open('tools/bin/tool.sh', 'w') as f:
+    with open('tools/bin/tool.py', 'w') as f:
         f.write('#!/bin/bash\necho "Tool executed"\necho "result = 999" > output.txt\n')
-    os.chmod('tools/bin/tool.sh', 0o755)
+    os.chmod('tools/bin/tool.py', 0o755)
 
 
 def create_comprehensive_test_cases():
@@ -137,32 +137,32 @@ def create_comprehensive_test_cases():
         },
         {
             "name": "script_execution",
-            "calculator": "sh://bash process_data.sh",
+            "calculator": "python process_data.py",
             "expected_success": True
         },
         {
             "name": "random_failure_script",
-            "calculator": "sh://bash random_fail.sh",
+            "calculator": "python random_fail.py",
             "expected_success": False  # May fail randomly
         },
         {
             "name": "complex_operations",
-            "calculator": "sh://bash complex_ops.sh",
+            "calculator": "python complex_ops.py",
             "expected_success": True
         },
         {
             "name": "file_dependency_chain",
-            "calculator": "sh://bash file_chain.sh",
+            "calculator": "python file_chain.py",
             "expected_success": True
         },
         {
             "name": "subdirectory_script",
-            "calculator": "sh://bash scripts/sub_script.sh",
+            "calculator": "python scripts/sub_script.py",
             "expected_success": True
         },
         {
             "name": "deep_path_script",
-            "calculator": "sh://bash tools/bin/tool.sh",
+            "calculator": "python tools/bin/tool.py",
             "expected_success": True
         },
         {
@@ -182,7 +182,7 @@ def create_comprehensive_test_cases():
         },
         {
             "name": "random_failure_2",
-            "calculator": "sh://bash random_fail.sh",
+            "calculator": "python random_fail.py",
             "expected_success": False  # May fail randomly
         },
         {
@@ -197,7 +197,7 @@ def create_comprehensive_test_cases():
         },
         {
             "name": "random_failure_3",
-            "calculator": "sh://bash random_fail.sh",
+            "calculator": "python random_fail.py",
             "expected_success": False  # May fail randomly
         }
     ]
@@ -358,8 +358,8 @@ if __name__ == "__main__":
     finally:
         # Cleanup
         cleanup_files = [
-            'input.txt', 'config.ini', 'data.csv', 'helper.py', 'process_data.sh',
-            'random_fail.sh', 'complex_ops.sh', 'file_chain.sh', 'output.txt',
+            'input.txt', 'config.ini', 'data.csv', 'helper.py', 'process_data.py',
+            'random_fail.py', 'complex_ops.py', 'file_chain.py', 'output.txt',
             'combined.txt', 'count.txt', 'temp.txt', 'temp_out.txt', 'found.txt', 'stats.txt'
         ]
 

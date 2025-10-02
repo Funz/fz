@@ -27,7 +27,7 @@ def test_interrupt_sequential_execution(tmp_path):
     # Create input file with longer sleep time
     input_dir = tmp_path / "input"
     input_dir.mkdir()
-    input_file = input_dir / "script.sh"
+    input_file = input_dir / "script.py"
     # Each case takes 3 seconds
     input_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
     input_file.chmod(0o755)
@@ -55,7 +55,7 @@ def test_interrupt_sequential_execution(tmp_path):
         model,
         varvalues,
         resultsdir=str(results_dir),
-        calculators=["sh://"]
+        calculators=["python script.py"]
     )
 
     # Verify that execution was interrupted (not all cases completed)
@@ -87,7 +87,7 @@ def test_interrupt_parallel_execution(tmp_path):
     # Create input file with longer sleep
     input_dir = tmp_path / "input"
     input_dir.mkdir()
-    input_file = input_dir / "script.sh"
+    input_file = input_dir / "script.py"
     # Each case takes 4 seconds
     input_file.write_text("#!/bin/bash\nsleep 4\necho 'done' > output.txt\n")
     input_file.chmod(0o755)
@@ -141,7 +141,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     # Create input file
     input_dir = tmp_path / "input"
     input_dir.mkdir()
-    input_file = input_dir / "script.sh"
+    input_file = input_dir / "script.py"
     input_file.write_text("#!/bin/bash\nsleep 5\necho 'done' > output.txt\n")
     input_file.chmod(0o755)
 
@@ -165,7 +165,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
             model,
             varvalues,
             resultsdir=str(results_dir),
-            calculators=["sh://"]
+            calculators=["python script.py"]
         )
     except KeyboardInterrupt:
         # Graceful interrupt should not raise KeyboardInterrupt

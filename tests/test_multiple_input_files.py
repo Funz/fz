@@ -75,7 +75,7 @@ def test_multiple_input_files_with_variables():
                 f.write("dt = $(dt)\n")
 
             # Create a working calculator script that processes the input files
-            with open(input_files_dir / "process_inputs.sh", 'w') as f:
+            with open(input_files_dir / "process_inputs.py", 'w') as f:
                 f.write("#!/bin/bash\n")
                 f.write("# Multi-input file simulation processor\n")
                 f.write(f"# All files should be in the same directory, no copying needed\n")
@@ -111,10 +111,10 @@ def test_multiple_input_files_with_variables():
                 f.write("fi\n")
                 f.write("echo 'Simulation completed successfully'\n")
                 f.write("exit 0\n")
-            os.chmod(input_files_dir / "process_inputs.sh", 0o755)
+            os.chmod(input_files_dir / "process_inputs.py", 0o755)
 
             print("📂 Created input files structure:")
-            files = [f for f in os.listdir(input_files_dir) if f.endswith(('.txt', '.dat', '.inp', '.cfg', '.sh'))]
+            files = [f for f in os.listdir(input_files_dir) if f.endswith(('.txt', '.dat', '.inp', '.cfg', '.py'))]
             for file in sorted(files):
                 print(f"  {file}")
 
@@ -207,7 +207,7 @@ def test_multiple_input_files_with_variables():
                 input_path=str(input_files_dir),
                 model=model,
                 varvalues=test_vars_small,
-                calculators=["sh://./process_inputs.sh"],
+                calculators=["sh://./process_inputs.py"],
                 resultsdir=str(temp_dir_path / "multi_file_results")
             )
 

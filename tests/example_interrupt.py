@@ -39,13 +39,24 @@ def main():
         input_dir.mkdir()
 
         # Create a script that takes a few seconds to run
-        script = input_dir / "slow_calc.sh"
-        script.write_text("""#!/bin/bash
-# Simulate a slow calculation
-echo "Starting calculation for case x=$x..."
-sleep 3
-echo "Result: $(($x * $x))" > output.txt
-echo "Calculation complete for x=$x"
+        script = input_dir / "slow_calc.py"
+        script.write_text("""#!/usr/bin/env python3
+import re
+import time
+import sys
+
+# Read input to get x value
+with open("input.txt") as f:
+    content = f.read()
+    match = re.search(r'x.*?(\d+)', content)
+    x = int(match.group(1)) if match else 0
+
+print(f"Starting calculation for case x={x}...")
+time.sleep(3)
+result = x * x
+with open("output.txt", "w") as f:
+    f.write(f"Result: {result}\\n")
+print(f"Calculation complete for x={x}")
 """)
         script.chmod(0o755)
 
@@ -79,7 +90,7 @@ echo "Calculation complete for x=$x"
                 model,
                 varvalues,
                 resultsdir=str(results_dir),
-                calculators=["sh://"]
+                calculators=["python slow_calc.py"]
             )
 
             print()

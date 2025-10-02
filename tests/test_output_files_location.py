@@ -21,7 +21,7 @@ def test_output_files_location():
     """Test that all output files are in case directory and timing is correct"""
 
     # Create test script that generates multiple output files
-    with open('test_multi_output.sh', 'w') as f:
+    with open('test_multi_output.py', 'w') as f:
         f.write('''#!/bin/bash
 echo "Script starting..." > script_log.txt
 echo "This goes to stdout"
@@ -34,7 +34,7 @@ echo "extra data" > extra_file.dat
 echo "Script completed" >> script_log.txt
 echo "Final stdout message"
 ''')
-    os.chmod('test_multi_output.sh', 0o755)
+    os.chmod('test_multi_output.py', 0o755)
 
     with open('test_input_files.txt', 'w') as f:
         f.write('test input data for file location test\n')
@@ -48,7 +48,7 @@ echo "Final stdout message"
             input_path="test_input_files.txt",
             model={"output": {"value": "echo 'Model output'"}},
             varvalues={},
-            calculators=["sh://bash test_multi_output.sh"],
+            calculators=["python test_multi_output.py"],
             resultsdir="file_location_test"
         )
 
@@ -155,7 +155,7 @@ echo "Final stdout message"
 
     finally:
         # Cleanup
-        for f in ['test_multi_output.sh', 'test_input_files.txt']:
+        for f in ['test_multi_output.py', 'test_input_files.txt']:
             if os.path.exists(f):
                 os.remove(f)
 

@@ -18,9 +18,9 @@ def test_final_verification():
     """Final test of warning display and command tracking"""
 
     # Create test files
-    with open('final_test_script.sh', 'w') as f:
-        f.write('#!/bin/bash\necho "Final test script executed"\necho "result = 999" > final_output.txt\n')
-    os.chmod('final_test_script.sh', 0o755)
+    with open('final_test_script.py', 'w') as f:
+        f.write('#!/usr/bin/env python3\necho "Final test script executed"\necho "result = 999" > final_output.txt\n')
+    os.chmod('final_test_script.py', 0o755)
 
     with open('final_input.txt', 'w') as f:
         f.write('final test data\n')
@@ -35,7 +35,7 @@ def test_final_verification():
             input_path="final_input.txt",
             model={"output": {"value": "echo 'Test 1 completed'"}},
             varvalues={},
-            calculators=["sh://bash final_test_script.sh"],
+            calculators=["python final_test_script.py"],
             resultsdir="final_test_1"
         )
 
@@ -64,7 +64,7 @@ def test_final_verification():
 
     finally:
         # Cleanup
-        for f in ['final_test_script.sh', 'final_input.txt', 'final_output.txt']:
+        for f in ['final_test_script.py', 'final_input.txt', 'final_output.txt']:
             if os.path.exists(f):
                 os.remove(f)
 

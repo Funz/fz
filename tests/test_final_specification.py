@@ -29,16 +29,16 @@ n_mol=$n_mol
         f.write(input_content)
 
     # Create PerfectGazPressure.sh that takes exactly 5 seconds per calculation
-    script_content = """#!/bin/bash
+    script_content = """#!/usr/bin/env python3
 # read input file
 source $1
 sleep 5  # Exactly 5 seconds per calculation
 echo 'pressure = '`echo "scale=4;$n_mol*8.314*($T_celsius+273.15)/($V_L/1000)" | bc` > output.txt
 echo 'Done'
 """
-    with open("PerfectGazPressure.sh", "w") as f:
+    with open("PerfectGazPressure.py", "w") as f:
         f.write(script_content)
-    os.chmod("PerfectGazPressure.sh", 0o755)
+    os.chmod("PerfectGazPressure.py", 0o755)
 
 def test_final_specification():
     """Test the final specification: 2 calculators, 2 cases, ~5s parallel vs ~10s sequential"""
@@ -60,8 +60,8 @@ def test_final_specification():
     }
 
     calculators = [
-        "sh://bash ./PerfectGazPressure.sh",
-        "sh://bash ./PerfectGazPressure.sh"
+        "python ./PerfectGazPressure.py",
+        "python ./PerfectGazPressure.py"
     ]
 
     try:
@@ -155,7 +155,7 @@ def test_final_specification():
         return False
     finally:
         # Cleanup
-        for f in ["input.txt", "PerfectGazPressure.sh"]:
+        for f in ["input.txt", "PerfectGazPressure.py"]:
             if os.path.exists(f):
                 os.remove(f)
         if os.path.exists("results"):

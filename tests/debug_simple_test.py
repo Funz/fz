@@ -19,9 +19,11 @@ def simple_test():
             with open("input.txt", "w") as f:
                 f.write("x = $(x)\n")
 
-            with open("calc.sh", "w") as f:
-                f.write("#!/bin/bash\necho 'result = 42' > output.txt\n")
-            os.chmod("calc.sh", 0o755)
+            with open("calc.py", "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write("with open('output.txt', 'w') as f:\n")
+                f.write("    f.write('result = 42\\n')\n")
+            os.chmod("calc.py", 0o755)
 
             print(f"Files created: {os.listdir('.')}")
             print(f"CWD before fzr: {os.getcwd()}")
@@ -31,7 +33,7 @@ def simple_test():
                 "input.txt",
                 {"varprefix": "$", "delim": "()", "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}},
                 {"x": [1, 2]},  # Only 2 cases
-                calculators=["sh://bash ./calc.sh"],
+                calculators=["python ./calc.py"],
                 resultsdir="results"
             )
 

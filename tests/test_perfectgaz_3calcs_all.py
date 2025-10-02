@@ -60,9 +60,9 @@ def test_perfectgaz_3calcs_all():
                 "V_m3": volumes
             },
             calculators=[
-                "sh:///bin/bash ./PerfectGazPressure.sh",
-                "sh:///bin/bash ./PerfectGazVolume.sh",
-                "sh:///bin/bash ./PerfectGazTemperature.sh"
+                "python ./PerfectGazPressure.py",
+                "python ./PerfectGazVolume.py",
+                "python ./PerfectGazTemperature.py"
             ],
             resultsdir="perfectgaz_all3_results"
         )

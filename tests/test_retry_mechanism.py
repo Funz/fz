@@ -21,7 +21,7 @@ def create_test_files():
         f.write("echo 'Temperature: $(T_celsius)'\n")
 
     # Create a script that fails on first attempt but succeeds on retry
-    with open("FailThenSuccess.sh", 'w') as f:
+    with open("FailThenSuccess.py", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("# Script that fails on first execution, succeeds on second\n")
         f.write("FLAG_FILE=\"/tmp/fz_retry_flag_$$\"\n")
@@ -37,24 +37,24 @@ def create_test_files():
         f.write("    touch \"$FLAG_FILE\"\n")
         f.write("    exit 1\n")
         f.write("fi\n")
-    os.chmod("FailThenSuccess.sh", 0o755)
+    os.chmod("FailThenSuccess.py", 0o755)
 
     # Create a script that always fails
-    with open("AlwaysFails.sh", 'w') as f:
+    with open("AlwaysFails.py", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("# Script that always fails\n")
         f.write("echo 'This script always fails!' >&2\n")
         f.write("exit 1\n")
-    os.chmod("AlwaysFails.sh", 0o755)
+    os.chmod("AlwaysFails.py", 0o755)
 
     # Create a script that always succeeds
-    with open("AlwaysSucceeds.sh", 'w') as f:
+    with open("AlwaysSucceeds.py", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("# Script that always succeeds\n")
         f.write("echo 'This script always succeeds!'\n")
         f.write("echo 'result = 100' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("AlwaysSucceeds.sh", 0o755)
+    os.chmod("AlwaysSucceeds.py", 0o755)
 
 def test_retry_success():
     """Test case where first calculator fails, but retry succeeds"""
@@ -73,8 +73,8 @@ def test_retry_success():
     },
     engine="python",
     calculators=[
-        "sh:///bin/bash ./FailThenSuccess.sh",  # Fails first time
-        "sh:///bin/bash ./AlwaysSucceeds.sh"    # Should succeed on retry
+        "python ./FailThenSuccess.py",  # Fails first time
+        "python ./AlwaysSucceeds.py"    # Should succeed on retry
     ],
     resultsdir="retry_test_1")
 
@@ -104,8 +104,8 @@ def test_all_fail():
     },
     engine="python",
     calculators=[
-        "sh:///bin/bash ./AlwaysFails.sh",     # Always fails
-        "sh:///bin/bash ./AlwaysFails.sh"      # Also always fails
+        "python ./AlwaysFails.py",     # Always fails
+        "python ./AlwaysFails.py"      # Also always fails
     ],
     resultsdir="retry_test_2")
 
@@ -135,8 +135,8 @@ def test_first_succeeds():
     },
     engine="python",
     calculators=[
-        "sh:///bin/bash ./AlwaysSucceeds.sh",   # Should succeed immediately
-        "sh:///bin/bash ./FailThenSuccess.sh"   # Won't be tried
+        "python ./AlwaysSucceeds.py",   # Should succeed immediately
+        "python ./FailThenSuccess.py"   # Won't be tried
     ],
     resultsdir="retry_test_3")
 

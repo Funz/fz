@@ -18,20 +18,20 @@ def test_final_comprehensive_paths():
         f.write("value = $(V)\n")
 
     # Create a comprehensive test script that shows path resolution working
-    with open("comprehensive_test.sh", 'w') as f:
-        f.write("#!/bin/bash\n")
+    with open("comprehensive_test.py", 'w') as f:
+        f.write("#!/usr/bin/env python3\n")
         f.write("# Comprehensive test script\n")
         f.write("echo 'Test script executed successfully'\n")
         f.write("echo 'Working directory:' $(pwd)\n")
         f.write("echo 'Available files:' $(ls -la)\n")
         f.write("echo 'result = 999' > output.txt\n")
         f.write("exit 0\n")
-    os.chmod("comprehensive_test.sh", 0o755)
+    os.chmod("comprehensive_test.py", 0o755)
 
     test_cases = [
         {
             "name": "Script with absolute path resolution",
-            "calculator": "sh://bash comprehensive_test.sh",
+            "calculator": "python comprehensive_test.py",
             "description": "Relative script path should be converted to absolute"
         },
         {
@@ -46,7 +46,7 @@ def test_final_comprehensive_paths():
         },
         {
             "name": "Script with subdirectory path",
-            "calculator": "sh://mkdir -p work/scripts && cp comprehensive_test.sh work/scripts/ && bash work/scripts/comprehensive_test.sh",
+            "calculator": "sh://mkdir -p work/scripts && cp comprehensive_test.sh work/scripts/ && bash work/scripts/comprehensive_test.py",
             "description": "Nested directory paths should be resolved"
         }
     ]
