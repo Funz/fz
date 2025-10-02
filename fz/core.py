@@ -23,14 +23,17 @@ from contextlib import contextmanager
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
-    if hasattr(sys.stdout, "buffer"):
-        sys.stdout = io.TextIOWrapper(
-            sys.stdout.buffer, encoding="utf-8", errors="replace"
-        )
-    if hasattr(sys.stderr, "buffer"):
-        sys.stderr = io.TextIOWrapper(
-            sys.stderr.buffer, encoding="utf-8", errors="replace"
-        )
+    # Use reconfigure() method to change encoding without breaking pytest capture
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
 if TYPE_CHECKING:
     import pandas
