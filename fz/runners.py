@@ -1,6 +1,7 @@
 """
 Calculation runners for fz package: calculator resolution and execution
 """
+
 import os
 import subprocess
 import time
@@ -13,6 +14,7 @@ import threading
 import queue
 import socket
 import platform
+import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
@@ -26,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 try:
     import paramiko
     from paramiko import SSHClient, AutoAddPolicy, RejectPolicy
+
     PARAMIKO_AVAILABLE = True
 except ImportError:
     PARAMIKO_AVAILABLE = False
@@ -51,22 +54,25 @@ def get_environment_info() -> Dict[str, str]:
     try:
         username = getpass.getuser()
     except:
-        username = os.getenv('USER', os.getenv('USERNAME', 'unknown'))
+        username = os.getenv("USER", os.getenv("USERNAME", "unknown"))
 
     return {
-        'user': username,
-        'hostname': hostname,
-        'operating_system': platform.system(),
-        'platform': platform.platform(),
-        'working_dir': os.getcwd(),
-        'python_version': platform.python_version(),
+        "user": username,
+        "hostname": hostname,
+        "operating_system": platform.system(),
+        "platform": platform.platform(),
+        "working_dir": os.getcwd(),
+        "python_version": platform.python_version(),
     }
 
 
-class InteractiveHostKeyPolicy(paramiko.MissingHostKeyPolicy if PARAMIKO_AVAILABLE else object):
+class InteractiveHostKeyPolicy(
+    paramiko.MissingHostKeyPolicy if PARAMIKO_AVAILABLE else object
+):
     """
     Custom host key policy that validates fingerprints interactively or stores them
     """
+
     def __init__(self, auto_accept: bool = False):
         self.auto_accept = auto_accept
         self.known_hosts_file = Path.home() / ".ssh" / "known_hosts"
@@ -90,14 +96,16 @@ class InteractiveHostKeyPolicy(paramiko.MissingHostKeyPolicy if PARAMIKO_AVAILAB
 
         # Interactive prompt
         while True:
-            response = input("Accept this host key? [y/N/fingerprint]: ").strip().lower()
+            response = (
+                input("Accept this host key? [y/N/fingerprint]: ").strip().lower()
+            )
 
-            if response == 'y' or response == 'yes':
+            if response == "y" or response == "yes":
                 self._add_host_key(client, hostname, key)
                 return
-            elif response == 'n' or response == 'no' or response == '':
+            elif response == "n" or response == "no" or response == "":
                 raise paramiko.SSHException(f"Host key for {hostname} was rejected")
-            elif response == 'fingerprint':
+            elif response == "fingerprint":
                 log_info(f"Full fingerprint: {fingerprint}")
                 continue
             else:
@@ -109,7 +117,7 @@ class InteractiveHostKeyPolicy(paramiko.MissingHostKeyPolicy if PARAMIKO_AVAILAB
         """
         key_bytes = key.asbytes()
         digest = hashlib.sha256(key_bytes).digest()
-        fingerprint = base64.b64encode(digest).decode('ascii').rstrip('=')
+        fingerprint = base64.b64encode(digest).decode("ascii").rstrip("=")
         return f"SHA256:{fingerprint}"
 
     def _add_host_key(self, client, hostname, key):
@@ -134,7 +142,7 @@ class InteractiveHostKeyPolicy(paramiko.MissingHostKeyPolicy if PARAMIKO_AVAILAB
                     return
 
             # Append to known_hosts
-            with open(self.known_hosts_file, 'a') as f:
+            with open(self.known_hosts_file, "a") as f:
                 f.write(key_line)
 
             log_info(f"Host key added to {self.known_hosts_file}")
@@ -168,7 +176,9 @@ def get_host_key_policy(password_provided: bool = False, auto_accept: bool = Fal
     return paramiko.AutoAddPolicy()
 
 
-def validate_ssh_connection_security(host: str, username: str, password: Optional[str]) -> Dict[str, Any]:
+def validate_ssh_connection_security(
+    host: str, username: str, password: Optional[str]
+) -> Dict[str, Any]:
     """
     Validate SSH connection security parameters
 
@@ -181,21 +191,21 @@ def validate_ssh_connection_security(host: str, username: str, password: Optiona
         Dict with security recommendations and settings
     """
     security_info = {
-        'password_provided': password is not None,
-        'recommendations': [],
-        'warnings': []
+        "password_provided": password is not None,
+        "recommendations": [],
+        "warnings": [],
     }
 
     if password:
-        security_info['warnings'].append(
+        security_info["warnings"].append(
             "Password provided in URI. Consider using key-based authentication for better security."
         )
-        security_info['recommendations'].append(
+        security_info["recommendations"].append(
             "Use 'ssh-keygen' to generate keys and 'ssh-copy-id' to set up key-based auth."
         )
 
     if not username:
-        security_info['warnings'].append(
+        security_info["warnings"].append(
             "No username provided, will use current user or SSH_USER environment variable."
         )
 
@@ -213,14 +223,14 @@ def parse_ssh_uri(ssh_uri: str) -> Tuple[str, int, str, Optional[str], str]:
         Tuple of (host, port, username, password, command)
     """
     # Remove ssh:// prefix
-    if ssh_uri.startswith('ssh://'):
+    if ssh_uri.startswith("ssh://"):
         uri_part = ssh_uri[6:]
     else:
         uri_part = ssh_uri
 
     # Split command part (everything after first /)
-    if '/' in uri_part:
-        connection_part, command = uri_part.split('/', 1)
+    if "/" in uri_part:
+        connection_part, command = uri_part.split("/", 1)
     else:
         connection_part = uri_part
         command = ""
@@ -232,19 +242,19 @@ def parse_ssh_uri(ssh_uri: str) -> Tuple[str, int, str, Optional[str], str]:
     port = 22
 
     # Check for user info
-    if '@' in connection_part:
-        user_info, host_port = connection_part.split('@', 1)
+    if "@" in connection_part:
+        user_info, host_port = connection_part.split("@", 1)
         host = host_port
 
         # Check for password in user info
-        if ':' in user_info:
-            username, password = user_info.split(':', 1)
+        if ":" in user_info:
+            username, password = user_info.split(":", 1)
         else:
             username = user_info
 
     # Check for port in host
-    if ':' in host:
-        host, port_str = host.split(':', 1)
+    if ":" in host:
+        host, port_str = host.split(":", 1)
         try:
             port = int(port_str)
         except ValueError:
@@ -253,7 +263,9 @@ def parse_ssh_uri(ssh_uri: str) -> Tuple[str, int, str, Optional[str], str]:
     return host, port, username, password, command
 
 
-def resolve_calculators(calculators: Union[str, List[str], List[Dict]], model_id: str = None) -> List[str]:
+def resolve_calculators(
+    calculators: Union[str, List[str], List[Dict]], model_id: str = None
+) -> List[str]:
     """
     Resolve calculator aliases to URI strings
 
@@ -301,7 +313,11 @@ def resolve_calculators(calculators: Union[str, List[str], List[Dict]], model_id
                 if calc_data:
                     uri = calc_data.get("uri", "sh://")
                     # Handle models field if present and model_id provided
-                    if model_id and "models" in calc_data and model_id in calc_data["models"]:
+                    if (
+                        model_id
+                        and "models" in calc_data
+                        and model_id in calc_data["models"]
+                    ):
                         command = calc_data["models"][model_id]
                         result.append(f"{uri}{command}")
                     else:
@@ -311,9 +327,15 @@ def resolve_calculators(calculators: Union[str, List[str], List[Dict]], model_id
     return result
 
 
-def run_calculation(working_dir: Path, calculator_uri: str, model: Dict, timeout: int = 300,
-                   original_input_was_dir: bool = False, original_cwd: str = None,
-                   input_files_list: List[str] = None) -> Dict[str, Any]:
+def run_calculation(
+    working_dir: Path,
+    calculator_uri: str,
+    model: Dict,
+    timeout: int = 300,
+    original_input_was_dir: bool = False,
+    original_cwd: str = None,
+    input_files_list: List[str] = None,
+) -> Dict[str, Any]:
     """
     Run a single calculation on a calculator
 
@@ -338,15 +360,33 @@ def run_calculation(working_dir: Path, calculator_uri: str, model: Dict, timeout
     elif base_uri.startswith("sh://") or base_uri == "sh:":
         # Local shell execution
         command = base_uri[5:] if base_uri.startswith("sh://") else ""
-        return run_local_calculation(working_dir, command, model, timeout, original_input_was_dir, original_cwd, input_files_list)
+        return run_local_calculation(
+            working_dir,
+            command,
+            model,
+            timeout,
+            original_input_was_dir,
+            original_cwd,
+            input_files_list,
+        )
 
     elif base_uri.startswith("ssh://"):
         # Remote SSH execution
-        return run_ssh_calculation(working_dir, base_uri, model, timeout, input_files_list)
+        return run_ssh_calculation(
+            working_dir, base_uri, model, timeout, input_files_list
+        )
 
     else:
         # Default to local shell
-        return run_local_calculation(working_dir, base_uri, model, timeout, original_input_was_dir, original_cwd, input_files_list)
+        return run_local_calculation(
+            working_dir,
+            base_uri,
+            model,
+            timeout,
+            original_input_was_dir,
+            original_cwd,
+            input_files_list,
+        )
 
 
 def resolve_all_paths_in_command(command: str, original_cwd: str) -> tuple[str, bool]:
@@ -375,10 +415,10 @@ def resolve_all_paths_in_command(command: str, original_cwd: str) -> tuple[str, 
 
     try:
         # Enhanced pattern for redirections including complex cases
-        redirection_pattern = r'([<>]+)\s*([^\s|&;\'\"]+|\'[^\']*\'|\"[^\"]*\")'
+        redirection_pattern = r"([<>]+)\s*([^\s|&;\'\"]+|\'[^\']*\'|\"[^\"]*\")"
 
         # Pattern for pipe separators to handle compound commands
-        pipe_pattern = r'\s*(\|{1,2}|\&{1,2}|\;)\s*'
+        pipe_pattern = r"\s*(\|{1,2}|\&{1,2}|\;)\s*"
 
         # Split command by pipes/operators while preserving them
         command_segments = re.split(pipe_pattern, command)
@@ -390,22 +430,24 @@ def resolve_all_paths_in_command(command: str, original_cwd: str) -> tuple[str, 
                 continue
 
             # Check if this is an operator (|, ||, &&, ;)
-            if re.match(r'^(\|{1,2}|\&{1,2}|\;)$', segment):
+            if re.match(r"^(\|{1,2}|\&{1,2}|\;)$", segment):
                 resolved_segments.append(segment)
                 continue
 
             # Process this command segment
-            resolved_segment, segment_changed = _resolve_paths_in_segment(segment, original_cwd)
+            resolved_segment, segment_changed = _resolve_paths_in_segment(
+                segment, original_cwd
+            )
             resolved_segments.append(resolved_segment)
 
-        final_command = ' '.join(resolved_segments)
+        final_command = " ".join(resolved_segments)
 
         # Check if there are meaningful path changes (not just quote normalization)
         has_meaningful_changes = False
         if final_command != command:
             # Simple heuristic: if the resolved command contains absolute paths where
             # the original had relative paths, it's a meaningful change
-            if '/' in final_command and final_command.count('/') > command.count('/'):
+            if "/" in final_command and final_command.count("/") > command.count("/"):
                 has_meaningful_changes = True
 
         return final_command, has_meaningful_changes
@@ -444,37 +486,72 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
             continue
 
         # Skip shell operators and special tokens
-        if part in ['|', '||', '&&', ';', '>', '>>', '<', '<<', '&1', '&2']:
+        if part in ["|", "||", "&&", ";", ">", ">>", "<", "<<", "&1", "&2"]:
             resolved_parts.append(part)
             continue
 
         # Skip command flags (start with - and longer than 1 char)
-        if part.startswith('-') and len(part) > 1:
+        if part.startswith("-") and len(part) > 1:
             resolved_parts.append(part)
             continue
 
         # Skip variables and expansions
-        if part.startswith('$') or (part.startswith('${') and part.endswith('}')):
+        if part.startswith("$") or (part.startswith("${") and part.endswith("}")):
             resolved_parts.append(part)
             continue
 
         # Skip pure numbers
-        if re.match(r'^[0-9]+$', part):
+        if re.match(r"^[0-9]+$", part):
             resolved_parts.append(part)
             continue
 
         # Skip URLs
-        if part.startswith(('http://', 'https://', 'ftp://', 'ssh://', 'file://')):
+        if part.startswith(("http://", "https://", "ftp://", "ssh://", "file://")):
             resolved_parts.append(part)
             continue
 
         # Skip literals and built-in values
-        if part in ['true', 'false', 'null', 'nil', 'echo', 'cat', 'cp', 'mv', 'rm', 'ls', 'grep', 'awk', 'sed', 'sort', 'uniq', 'wc', 'head', 'tail', 'tee', 'find', 'chmod', 'chown', 'python', 'python3', 'bash', 'sh', 'perl', 'ruby', 'java', 'gcc', 'make', 'tar', 'gzip', 'zip']:
+        if part in [
+            "true",
+            "false",
+            "null",
+            "nil",
+            "echo",
+            "cat",
+            "cp",
+            "mv",
+            "rm",
+            "ls",
+            "grep",
+            "awk",
+            "sed",
+            "sort",
+            "uniq",
+            "wc",
+            "head",
+            "tail",
+            "tee",
+            "find",
+            "chmod",
+            "chown",
+            "python",
+            "python3",
+            "bash",
+            "sh",
+            "perl",
+            "ruby",
+            "java",
+            "gcc",
+            "make",
+            "tar",
+            "gzip",
+            "zip",
+        ]:
             resolved_parts.append(part)
             continue
 
         # Skip device files
-        if part.startswith('/dev/'):
+        if part.startswith("/dev/"):
             resolved_parts.append(part)
             continue
 
@@ -488,16 +565,20 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
         should_resolve = False
 
         # Contains path separator - definitely a path
-        if '/' in part:
+        if "/" in part:
             should_resolve = True
         # Has file extension - likely a file
-        elif '.' in part and not part.startswith('.') and re.match(r'^[^.]+\.[a-zA-Z0-9]+$', part):
+        elif (
+            "." in part
+            and not part.startswith(".")
+            and re.match(r"^[^.]+\.[a-zA-Z0-9]+$", part)
+        ):
             should_resolve = True
         # Current/parent directory references
-        elif part in ['.', '..'] or part.startswith('./') or part.startswith('../'):
+        elif part in [".", ".."] or part.startswith("./") or part.startswith("../"):
             should_resolve = True
         # Simple potential filenames (alphanumeric + underscore, no spaces, not pure command names)
-        elif re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$', part) and len(part) > 1:
+        elif re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$", part) and len(part) > 1:
             # Additional check: if it looks like it could be a filename
             # (contains letters and possibly numbers/dots/underscores)
             should_resolve = True
@@ -506,7 +587,7 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
             # Convert to absolute path
             abs_path = os.path.abspath(os.path.join(original_cwd, part))
             # Preserve quoting if the path contains spaces or special characters
-            if ' ' in abs_path or "'" in abs_path or '"' in abs_path:
+            if " " in abs_path or "'" in abs_path or '"' in abs_path:
                 resolved_parts.append(shlex.quote(abs_path))
             else:
                 resolved_parts.append(abs_path)
@@ -516,13 +597,19 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
             resolved_parts.append(part)
 
     # Reconstruct the command
-    final_segment = ' '.join(resolved_parts)
+    final_segment = " ".join(resolved_parts)
     return final_segment, was_changed
 
 
-def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout: int = 300,
-                         original_input_was_dir: bool = False, original_cwd: str = None,
-                         input_files_list: List[str] = None) -> Dict[str, Any]:
+def run_local_calculation(
+    working_dir: Path,
+    command: str,
+    model: Dict,
+    timeout: int = 300,
+    original_input_was_dir: bool = False,
+    original_cwd: str = None,
+    input_files_list: List[str] = None,
+) -> Dict[str, Any]:
     """
     Run calculation locally via shell command
 
@@ -546,7 +633,7 @@ def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout:
         return {
             "status": "interrupted",
             "error": "Execution interrupted by user",
-            "command": command
+            "command": command,
         }
 
     # Use provided original_cwd or fall back to current directory
@@ -563,11 +650,13 @@ def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout:
         os.chdir(working_dir)
 
         # Build arguments from input files list
-        input_argument = ' '.join(input_files_list) if input_files_list else "."
+        input_argument = " ".join(input_files_list) if input_files_list else "."
 
         # Construct command - resolve ALL file paths to absolute for reliable parallel execution
         if command:
-            resolved_command, was_changed = resolve_all_paths_in_command(command, original_cwd)
+            resolved_command, was_changed = resolve_all_paths_in_command(
+                command, original_cwd
+            )
             command_for_result = resolved_command
             full_command = resolved_command + f" {input_argument}"
 
@@ -588,11 +677,35 @@ def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout:
         err_file_path = working_dir / "err.txt"
         log_info(f"Info: Running command: {full_command}")
 
+        # Determine shell executable for Windows
+        executable = None
+        if platform.system() == "Windows":
+            # On Windows, use bash if available (Git Bash, WSL, etc.)
+            bash_paths = [
+                r"C:\Program Files\Git\bin\bash.exe",
+                r"C:\Program Files (x86)\Git\bin\bash.exe",
+                shutil.which("bash"),
+            ]
+            for bash_path in bash_paths:
+                if bash_path and os.path.exists(bash_path):
+                    executable = bash_path
+                    log_debug(f"Using bash at: {executable}")
+                    break
+
+            if not executable:
+                log_warning(
+                    "Bash not found on Windows. Commands may fail if they use bash-specific syntax."
+                )
+
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
             process = subprocess.Popen(
-                full_command, shell=True, stdout=out_file, stderr=err_file,
-                cwd=working_dir
+                full_command,
+                shell=True,
+                stdout=out_file,
+                stderr=err_file,
+                cwd=working_dir,
+                executable=executable,
             )
 
             # Poll process and check for interrupts
@@ -650,7 +763,7 @@ def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout:
                 "status": "failed",
                 "exit_code": result.returncode,
                 "error": f"Command failed with exit code {result.returncode}",
-                "stderr": stderr_content
+                "stderr": stderr_content,
             }
 
             # Include command information
@@ -662,7 +775,7 @@ def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout:
         output_results = fzo(working_dir, model)
 
         # Convert DataFrame to dict if needed (fzo returns DataFrame when pandas available)
-        if hasattr(output_results, 'to_dict'):
+        if hasattr(output_results, "to_dict"):
             # DataFrame - convert to dict (first row as we only have one case)
             output_dict = output_results.iloc[0].to_dict()
         else:
@@ -692,7 +805,10 @@ def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout:
                 log_warning(f"⚠️  Process didn't terminate, killing...")
                 process.kill()
                 process.wait()
-        interrupt_result = {"status": "interrupted", "error": "Calculation interrupted by user"}
+        interrupt_result = {
+            "status": "interrupted",
+            "error": "Calculation interrupted by user",
+        }
         interrupt_result["command"] = command_for_result
         return interrupt_result
     except Exception as e:
@@ -703,8 +819,13 @@ def run_local_calculation(working_dir: Path, command: str, model: Dict, timeout:
         os.chdir(original_cwd)
 
 
-def run_ssh_calculation(working_dir: Path, ssh_uri: str, model: Dict, timeout: int = 300,
-                       input_files_list: List[str] = None) -> Dict[str, Any]:
+def run_ssh_calculation(
+    working_dir: Path,
+    ssh_uri: str,
+    model: Dict,
+    timeout: int = 300,
+    input_files_list: List[str] = None,
+) -> Dict[str, Any]:
     """
     Run calculation via SSH
 
@@ -719,7 +840,10 @@ def run_ssh_calculation(working_dir: Path, ssh_uri: str, model: Dict, timeout: i
         Dict containing calculation results and status
     """
     if not PARAMIKO_AVAILABLE:
-        return {"status": "error", "error": "paramiko library not available. Install with: pip install paramiko"}
+        return {
+            "status": "error",
+            "error": "paramiko library not available. Install with: pip install paramiko",
+        }
 
     start_time = datetime.now()
     env_info = get_environment_info()
@@ -734,15 +858,16 @@ def run_ssh_calculation(working_dir: Path, ssh_uri: str, model: Dict, timeout: i
         if not username:
             # Try to get username from environment or use current user
             import getpass
-            username = os.getenv('SSH_USER') or getpass.getuser()
+
+            username = os.getenv("SSH_USER") or getpass.getuser()
 
         # Validate connection security
         security_info = validate_ssh_connection_security(host, username, password)
-        for warning in security_info['warnings']:
+        for warning in security_info["warnings"]:
             log_warning(f"Security Warning: {warning}")
 
         log_info(f"Connecting to SSH: {username}@{host}:{port}")
-        if security_info['password_provided']:
+        if security_info["password_provided"]:
             log_info("Using password authentication (keyring disabled)")
         else:
             log_info("Using key-based authentication")
@@ -753,36 +878,36 @@ def run_ssh_calculation(working_dir: Path, ssh_uri: str, model: Dict, timeout: i
         # Set appropriate host key policy based on authentication method
         config = get_config()
         host_key_policy = get_host_key_policy(
-            password_provided=security_info['password_provided'],
-            auto_accept=config.ssh_auto_accept_hostkeys
+            password_provided=security_info["password_provided"],
+            auto_accept=config.ssh_auto_accept_hostkeys,
         )
         ssh_client.set_missing_host_key_policy(host_key_policy)
 
         # Load known host keys
         try:
             ssh_client.load_system_host_keys()
-            ssh_client.load_host_keys(os.path.expanduser('~/.ssh/known_hosts'))
+            ssh_client.load_host_keys(os.path.expanduser("~/.ssh/known_hosts"))
         except Exception as e:
             log_warning(f"Could not load host keys: {e}")
 
         # Prepare connection arguments
         connect_kwargs = {
-            'hostname': host,
-            'port': port,
-            'username': username,
-            'timeout': min(timeout, 30)  # Connection timeout
+            "hostname": host,
+            "port": port,
+            "username": username,
+            "timeout": min(timeout, 30),  # Connection timeout
         }
 
         if password:
             # Password provided: use only password auth, disable key lookup
-            connect_kwargs['password'] = password
-            connect_kwargs['look_for_keys'] = False
-            connect_kwargs['allow_agent'] = False
+            connect_kwargs["password"] = password
+            connect_kwargs["look_for_keys"] = False
+            connect_kwargs["allow_agent"] = False
             log_info("Disabled SSH agent and key lookup (password provided)")
         else:
             # No password: use key-based authentication
-            connect_kwargs['look_for_keys'] = True
-            connect_kwargs['allow_agent'] = True
+            connect_kwargs["look_for_keys"] = True
+            connect_kwargs["allow_agent"] = True
 
         ssh_client.connect(**connect_kwargs)
 
@@ -799,11 +924,15 @@ def run_ssh_calculation(working_dir: Path, ssh_uri: str, model: Dict, timeout: i
         remote_root_dir = "~"  # Default to home directory
         try:
             stdin, stdout, stderr = ssh_client.exec_command("pwd", timeout=10)
-            remote_root_dir = stdout.read().decode('utf-8').strip()
+            remote_root_dir = stdout.read().decode("utf-8").strip()
         except Exception as e:
-            log_warning(f"Could not determine remote root directory, defaulting to ~/: {e}")
+            log_warning(
+                f"Could not determine remote root directory, defaulting to ~/: {e}"
+            )
 
-        remote_temp_dir = f"{remote_root_dir}/.fz/tmp/fz_calc_{int(time.time())}_{os.getpid()}"
+        remote_temp_dir = (
+            f"{remote_root_dir}/.fz/tmp/fz_calc_{int(time.time())}_{os.getpid()}"
+        )
         ssh_client.exec_command(f"mkdir -p {remote_temp_dir}")
 
         log_info(f"Created remote directory: {remote_temp_dir}")
@@ -813,33 +942,43 @@ def run_ssh_calculation(working_dir: Path, ssh_uri: str, model: Dict, timeout: i
             _transfer_files_to_remote(sftp, working_dir, remote_temp_dir)
 
             # Execute command on remote
-            result = _execute_remote_command(ssh_client, command, remote_temp_dir, working_dir, timeout, start_time, env_info, input_files_list)
+            result = _execute_remote_command(
+                ssh_client,
+                command,
+                remote_temp_dir,
+                working_dir,
+                timeout,
+                start_time,
+                env_info,
+                input_files_list,
+            )
 
             # Transfer results back
             _transfer_results_from_remote(sftp, remote_temp_dir, working_dir)
 
             # Parse output using fzo
             from .core import fzo
-            if result['status'] == 'done':
+
+            if result["status"] == "done":
                 try:
                     output_results = fzo(working_dir, model)
                     # Convert DataFrame to dict if needed (fzo returns DataFrame when pandas available)
-                    if hasattr(output_results, 'to_dict'):
+                    if hasattr(output_results, "to_dict"):
                         # DataFrame - convert to dict (first row as we only have one case)
                         output_dict = output_results.iloc[0].to_dict()
                     else:
                         # Already a dict
                         output_dict = output_results
                     result.update(output_dict)
-                    result['calculator'] = f"ssh://{host}"
-                    result['command'] = command
+                    result["calculator"] = f"ssh://{host}"
+                    result["command"] = command
                 except Exception as e:
                     log_warning(f"Could not parse output: {e}")
-                    result['error'] = str(e)
+                    result["error"] = str(e)
 
             # Add command to result even if not done
-            if 'command' not in result:
-                result['command'] = command
+            if "command" not in result:
+                result["command"] = command
 
             return result
 
@@ -870,13 +1009,22 @@ def _transfer_files_to_remote(sftp, local_dir: Path, remote_dir: str) -> None:
         if item.is_file():
             local_path = str(item)
             remote_path = f"{remote_dir}/{item.name}"
-            log_info(f"Transferring {item.name} from local ({local_path}) to remote ({remote_path})")
+            log_info(
+                f"Transferring {item.name} from local ({local_path}) to remote ({remote_path})"
+            )
             sftp.put(local_path, remote_path)
 
 
-def _execute_remote_command(ssh_client, command: str, remote_dir: str, local_dir: Path, timeout: int,
-                           start_time: datetime = None, env_info: Dict = None,
-                           input_files_list: List[str] = None) -> Dict[str, Any]:
+def _execute_remote_command(
+    ssh_client,
+    command: str,
+    remote_dir: str,
+    local_dir: Path,
+    timeout: int,
+    start_time: datetime = None,
+    env_info: Dict = None,
+    input_files_list: List[str] = None,
+) -> Dict[str, Any]:
     """
     Execute command on remote server
 
@@ -891,7 +1039,7 @@ def _execute_remote_command(ssh_client, command: str, remote_dir: str, local_dir
         input_files_list: List of input file names in order (from .fz_hash)
     """
     # Build arguments from input files list
-    input_argument = ' '.join(input_files_list) if input_files_list else "."
+    input_argument = " ".join(input_files_list) if input_files_list else "."
 
     # Construct full command
     if command:
@@ -910,8 +1058,8 @@ def _execute_remote_command(ssh_client, command: str, remote_dir: str, local_dir
     command_end_time = datetime.now()
 
     # Get output
-    stdout_data = stdout.read().decode('utf-8')
-    stderr_data = stderr.read().decode('utf-8')
+    stdout_data = stdout.read().decode("utf-8")
+    stderr_data = stderr.read().decode("utf-8")
 
     # Calculate timing
     if start_time:
@@ -924,17 +1072,23 @@ def _execute_remote_command(ssh_client, command: str, remote_dir: str, local_dir
     remote_info_cmd = "hostname; whoami; pwd; uname -s; uname -a"
     try:
         _, remote_stdout, _ = ssh_client.exec_command(remote_info_cmd, timeout=10)
-        remote_info_lines = remote_stdout.read().decode('utf-8').strip().split('\n')
-        remote_hostname = remote_info_lines[0] if len(remote_info_lines) > 0 else "unknown"
+        remote_info_lines = remote_stdout.read().decode("utf-8").strip().split("\n")
+        remote_hostname = (
+            remote_info_lines[0] if len(remote_info_lines) > 0 else "unknown"
+        )
         remote_user = remote_info_lines[1] if len(remote_info_lines) > 1 else "unknown"
         remote_pwd = remote_info_lines[2] if len(remote_info_lines) > 2 else "unknown"
         remote_os = remote_info_lines[3] if len(remote_info_lines) > 3 else "unknown"
-        remote_platform = remote_info_lines[4] if len(remote_info_lines) > 4 else "unknown"
+        remote_platform = (
+            remote_info_lines[4] if len(remote_info_lines) > 4 else "unknown"
+        )
     except:
-        remote_hostname = remote_user = remote_pwd = remote_os = remote_platform = "unknown"
+        remote_hostname = remote_user = remote_pwd = remote_os = remote_platform = (
+            "unknown"
+        )
 
     # Create enhanced log files remotely
-    log_command = f'''cd {remote_dir}
+    log_command = f"""cd {remote_dir}
 
 # Create enhanced log.txt
 cat > log.txt << 'EOF'
@@ -964,7 +1118,7 @@ EOF
 cat > err.txt << 'EOF'
 {stderr_data}
 EOF
-'''
+"""
     ssh_client.exec_command(log_command, timeout=30)
 
     if exit_code != 0:
@@ -982,7 +1136,7 @@ def _transfer_results_from_remote(sftp, remote_dir: str, local_dir: Path) -> Non
         remote_files = sftp.listdir(remote_dir)
 
         for filename in remote_files:
-            if filename not in ['.', '..']:
+            if filename not in [".", ".."]:
                 remote_path = f"{remote_dir}/{filename}"
                 local_path = local_dir / filename
 
@@ -1015,9 +1169,15 @@ def select_calculator_for_case(calculator_uris: List[str], case_index: int) -> s
     return calculator_uris[selected_index]
 
 
-def run_single_case_calculation(working_dir: Path, calculator_uri: str, model: Dict,
-                                timeout: int = 300, original_input_was_dir: bool = False,
-                                original_cwd: str = None, input_files_list: List[str] = None) -> Dict[str, Any]:
+def run_single_case_calculation(
+    working_dir: Path,
+    calculator_uri: str,
+    model: Dict,
+    timeout: int = 300,
+    original_input_was_dir: bool = False,
+    original_cwd: str = None,
+    input_files_list: List[str] = None,
+) -> Dict[str, Any]:
     """
     Run calculation for a single case on a specific calculator
 
@@ -1034,7 +1194,15 @@ def run_single_case_calculation(working_dir: Path, calculator_uri: str, model: D
         Dict containing calculation results and status
     """
     try:
-        result = run_calculation(working_dir, calculator_uri, model, timeout, original_input_was_dir, original_cwd, input_files_list)
+        result = run_calculation(
+            working_dir,
+            calculator_uri,
+            model,
+            timeout,
+            original_input_was_dir,
+            original_cwd,
+            input_files_list,
+        )
 
         # Always add calculator URI to result
         result["calculator_uri"] = calculator_uri
@@ -1048,13 +1216,14 @@ def run_single_case_calculation(working_dir: Path, calculator_uri: str, model: D
                 "status": result.get("status", "unknown"),
                 "exit_code": result.get("exit_code"),
                 "error_message": result.get("error", "No error message provided"),
-                "stderr": result.get("stderr", "No stderr available")
+                "stderr": result.get("stderr", "No stderr available"),
             }
 
         return result
 
     except Exception as e:
         import traceback
+
         return {
             "status": "error",
             "calculator_uri": calculator_uri,
@@ -1064,6 +1233,6 @@ def run_single_case_calculation(working_dir: Path, calculator_uri: str, model: D
                 "working_dir": str(working_dir),
                 "exception_type": type(e).__name__,
                 "exception_message": str(e),
-                "traceback": traceback.format_exc()
-            }
+                "traceback": traceback.format_exc(),
+            },
         }
