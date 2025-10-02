@@ -383,6 +383,203 @@ def test_fzo_fzr_coherence_perfectgaz_example():
         print("✅ Perfect gas example: fzo matches fzr")
 
 
+def test_fzo_fzr_coherence_simple_echo():
+    """Test fzo/fzr coherence with simple echo commands (cross-platform)"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.chdir(tmpdir)
+
+        # Setup simple test that works on all platforms
+        with open('input.txt', 'w') as f:
+            f.write('x=${x}\ny=${y}\n')
+
+        with open('calc.sh', 'w') as f:
+            f.write('#!/bin/sh\n')
+            f.write('echo "output = test" > output.txt\n')
+        os.chmod('calc.sh', 0o755)
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "output": {"output": "cat output.txt | grep output | cut -d= -f2 | tr -d ' '"}
+        }
+        variables = {"x": [1, 2, 3], "y": [10, 20]}  # 6 cases
+
+        # Run fzr
+        fzr_result = fz.fzr("input.txt", model, variables,
+                            calculators="sh://sh calc.sh",
+                            resultsdir="echo_results")
+
+        # Parse with fzo
+        fzo_result = fz.fzo("echo_results", model)
+
+        # Verify coherence
+        fzr_len = _get_length(fzr_result, "output")
+        fzo_len = _get_length(fzo_result, "output")
+        assert fzr_len == 6, f"Expected 6 results from fzr, got {fzr_len}"
+        assert fzo_len == 6, f"Expected 6 results from fzo, got {fzo_len}"
+
+        for i in range(6):
+            fzr_out = _get_value(fzr_result, "output", i)
+            fzo_out = _get_value(fzo_result, "output", i)
+            assert fzr_out == fzo_out, f"Case {i}: fzr={fzr_out}, fzo={fzo_out}"
+
+            fzr_x = _get_value(fzr_result, "x", i)
+            fzo_x = _get_value(fzo_result, "x", i)
+            assert fzr_x == fzo_x, f"Case {i} x: fzr={fzr_x}, fzo={fzo_x}"
+
+            fzr_y = _get_value(fzr_result, "y", i)
+            fzo_y = _get_value(fzo_result, "y", i)
+            assert fzr_y == fzo_y, f"Case {i} y: fzr={fzr_y}, fzo={fzo_y}"
+
+        print("✅ Simple echo: fzo matches fzr")
+
+
+def test_fzo_fzr_coherence_three_variables():
+    """Test fzo/fzr coherence with three variables (more complex sorting)"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.chdir(tmpdir)
+
+        # Setup
+        with open('input.txt', 'w') as f:
+            f.write('a=${a}\nb=${b}\nc=${c}\n')
+
+        with open('calc.sh', 'w') as f:
+            f.write('#!/bin/sh\n')
+            f.write('echo "result = ok" > output.txt\n')
+        os.chmod('calc.sh', 0o755)
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "output": {"result": "cat output.txt | grep result | cut -d= -f2 | tr -d ' '"}
+        }
+        # 2x2x3 = 12 cases
+        variables = {"a": [1, 2], "b": [10, 20], "c": [100, 200, 300]}
+
+        # Run fzr
+        fzr_result = fz.fzr("input.txt", model, variables,
+                            calculators="sh://sh calc.sh",
+                            resultsdir="three_var_results")
+
+        # Parse with fzo
+        fzo_result = fz.fzo("three_var_results", model)
+
+        # Verify coherence
+        assert _get_length(fzr_result, "result") == 12
+        assert _get_length(fzo_result, "result") == 12
+
+        for i in range(12):
+            fzr_a = _get_value(fzr_result, "a", i)
+            fzo_a = _get_value(fzo_result, "a", i)
+            assert fzr_a == fzo_a, f"Case {i} a: fzr={fzr_a}, fzo={fzo_a}"
+
+            fzr_b = _get_value(fzr_result, "b", i)
+            fzo_b = _get_value(fzo_result, "b", i)
+            assert fzr_b == fzo_b, f"Case {i} b: fzr={fzr_b}, fzo={fzo_b}"
+
+            fzr_c = _get_value(fzr_result, "c", i)
+            fzo_c = _get_value(fzo_result, "c", i)
+            assert fzr_c == fzo_c, f"Case {i} c: fzr={fzr_c}, fzo={fzo_c}"
+
+        print("✅ Three variables: fzo matches fzr")
+
+
+def test_fzo_fzr_coherence_float_values():
+    """Test fzo/fzr coherence with float variable values"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.chdir(tmpdir)
+
+        # Setup
+        with open('input.txt', 'w') as f:
+            f.write('temp=${temp}\npressure=${pressure}\n')
+
+        with open('calc.sh', 'w') as f:
+            f.write('#!/bin/sh\n')
+            f.write('echo "measurement = 42.5" > output.txt\n')
+        os.chmod('calc.sh', 0o755)
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "output": {"measurement": "cat output.txt | grep measurement | cut -d= -f2 | tr -d ' '"}
+        }
+        # Float values should be sorted numerically
+        variables = {"temp": [20.5, 25.0, 30.5], "pressure": [1.0, 1.5]}
+
+        # Run fzr
+        fzr_result = fz.fzr("input.txt", model, variables,
+                            calculators="sh://sh calc.sh",
+                            resultsdir="float_results")
+
+        # Parse with fzo
+        fzo_result = fz.fzo("float_results", model)
+
+        # Verify coherence - 3x2 = 6 cases
+        assert _get_length(fzr_result, "measurement") == 6
+        assert _get_length(fzo_result, "measurement") == 6
+
+        for i in range(6):
+            fzr_temp = _get_value(fzr_result, "temp", i)
+            fzo_temp = _get_value(fzo_result, "temp", i)
+            assert fzr_temp == fzo_temp, f"Case {i} temp: fzr={fzr_temp}, fzo={fzo_temp}"
+
+            fzr_press = _get_value(fzr_result, "pressure", i)
+            fzo_press = _get_value(fzo_result, "pressure", i)
+            assert fzr_press == fzo_press, f"Case {i} pressure: fzr={fzr_press}, fzo={fzo_press}"
+
+        print("✅ Float values: fzo matches fzr")
+
+
+def test_fzo_fzr_coherence_large_grid():
+    """Test fzo/fzr coherence with larger parameter grid"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.chdir(tmpdir)
+
+        # Setup
+        with open('input.txt', 'w') as f:
+            f.write('p1=${p1}\np2=${p2}\n')
+
+        with open('calc.sh', 'w') as f:
+            f.write('#!/bin/sh\n')
+            f.write('echo "value = computed" > output.txt\n')
+        os.chmod('calc.sh', 0o755)
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "output": {"value": "cat output.txt | grep value | cut -d= -f2 | tr -d ' '"}
+        }
+        # 5x4 = 20 cases
+        variables = {"p1": [1, 2, 3, 4, 5], "p2": [10, 20, 30, 40]}
+
+        # Run fzr
+        fzr_result = fz.fzr("input.txt", model, variables,
+                            calculators="sh://sh calc.sh",
+                            resultsdir="large_grid_results")
+
+        # Parse with fzo
+        fzo_result = fz.fzo("large_grid_results", model)
+
+        # Verify coherence - 20 cases
+        assert _get_length(fzr_result, "value") == 20
+        assert _get_length(fzo_result, "value") == 20
+
+        for i in range(20):
+            fzr_p1 = _get_value(fzr_result, "p1", i)
+            fzo_p1 = _get_value(fzo_result, "p1", i)
+            assert fzr_p1 == fzo_p1, f"Case {i} p1: fzr={fzr_p1}, fzo={fzo_p1}"
+
+            fzr_p2 = _get_value(fzr_result, "p2", i)
+            fzo_p2 = _get_value(fzo_result, "p2", i)
+            assert fzr_p2 == fzo_p2, f"Case {i} p2: fzr={fzr_p2}, fzo={fzo_p2}"
+
+        print("✅ Large grid (20 cases): fzo matches fzr")
+
+
 if __name__ == "__main__":
     """Run all fzo/fzr coherence tests"""
     print("🧪 Running fzo/fzr Coherence Tests")
