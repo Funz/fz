@@ -60,6 +60,8 @@ jobs:
     - name: Run tests
       run: |
         pytest tests/ -v --tb=short -x --ignore=tests/test_examples_advanced.py
+      env:
+        PYTHONUTF8: 1
 
     - name: Run tests with coverage (Ubuntu only)
       if: runner.os == 'Linux' && matrix.python-version == '3.11'
