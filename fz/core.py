@@ -476,8 +476,31 @@ def fzo(
     elif output_path.is_dir():
         os.chdir(output_path)
         work_path = "."
-        # Find all subdirectories
-        subdirs = [d for d in Path(".").iterdir() if d.is_dir()]
+        # Find all subdirectories and sort them to match fzr() creation order
+        # fzr() creates directories in the order of itertools.product()
+        # Directory names follow pattern: key1=val1,key2=val2,...
+        # We need to sort by parsing the key=value pairs and sorting by tuple of values
+        def parse_dir_name(dirname: str):
+            """Parse 'key1=val1,key2=val2' into list of values in original order"""
+            parts = dirname.split(',')
+            values = []
+            for part in parts:
+                if '=' in part:
+                    key, val = part.split('=', 1)
+                    # Try to convert to numeric for proper sorting
+                    try:
+                        if '.' in val:
+                            val_sorted = float(val)
+                        else:
+                            val_sorted = int(val)
+                    except ValueError:
+                        val_sorted = val
+                    values.append(val_sorted)
+            # Return values in their original order (matches the order in directory name)
+            return tuple(values)
+
+        all_dirs = [d for d in Path(".").iterdir() if d.is_dir()]
+        subdirs = sorted(all_dirs, key=lambda d: parse_dir_name(d.name))
     else:
         raise FileNotFoundError(f"Output path '{output_path}' not found")
 
