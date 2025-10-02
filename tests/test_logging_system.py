@@ -34,9 +34,11 @@ def test_logging_levels():
                 f.write("x = $(x)\n")
 
             # Create simple calculator
-            with open("calc.sh", "w") as f:
-                f.write("#!/bin/bash\necho 'result = success' > output.txt\n")
-            os.chmod("calc.sh", 0o755)
+            with open("calc.py", "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write("with open('output.txt', 'w') as f:\n")
+                f.write("    f.write('result = success\\n')\n")
+            os.chmod("calc.py", 0o755)
 
             model = {
                 "varprefix": "$",
@@ -60,7 +62,7 @@ def test_logging_levels():
                     "input.txt",
                     model,
                     {"x": [1]},  # Single case for cleaner output
-                    calculators=["sh://bash ./calc.sh"],
+                    calculators=["python ./calc.py"],
                     resultsdir=f"results_{level.name.lower()}"
                 )
 

@@ -27,38 +27,42 @@ def test_perfect_gas():
                 f.write("Gas_Constant_R = 0.08314  # L⋅bar/(mol⋅K)\n")
 
             # Create the calculator script
-            with open("PerfectGazPressure.sh", "w") as f:
-                f.write("#!/bin/bash\n")
+            with open("PerfectGazPressure.py", "w") as f:
+                f.write("#!/usr/bin/env python3\n")
                 f.write("# Perfect Gas Pressure Calculator\n")
-                f.write("echo 'Calculating perfect gas pressure...'\n")
+                f.write("import re\n")
+                f.write("print('Calculating perfect gas pressure...')\n")
                 f.write("\n")
                 f.write("# Read variables from input.txt\n")
-                f.write("T_CELSIUS=$(grep 'Temperature_Celsius =' input.txt | cut -d'=' -f2 | tr -d ' ')\n")
-                f.write("V_L=$(grep 'Volume_Liters =' input.txt | cut -d'=' -f2 | tr -d ' ')\n")
-                f.write("N_MOL=$(grep 'Amount_Moles =' input.txt | cut -d'=' -f2 | tr -d ' ')\n")
-                f.write("R=0.08314\n")
+                f.write("with open('input.txt') as f:\n")
+                f.write("    content = f.read()\n")
+                f.write(r"T_CELSIUS = float(re.search(r'Temperature_Celsius = (\S+)', content).group(1))" + "\n")
+                f.write(r"V_L = float(re.search(r'Volume_Liters = (\S+)', content).group(1))" + "\n")
+                f.write(r"N_MOL = float(re.search(r'Amount_Moles = (\S+)', content).group(1))" + "\n")
+                f.write("R = 0.08314\n")
                 f.write("\n")
                 f.write("# Convert temperature to Kelvin\n")
-                f.write("T_KELVIN=$(python3 -c \"print($T_CELSIUS + 273.15)\")\n")
+                f.write("T_KELVIN = T_CELSIUS + 273.15\n")
                 f.write("\n")
                 f.write("# Calculate pressure using ideal gas law: P = nRT/V\n")
-                f.write("if [ \"$N_MOL\" != \"0\" ] && [ \"$V_L\" != \"0\" ]; then\n")
-                f.write("    PRESSURE=$(python3 -c \"print(round($N_MOL * $R * $T_KELVIN / $V_L, 4))\")\n")
-                f.write("    echo \"pressure = $PRESSURE bar\" > output.txt\n")
-                f.write("    echo \"Calculated pressure: $PRESSURE bar\"\n")
-                f.write("else\n")
-                f.write("    echo \"pressure = 0.0 bar\" > output.txt\n")
-                f.write("    echo \"Warning: Zero moles or volume, pressure set to 0\"\n")
-                f.write("fi\n")
+                f.write("if N_MOL != 0 and V_L != 0:\n")
+                f.write("    PRESSURE = round(N_MOL * R * T_KELVIN / V_L, 4)\n")
+                f.write("    with open('output.txt', 'w') as out:\n")
+                f.write("        out.write(f'pressure = {PRESSURE} bar\\n')\n")
+                f.write("    print(f'Calculated pressure: {PRESSURE} bar')\n")
+                f.write("else:\n")
+                f.write("    with open('output.txt', 'w') as out:\n")
+                f.write("        out.write('pressure = 0.0 bar\\n')\n")
+                f.write("    print('Warning: Zero moles or volume, pressure set to 0')\n")
                 f.write("\n")
-                f.write("echo \"Calculation completed\"\n")
+                f.write("print('Calculation completed')\n")
 
             # Make script executable
-            os.chmod("PerfectGazPressure.sh", 0o755)
+            os.chmod("PerfectGazPressure.py", 0o755)
 
             print("Created test files:")
             print("- input.txt")
-            print("- PerfectGazPressure.sh")
+            print("- PerfectGazPressure.py")
 
             # Fixed fzr call
             print("\n🚀 Running fzr with fixed configuration...")
@@ -76,7 +80,7 @@ def test_perfect_gas():
                     "n_mol": [1.0, 0.5]  # Fixed: Use 0.5 instead of 0 to avoid division by zero
                 },
                 engine="python",
-                calculators=["sh://bash ./PerfectGazPressure.sh"],  # Fixed: Single calculator, proper path
+                calculators=["python ./PerfectGazPressure.py"],  # Fixed: Single calculator, proper path
                 resultsdir="results"
             )
 

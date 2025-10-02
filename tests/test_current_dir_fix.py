@@ -23,11 +23,15 @@ def test_current_dir_fix():
         temp_path = Path(temp_dir)
 
         # Create test files in the temporary directory
-        script_file = temp_path / "test_script.sh"
+        script_file = temp_path / "test_script.py"
         input_file = temp_path / "test_input.txt"
 
         with open(script_file, 'w') as f:
-            f.write('#!/bin/bash\necho "Test executed from: $(pwd)"\necho "result = 777" > test_result.txt\n')
+            f.write('#!/usr/bin/env python3\n')
+            f.write('import os\n')
+            f.write('print(f"Test executed from: {os.getcwd()}")\n')
+            f.write("with open('test_result.txt', 'w') as f:\n")
+            f.write("    f.write('result = 777\\n')\n")
         os.chmod(script_file, 0o755)
 
         with open(input_file, 'w') as f:
@@ -48,7 +52,7 @@ def test_current_dir_fix():
                 input_path="test_input.txt",
                 model={"output": {"value": "echo 'Test completed'"}},
                 varvalues={},
-                calculators=["sh://bash test_script.sh"],
+                calculators=["python test_script.py"],
                 resultsdir="current_dir_test"
             )
 

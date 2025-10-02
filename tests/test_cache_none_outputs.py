@@ -23,23 +23,31 @@ def test_cache_none_outputs():
                 f.write("x = $(x)\n")
 
             # Create a failing calculator (exits with error for x=2)
-            with open("calc_fail.sh", "w") as f:
-                f.write("#!/bin/bash\n")
-                f.write("X=$(grep 'x =' input.txt | cut -d'=' -f2 | tr -d ' ')\n")
-                f.write("if [ \"$X\" = \"2\" ]; then\n")
-                f.write("    echo 'Failing for x=2' >&2\n")
-                f.write("    exit 1\n")  # Fail for x=2
-                f.write("else\n")
-                f.write("    echo \"result = success_$X\" > output.txt\n")
-                f.write("fi\n")
-            os.chmod("calc_fail.sh", 0o755)
+            with open("calc_fail.py", "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write("import re\n")
+                f.write("import sys\n")
+                f.write("with open('input.txt') as f:\n")
+                f.write("    content = f.read()\n")
+                f.write(r"X = re.search(r'x = (\S+)', content).group(1)" + "\n")
+                f.write("if X == '2':\n")
+                f.write("    print('Failing for x=2', file=sys.stderr)\n")
+                f.write("    sys.exit(1)\n")
+                f.write("else:\n")
+                f.write("    with open('output.txt', 'w') as out:\n")
+                f.write("        out.write(f'result = success_{X}\\n')\n")
+            os.chmod("calc_fail.py", 0o755)
 
             # Create a working calculator
-            with open("calc_work.sh", "w") as f:
-                f.write("#!/bin/bash\n")
-                f.write("X=$(grep 'x =' input.txt | cut -d'=' -f2 | tr -d ' ')\n")
-                f.write("echo \"result = fixed_$X\" > output.txt\n")
-            os.chmod("calc_work.sh", 0o755)
+            with open("calc_work.py", "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write("import re\n")
+                f.write("with open('input.txt') as f:\n")
+                f.write("    content = f.read()\n")
+                f.write(r"X = re.search(r'x = (\S+)', content).group(1)" + "\n")
+                f.write("with open('output.txt', 'w') as out:\n")
+                f.write("    out.write(f'result = fixed_{X}\\n')\n")
+            os.chmod("calc_work.py", 0o755)
 
             model = {
                 "varprefix": "$",
@@ -52,7 +60,7 @@ def test_cache_none_outputs():
                 "input.txt",
                 model,
                 {"x": [1, 2, 3]},
-                calculators=["sh://bash ./calc_fail.sh"],
+                calculators=["python ./calc_fail.py"],
                 resultsdir="results_1"
             )
 
@@ -69,7 +77,7 @@ def test_cache_none_outputs():
                 "input.txt",
                 model,
                 {"x": [1, 2, 3]},
-                calculators=["cache://results_1", "sh://bash ./calc_work.sh"],
+                calculators=["cache://results_1", "python ./calc_work.py"],
                 resultsdir="results_2"
             )
 
