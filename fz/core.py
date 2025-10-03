@@ -469,13 +469,28 @@ def fzo(
 
     # Change to output directory for commands
     original_cwd = os.getcwd()
+
+    # Compute output_path relative to original launch directory for path column
+    try:
+        if output_path.is_absolute():
+            output_path_rel = output_path.relative_to(_ORIGINAL_LAUNCH_DIRECTORY)
+        else:
+            output_path_rel = output_path
+    except ValueError:
+        # output_path is outside original launch directory, use as-is
+        output_path_rel = output_path
+
     if output_path.is_file():
         os.chdir(output_path.parent)
         work_path = output_path.name
         subdirs = []
+        # For single file case, path should be the file itself
+        path_for_no_subdirs = str(output_path_rel)
     elif output_path.is_dir():
         os.chdir(output_path)
         work_path = "."
+        # For directory with no subdirs, path should be the directory itself
+        path_for_no_subdirs = str(output_path_rel)
         # Find all subdirectories and sort them to match fzr() creation order
         # fzr() creates directories in the order of itertools.product()
         # Directory names follow pattern: key1=val1,key2=val2,...
@@ -509,7 +524,9 @@ def fzo(
         if subdirs:
             for subdir in subdirs:
                 subdir_name = subdir.name
-                row = {"path": subdir_name}  # Relative path to subdirectory
+                # Build full relative path from original launch directory
+                full_rel_path = output_path_rel / subdir_name
+                row = {"path": str(full_rel_path)}  # Full relative path to subdirectory
 
                 for key, command in output_spec.items():
                     try:
@@ -541,8 +558,8 @@ def fzo(
 
                 rows.append(row)
         else:
-            # No subdirectories, create single row with '.' as path
-            row = {"path": "."}
+            # No subdirectories, create single row with output path
+            row = {"path": path_for_no_subdirs}
 
             for key, command in output_spec.items():
                 try:
@@ -582,14 +599,18 @@ def fzo(
             all_parseable = True
 
             for path_val in df["path"]:
-                if path_val == ".":
-                    # Single directory case, not a key=value pattern
+                # Extract just the last component (subdirectory name) for parsing
+                path_obj = Path(path_val)
+                last_component = path_obj.name
+
+                # If last component doesn't contain '=', it's not a key=value pattern
+                if '=' not in last_component:
                     all_parseable = False
                     break
 
-                # Try to parse "key1=val1,key2=val2,..." pattern
+                # Try to parse "key1=val1,key2=val2,..." pattern from last component
                 try:
-                    parts = path_val.split(",")
+                    parts = last_component.split(",")
                     row_vars = {}
                     for part in parts:
                         if "=" in part:
@@ -650,12 +671,17 @@ def fzo(
             all_parseable = True
 
             for path_val in result_dict["path"]:
-                if path_val == ".":
+                # Extract just the last component (subdirectory name) for parsing
+                path_obj = Path(path_val)
+                last_component = path_obj.name
+
+                # If last component doesn't contain '=', it's not a key=value pattern
+                if '=' not in last_component:
                     all_parseable = False
                     break
 
                 try:
-                    parts = path_val.split(",")
+                    parts = last_component.split(",")
                     row_vars = {}
                     for part in parts:
                         if "=" in part:
