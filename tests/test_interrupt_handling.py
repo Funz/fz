@@ -202,6 +202,9 @@ if __name__ == "__main__":
             print(f"✗ Parallel interrupt test failed: {e}")
             sys.exit(1)
 
+        # Add a grace time to allow any background threads to finish (and ensure kill signals are processed)
+        time.sleep(10)
+        
         try:
             test_graceful_cleanup_on_interrupt(tmp_path)
             print("✓ Cleanup test passed")
