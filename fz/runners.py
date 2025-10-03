@@ -729,7 +729,9 @@ def run_local_calculation(
 
         # Small delay to ensure all streams are properly closed and files are fully written
         # This prevents race conditions when moving the case directory
-        time.sleep(0.01)  # 10ms delay
+        # Windows needs more time to flush file writes
+        delay = 0.2 if platform.system() == "Windows" else 0.01
+        time.sleep(delay)
 
         # Create enhanced log file
         end_time = datetime.now()
