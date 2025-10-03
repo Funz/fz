@@ -589,6 +589,12 @@ def fzo(
 
         rows.append(row)
 
+    # Force garbage collection on Windows to release file handles
+    # This ensures subprocess handles are properly closed before returning
+    if platform.system() == "Windows":
+        import gc
+        gc.collect()
+
     # Return DataFrame if pandas is available, otherwise return first row as dict for backward compatibility
     if PANDAS_AVAILABLE:
         df = pd.DataFrame(rows)
@@ -721,9 +727,14 @@ def fzo(
                         except ValueError:
                             cast_values.append(v)
                     result_dict[key] = cast_values
-        
+
         # Always restore the original working directory
         os.chdir(working_dir)
+
+        # Force garbage collection on Windows to release file handles
+        if platform.system() == "Windows":
+            import gc
+            gc.collect()
 
         return result_dict
 
@@ -895,6 +906,14 @@ def fzr(
 
     # Always restore the original working directory
     os.chdir(working_dir)
+
+    # Force garbage collection on Windows to release file handles
+    # This ensures all subprocess handles and file handles are properly closed
+    if platform.system() == "Windows":
+        import gc
+        gc.collect()
+        # Small delay to ensure all file handles are released
+        time.sleep(0.1)
 
     # Return DataFrame if pandas is available, otherwise return list of dicts
     if PANDAS_AVAILABLE:

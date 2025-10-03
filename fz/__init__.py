@@ -12,7 +12,7 @@ A Python package for wrapping parametric simulations with support for:
 
 from .core import fzi, fzc, fzo, fzr
 from .logging import (
-    set_log_level,
+    set_log_level_from_string,
     get_log_level,
 )
 from .config import (
@@ -24,6 +24,6 @@ from .config import (
 __version__ = "0.8.0"
 __all__ = [
     "fzi", "fzc", "fzo", "fzr",
-    "set_log_level", "get_log_level",
+    "set_log_level_from_string", "get_log_level",
     "get_config", "reload_config", "print_config",
 ]

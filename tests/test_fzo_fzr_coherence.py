@@ -81,6 +81,9 @@ def test_fzo_fzr_coherence_single_case():
             # Parse with fzo
             fzo_result = fz.fzo("test_results", model)
 
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
+
             # Verify coherence
             assert "result" in fzr_result, "result not in fzr output"
             assert "result" in fzo_result, "result not in fzo output"
@@ -140,6 +143,9 @@ def test_fzo_fzr_coherence_multiple_cases():
 
             # Parse with fzo
             fzo_result = fz.fzo("multi_results", model)
+
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
 
             # Verify coherence
             fzr_len = _get_length(fzr_result, "result")
@@ -207,6 +213,9 @@ def test_fzo_fzr_coherence_multiple_outputs():
             # Parse with fzo
             fzo_result = fz.fzo("multi_output_results", model)
 
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
+
             # Verify coherence
             assert _get_length(fzr_result, "square") == 4
             assert _get_length(fzo_result, "square") == 4
@@ -273,6 +282,9 @@ def test_fzo_fzr_coherence_with_formulas():
             # Parse with fzo
             fzo_result = fz.fzo("formula_results", model)
 
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
+
             # Verify coherence
             for i in range(4):
                 fzr_comp = _get_value(fzr_result, "computed", i)
@@ -332,6 +344,9 @@ def test_fzo_fzr_coherence_with_failures():
 
             # Parse with fzo
             fzo_result = fz.fzo("failure_results", model)
+
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
 
             # Verify coherence - both should handle failures the same way
             # Successful cases should have matching results
@@ -405,6 +420,9 @@ def test_fzo_fzr_coherence_perfectgaz_example():
             # Parse with fzo
             fzo_result = fz.fzo("perfectgaz_results", model)
 
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
+
             # Verify coherence
             assert _get_length(fzr_result, "pressure") == 6
             assert _get_length(fzo_result, "pressure") == 6
@@ -467,6 +485,9 @@ def test_fzo_fzr_coherence_simple_echo():
             # Parse with fzo
             fzo_result = fz.fzo("echo_results", model)
 
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
+
             # Verify coherence
             fzr_len = _get_length(fzr_result, "output")
             fzo_len = _get_length(fzo_result, "output")
@@ -528,6 +549,9 @@ def test_fzo_fzr_coherence_three_variables():
             # Parse with fzo
             fzo_result = fz.fzo("three_var_results", model)
 
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
+
             # Verify coherence
             assert _get_length(fzr_result, "result") == 12
             assert _get_length(fzo_result, "result") == 12
@@ -587,6 +611,9 @@ def test_fzo_fzr_coherence_float_values():
             # Parse with fzo
             fzo_result = fz.fzo("float_results", model)
 
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
+
             # Verify coherence - 3x2 = 6 cases
             assert _get_length(fzr_result, "measurement") == 6
             assert _get_length(fzo_result, "measurement") == 6
@@ -641,6 +668,9 @@ def test_fzo_fzr_coherence_large_grid():
             
             # Parse with fzo
             fzo_result = fz.fzo("large_grid_results", model)
+
+            # Add delay (mainly for windows) to ensure files are flushed
+            time.sleep(1)
 
             # Verify coherence - 20 cases
             assert _get_length(fzr_result, "value") == 20
