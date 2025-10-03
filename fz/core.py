@@ -467,9 +467,6 @@ def fzo(
     output_path = Path(output_path)
     rows = []  # List of dicts, one per subdirectory (or single row if no subdirs)
 
-    # Change to output directory for commands
-    original_cwd = os.getcwd()
-
     # Compute output_path relative to original launch directory for path column
     try:
         if output_path.is_absolute():
@@ -480,15 +477,14 @@ def fzo(
         # output_path is outside original launch directory, use as-is
         output_path_rel = output_path
 
+    # Determine the working directory for commands and find subdirectories
     if output_path.is_file():
-        os.chdir(output_path.parent)
-        work_path = output_path.name
+        work_dir = output_path.parent
         subdirs = []
         # For single file case, path should be the file itself
         path_for_no_subdirs = str(output_path_rel)
     elif output_path.is_dir():
-        os.chdir(output_path)
-        work_path = "."
+        work_dir = output_path
         # For directory with no subdirs, path should be the directory itself
         path_for_no_subdirs = str(output_path_rel)
         # Find all subdirectories and sort them to match fzr() creation order
@@ -514,58 +510,28 @@ def fzo(
             # Return values in their original order (matches the order in directory name)
             return tuple(values)
 
-        all_dirs = [d for d in Path(".").iterdir() if d.is_dir()]
+        all_dirs = [d for d in output_path.iterdir() if d.is_dir()]
         subdirs = sorted(all_dirs, key=lambda d: parse_dir_name(d.name))
     else:
         raise FileNotFoundError(f"Output path '{output_path}' not found")
 
-    try:
-        # If there are subdirectories, create one row per subdirectory
-        if subdirs:
-            for subdir in subdirs:
-                subdir_name = subdir.name
-                # Build full relative path from original launch directory
-                full_rel_path = output_path_rel / subdir_name
-                row = {"path": str(full_rel_path)}  # Full relative path to subdirectory
-
-                for key, command in output_spec.items():
-                    try:
-                        # Execute shell command in subdirectory
-                        result = subprocess.run(
-                            command,
-                            shell=True,
-                            capture_output=True,
-                            text=True,
-                            cwd=str(subdir),
-                        )
-
-                        if result.returncode == 0:
-                            raw_output = result.stdout.strip()
-                            # Try to cast to appropriate Python type
-                            parsed_value = cast_output(raw_output)
-                            row[key] = parsed_value
-                        else:
-                            log_warning(
-                                f"Warning: Command for '{subdir_name}/{key}' failed: {result.stderr}"
-                            )
-                            row[key] = None
-
-                    except Exception as e:
-                        log_warning(
-                            f"Warning: Error executing command for '{subdir_name}/{key}': {e}"
-                        )
-                        row[key] = None
-
-                rows.append(row)
-        else:
-            # No subdirectories, create single row with output path
-            row = {"path": path_for_no_subdirs}
+    # If there are subdirectories, create one row per subdirectory
+    if subdirs:
+        for subdir in subdirs:
+            subdir_name = subdir.name
+            # Build full relative path from original launch directory
+            full_rel_path = output_path_rel / subdir_name
+            row = {"path": str(full_rel_path)}  # Full relative path to subdirectory
 
             for key, command in output_spec.items():
                 try:
-                    # Execute shell command
+                    # Execute shell command in subdirectory (use absolute path for cwd)
                     result = subprocess.run(
-                        command, shell=True, capture_output=True, text=True, cwd="."
+                        command,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        cwd=str(subdir.absolute()),
                     )
 
                     if result.returncode == 0:
@@ -575,18 +541,44 @@ def fzo(
                         row[key] = parsed_value
                     else:
                         log_warning(
-                            f"Warning: Command for '{key}' failed: {result.stderr}"
+                            f"Warning: Command for '{subdir_name}/{key}' failed: {result.stderr}"
                         )
                         row[key] = None
 
                 except Exception as e:
-                    log_warning(f"Warning: Error executing command for '{key}': {e}")
+                    log_warning(
+                        f"Warning: Error executing command for '{subdir_name}/{key}': {e}"
+                    )
                     row[key] = None
 
             rows.append(row)
+    else:
+        # No subdirectories, create single row with output path
+        row = {"path": path_for_no_subdirs}
 
-    finally:
-        os.chdir(_ORIGINAL_LAUNCH_DIRECTORY)
+        for key, command in output_spec.items():
+            try:
+                # Execute shell command in work_dir (use absolute path for cwd)
+                result = subprocess.run(
+                    command, shell=True, capture_output=True, text=True, cwd=str(work_dir.absolute())
+                )
+
+                if result.returncode == 0:
+                    raw_output = result.stdout.strip()
+                    # Try to cast to appropriate Python type
+                    parsed_value = cast_output(raw_output)
+                    row[key] = parsed_value
+                else:
+                    log_warning(
+                        f"Warning: Command for '{key}' failed: {result.stderr}"
+                    )
+                    row[key] = None
+
+            except Exception as e:
+                log_warning(f"Warning: Error executing command for '{key}': {e}")
+                row[key] = None
+
+        rows.append(row)
 
     # Return DataFrame if pandas is available, otherwise return first row as dict for backward compatibility
     if PANDAS_AVAILABLE:
