@@ -106,6 +106,10 @@ def test_perfectgaz_fzc(perfectgaz_setup):
         "n_mol": 1
     }, engine="python", outputdir="output")
 
+    # add small delay to ensure file system updates
+    import time
+    time.sleep(0.5)
+    
     assert Path("output").exists()
 
 
