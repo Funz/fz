@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fz"
-version = "0.1.0"
+version = "0.8.0"
 description = "Parametric scientific computing package"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "BSD-3-Clause"}
 authors = [
     {name = "FZ Team"}
 ]
