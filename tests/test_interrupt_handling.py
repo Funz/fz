@@ -193,24 +193,24 @@ if __name__ == "__main__":
             print("✓ Sequential interrupt test passed")
         except Exception as e:
             print(f"✗ Sequential interrupt test failed: {e}")
-            sys.exit(1)
+            sys.exit(11)
 
         try:
             test_interrupt_parallel_execution(tmp_path)
             print("✓ Parallel interrupt test passed")
         except Exception as e:
             print(f"✗ Parallel interrupt test failed: {e}")
-            sys.exit(1)
+            sys.exit(12)
 
         # Add a grace time to allow any background threads to finish (and ensure kill signals are processed)
         time.sleep(10)
-        
+
         try:
             test_graceful_cleanup_on_interrupt(tmp_path)
             print("✓ Cleanup test passed")
         except Exception as e:
             print(f"✗ Cleanup test failed: {e}")
-            sys.exit(1)
+            sys.exit(13)
 
 
         # Add a grace time to allow any background threads to finish (and ensure kill signals are processed)
