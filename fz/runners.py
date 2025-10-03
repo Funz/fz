@@ -288,7 +288,7 @@ def resolve_calculators(
 
             # Implicitly include cache calculator as first option when using "*"
             # This ensures cache is checked before running new calculations
-            calculators = ["cache://results"] + calc_files
+            calculators = ["cache://_"] + calc_files
         else:
             calculators = [calculators]
 

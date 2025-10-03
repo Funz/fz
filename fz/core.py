@@ -750,7 +750,7 @@ def fzr(
     if renamed_resultsdir is not None:
         updated_calculators = []
         for calc in calculators:
-            if calc == "cache://results":
+            if calc == "cache://_":
                 # Point to the renamed directory instead
                 updated_calculators.append(f"cache://{renamed_resultsdir}")
             else:
