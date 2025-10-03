@@ -109,7 +109,11 @@ def test_perfectgaz_fzc(perfectgaz_setup):
     # add small delay to ensure file system updates
     import time
     time.sleep(0.5)
-    
+
+    #... debug info
+    print("Current directory contents:", os.listdir("."))
+    print("Output directory contents:", os.listdir("output"))
+
     # Check if (relative) output directory is created
     assert Path("output").is_dir()
 
