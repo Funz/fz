@@ -110,7 +110,8 @@ def test_perfectgaz_fzc(perfectgaz_setup):
     import time
     time.sleep(0.5)
     
-    assert Path("output").exists()
+    # Check if (relative) output directory is created
+    assert Path("output").is_dir()
 
 
 def test_perfectgaz_fzr_single_case(perfectgaz_setup):
