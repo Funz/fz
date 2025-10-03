@@ -84,6 +84,19 @@ def test_fzo_fzr_coherence_single_case():
             # Add delay (mainly for windows) to ensure files are flushed
             time.sleep(1)
 
+            # Debug: Print fzr_result to understand what we got
+            print(f"DEBUG fzr_result: {fzr_result}")
+            if PANDAS_AVAILABLE and hasattr(fzr_result, 'to_dict'):
+                print(f"DEBUG fzr_result dict: {fzr_result.to_dict()}")
+
+            # Check status to see if calculation succeeded
+            if "status" in fzr_result:
+                status = _get_value(fzr_result, "status", 0)
+                print(f"DEBUG status: {status}")
+                if status != "done":
+                    error = _get_value(fzr_result, "error", 0) if "error" in fzr_result else None
+                    print(f"DEBUG error: {error}")
+
             # Verify coherence
             assert "result" in fzr_result, "result not in fzr output"
             assert "result" in fzo_result, "result not in fzo output"
