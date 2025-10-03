@@ -37,8 +37,11 @@ def telemac_setup(tmp_path):
     if not examples_telemac.exists():
         pytest.skip("examples/Telemac directory not found")
 
-    if (examples_telemac / "t2d_breach.cas").exists():
-        shutil.copy(examples_telemac / "t2d_breach.cas", ".")
+    t2d_path = examples_telemac / "t2d_breach.cas"
+    if t2d_path.is_file():
+        shutil.copy(t2d_path, ".")
+    elif t2d_path.is_dir():
+        shutil.copytree(t2d_path, "t2d_breach.cas")
 
     # Copy .fz directory if it exists (from examples.md lines 127-129)
     if (examples_telemac / ".fz").exists():
