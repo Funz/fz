@@ -69,10 +69,8 @@ try:
 except ImportError:
     PANDAS_AVAILABLE = False
     pd = None
+    logging.warning("pandas not available, fzo() and fzr() will return dicts instead of DataFrames")
 
-# Capture the original working directory when the module is first imported
-# This represents the directory from which Python was launched
-_ORIGINAL_LAUNCH_DIRECTORY = os.getcwd()
 import itertools
 import threading
 from collections import defaultdict
@@ -327,6 +325,9 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
     Returns:
         Dict of variable names with None values
     """
+    # This represents the directory from which the function was launched
+    working_dir = os.getcwd()
+
     try:
         model = _resolve_model(model)
 
@@ -339,7 +340,7 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
         return {var: None for var in sorted(variables)}
     finally:
         # Always restore the original working directory
-        os.chdir(_ORIGINAL_LAUNCH_DIRECTORY)
+        os.chdir(working_dir)
 
 
 def fzc(
@@ -359,6 +360,10 @@ def fzc(
         engine: Engine for formula evaluation ("python", "R", etc.)
         outputdir: Output directory for compiled files
     """
+
+    # This represents the directory from which the function was launched
+    working_dir = os.getcwd()
+
     model = _resolve_model(model)
 
     # Use configured default formula engine if not specified
@@ -443,7 +448,7 @@ def fzc(
         create_hash_file(current_outputdir)
 
     # Always restore the original working directory
-    os.chdir(_ORIGINAL_LAUNCH_DIRECTORY)
+    os.chdir(working_dir)
 
 
 def fzo(
@@ -461,16 +466,20 @@ def fzo(
         and columns for each parsed output. If no subdirectories, returns single row with '.' as path.
         If pandas not available, returns dict for backward compatibility.
     """
+
+    # This represents the directory from which the function was launched
+    working_dir = os.getcwd()
+
     model = _resolve_model(model)
     output_spec = model.get("output", {})
 
-    output_path = Path(output_path)
+    output_path = Path(output_path).resolve()
     rows = []  # List of dicts, one per subdirectory (or single row if no subdirs)
 
     # Compute output_path relative to original launch directory for path column
     try:
         if output_path.is_absolute():
-            output_path_rel = output_path.relative_to(_ORIGINAL_LAUNCH_DIRECTORY)
+            output_path_rel = output_path.relative_to(working_dir)
         else:
             output_path_rel = output_path
     except ValueError:
@@ -643,6 +652,9 @@ def fzo(
                             cast_values.append(v)
                     df[key] = cast_values
 
+        # Always restore the original working directory
+        os.chdir(working_dir)
+
         return df
     else:
         # Return dict with lists for backward compatibility when no pandas
@@ -709,6 +721,9 @@ def fzo(
                         except ValueError:
                             cast_values.append(v)
                     result_dict[key] = cast_values
+        
+        # Always restore the original working directory
+        os.chdir(working_dir)
 
         return result_dict
 
@@ -735,6 +750,10 @@ def fzr(
     Returns:
         DataFrame with variable values and results (if pandas available), otherwise Dict with lists
     """
+
+    # This represents the directory from which the function was launched
+    working_dir = os.getcwd()
+
     # Install signal handler for graceful interrupt handling
     global _interrupt_requested
     _interrupt_requested = False
@@ -873,6 +892,9 @@ def fzr(
     # Check if interrupted and provide user feedback
     if _interrupt_requested:
         log_warning("⚠️  Execution was interrupted. Partial results may be available.")
+
+    # Always restore the original working directory
+    os.chdir(working_dir)
 
     # Return DataFrame if pandas is available, otherwise return list of dicts
     if PANDAS_AVAILABLE:
