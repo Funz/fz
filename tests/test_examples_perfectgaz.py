@@ -94,11 +94,6 @@ def test_perfectgaz_fzi(perfectgaz_setup):
 
 def test_perfectgaz_fzc(perfectgaz_setup):
     """Test fzc - from examples.md lines 178-190"""
-
-    #... debug info
-    print("Current directory:", os.getcwd())
-    print("Current directory contents:", os.listdir("."))
-
     fz.fzc("input.txt", {
         "varprefix": "$",
         "formulaprefix": "@",
@@ -110,15 +105,6 @@ def test_perfectgaz_fzc(perfectgaz_setup):
         "V_L": 1,
         "n_mol": 1
     }, engine="python", outputdir="output")
-
-    # add small delay to ensure file system updates
-    import time
-    time.sleep(0.5)
-
-    #... debug info
-    print("Current directory:", os.getcwd())
-    print("Current directory contents:", os.listdir("."))
-    print("Output directory contents:", os.listdir("output"))
 
     # Check if (relative) output directory is created
     assert Path("output").is_dir()
