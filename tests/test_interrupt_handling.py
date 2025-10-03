@@ -149,7 +149,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
 
     # Set up interrupt
     def send_interrupt():
-        time.sleep(4)
+        time.sleep(7)
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
