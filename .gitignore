@@ -3,13 +3,10 @@
 /venv
 /build
 **/__pycache__
-tests/__pycache__
-**/*.pyc
 /results**
 /output**
 **/**_test**
 **/debug**
-/dist
 **/tmp*
 **.pyc
 .pytest_cache
@@ -20,4 +17,5 @@ test_*
 .fz
 *.txt
 *.tar.gz
-PerfectGazPressure.sh
+*.sh
+!examples/**

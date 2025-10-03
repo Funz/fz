@@ -1,0 +1,7 @@
+{
+    "uri": "sh://",
+    "n": 2, 
+    "models": {
+      "Telemac":"bash .fz/calculators/Telemac.sh"
+    }
+}
