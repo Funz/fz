@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Test cases for Modelica examples from .claude/examples.md
+Test cases for Modelica examples from examples/examples.md
+Auto-generated from examples.md code chunks
+Requires: omc (OpenModelica compiler)
 """
 
 import os
 import sys
-import tempfile
 import shutil
 from pathlib import Path
+import pytest
 
 # Add parent directory to Python path
 parent_dir = Path(__file__).parent.parent.absolute()
@@ -16,156 +18,167 @@ if str(parent_dir) not in sys.path:
 
 import fz
 
-def setup_modelica_test():
+
+# Check if omc is available
+OMC_AVAILABLE = shutil.which("omc") is not None
+
+
+@pytest.fixture
+def modelica_setup(tmp_path):
     """Setup test environment for Modelica examples"""
-    # Create input.txt file for Modelica
-    input_content = """model NewtonCooling
-  parameter Real convection = $convection;
-  Real T(start=373.15);
+    if not OMC_AVAILABLE:
+        pytest.skip("omc (OpenModelica compiler) not available")
+
+    original_dir = os.getcwd()
+    os.chdir(tmp_path)
+
+    # Create NewtonCooling.mo (from examples.md lines 59-73)
+    with open("NewtonCooling.mo", "w") as f:
+        f.write("""model NewtonCooling "An example of Newton s law of cooling"
+  parameter Real T_inf=25 "Ambient temperature";
+  parameter Real T0=90 "Initial temperature";
+  parameter Real h=$(convection) "Convective cooling coefficient";
+  parameter Real A=1.0 "Surface area";
+  parameter Real m=0.1 "Mass of thermal capacitance";
+  parameter Real c_p=1.2 "Specific heat";
+  Real T "Temperature";
+initial equation
+  T = T0 "Specify initial value for T";
 equation
-  der(T) = -convection * (T - 293.15);
+  m*c_p*der(T) = h*A*(T_inf-T) "Newton s law of cooling";
 end NewtonCooling;
-"""
+""")
 
-    with open("input.txt", "w") as f:
-        f.write(input_content)
-
-    # Create Modelica.sh script (simplified simulation)
-    script_content = """#!/bin/bash
-# Mock Modelica simulation
-source $1
-sleep 0.1
-
-# Create mock CSV result files
-cat > NewtonCooling_res.csv << EOF
-time,T
-0.0,373.15
-1.0,`echo "373.15 - $convection * 80" | bc -l`
-2.0,`echo "373.15 - $convection * 140" | bc -l`
-3.0,`echo "373.15 - $convection * 180" | bc -l`
-EOF
-
-echo "Modelica simulation complete"
-"""
-
+    # Create Modelica.sh (from examples.md lines 75-103)
     with open("Modelica.sh", "w") as f:
-        f.write(script_content)
+        f.write("""#!/bin/bash
+
+if [ ! ${1: -4} == ".mos" ]; then
+  model=`grep "model" $1 | awk '{print $2}'`
+  cat > $1.mos <<- EOM
+loadModel(Modelica);
+loadFile("$1");
+simulate($model, stopTime=1,tolerance=0.001,outputFormat="csv");
+EOM
+  omc $1.mos > $1.moo 2>&1 &
+else
+  omc $1 > $1.moo 2>&1 &
+fi
+
+PID_OMC=$!
+echo $PID_OMC >> PID #this will allow Funz to kill process if needed
+
+wait $PID_OMC
+
+rm -f PID
+
+ERROR=`cat *.moo | grep "Failed"`
+if [ ! "$ERROR" == "" ]; then
+    echo $ERROR >&2
+    exit 1
+fi
+""")
     os.chmod("Modelica.sh", 0o755)
 
-def test_modelica_fzi():
-    """Test Modelica fzi - input identification"""
-    setup_modelica_test()
+    yield tmp_path
 
-    model = {
+    os.chdir(original_dir)
+
+
+@pytest.mark.skipif(not OMC_AVAILABLE, reason="omc not available")
+def test_modelica_fzi(modelica_setup):
+    """Test Modelica fzi - from examples.md lines 302-310"""
+    result = fz.fzi("NewtonCooling.mo", {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
-    }
+        "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
+    })
 
-    try:
-        result = fz.fzi("input.txt", model)
-        print("✅ Modelica fzi test passed")
-        print(f"   Identified variables: {list(result.keys())}")
-        assert "convection" in result
-    except Exception as e:
-        print(f"❌ Modelica fzi test failed: {e}")
-        raise
-    finally:
-        # Cleanup
-        for f in ["input.txt", "Modelica.sh"]:
-            if os.path.exists(f):
-                os.remove(f)
+    assert "convection" in result
 
-def test_modelica_fzc():
-    """Test Modelica fzc - calculation with specific values"""
-    setup_modelica_test()
 
-    model = {
+@pytest.mark.skipif(not OMC_AVAILABLE, reason="omc not available")
+def test_modelica_fzc(modelica_setup):
+    """Test Modelica fzc - from examples.md lines 313-323"""
+    fz.fzc("NewtonCooling.mo", {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"res": "echo '{\"NewtonCooling\": {\"time\": [0,1,2], \"T\": [373.15, 350.0, 330.0]}}'"}  # Simplified output
-    }
+        "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
+    }, {
+        "convection": 123
+    }, engine="python", outputdir="output")
 
-    variables = {
-        "convection": 0.123
-    }
+    assert Path("output").exists()
 
-    try:
-        result = fz.fzc("input.txt", model, variables, engine="python", outputdir="output")
-        print("✅ Modelica fzc test passed")
-        print(f"   Result keys: {list(result.keys()) if result else 'None'}")
-        # Clean up output directory
-        if os.path.exists("output"):
-            shutil.rmtree("output")
-    except Exception as e:
-        print(f"❌ Modelica fzc test failed: {e}")
-        raise
-    finally:
-        # Cleanup
-        for f in ["input.txt", "Modelica.sh"]:
-            if os.path.exists(f):
-                os.remove(f)
-        if os.path.exists("output"):
-            shutil.rmtree("output")
 
-def test_modelica_fzr():
-    """Test Modelica fzr - run with results"""
-    setup_modelica_test()
-
-    model = {
+@pytest.mark.skipif(not OMC_AVAILABLE, reason="omc not available")
+def test_modelica_fzr(modelica_setup):
+    """Test Modelica fzr - from examples.md lines 326-344"""
+    results = fz.fzr("NewtonCooling.mo", {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"res": "echo '{\"NewtonCooling\": {\"time\": [0,1,2], \"T\": [373.15, 350.0, 330.0]}}'"}  # Simplified output
-    }
+        "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
+    }, {
+        "convection": [.123, .456, .789],
+    }, engine="python", calculators="sh:///bin/bash ./Modelica.sh", resultsdir="results")
 
-    variables = {
-        "convection": [0.123, 0.456, 0.789]
-    }
+    assert len(results) == 3
+    assert all(results["status"] == "done")
 
-    try:
-        result = fz.fzr("input.txt", model, variables,
-                       engine="python",
-                       calculators="sh://bash ./Modelica.sh",
-                       resultsdir="results")
-        print("✅ Modelica fzr test passed")
-        print(f"   Number of results: {len(result) if (hasattr(result, '__len__') and (not hasattr(result, 'empty') or not result.empty)) else 0}")
-        # Clean up results directory
-        if os.path.exists("results"):
-            shutil.rmtree("results")
-    except Exception as e:
-        print(f"❌ Modelica fzr test failed: {e}")
-        raise
-    finally:
-        # Cleanup
-        for f in ["input.txt", "Modelica.sh"]:
-            if os.path.exists(f):
-                os.remove(f)
-        if os.path.exists("results"):
-            shutil.rmtree("results")
+
+@pytest.mark.skipif(not OMC_AVAILABLE, reason="omc not available")
+def test_modelica_fzo(modelica_setup):
+    """Test Modelica fzo - from examples.md lines 347-349"""
+    # First run fzr to create results
+    fz.fzr("NewtonCooling.mo", {
+        "varprefix": "$",
+        "formulaprefix": "@",
+        "delim": "()",
+        "commentline": "#",
+        "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
+    }, {
+        "convection": [.123, .456, .789],
+    }, engine="python", calculators="sh:///bin/bash ./Modelica.sh", resultsdir="results")
+
+    # Test fzo
+    result = fz.fzo("results", {"output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}})
+
+    assert len(result) == 3
+
+
+@pytest.mark.skipif(not OMC_AVAILABLE, reason="omc not available")
+def test_modelica_cache(modelica_setup):
+    """Test Modelica with cache - from examples.md lines 352-363"""
+    # First run to populate cache
+    fz.fzr("NewtonCooling.mo", {
+        "varprefix": "$",
+        "formulaprefix": "@",
+        "delim": "()",
+        "commentline": "#",
+        "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
+    }, {
+        "convection": [.123, .456, .789],
+    }, engine="python", calculators="sh:///bin/bash ./Modelica.sh", resultsdir="results_cache")
+
+    # Second run with cache
+    result = fz.fzr("NewtonCooling.mo", {
+        "varprefix": "$",
+        "formulaprefix": "@",
+        "delim": "()",
+        "commentline": "#",
+        "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
+    }, {
+        "convection": [.123, .456, .789],
+    }, engine="python", calculators=["cache://results_cache*", "sh:///bin/bash ./Modelica.sh"], resultsdir="results_cache")
+
+    assert len(result) == 3
+
 
 if __name__ == "__main__":
-    """Run all Modelica example tests"""
-    print("🧪 Running Modelica Example Tests")
-    print("=" * 50)
-
-    # Change to temporary directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        os.chdir(temp_dir)
-        print(f"Working in: {temp_dir}")
-
-        try:
-            test_modelica_fzi()
-            test_modelica_fzc()
-            test_modelica_fzr()
-
-            print("\n✅ All Modelica example tests passed!")
-
-        except Exception as e:
-            print(f"\n❌ Tests failed: {e}")
-            raise
+    pytest.main([__file__, "-v"])

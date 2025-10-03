@@ -65,4 +65,6 @@ jobs:
 
     - name: Run example tests
       run: |
-        pytest tests/test_examples_perfectgaz.py tests/test_examples_modelica.py tests/test_examples_telemac.py tests/test_examples_advanced.py -v --tb=short
+        # Run all test_examples_*.py files
+        # Note: Modelica and Telemac tests will be skipped if dependencies (omc, docker) are not available
+        pytest tests/test_examples_*.py -v --tb=short -m "not slow"
