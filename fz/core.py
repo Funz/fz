@@ -333,7 +333,7 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
         varprefix = model.get("varprefix", "$")
         delim = model.get("delim", "()")
 
-        input_path = Path(input_path)
+        input_path = Path(input_path).resolve()
         variables = parse_variables_from_path(input_path, varprefix, delim)
 
         return {var: None for var in sorted(variables)}
@@ -369,8 +369,8 @@ def fzc(
     varprefix = model.get("varprefix", "$")
     delim = model.get("delim", "()")
 
-    input_path = Path(input_path)
-    outputdir = Path(outputdir)
+    input_path = Path(input_path).resolve()
+    outputdir = Path(outputdir).resolve()
 
     # Ensure output directory is unique (rename existing with timestamp)
     outputdir, _ = ensure_unique_directory(outputdir)
