@@ -1,7 +1,0 @@
-#!/bin/bash
-# input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
-n_mol=1.0
-T_kelvin=273.15
-#@ def L_to_m3(L): 
-#@     return(L / 1000)
-V_m3=10
