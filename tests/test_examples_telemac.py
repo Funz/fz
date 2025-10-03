@@ -52,7 +52,6 @@ def telemac_setup(tmp_path):
     os.chdir(original_dir)
 
 
-@pytest.mark.skipif(not DOCKER_AVAILABLE, reason="docker not available")
 def test_telemac_fzi(telemac_setup):
     """Test Telemac fzi - from examples.md lines 368-375"""
     if not Path("t2d_breach.cas").exists():

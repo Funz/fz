@@ -85,7 +85,6 @@ fi
     os.chdir(original_dir)
 
 
-@pytest.mark.skipif(not OMC_AVAILABLE, reason="omc not available")
 def test_modelica_fzi(modelica_setup):
     """Test Modelica fzi - from examples.md lines 302-310"""
     result = fz.fzi("NewtonCooling.mo", {
@@ -99,7 +98,6 @@ def test_modelica_fzi(modelica_setup):
     assert "convection" in result
 
 
-@pytest.mark.skipif(not OMC_AVAILABLE, reason="omc not available")
 def test_modelica_fzc(modelica_setup):
     """Test Modelica fzc - from examples.md lines 313-323"""
     fz.fzc("NewtonCooling.mo", {
