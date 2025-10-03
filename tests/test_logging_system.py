@@ -8,8 +8,7 @@ import tempfile
 import platform
 from pathlib import Path
 import pytest
-from fz import fzr, set_log_level
-from fz.logging import LogLevel
+from fz import fzr, set_log_level_from_string
 
 @pytest.mark.skipif(
     platform.system() == "Windows",
@@ -46,15 +45,15 @@ def test_logging_levels():
 
             # Test different logging levels
             levels = [
-                (LogLevel.ERROR, "ERROR (only errors)"),
-                (LogLevel.WARNING, "WARNING (errors + warnings)"),
-                (LogLevel.INFO, "INFO (errors + warnings + info)"),
-                (LogLevel.DEBUG, "DEBUG (all messages)")
+                "ERROR",
+                "WARNING",
+                "INFO",
+                "DEBUG"
             ]
 
             for level, description in levels:
                 print(f"\n{'='*20} {description} {'='*20}")
-                set_log_level(level)
+                set_log_level_from_string(level)
 
                 result = fzr(
                     "input.txt",
