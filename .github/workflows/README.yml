@@ -140,7 +140,7 @@ jobs:
         }
 
         # Define parameter values
-        varvalues = {
+        var_values = {
             "T_celsius": [10, 20],  # 2 temperatures (reduced for quick test)
             "V_L": [1, 2],           # 2 volumes (reduced for quick test)
             "n_mol": 1.0             # fixed amount
@@ -150,7 +150,7 @@ jobs:
         results = fz.fzr(
             "input.txt",
             model,
-            varvalues,
+            var_values,
             calculators="sh://bash PerfectGazPressure.sh",
             resultsdir="results"
         )
@@ -245,7 +245,7 @@ jobs:
                 "commentline": "#"
             }
 
-            varvalues = {
+            var_values = {
                 "T_celsius": 25,
                 "V_L": 10,
                 "n_mol": 2
@@ -255,7 +255,7 @@ jobs:
             fz.fzc(
                 str(input_file),
                 model,
-                varvalues,
+                var_values,
                 engine="python",
                 outputdir=str(output_dir)
             )

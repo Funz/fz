@@ -30,7 +30,7 @@ def test_absolute_path_resolution():
         result = fzr(
             input_path=".",
             model={"output": {"value": "echo 'Execution completed'"}},
-            varvalues={},
+            var_values={},
             calculators=["sh://bash test_script.sh"],
             results_dir="absolute_test_result"
         )

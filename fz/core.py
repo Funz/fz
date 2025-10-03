@@ -346,7 +346,7 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
 def fzc(
     input_path: str,
     model: Union[str, Dict],
-    varvalues: Dict,
+    var_values: Dict,
     engine: str = None,
     output_dir: str = "output",
 ) -> None:
@@ -356,7 +356,7 @@ def fzc(
     Args:
         input_path: Path to input file or directory
         model: Model definition dict or alias string
-        varvalues: Dict of variable values or lists of values for grid
+        var_values: Dict of variable values or lists of values for grid
         engine: Engine for formula evaluation ("python", "R", etc.)
         output_dir: Output directory for compiled files
     """
@@ -382,16 +382,16 @@ def fzc(
 
     # Generate all combinations if lists are provided
     var_combinations = []
-    var_names = list(varvalues.keys())
+    var_names = list(var_values.keys())
 
     # Check if any values are lists
-    has_lists = any(isinstance(v, list) for v in varvalues.values())
+    has_lists = any(isinstance(v, list) for v in var_values.values())
 
     if has_lists:
         # Convert single values to lists for consistency
         list_values = []
         for var in var_names:
-            val = varvalues[var]
+            val = var_values[var]
             if isinstance(val, list):
                 list_values.append(val)
             else:
@@ -401,7 +401,7 @@ def fzc(
         for combination in itertools.product(*list_values):
             var_combinations.append(dict(zip(var_names, combination)))
     else:
-        var_combinations = [varvalues]
+        var_combinations = [var_values]
 
     for i, var_combo in enumerate(var_combinations):
         # Create output subdirectory for this combination
@@ -731,7 +731,7 @@ def fzo(
 def fzr(
     input_path: str,
     model: Union[str, Dict],
-    varvalues: Dict,
+    var_values: Dict,
     engine: str = None,
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
@@ -742,7 +742,7 @@ def fzr(
     Args:
         input_path: Path to input file or directory
         model: Model definition dict or alias string
-        varvalues: Dict of variable values or lists of values for grid
+        var_values: Dict of variable values or lists of values for grid
         engine: Engine for formula evaluation
         results_dir: Results directory
         calculators: Calculator specifications
@@ -798,13 +798,13 @@ def fzr(
     original_input_was_dir = input_path.is_dir()
 
     # Generate variable combinations
-    var_names = list(varvalues.keys())
-    has_lists = any(isinstance(v, list) for v in varvalues.values())
+    var_names = list(var_values.keys())
+    has_lists = any(isinstance(v, list) for v in var_values.values())
 
     if has_lists:
         list_values = []
         for var in var_names:
-            val = varvalues[var]
+            val = var_values[var]
             if isinstance(val, list):
                 list_values.append(val)
             else:
@@ -814,7 +814,7 @@ def fzr(
             dict(zip(var_names, combo)) for combo in itertools.product(*list_values)
         ]
     else:
-        var_combinations = [varvalues]
+        var_combinations = [var_values]
 
     # Prepare results structure
     results = {var: [] for var in var_names}
@@ -833,7 +833,7 @@ def fzr(
 
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
-            input_path, model, varvalues, engine, var_combinations, results_dir
+            input_path, model, var_values, engine, var_combinations, results_dir
         )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)

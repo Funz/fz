@@ -206,7 +206,7 @@ def test_multiple_input_files_with_variables():
             result = fzr(
                 input_path=str(input_files_dir),
                 model=model,
-                varvalues=test_vars_small,
+                var_values=test_vars_small,
                 calculators=["sh://./process_inputs.sh"],
                 results_dir=str(temp_dir_path / "multi_file_results")
             )

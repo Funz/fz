@@ -34,7 +34,7 @@ def test_final_verification():
         result1 = fzr(
             input_path="final_input.txt",
             model={"output": {"value": "echo 'Test 1 completed'"}},
-            varvalues={},
+            var_values={},
             calculators=["sh://bash final_test_script.sh"],
             results_dir="final_test_1"
         )
@@ -46,7 +46,7 @@ def test_final_verification():
         result2 = fzr(
             input_path="final_input.txt",
             model={"output": {"value": "echo 'Test 2 completed'"}},
-            varvalues={},
+            var_values={},
             calculators=["sh://echo 'No relative paths'"],
             results_dir="final_test_2"
         )

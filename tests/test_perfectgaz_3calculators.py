@@ -57,7 +57,7 @@ def test_perfectgaz_3calculators():
                     "temperature": "cat temperature_result.txt"
                 }
             },
-            varvalues={
+            var_values={
                 "T_kelvin": temperatures,
                 "n_mol": amounts,
                 "V_m3": volumes,

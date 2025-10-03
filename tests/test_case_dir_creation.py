@@ -58,7 +58,7 @@ echo "Location check completed" >> location_check.txt
         result1 = fzr(
             input_path="test_case_input.txt",
             model={"output": {"value": "echo 'Single case test'"}},
-            varvalues={},
+            var_values={},
             calculators=["sh://bash check_location_script.sh"],
             results_dir="single_case_test"
         )
@@ -92,7 +92,7 @@ echo "Location check completed" >> location_check.txt
         result2 = fzr(
             input_path="test_case_input.txt",
             model={"output": {"value": "echo 'Multiple case test'"}},
-            varvalues={"param1": ["a", "b"], "param2": ["1", "2"]},
+            var_values={"param1": ["a", "b"], "param2": ["1", "2"]},
             calculators=["sh://bash check_location_script.sh"],
             results_dir="multi_case_test"
         )

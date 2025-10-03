@@ -220,7 +220,7 @@ def run_single_case(case, attempt_num=1):
         result = fzr(
             input_path=".",
             model={"output": {"result": "grep 'result = ' output.txt | tail -1 | awk '{print $NF}' || echo 'failed'"}},
-            varvalues={},
+            var_values={},
             calculators=[case["calculator"]],
             results_dir=f"test_result_{case_name}"
         )

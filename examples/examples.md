@@ -386,12 +386,12 @@ fz.fzr("t2d_breach.cas",
         "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
         "H": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_H.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_H.csv\")}))'"
     }
-},varvalues={}, engine="python", calculators="sh:///bin/bash .fz/calculators/Telemac.sh", resultsdir="result")
+},var_values={}, engine="python", calculators="sh:///bin/bash .fz/calculators/Telemac.sh", resultsdir="result")
 ```
 
 use cache and aliases for Telemac:
 ```python
-fz.fzr("t2d_breach.cas","Telemac",varvalues={}, engine="python", calculators="*", resultsdir="result")
+fz.fzr("t2d_breach.cas","Telemac",var_values={}, engine="python", calculators="*", resultsdir="result")
 ```
 
 # test ssh

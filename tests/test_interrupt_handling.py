@@ -33,7 +33,7 @@ def test_interrupt_sequential_execution(tmp_path):
     input_file.chmod(0o755)
 
     # Create multiple cases
-    varvalues = {
+    var_values = {
         "x": [1, 2, 3, 4, 5]  # 5 cases, each taking 3 seconds
     }
 
@@ -53,7 +53,7 @@ def test_interrupt_sequential_execution(tmp_path):
     results = fzr(
         str(input_dir),
         model,
-        varvalues,
+        var_values,
         results_dir=str(results_dir),
         calculators=["sh://"]
     )
@@ -93,7 +93,7 @@ def test_interrupt_parallel_execution(tmp_path):
     input_file.chmod(0o755)
 
     # Create multiple cases
-    varvalues = {
+    var_values = {
         "x": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # 10 cases
     }
 
@@ -112,7 +112,7 @@ def test_interrupt_parallel_execution(tmp_path):
     results = fzr(
         str(input_dir),
         model,
-        varvalues,
+        var_values,
         results_dir=str(results_dir),
         calculators=["sh://", "sh://"]  # 2 parallel calculators
     )
@@ -145,7 +145,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     input_file.write_text("#!/bin/bash\nsleep 5\necho 'done' > output.txt\n")
     input_file.chmod(0o755)
 
-    varvalues = {"x": [1, 2, 3]}
+    var_values = {"x": [1, 2, 3]}
 
     # Set up interrupt
     def send_interrupt():
@@ -163,7 +163,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
         results = fzr(
             str(input_dir),
             model,
-            varvalues,
+            var_values,
             results_dir=str(results_dir),
             calculators=["sh://"]
         )
