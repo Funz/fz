@@ -74,6 +74,10 @@ def test_fzo_fzr_coherence_single_case():
                                 calculators="sh://bash calc.sh",
                                 results_dir="test_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("test_results", model)
 
@@ -129,6 +133,10 @@ def test_fzo_fzr_coherence_multiple_cases():
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://bash calc.sh",
                                 results_dir="multi_results")
+            
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
 
             # Parse with fzo
             fzo_result = fz.fzo("multi_results", model)
@@ -192,6 +200,10 @@ def test_fzo_fzr_coherence_multiple_outputs():
                                 calculators="sh://bash calc.sh",
                                 results_dir="multi_output_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("multi_output_results", model)
 
@@ -254,6 +266,10 @@ def test_fzo_fzr_coherence_with_formulas():
                                 calculators="sh://bash calc.sh",
                                 results_dir="formula_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("formula_results", model)
 
@@ -309,6 +325,10 @@ def test_fzo_fzr_coherence_with_failures():
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://bash calc.sh",
                                 results_dir="failure_results")
+
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
 
             # Parse with fzo
             fzo_result = fz.fzo("failure_results", model)
@@ -378,6 +398,10 @@ def test_fzo_fzr_coherence_perfectgaz_example():
                                 calculators="sh://bash PerfectGazPressure.sh",
                                 results_dir="perfectgaz_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("perfectgaz_results", model)
 
@@ -436,6 +460,10 @@ def test_fzo_fzr_coherence_simple_echo():
                                 calculators="sh://sh calc.sh",
                                 results_dir="echo_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("echo_results", model)
 
@@ -493,6 +521,10 @@ def test_fzo_fzr_coherence_three_variables():
                                 calculators="sh://sh calc.sh",
                                 results_dir="three_var_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("three_var_results", model)
 
@@ -548,6 +580,10 @@ def test_fzo_fzr_coherence_float_values():
                                 calculators="sh://sh calc.sh",
                                 results_dir="float_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("float_results", model)
 
@@ -599,6 +635,10 @@ def test_fzo_fzr_coherence_large_grid():
                                 calculators="sh://sh calc.sh",
                                 results_dir="large_grid_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+            
             # Parse with fzo
             fzo_result = fz.fzo("large_grid_results", model)
 
