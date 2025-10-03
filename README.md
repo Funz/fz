@@ -116,7 +116,7 @@ model = {
     "delim": "()",
     "commentline": "#",
     "output": {
-        "pressure": "grep 'Pressure:' output.txt | awk '{print $2}'"
+        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
     }
 }
 
@@ -352,7 +352,7 @@ Store reusable models in `.fz/models/`:
     "delim": "()",
     "commentline": "#",
     "output": {
-        "pressure": "grep 'pressure =' output.txt | awk '{print $3}'"
+        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
     },
     "id": "perfectgas"
 }
