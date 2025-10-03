@@ -57,20 +57,14 @@ jobs:
         pip install pandas
         pip install pytest pytest-cov
 
-    - name: Run tests (Windows - interrupt focus)
-      if: runner.os == 'Windows'
+    - name: Run tests
       run: |
-        pytest tests/test_interrupt_handling.py -v --tb=long -s
-
-    - name: Run tests (Non-Windows)
-      if: runner.os != 'Windows'
-      run: |
-        pytest tests/ -v --tb=short -x --ignore=tests/test_examples_advanced.py --ignore=tests/test_examples_modelica.py --ignore=tests/test_examples_perfectgaz.py --ignore=tests/test_examples_runner.py --ignore=tests/test_examples_telemac.py
+        pytest tests/ -v --tb=short -x --ignore=tests/test_examples_advanced.py --ignore=tests/test_examples_modelica.py --ignore=tests/test_examples_perfectgaz.py --ignore=tests/test_examples_runner.py --ignore=tests/test_examples_telemac.py --ignore=tests/test_interrupt_handling.py
 
     - name: Run tests with coverage (Ubuntu only)
       if: runner.os == 'Linux' && matrix.python-version == '3.11'
       run: |
-        pytest tests/ --cov=fz --cov-report=xml --cov-report=term -v --ignore=tests/test_examples_advanced.py --ignore=tests/test_examples_modelica.py --ignore=tests/test_examples_perfectgaz.py --ignore=tests/test_examples_runner.py --ignore=tests/test_examples_telemac.py
+        pytest tests/ --cov=fz --cov-report=xml --cov-report=term -v --ignore=tests/test_examples_advanced.py --ignore=tests/test_examples_modelica.py --ignore=tests/test_examples_perfectgaz.py --ignore=tests/test_examples_runner.py --ignore=tests/test_examples_telemac.py --ignore=tests/test_interrupt_handling.py
 
     - name: Upload coverage to Codecov
       if: runner.os == 'Linux' && matrix.python-version == '3.11'
