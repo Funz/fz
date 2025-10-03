@@ -222,7 +222,7 @@ def run_single_case(case, attempt_num=1):
             model={"output": {"result": "grep 'result = ' output.txt | tail -1 | awk '{print $NF}' || echo 'failed'"}},
             varvalues={},
             calculators=[case["calculator"]],
-            resultsdir=f"test_result_{case_name}"
+            results_dir=f"test_result_{case_name}"
         )
 
         # Check result

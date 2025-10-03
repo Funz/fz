@@ -160,7 +160,7 @@ def test_comprehensive_path_resolution():
             },
             engine="python",
             calculators=[test_case['calculator']],
-            resultsdir=f"comprehensive_test_{i}")
+            results_dir=f"comprehensive_test_{i}")
 
             status = result['status'][0]
             result_value = result['result'][0]

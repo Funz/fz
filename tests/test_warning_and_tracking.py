@@ -35,7 +35,7 @@ def test_warning_and_tracking():
             model={"output": {"value": "echo 'Completed'"}},
             varvalues={},
             calculators=["sh://bash test_warning_script.sh"],
-            resultsdir="warning_test_result"
+            results_dir="warning_test_result"
         )
 
         print(f"\nExecution status: {result.get('status', ['unknown'])[0]}")
@@ -55,7 +55,7 @@ def test_warning_and_tracking():
             model={"output": {"value": "echo 'No paths'"}},
             varvalues={},
             calculators=["sh://echo 'No relative paths here'"],
-            resultsdir="no_warning_test"
+            results_dir="no_warning_test"
         )
 
         print(f"Execution status: {result2.get('status', ['unknown'])[0]}")

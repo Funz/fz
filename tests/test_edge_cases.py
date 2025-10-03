@@ -91,7 +91,7 @@ def test_edge_cases():
             },
             engine="python",
             calculators=[test_case['calculator']],
-            resultsdir=f"edge_test_{i+1}")
+            results_dir=f"edge_test_{i+1}")
 
             test_result = {
                 "test_name": test_case['name'],

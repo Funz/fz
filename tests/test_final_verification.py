@@ -36,7 +36,7 @@ def test_final_verification():
             model={"output": {"value": "echo 'Test 1 completed'"}},
             varvalues={},
             calculators=["sh://bash final_test_script.sh"],
-            resultsdir="final_test_1"
+            results_dir="final_test_1"
         )
 
         print(f"   Command: {result1.get('command', ['None'])[0]}")
@@ -48,7 +48,7 @@ def test_final_verification():
             model={"output": {"value": "echo 'Test 2 completed'"}},
             varvalues={},
             calculators=["sh://echo 'No relative paths'"],
-            resultsdir="final_test_2"
+            results_dir="final_test_2"
         )
 
         print(f"   Command: {result2.get('command', ['None'])[0]}")

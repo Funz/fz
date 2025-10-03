@@ -104,7 +104,7 @@ def test_perfectgaz_fzc(perfectgaz_setup):
         "T_celsius": 20,
         "V_L": 1,
         "n_mol": 1
-    }, engine="python", outputdir="output")
+    }, engine="python", output_dir="output")
 
     # Check if (relative) output directory is created
     assert Path("output").is_dir()
@@ -122,7 +122,7 @@ def test_perfectgaz_fzr_single_case(perfectgaz_setup):
         "T_celsius": 20,
         "V_L": 1,
         "n_mol": 1
-    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", resultsdir="result")
+    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="result")
 
     assert len(result) == 1
     assert result["pressure"][0] is not None
@@ -140,7 +140,7 @@ def test_perfectgaz_fzr_factorial_design(perfectgaz_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": 1
-    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", resultsdir="results")
+    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
 
     assert len(result) == 6  # 3 * 2 combinations
 
@@ -158,7 +158,7 @@ def test_perfectgaz_fzo(perfectgaz_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": 1
-    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", resultsdir="results")
+    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
 
     # Now test fzo
     result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
@@ -179,7 +179,7 @@ def test_perfectgaz_cache(perfectgaz_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": 1
-    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", resultsdir="results_cache")
+    }, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results_cache")
 
     # Second run should use cache
     result2 = fz.fzr("input.txt", {
@@ -192,7 +192,7 @@ def test_perfectgaz_cache(perfectgaz_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": 1
-    }, engine="python", calculators=["cache://results_cache*", "sh:///bin/bash ./PerfectGazPressure.sh"], resultsdir="results_cache")
+    }, engine="python", calculators=["cache://results_cache*", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results_cache")
 
     assert len(result2) == 6
 

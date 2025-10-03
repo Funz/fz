@@ -110,7 +110,7 @@ def test_debug_execution():
         result = fz.fzr("input.txt", model, variables,
                        engine="python",
                        calculators=calculators,
-                       resultsdir="results")
+                       results_dir="results")
 
         end_time = time.time()
         total_time = end_time - start_time

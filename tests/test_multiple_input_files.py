@@ -208,7 +208,7 @@ def test_multiple_input_files_with_variables():
                 model=model,
                 varvalues=test_vars_small,
                 calculators=["sh://./process_inputs.sh"],
-                resultsdir=str(temp_dir_path / "multi_file_results")
+                results_dir=str(temp_dir_path / "multi_file_results")
             )
 
             print(f"\n📊 Results Summary:")

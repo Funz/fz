@@ -77,7 +77,7 @@ def test_perfect_gas():
                 },
                 engine="python",
                 calculators=["sh://bash ./PerfectGazPressure.sh"],  # Fixed: Single calculator, proper path
-                resultsdir="results"
+                results_dir="results"
             )
 
             print("\n📊 Results:")

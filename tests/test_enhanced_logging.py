@@ -34,7 +34,7 @@ def test_local_enhanced_logging():
             temp_input,
             test_model,
             {"param": 1},
-            resultsdir="test_enhanced_logs",
+            results_dir="test_enhanced_logs",
             calculators=["sh://echo 'test result' > result.txt && sleep 0.1"]
         )
 

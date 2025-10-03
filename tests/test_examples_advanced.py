@@ -89,7 +89,7 @@ def test_parallel_2_calculators_2_cases(advanced_setup):
         "T_celsius": [20, 25],
         "V_L": 1,
         "n_mol": 1
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 
     assert len(result) == 2
     assert all(result["status"] == "done")
@@ -107,7 +107,7 @@ def test_parallel_3_calculators_2_cases(advanced_setup):
         "T_celsius": [20, 25],
         "V_L": 1,
         "n_mol": 1
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 
     assert len(result) == 2
     assert all(result["status"] == "done")
@@ -125,7 +125,7 @@ def test_parallel_2_calculators_3_cases(advanced_setup):
         "T_celsius": [20, 25, 30],
         "V_L": 1,
         "n_mol": 1
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 
     assert len(result) == 3
     assert all(result["status"] == "done")
@@ -143,7 +143,7 @@ def test_parallel_6_calculators_6_cases(advanced_setup):
         "T_celsius": [20, 30, 40],
         "V_L": [1, 1.5],
         "n_mol": 1
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 6, resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
 
     assert len(result) == 6
     assert all(result["status"] == "done")
@@ -162,7 +162,7 @@ def test_parallel_fzo_result(advanced_setup):
         "T_celsius": [20, 30, 40],
         "V_L": [1, 1.5],
         "n_mol": 1
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 6, resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
 
     # Test fzo
     result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
@@ -182,7 +182,7 @@ def test_failure_never_fails(advanced_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": [1, 0]
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 3, resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 3, results_dir="results")
 
     assert len(result) == 12  # 3 * 2 * 2 = 12
     assert all(result["status"] == "done")
@@ -201,7 +201,7 @@ def test_failure_random_fails_retries(advanced_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": [1, 0]
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureRandomFails.sh"] * 3, resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureRandomFails.sh"] * 3, results_dir="results")
 
     assert len(result) == 12
     # Should eventually succeed with retries
@@ -220,7 +220,7 @@ def test_failure_always_fails(advanced_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": [1, 0]
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"] * 3, resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results")
 
     assert len(result) == 12
     # All should fail
@@ -242,7 +242,7 @@ def test_failure_cache_with_fallback(advanced_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": [1, 0]
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"] * 3, resultsdir="results_fail")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results_fail")
 
     # Second run with cache and successful calculator
     result = fz.fzr("input.txt", {
@@ -255,7 +255,7 @@ def test_failure_cache_with_fallback(advanced_setup):
         "T_celsius": [20, 25, 30],
         "V_L": [1, 1.5],
         "n_mol": [1, 0]
-    }, engine="python", calculators=["cache://_", "sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], resultsdir="results_fail")
+    }, engine="python", calculators=["cache://_", "sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results_fail")
 
     assert len(result) == 12
     # Should now succeed since fallback calculator is successful
@@ -274,7 +274,7 @@ def test_non_numeric_variables(advanced_setup):
         "T_celsius": ["20", "25", "abc"],
         "V_L": [1, 1.5],
         "n_mol": [1, 0]
-    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 3, resultsdir="results")
+    }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 3, results_dir="results")
 
     assert len(result) == 12  # 3 * 2 * 2 = 12
     # Cases with "abc" should fail

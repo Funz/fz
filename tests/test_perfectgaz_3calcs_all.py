@@ -64,7 +64,7 @@ def test_perfectgaz_3calcs_all():
                 "sh:///bin/bash ./PerfectGazVolume.sh",
                 "sh:///bin/bash ./PerfectGazTemperature.sh"
             ],
-            resultsdir="perfectgaz_all3_results"
+            results_dir="perfectgaz_all3_results"
         )
 
         execution_time = time.time() - start_time

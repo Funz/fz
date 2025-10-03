@@ -39,7 +39,7 @@ def test_perfectgaz_comprehensive():
             model={"output": {"pressure": "cat output.txt"}},
             varvalues={"T_K": temperatures},
             calculators=["sh://bash PerfectGazPressure.sh","sh://bash PerfectGazPressure.sh","sh://bash PerfectGazPressure.sh"],
-            resultsdir="perfectgaz_results"
+            results_dir="perfectgaz_results"
         )
 
         execution_time = time.time() - start_time

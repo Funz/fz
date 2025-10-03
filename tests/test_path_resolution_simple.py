@@ -104,7 +104,7 @@ fi
                 model={"output": {"result": "cat output.txt | grep 'result = ' | awk '{print $NF}' || echo 'failed'"}},
                 varvalues={},
                 calculators=[case["calculator"]],
-                resultsdir=f"test_{case['name']}"
+                results_dir=f"test_{case['name']}"
             )
 
             status = result.get('status', [None])[0]

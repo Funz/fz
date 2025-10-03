@@ -110,7 +110,7 @@ def test_cache_first_strategy():
             temp_input,
             test_model,
             {"some_param": 100},
-            resultsdir=temp_results_dir,
+            results_dir=temp_results_dir,
             calculators=calculators_with_cache
         )
         first_run_time = time.time() - start_time
@@ -124,7 +124,7 @@ def test_cache_first_strategy():
             temp_input,
             test_model,
             {"some_param": 100},
-            resultsdir=f"{temp_results_dir}_2",
+            results_dir=f"{temp_results_dir}_2",
             calculators=calculators_with_cache
         )
         second_run_time = time.time() - start_time

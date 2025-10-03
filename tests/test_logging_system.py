@@ -61,7 +61,7 @@ def test_logging_levels():
                     model,
                     {"x": [1]},  # Single case for cleaner output
                     calculators=["sh://bash ./calc.sh"],
-                    resultsdir=f"results_{level.name.lower()}"
+                    results_dir=f"results_{level.name.lower()}"
                 )
 
                 print(f"Result: {result['result']}")

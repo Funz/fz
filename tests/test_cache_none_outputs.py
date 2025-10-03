@@ -53,7 +53,7 @@ def test_cache_none_outputs():
                 model,
                 {"x": [1, 2, 3]},
                 calculators=["sh://bash ./calc_fail.sh"],
-                resultsdir="results_1"
+                results_dir="results_1"
             )
 
             print(f"\nFirst run results: {result1['result']}")
@@ -70,7 +70,7 @@ def test_cache_none_outputs():
                 model,
                 {"x": [1, 2, 3]},
                 calculators=["cache://results_1", "sh://bash ./calc_work.sh"],
-                resultsdir="results_2"
+                results_dir="results_2"
             )
 
             print(f"\nSecond run results: {result2['result']}")

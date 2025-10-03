@@ -76,7 +76,7 @@ def test_retry_success():
         "sh:///bin/bash ./FailThenSuccess.sh",  # Fails first time
         "sh:///bin/bash ./AlwaysSucceeds.sh"    # Should succeed on retry
     ],
-    resultsdir="retry_test_1")
+    results_dir="retry_test_1")
 
     print(f"\n📊 Results:")
     print(f"   - Statuses: {result['status']}")
@@ -107,7 +107,7 @@ def test_all_fail():
         "sh:///bin/bash ./AlwaysFails.sh",     # Always fails
         "sh:///bin/bash ./AlwaysFails.sh"      # Also always fails
     ],
-    resultsdir="retry_test_2")
+    results_dir="retry_test_2")
 
     print(f"\n📊 Results:")
     print(f"   - Status: {result['status']}")
@@ -138,7 +138,7 @@ def test_first_succeeds():
         "sh:///bin/bash ./AlwaysSucceeds.sh",   # Should succeed immediately
         "sh:///bin/bash ./FailThenSuccess.sh"   # Won't be tried
     ],
-    resultsdir="retry_test_3")
+    results_dir="retry_test_3")
 
     print(f"\n📊 Results:")
     print(f"   - Status: {result['status']}")

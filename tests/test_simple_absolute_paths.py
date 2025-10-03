@@ -32,7 +32,7 @@ def test_absolute_path_resolution():
             model={"output": {"value": "echo 'Execution completed'"}},
             varvalues={},
             calculators=["sh://bash test_script.sh"],
-            resultsdir="absolute_test_result"
+            results_dir="absolute_test_result"
         )
 
         print(f"Execution status: {result.get('status', ['unknown'])[0]}")

@@ -75,7 +75,7 @@ def main():
         elif args.command == "fzc":
             model = parse_model(args.model)
             variables = parse_variables(args.variables)
-            fzc(args.input, model, variables, engine=args.engine, outputdir=args.output)
+            fzc(args.input, model, variables, engine=args.engine, output_dir=args.output)
             print(f"Compiled input saved to {args.output}")
 
         elif args.command == "fzo":
@@ -96,7 +96,7 @@ def main():
                     calculators = json.loads(args.calculators)
 
             result = fzr(args.input, model, variables,
-                        engine=args.engine, resultsdir=args.results,
+                        engine=args.engine, results_dir=args.results,
                         calculators=calculators)
             print(json.dumps(result, indent=2))
 

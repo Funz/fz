@@ -45,7 +45,7 @@ def test_concurrent_multi_case_execution():
             temp_input,
             test_model,
             {"value": [1, 2, 3]},  # 3 cases
-            resultsdir="concurrent_test_results",
+            results_dir="concurrent_test_results",
             calculators=[
                 "sh://echo 'calc1 result' > result.txt && sleep 2",  # 2 second delay
                 "sh://echo 'calc2 result' > result.txt && sleep 2",  # 2 second delay
@@ -104,7 +104,7 @@ def test_single_case_multiple_calculators():
             temp_input,
             test_model,
             {"value": 1},  # Single case
-            resultsdir="single_case_results",
+            results_dir="single_case_results",
             calculators=[
                 "sh://echo 'calc1 result' > result.txt && sleep 1",  # 1 second delay
                 "sh://echo 'calc2 result' > result.txt && sleep 2",  # 2 second delay

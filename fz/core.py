@@ -348,7 +348,7 @@ def fzc(
     model: Union[str, Dict],
     varvalues: Dict,
     engine: str = None,
-    outputdir: str = "output",
+    output_dir: str = "output",
 ) -> None:
     """
     Compile input file(s) replacing variables with values
@@ -358,7 +358,7 @@ def fzc(
         model: Model definition dict or alias string
         varvalues: Dict of variable values or lists of values for grid
         engine: Engine for formula evaluation ("python", "R", etc.)
-        outputdir: Output directory for compiled files
+        output_dir: Output directory for compiled files
     """
 
     # This represents the directory from which the function was launched
@@ -375,10 +375,10 @@ def fzc(
     delim = model.get("delim", "()")
 
     input_path = Path(input_path).resolve()
-    outputdir = Path(outputdir).resolve()
+    output_dir = Path(output_dir).resolve()
 
     # Ensure output directory is unique (rename existing with timestamp)
-    outputdir, _ = ensure_unique_directory(outputdir)
+    output_dir, _ = ensure_unique_directory(output_dir)
 
     # Generate all combinations if lists are provided
     var_combinations = []
@@ -407,11 +407,11 @@ def fzc(
         # Create output subdirectory for this combination
         if len(var_combinations) > 1:
             subdir_name = ",".join(f"{k}={v}" for k, v in var_combo.items())
-            current_outputdir = outputdir / subdir_name
+            current_output_dir = output_dir / subdir_name
         else:
-            current_outputdir = outputdir
+            current_output_dir = output_dir
 
-        current_outputdir.mkdir(parents=True, exist_ok=True)
+        current_output_dir.mkdir(parents=True, exist_ok=True)
 
         def compile_file(src_path: Path, dst_path: Path):
             try:
@@ -433,19 +433,19 @@ def fzc(
                 f.write(content)
 
         if input_path.is_file():
-            dst_path = current_outputdir / input_path.name
+            dst_path = current_output_dir / input_path.name
             compile_file(input_path, dst_path)
         elif input_path.is_dir():
             # Copy directory structure
             for src_file in input_path.rglob("*"):
                 if src_file.is_file():
                     rel_path = src_file.relative_to(input_path)
-                    dst_file = current_outputdir / rel_path
+                    dst_file = current_output_dir / rel_path
                     dst_file.parent.mkdir(parents=True, exist_ok=True)
                     compile_file(src_file, dst_file)
 
         # Create hash file after compilation
-        create_hash_file(current_outputdir)
+        create_hash_file(current_output_dir)
 
     # Always restore the original working directory
     os.chdir(working_dir)
@@ -733,7 +733,7 @@ def fzr(
     model: Union[str, Dict],
     varvalues: Dict,
     engine: str = None,
-    resultsdir: str = "results",
+    results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
     """
@@ -744,7 +744,7 @@ def fzr(
         model: Model definition dict or alias string
         varvalues: Dict of variable values or lists of values for grid
         engine: Engine for formula evaluation
-        resultsdir: Results directory
+        results_dir: Results directory
         calculators: Calculator specifications
 
     Returns:
@@ -778,18 +778,18 @@ def fzr(
 
     # Convert to absolute paths immediately while we're in the correct working directory
     input_path = Path(input_path).resolve()
-    resultsdir = Path(resultsdir).resolve()
+    results_dir = Path(results_dir).resolve()
 
     # Ensure results directory is unique (rename existing with timestamp)
-    resultsdir, renamed_resultsdir = ensure_unique_directory(resultsdir)
+    results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
 
     # Update cache paths in calculators to point to renamed directory if it exists
-    if renamed_resultsdir is not None:
+    if renamed_results_dir is not None:
         updated_calculators = []
         for calc in calculators:
             if calc == "cache://_":
                 # Point to the renamed directory instead
-                updated_calculators.append(f"cache://{renamed_resultsdir}")
+                updated_calculators.append(f"cache://{renamed_results_dir}")
             else:
                 updated_calculators.append(calc)
         calculators = updated_calculators
@@ -833,18 +833,18 @@ def fzr(
 
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
-            input_path, model, varvalues, engine, var_combinations, resultsdir
+            input_path, model, varvalues, engine, var_combinations, results_dir
         )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)
-        prepare_temp_directories(var_combinations, temp_path, resultsdir)
+        prepare_temp_directories(var_combinations, temp_path, results_dir)
 
         # Run calculations in parallel across cases
         try:
             case_results = run_cases_parallel(
                 var_combinations,
                 temp_path,
-                resultsdir,
+                results_dir,
                 calculators,
                 model,
                 original_input_was_dir,

@@ -49,7 +49,7 @@ def test_current_dir_fix():
                 model={"output": {"value": "echo 'Test completed'"}},
                 varvalues={},
                 calculators=["sh://bash test_script.sh"],
-                resultsdir="current_dir_test"
+                results_dir="current_dir_test"
             )
 
             print(f"\n📊 Results:")

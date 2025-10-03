@@ -32,7 +32,7 @@ def simple_test():
                 {"varprefix": "$", "delim": "()", "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}},
                 {"x": [1, 2]},  # Only 2 cases
                 calculators=["sh://bash ./calc.sh"],
-                resultsdir="results"
+                results_dir="results"
             )
 
             print(f"\nCWD after fzr: {os.getcwd()}")

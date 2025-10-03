@@ -48,7 +48,7 @@ def test_parallel_vs_single():
             temp_input,
             test_model,
             {"param": 1},
-            resultsdir="results_parallel",
+            results_dir="results_parallel",
             calculators=[
                 "sh://sleep 2 && echo 'slow result' > result.txt",
                 "sh://echo 'fast result' > result.txt",  # This should complete first

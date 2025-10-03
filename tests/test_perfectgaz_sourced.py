@@ -57,7 +57,7 @@ def test_perfectgaz_sourced():
                 "V_m3": volumes
             },
             calculators=["sh:///bin/bash ./PerfectGazPressure.sh"],
-            resultsdir="perfectgaz_sourced_results"
+            results_dir="perfectgaz_sourced_results"
         )
 
         execution_time = time.time() - start_time

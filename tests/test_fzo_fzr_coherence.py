@@ -72,7 +72,7 @@ def test_fzo_fzr_coherence_single_case():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://bash calc.sh",
-                                resultsdir="test_results")
+                                results_dir="test_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("test_results", model)
@@ -128,7 +128,7 @@ def test_fzo_fzr_coherence_multiple_cases():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://bash calc.sh",
-                                resultsdir="multi_results")
+                                results_dir="multi_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("multi_results", model)
@@ -190,7 +190,7 @@ def test_fzo_fzr_coherence_multiple_outputs():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://bash calc.sh",
-                                resultsdir="multi_output_results")
+                                results_dir="multi_output_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("multi_output_results", model)
@@ -252,7 +252,7 @@ def test_fzo_fzr_coherence_with_formulas():
             fzr_result = fz.fzr("input.txt", model, variables,
                                 engine="python",
                                 calculators="sh://bash calc.sh",
-                                resultsdir="formula_results")
+                                results_dir="formula_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("formula_results", model)
@@ -308,7 +308,7 @@ def test_fzo_fzr_coherence_with_failures():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://bash calc.sh",
-                                resultsdir="failure_results")
+                                results_dir="failure_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("failure_results", model)
@@ -376,7 +376,7 @@ def test_fzo_fzr_coherence_perfectgaz_example():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://bash PerfectGazPressure.sh",
-                                resultsdir="perfectgaz_results")
+                                results_dir="perfectgaz_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("perfectgaz_results", model)
@@ -434,7 +434,7 @@ def test_fzo_fzr_coherence_simple_echo():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://sh calc.sh",
-                                resultsdir="echo_results")
+                                results_dir="echo_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("echo_results", model)
@@ -491,7 +491,7 @@ def test_fzo_fzr_coherence_three_variables():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://sh calc.sh",
-                                resultsdir="three_var_results")
+                                results_dir="three_var_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("three_var_results", model)
@@ -546,7 +546,7 @@ def test_fzo_fzr_coherence_float_values():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://sh calc.sh",
-                                resultsdir="float_results")
+                                results_dir="float_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("float_results", model)
@@ -597,7 +597,7 @@ def test_fzo_fzr_coherence_large_grid():
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
                                 calculators="sh://sh calc.sh",
-                                resultsdir="large_grid_results")
+                                results_dir="large_grid_results")
 
             # Parse with fzo
             fzo_result = fz.fzo("large_grid_results", model)

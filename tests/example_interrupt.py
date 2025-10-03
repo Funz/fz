@@ -78,7 +78,7 @@ echo "Calculation complete for x=$x"
                 str(input_dir),
                 model,
                 varvalues,
-                resultsdir=str(results_dir),
+                results_dir=str(results_dir),
                 calculators=["sh://"]
             )
 

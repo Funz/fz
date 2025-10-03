@@ -34,7 +34,7 @@ def test_debug_command_flow():
             model={"output": {"value": "echo 'Debug test'"}},
             varvalues={},
             calculators=["sh://bash debug_script.sh"],
-            resultsdir="debug_result"
+            results_dir="debug_result"
         )
 
         print(f"\nResult keys: {list(result.keys())}")

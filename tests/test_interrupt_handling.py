@@ -54,7 +54,7 @@ def test_interrupt_sequential_execution(tmp_path):
         str(input_dir),
         model,
         varvalues,
-        resultsdir=str(results_dir),
+        results_dir=str(results_dir),
         calculators=["sh://"]
     )
 
@@ -113,7 +113,7 @@ def test_interrupt_parallel_execution(tmp_path):
         str(input_dir),
         model,
         varvalues,
-        resultsdir=str(results_dir),
+        results_dir=str(results_dir),
         calculators=["sh://", "sh://"]  # 2 parallel calculators
     )
 
@@ -164,7 +164,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
             str(input_dir),
             model,
             varvalues,
-            resultsdir=str(results_dir),
+            results_dir=str(results_dir),
             calculators=["sh://"]
         )
     except KeyboardInterrupt:

@@ -60,7 +60,7 @@ echo "Location check completed" >> location_check.txt
             model={"output": {"value": "echo 'Single case test'"}},
             varvalues={},
             calculators=["sh://bash check_location_script.sh"],
-            resultsdir="single_case_test"
+            results_dir="single_case_test"
         )
 
         # Check single case results
@@ -94,7 +94,7 @@ echo "Location check completed" >> location_check.txt
             model={"output": {"value": "echo 'Multiple case test'"}},
             varvalues={"param1": ["a", "b"], "param2": ["1", "2"]},
             calculators=["sh://bash check_location_script.sh"],
-            resultsdir="multi_case_test"
+            results_dir="multi_case_test"
         )
 
         # Check multiple case results

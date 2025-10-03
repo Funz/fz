@@ -112,7 +112,7 @@ def test_various_path_formats():
             },
             engine="python",
             calculators=[test_case['calculator']],
-            resultsdir=f"path_test_{i+1}")
+            results_dir=f"path_test_{i+1}")
 
             test_result = {
                 "test_name": test_case['name'],

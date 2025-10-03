@@ -58,7 +58,7 @@ def test_debug_parallel_execution():
                 temp_input,
                 test_model,
                 {"value": 1},
-                resultsdir=f"debug_results_{i}",
+                results_dir=f"debug_results_{i}",
                 calculators=test_case['calculators']
             )
 

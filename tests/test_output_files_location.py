@@ -49,7 +49,7 @@ echo "Final stdout message"
             model={"output": {"value": "echo 'Model output'"}},
             varvalues={},
             calculators=["sh://bash test_multi_output.sh"],
-            resultsdir="file_location_test"
+            results_dir="file_location_test"
         )
 
         print(f"\n📊 Execution Results:")

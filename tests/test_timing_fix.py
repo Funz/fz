@@ -64,7 +64,7 @@ echo "Final stderr message" >&2
                 model={"output": {"value": "echo 'Timing test completed'"}},
                 varvalues={},
                 calculators=["sh://bash timing_test_script.sh"],
-                resultsdir=f"timing_test_{test_num + 1}"
+                results_dir=f"timing_test_{test_num + 1}"
             )
 
             # Check results directory
