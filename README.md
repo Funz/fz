@@ -762,8 +762,8 @@ export FZ_SSH_KEEPALIVE=300
 # Auto-accept SSH host keys (use with caution!)
 export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=0
 
-# Default formula engine
-export FZ_DEFAULT_FORMULA_ENGINE=python
+# Default formula interpreter
+export FZ_INTERPRETER=python
 ```
 
 ### Python Configuration

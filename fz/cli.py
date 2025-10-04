@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import fzi, fzc, fzo, fzr, set_engine
+from . import fzi, fzc, fzo, fzr, set_interpreter
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
     parser_fzc.add_argument("input", help="Input file or directory")
     parser_fzc.add_argument("model", help="Model definition (JSON file or inline JSON)")
     parser_fzc.add_argument("variables", help="Variable values (JSON)")
-    parser_fzc.add_argument("--engine", default="python", help="Formula evaluation engine")
+    parser_fzc.add_argument("--interpreter", default="python", help="Formula interpreter")
     parser_fzc.add_argument("--output", default="output", help="Output directory")
 
     # fzo command
@@ -37,7 +37,7 @@ def main():
     parser_fzr.add_argument("input", help="Input file or directory")
     parser_fzr.add_argument("model", help="Model definition (JSON file or inline JSON)")
     parser_fzr.add_argument("variables", help="Variable values (JSON)")
-    parser_fzr.add_argument("--engine", default="python", help="Formula evaluation engine")
+    parser_fzr.add_argument("--interpreter", default="python", help="Formula interpreter")
     parser_fzr.add_argument("--results", default="results", help="Results directory")
     parser_fzr.add_argument("--calculators", help="Calculator specifications (JSON)")
 
@@ -75,8 +75,8 @@ def main():
         elif args.command == "fzc":
             model = parse_model(args.model)
             variables = parse_variables(args.variables)
-            # Set the global engine before calling fzc
-            set_engine(args.engine)
+            # Set the global interpreter before calling fzc
+            set_interpreter(args.interpreter)
             fzc(args.input, model, variables, output_dir=args.output)
             print(f"Compiled input saved to {args.output}")
 
@@ -97,8 +97,8 @@ def main():
                 else:
                     calculators = json.loads(args.calculators)
 
-            # Set the global engine before calling fzr
-            set_engine(args.engine)
+            # Set the global interpreter before calling fzr
+            set_interpreter(args.interpreter)
             result = fzr(args.input, model, variables,
                         results_dir=args.results,
                         calculators=calculators)

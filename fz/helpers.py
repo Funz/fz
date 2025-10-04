@@ -1000,10 +1000,10 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     """
     from .engine import replace_variables_in_content, evaluate_formulas
     from .io import create_hash_file
-    from .config import get_engine
+    from .config import get_interpreter
 
-    # Get the global formula engine
-    engine = get_engine()
+    # Get the global formula interpreter
+    interpreter = get_interpreter()
 
     varprefix = model.get("varprefix", "$")
     delim = model.get("delim", "()")
@@ -1034,7 +1034,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
             content = replace_variables_in_content(content, var_combo, varprefix, delim)
 
             # Evaluate formulas
-            content = evaluate_formulas(content, model, var_combo, engine)
+            content = evaluate_formulas(content, model, var_combo, interpreter)
 
             # Write compiled content
             with open(dst_path, 'w', encoding='utf-8') as f:

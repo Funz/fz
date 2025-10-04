@@ -54,8 +54,8 @@ calculated_value = @(calculate($base, $mult))
         single_values = {"base": 5, "mult": 3}
         output_dir = temp_path / "compiled_single"
 
-        # Set the formula engine (uses python by default)
-        fz.set_engine("python")
+        # Set the formula interpreter (uses python by default)
+        fz.set_interpreter("python")
         fz.fzc(str(input_file), model, single_values,
                output_dir=str(output_dir))
 

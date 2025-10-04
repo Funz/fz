@@ -364,9 +364,9 @@ def fzc(
 
     model = _resolve_model(model)
 
-    # Get the global formula engine
-    from .config import get_engine
-    engine = get_engine()
+    # Get the global formula interpreter
+    from .config import get_interpreter
+    interpreter = get_interpreter()
 
     varprefix = model.get("varprefix", "$")
     delim = model.get("delim", "()")
@@ -423,7 +423,7 @@ def fzc(
             content = replace_variables_in_content(content, var_combo, varprefix, delim)
 
             # Evaluate formulas
-            content = evaluate_formulas(content, model, var_combo, engine)
+            content = evaluate_formulas(content, model, var_combo, interpreter)
 
             # Write compiled content
             with open(dst_path, "w", encoding="utf-8") as f:
@@ -759,9 +759,9 @@ def fzr(
 
     model = _resolve_model(model)
 
-    # Get the global formula engine
-    from .config import get_engine
-    engine = get_engine()
+    # Get the global formula interpreter
+    from .config import get_interpreter
+    interpreter = get_interpreter()
 
     if calculators is None:
         calculators = ["sh://"]
