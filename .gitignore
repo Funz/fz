@@ -20,3 +20,4 @@ test_*
 *.sh
 !examples/**
 !tests/**
+!scripts/**

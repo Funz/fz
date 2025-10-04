@@ -182,6 +182,55 @@ def import_plugin(plugin_name):
                 shutil.copy(sample, examples_dir / sample.name)
                 print(f"Copied sample: {sample.name}")
 
+    # Copy execution scripts and create calculator alias
+    scripts_dir = plugin_dir / 'src' / 'main' / 'scripts'
+    if scripts_dir.exists():
+        # Try both lowercase and capitalized plugin name
+        script_files = list(scripts_dir.glob(f'{plugin_name}.*'))
+        if not script_files:
+            script_files = list(scripts_dir.glob(f'{plugin_name.capitalize()}.*'))
+        if not script_files:
+            script_files = list(scripts_dir.glob(f'{plugin_name.upper()}.*'))
+        if script_files:
+            # Create calculators directory
+            calc_dir = fz_dir / '.fz' / 'calculators'
+            calc_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create scripts directory
+            fz_scripts_dir = fz_dir / 'scripts' / 'calculators'
+            fz_scripts_dir.mkdir(parents=True, exist_ok=True)
+
+            # Copy shell script
+            script_name = None
+            for script_file in script_files:
+                if script_file.suffix in ['.sh', '.bat']:
+                    dest_script = fz_scripts_dir / script_file.name
+                    shutil.copy(script_file, dest_script)
+                    if script_file.suffix == '.sh':
+                        dest_script.chmod(0o755)
+                        script_name = script_file.name
+                    print(f"Copied script: {script_file.name}")
+
+            # Create calculator alias
+            if script_name:
+                calculator_alias = {
+                    "id": plugin_name.lower(),
+                    "command": f"sh://bash scripts/calculators/{script_name}",
+                    "description": f"{plugin_name.upper()} calculator (assumes local installation)"
+                }
+            else:
+                calculator_alias = {
+                    "id": plugin_name.lower(),
+                    "command": f"sh://echo 'No executable script found for {plugin_name}'",
+                    "description": f"{plugin_name.upper()} calculator (no script available)"
+                }
+
+            calc_file = calc_dir / f'{plugin_name.lower()}.json'
+            with open(calc_file, 'w') as f:
+                json.dump(calculator_alias, f, indent=2)
+
+            print(f"Created calculator alias: {calc_file}")
+
     # Cleanup
     shutil.rmtree(temp_dir)
 

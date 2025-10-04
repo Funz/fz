@@ -1,4 +1,4 @@
-name: Plugin MORET Tests
+name: Plugin Import Tests
 
 on:
   push:
@@ -7,14 +7,14 @@ on:
     branches: [ main, develop ]
     paths:
       - 'scripts/import_plugin.py'
-      - '.fz/models/moret.json'
-      - 'tests/test_moret_plugin.py'
-      - 'examples/moret/**'
+      - '.fz/models/**'
+      - 'tests/test_*_plugin.py'
+      - 'examples/**'
   workflow_dispatch:
 
 jobs:
-  test-moret-plugin:
-    name: Test MORET Plugin
+  test-plugin-imports:
+    name: Test Plugin Imports (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -50,20 +50,36 @@ jobs:
     - name: Import MORET plugin
       run: |
         python scripts/import_plugin.py moret
-        echo "✓ Plugin import completed"
+        echo "✓ MORET plugin import completed"
 
-    - name: Verify MORET model was created
+    - name: Import MCNP plugin
+      run: |
+        python scripts/import_plugin.py mcnp
+        echo "✓ MCNP plugin import completed"
+
+    - name: Verify models and calculators were created
       run: |
         python -c "
         from pathlib import Path
         import sys
-        model_file = Path('.fz/models/moret.json')
-        if not model_file.exists():
-            print(f'ERROR: Model file not found: {model_file}')
+        errors = []
+        for plugin in ['moret', 'mcnp']:
+            model_file = Path(f'.fz/models/{plugin}.json')
+            calc_file = Path(f'.fz/calculators/{plugin}.json')
+            if not model_file.exists():
+                errors.append(f'Model file not found: {model_file}')
+            else:
+                print(f'✓ {plugin} model exists')
+            if not calc_file.exists():
+                errors.append(f'Calculator file not found: {calc_file}')
+            else:
+                print(f'✓ {plugin} calculator exists')
+        if errors:
+            for error in errors:
+                print(f'ERROR: {error}')
             sys.exit(1)
-        print(f'✓ Model file exists: {model_file}')
         "
 
-    - name: Run MORET plugin tests
+    - name: Run all plugin tests
       run: |
-        python -m pytest tests/test_moret_plugin.py -v --tb=short
+        python -m pytest tests/test_moret_plugin.py tests/test_mcnp_plugin.py -v --tb=short
