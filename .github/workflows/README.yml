@@ -256,7 +256,6 @@ jobs:
                 str(input_file),
                 model,
                 input_variables,
-                engine="python",
                 output_dir=str(output_dir)
             )
 
