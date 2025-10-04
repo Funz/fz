@@ -149,8 +149,8 @@ def test_your_feature():
         # Act
         results = fz.fzr(
             str(input_file),
-            model,
             {"param": [1, 2, 3]},
+            model,
             calculators="sh://bash script.sh",
             resultsdir=str(Path(tmpdir) / "results")
         )

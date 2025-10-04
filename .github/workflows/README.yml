@@ -149,8 +149,8 @@ jobs:
         # Run all combinations (2 × 2 = 4 cases)
         results = fz.fzr(
             "input.txt",
-            model,
             input_variables,
+            model,
             calculators="sh://bash PerfectGazPressure.sh",
             results_dir="results"
         )
@@ -254,8 +254,8 @@ jobs:
             output_dir = tmpdir / "compiled"
             fz.fzc(
                 str(input_file),
-                model,
                 input_variables,
+                model,
                 output_dir=str(output_dir)
             )
 

@@ -52,8 +52,8 @@ def test_interrupt_sequential_execution(tmp_path):
     # Run fzr - should be interrupted
     results = fzr(
         str(input_dir),
-        model,
         input_variables,
+        model,
         results_dir=str(results_dir),
         calculators=["sh://"]
     )
@@ -111,8 +111,8 @@ def test_interrupt_parallel_execution(tmp_path):
     # Run fzr with multiple calculators for parallel execution
     results = fzr(
         str(input_dir),
-        model,
         input_variables,
+        model,
         results_dir=str(results_dir),
         calculators=["sh://", "sh://"]  # 2 parallel calculators
     )
@@ -162,8 +162,8 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     try:
         results = fzr(
             str(input_dir),
-            model,
             input_variables,
+            model,
             results_dir=str(results_dir),
             calculators=["sh://"]
         )

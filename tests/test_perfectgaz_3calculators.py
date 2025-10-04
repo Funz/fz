@@ -50,18 +50,18 @@ def test_perfectgaz_3calculators():
         # Run the test with 3 calculators
         result = fzr(
             input_path="perfectgaz_3calc_vars.txt",
+            input_variables={
+                "T_kelvin": temperatures,
+                "n_mol": amounts,
+                "V_m3": volumes,
+                "pressure_pa": pressures
+            },
             model={
                 "output": {
                     "pressure": "cat output.txt",
                     "volume": "cat volume_result.txt",
                     "temperature": "cat temperature_result.txt"
                 }
-            },
-            input_variables={
-                "T_kelvin": temperatures,
-                "n_mol": amounts,
-                "V_m3": volumes,
-                "pressure_pa": pressures
             },
             calculators=[
                 "sh:///bin/bash ./PerfectGazPressure.sh",

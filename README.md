@@ -130,8 +130,8 @@ input_variables = {
 # Run all combinations (4 × 3 = 12 cases)
 results = fz.fzr(
     "input.txt",
-    model,
     input_variables,
+    model,
     calculators="sh://bash PerfectGazPressure.sh",
     results_dir="results"
 )
@@ -205,20 +205,20 @@ input_variables = {
 # Compile single file
 fz.fzc(
     "input.txt",
-    model,
     input_variables,
+    model,
     output_dir="compiled"
 )
 
 # Compile with multiple value sets (creates subdirectories)
 fz.fzc(
     "input.txt",
-    model,
     {
         "T_celsius": [20, 30],  # 2 values
         "V_L": [5, 10],         # 2 values
         "n_mol": 1              # fixed
     },
+    model,
     output_dir="compiled_grid"
 )
 # Creates: compiled_grid/T_celsius=20,V_L=5/, T_celsius=20,V_L=10/, etc.
@@ -226,8 +226,8 @@ fz.fzc(
 
 **Parameters**:
 - `input_path`: Path to input file or directory
-- `model`: Model definition (dict or alias name)
 - `input_variables`: Dictionary of variable values (scalar or list)
+- `model`: Model definition (dict or alias name)
 - `engine`: Expression evaluator (`"python"` or `"R"`, default: `"python"`)
 - `output_dir`: Output directory path
 
@@ -287,12 +287,12 @@ model = {
 
 results = fz.fzr(
     input_path="input.txt",
-    model=model,
     input_variables={
         "temperature": [100, 200, 300],
         "pressure": [1, 10, 100],
         "concentration": 0.5
     },
+    model=model,
     calculators=["sh://bash calculate.sh"],
     results_dir="results"
 )
@@ -306,8 +306,8 @@ print(results)
 
 **Parameters**:
 - `input_path`: Input file or directory path
-- `model`: Model definition (dict or alias)
 - `input_variables`: Variable values (creates Cartesian product of lists)
+- `model`: Model definition (dict or alias)
 - `engine`: Expression evaluator (default: `"python"`)
 - `calculators`: Calculator URI(s) - string or list
 - `results_dir`: Results directory path
@@ -358,7 +358,7 @@ Store reusable models in `.fz/models/`:
 
 Use by name:
 ```python
-results = fz.fzr("input.txt", "perfectgas", input_variables)
+results = fz.fzr("input.txt", input_variables, "perfectgas")
 ```
 
 ### Formula Evaluation
@@ -484,7 +484,7 @@ Store calculator configurations in `.fz/calculators/`:
 
 Use by name:
 ```python
-results = fz.fzr("input.txt", "perfectgas", input_variables, calculators="cluster")
+results = fz.fzr("input.txt", input_variables, "perfectgas", calculators="cluster")
 ```
 
 ## Advanced Features
@@ -496,15 +496,17 @@ FZ automatically parallelizes when you have multiple cases and calculators:
 ```python
 # Sequential: 1 calculator, 10 cases → runs one at a time
 results = fz.fzr(
-    "input.txt", model,
+    "input.txt",
     {"temp": list(range(10))},
+    model,
     calculators="sh://bash calc.sh"
 )
 
 # Parallel: 3 calculators, 10 cases → 3 concurrent
 results = fz.fzr(
-    "input.txt", model,
+    "input.txt",
     {"temp": list(range(10))},
+    model,
     calculators=[
         "sh://bash calc.sh",
         "sh://bash calc.sh",
@@ -535,7 +537,9 @@ import os
 os.environ['FZ_MAX_RETRIES'] = '3'  # Try each case up to 3 times
 
 results = fz.fzr(
-    "input.txt", model, input_variables,
+    "input.txt",
+    input_variables,
+    model,
     calculators=[
         "sh://unreliable_calc.sh",  # Might fail
         "sh://backup_calc.sh"        # Backup method
@@ -556,16 +560,18 @@ Intelligent result reuse:
 ```python
 # First run
 results1 = fz.fzr(
-    "input.txt", model,
+    "input.txt",
     {"temp": [10, 20, 30]},
+    model,
     calculators="sh://expensive_calc.sh",
     results_dir="run1"
 )
 
 # Add more cases - reuse previous results
 results2 = fz.fzr(
-    "input.txt", model,
+    "input.txt",
     {"temp": [10, 20, 30, 40, 50]},  # 2 new cases
+    model,
     calculators=[
         "cache://run1",              # Check cache first
         "sh://expensive_calc.sh"     # Only run new cases
@@ -649,12 +655,12 @@ model = {
 # Parametric study
 results = fz.fzr(
     "input.txt",
-    model,
     {
         "n_mol": [1, 2, 3],
         "T_celsius": [10, 20, 30],
         "V_L": [5, 10]
     },
+    model,
     calculators="sh://bash PerfectGazPressure.sh",
     results_dir="perfectgas_results"
 )
@@ -693,12 +699,12 @@ model = {
 # Run on HPC cluster
 results = fz.fzr(
     "simulation_input/",
-    model,
     {
         "mesh_size": [100, 200, 400, 800],
         "timestep": [0.001, 0.01, 0.1],
         "iterations": 1000
     },
+    model,
     calculators=[
         "cache://previous_runs/*",  # Check cache first
         "ssh://user@hpc.university.edu/sbatch /path/to/submit.sh"
@@ -727,8 +733,8 @@ model = {
 
 results = fz.fzr(
     "input.txt",
-    model,
     {"param": list(range(100))},
+    model,
     calculators=[
         "cache://previous_results",           # 1. Check cache
         "sh://bash fast_but_unstable.sh",    # 2. Try fast method
@@ -845,8 +851,9 @@ Use caching to resume from where you left off:
 ```python
 # First run (interrupted after 50/100 cases)
 results1 = fz.fzr(
-    "input.txt", model,
+    "input.txt",
     {"param": list(range(100))},
+    model,
     calculators="sh://bash calc.sh",
     results_dir="results"
 )
@@ -854,8 +861,9 @@ print(f"Completed {len(results1)} cases before interrupt")
 
 # Resume using cache
 results2 = fz.fzr(
-    "input.txt", model,
+    "input.txt",
     {"param": list(range(100))},
+    model,
     calculators=[
         "cache://results",      # Reuse completed cases
         "sh://bash calc.sh"     # Run remaining cases
@@ -881,8 +889,8 @@ def main():
     try:
         results = fz.fzr(
             "input.txt",
-            model,
             {"param": list(range(1000))},  # Many cases
+            model,
             calculators="sh://bash slow_calculation.sh",
             results_dir="results"
         )
@@ -1010,8 +1018,8 @@ echo "result=$param" > output.txt
         # Run test
         results = fz.fzr(
             str(input_file),
-            model,
             {"param": [1, 2, 3]},
+            model,
             calculators=f"sh://bash {calc_script}",
             results_dir=str(Path(tmpdir) / "results")
         )

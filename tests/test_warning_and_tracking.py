@@ -32,8 +32,8 @@ def test_warning_and_tracking():
         # Test with a command that should trigger path resolution
         result = fzr(
             input_path="input_data.txt",
-            model={"output": {"value": "echo 'Completed'"}},
             input_variables={},
+            model={"output": {"value": "echo 'Completed'"}},
             calculators=["sh://bash test_warning_script.sh"],
             results_dir="warning_test_result"
         )
@@ -52,8 +52,8 @@ def test_warning_and_tracking():
 
         result2 = fzr(
             input_path="input_data.txt",
-            model={"output": {"value": "echo 'No paths'"}},
             input_variables={},
+            model={"output": {"value": "echo 'No paths'"}},
             calculators=["sh://echo 'No relative paths here'"],
             results_dir="no_warning_test"
         )

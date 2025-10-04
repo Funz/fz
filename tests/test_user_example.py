@@ -66,17 +66,18 @@ def test_user_example():
         start_time = time.time()
         result = fzr("input.txt",
         {
+            "T_celsius": [20,30,40],
+            "V_L": 1,
+            "n_mol": 1
+        },
+        {
             "varprefix": "$",
             "formulaprefix": "@",
             "delim": "()",
             "commentline": "#",
             "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
         },
-        {
-            "T_celsius": [20,30,40],
-            "V_L": 1,
-            "n_mol": 1
-        }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+        calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 
         elapsed = time.time() - start_time
         print(f"\n🏁 Test completed in {elapsed:.2f}s")
