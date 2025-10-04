@@ -32,7 +32,7 @@ def test_debug_command_flow():
         result = fzr(
             input_path="debug_input.txt",
             model={"output": {"value": "echo 'Debug test'"}},
-            var_values={},
+            input_variables={},
             calculators=["sh://bash debug_script.sh"],
             results_dir="debug_result"
         )

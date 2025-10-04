@@ -33,7 +33,7 @@ def test_warning_and_tracking():
         result = fzr(
             input_path="input_data.txt",
             model={"output": {"value": "echo 'Completed'"}},
-            var_values={},
+            input_variables={},
             calculators=["sh://bash test_warning_script.sh"],
             results_dir="warning_test_result"
         )
@@ -53,7 +53,7 @@ def test_warning_and_tracking():
         result2 = fzr(
             input_path="input_data.txt",
             model={"output": {"value": "echo 'No paths'"}},
-            var_values={},
+            input_variables={},
             calculators=["sh://echo 'No relative paths here'"],
             results_dir="no_warning_test"
         )

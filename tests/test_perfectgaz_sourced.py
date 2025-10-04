@@ -51,7 +51,7 @@ def test_perfectgaz_sourced():
         result = fzr(
             input_path="perfectgaz_vars.txt",
             model={"output": {"pressure": "cat output.txt"}},
-            var_values={
+            input_variables={
                 "T_kelvin": temperatures,
                 "n_mol": amounts,
                 "V_m3": volumes

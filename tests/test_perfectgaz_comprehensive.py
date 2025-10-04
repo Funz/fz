@@ -37,7 +37,7 @@ def test_perfectgaz_comprehensive():
         result = fzr(
             input_path="perfectgaz_input.txt",
             model={"output": {"pressure": "cat output.txt"}},
-            var_values={"T_K": temperatures},
+            input_variables={"T_K": temperatures},
             calculators=["sh://bash PerfectGazPressure.sh","sh://bash PerfectGazPressure.sh","sh://bash PerfectGazPressure.sh"],
             results_dir="perfectgaz_results"
         )

@@ -94,14 +94,14 @@ def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str
     return variables
 
 
-def replace_variables_in_content(content: str, var_values: Dict[str, Any],
+def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
                                 varprefix: str = "$", delim: str = "()") -> str:
     """
     Replace variables in content with their values
 
     Args:
         content: Text content to process
-        var_values: Dict of variable values
+        input_variables: Dict of variable values
         varprefix: Variable prefix (e.g., "$")
         delim: Delimiter characters (e.g., "()")
 
@@ -111,7 +111,7 @@ def replace_variables_in_content(content: str, var_values: Dict[str, Any],
     # Replace variables
     if len(delim) == 2:
         left_delim, right_delim = delim[0], delim[1]
-        for var, val in var_values.items():
+        for var, val in input_variables.items():
             # Pattern for delimited variables: $var or $(var)
             esc_varprefix = re.escape(varprefix)
             esc_var = re.escape(var)
@@ -127,7 +127,7 @@ def replace_variables_in_content(content: str, var_values: Dict[str, Any],
                 content = re.sub(pattern, str(val), content)
     else:
         # Simple prefix-only variables
-        for var, val in var_values.items():
+        for var, val in input_variables.items():
             esc_varprefix = re.escape(varprefix)
             esc_var = re.escape(var)
             pattern = rf"{esc_varprefix}{esc_var}\b"
@@ -136,14 +136,14 @@ def replace_variables_in_content(content: str, var_values: Dict[str, Any],
     return content
 
 
-def evaluate_formulas(content: str, model: Dict, var_values: Dict, engine: str = "python") -> str:
+def evaluate_formulas(content: str, model: Dict, input_variables: Dict, engine: str = "python") -> str:
     """
     Evaluate formulas in content using specified engine
 
     Args:
         content: Text content containing formulas
         model: Model definition dict
-        var_values: Dict of variable values
+        input_variables: Dict of variable values
         engine: Engine for evaluation ("python", "R", etc.)
 
     Returns:
@@ -171,7 +171,7 @@ def evaluate_formulas(content: str, model: Dict, var_values: Dict, engine: str =
     # Setup engine environment
     if engine.lower() == "python":
         # Create execution environment
-        env = dict(var_values)  # Start with variable values
+        env = dict(input_variables)  # Start with variable values
 
         # Execute context lines (collect them first to handle multi-line functions)
         if context_lines:
@@ -214,7 +214,7 @@ def evaluate_formulas(content: str, model: Dict, var_values: Dict, engine: str =
             formula = match.group(1)
             try:
                 # Replace variables in formula with their values
-                for var, val in var_values.items():
+                for var, val in input_variables.items():
                     var_pattern = rf'\${re.escape(var)}\b'
                     formula = re.sub(var_pattern, str(val), formula)
 

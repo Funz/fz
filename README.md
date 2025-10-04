@@ -121,7 +121,7 @@ model = {
 }
 
 # Define parameter values
-var_values = {
+input_variables = {
     "T_celsius": [10, 20, 30, 40],  # 4 temperatures
     "V_L": [1, 2, 5],                # 3 volumes
     "n_mol": 1.0                     # fixed amount
@@ -131,7 +131,7 @@ var_values = {
 results = fz.fzr(
     "input.txt",
     model,
-    var_values,
+    input_variables,
     calculators="sh://bash PerfectGazPressure.sh",
     results_dir="results"
 )
@@ -196,7 +196,7 @@ model = {
     "commentline": "#"
 }
 
-var_values = {
+input_variables = {
     "T_celsius": 25,
     "V_L": 10,
     "n_mol": 2
@@ -206,7 +206,7 @@ var_values = {
 fz.fzc(
     "input.txt",
     model,
-    var_values,
+    input_variables,
     engine="python",
     output_dir="compiled"
 )
@@ -228,7 +228,7 @@ fz.fzc(
 **Parameters**:
 - `input_path`: Path to input file or directory
 - `model`: Model definition (dict or alias name)
-- `var_values`: Dictionary of variable values (scalar or list)
+- `input_variables`: Dictionary of variable values (scalar or list)
 - `engine`: Expression evaluator (`"python"` or `"R"`, default: `"python"`)
 - `output_dir`: Output directory path
 
@@ -289,7 +289,7 @@ model = {
 results = fz.fzr(
     input_path="input.txt",
     model=model,
-    var_values={
+    input_variables={
         "temperature": [100, 200, 300],
         "pressure": [1, 10, 100],
         "concentration": 0.5
@@ -309,7 +309,7 @@ print(results)
 **Parameters**:
 - `input_path`: Input file or directory path
 - `model`: Model definition (dict or alias)
-- `var_values`: Variable values (creates Cartesian product of lists)
+- `input_variables`: Variable values (creates Cartesian product of lists)
 - `engine`: Expression evaluator (default: `"python"`)
 - `calculators`: Calculator URI(s) - string or list
 - `results_dir`: Results directory path
@@ -360,7 +360,7 @@ Store reusable models in `.fz/models/`:
 
 Use by name:
 ```python
-results = fz.fzr("input.txt", "perfectgas", var_values)
+results = fz.fzr("input.txt", "perfectgas", input_variables)
 ```
 
 ### Formula Evaluation
@@ -486,7 +486,7 @@ Store calculator configurations in `.fz/calculators/`:
 
 Use by name:
 ```python
-results = fz.fzr("input.txt", "perfectgas", var_values, calculators="cluster")
+results = fz.fzr("input.txt", "perfectgas", input_variables, calculators="cluster")
 ```
 
 ## Advanced Features
@@ -537,7 +537,7 @@ import os
 os.environ['FZ_MAX_RETRIES'] = '3'  # Try each case up to 3 times
 
 results = fz.fzr(
-    "input.txt", model, var_values,
+    "input.txt", model, input_variables,
     calculators=[
         "sh://unreliable_calc.sh",  # Might fail
         "sh://backup_calc.sh"        # Backup method

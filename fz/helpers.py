@@ -985,7 +985,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
 
 
 
-def compile_to_result_directories(input_path: str, model: Dict, var_values: Dict,
+def compile_to_result_directories(input_path: str, model: Dict, input_variables: Dict,
                                  engine: str, var_combinations: List[Dict],
                                  resultsdir: Path) -> None:
     """
@@ -994,7 +994,7 @@ def compile_to_result_directories(input_path: str, model: Dict, var_values: Dict
     Args:
         input_path: Path to input file or directory
         model: Model definition dict
-        var_values: Dict of variable values
+        input_variables: Dict of variable values
         engine: Engine for formula evaluation
         var_combinations: List of variable combinations (cases)
         resultsdir: Results directory

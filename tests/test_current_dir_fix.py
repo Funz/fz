@@ -47,7 +47,7 @@ def test_current_dir_fix():
             result = fzr(
                 input_path="test_input.txt",
                 model={"output": {"value": "echo 'Test completed'"}},
-                var_values={},
+                input_variables={},
                 calculators=["sh://bash test_script.sh"],
                 results_dir="current_dir_test"
             )
