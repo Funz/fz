@@ -158,7 +158,7 @@ def test_multiple_input_files_with_variables():
             print("\n🚀 Test 2: Running fzr with multiple input files and variable combinations")
 
             # Define variable values for multiple cases
-            var_values = {
+            input_variables = {
                 "T": [300, 350],        # Temperature (used in config.txt, boundary.inp, postprocess.py)
                 "P": [101325, 200000],  # Pressure (used in config.txt, boundary.inp)
                 "rho": [1.225, 1.0],    # Density (used in material.dat, postprocess.py)
@@ -170,7 +170,7 @@ def test_multiple_input_files_with_variables():
                 "dt": [0.001, 0.0005]   # Time step (used in solver.cfg)
             }
 
-            print(f"Variable combinations will create {2**len(var_values)} = {2**len(var_values)} cases")
+            print(f"Variable combinations will create {2**len(input_variables)} = {2**len(input_variables)} cases")
 
             # Run with ALL variables to ensure complete substitution
             test_vars = {
@@ -206,7 +206,7 @@ def test_multiple_input_files_with_variables():
             result = fzr(
                 input_path=str(input_files_dir),
                 model=model,
-                var_values=test_vars_small,
+                input_variables=test_vars_small,
                 calculators=["sh://./process_inputs.sh"],
                 results_dir=str(temp_dir_path / "multi_file_results")
             )

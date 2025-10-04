@@ -102,7 +102,7 @@ fi
             result = fzr(
                 input_path="test_input.txt",  # Use a specific input file
                 model={"output": {"result": "cat output.txt | grep 'result = ' | awk '{print $NF}' || echo 'failed'"}},
-                var_values={},
+                input_variables={},
                 calculators=[case["calculator"]],
                 results_dir=f"test_{case['name']}"
             )

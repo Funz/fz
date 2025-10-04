@@ -59,15 +59,15 @@ echo "Calculation complete for x=$x"
         }
 
         # Define variable values (10 cases)
-        var_values = {
+        input_variables = {
             "x": list(range(1, 11))  # [1, 2, 3, ..., 10]
         }
 
         results_dir = tmp_path / "results"
 
         print("Starting calculations...")
-        print(f"Cases to run: {len(var_values['x'])}")
-        print(f"Estimated time: ~{len(var_values['x']) * 3} seconds")
+        print(f"Cases to run: {len(input_variables['x'])}")
+        print(f"Estimated time: ~{len(input_variables['x']) * 3} seconds")
         print()
         print("Press Ctrl+C at any time to gracefully stop...")
         print()
@@ -77,7 +77,7 @@ echo "Calculation complete for x=$x"
             results = fzr(
                 str(input_dir),
                 model,
-                var_values,
+                input_variables,
                 results_dir=str(results_dir),
                 calculators=["sh://"]
             )
