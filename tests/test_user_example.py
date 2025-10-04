@@ -27,7 +27,7 @@ def test_user_example():
     print('    "T_celsius": [20,30,40],')
     print('    "V_L": 1,')
     print('    "n_mol": 1')
-    print('}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")')
+    print('}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")')
     print("=" * 60)
 
     # Check if required files exist
@@ -76,7 +76,7 @@ def test_user_example():
             "T_celsius": [20,30,40],
             "V_L": 1,
             "n_mol": 1
-        }, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+        }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 
         elapsed = time.time() - start_time
         print(f"\n🏁 Test completed in {elapsed:.2f}s")

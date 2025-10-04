@@ -74,7 +74,7 @@ def test_final_comprehensive_paths():
             {
                 "V": [f"final_{i}"]
             },
-            engine="python",
+            
             calculators=[test_case['calculator']],
             results_dir=f"final_comprehensive_{i}")
 

@@ -108,7 +108,7 @@ def test_modelica_fzc(modelica_setup):
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, {
         "convection": 123
-    }, engine="python", output_dir="output")
+    }, output_dir="output")
 
     assert Path("output").exists()
 
@@ -124,7 +124,7 @@ def test_modelica_fzr(modelica_setup):
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, {
         "convection": [.123, .456, .789],
-    }, engine="python", calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
+    }, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
 
     assert len(results) == 3
     assert all(results["status"] == "done")
@@ -142,7 +142,7 @@ def test_modelica_fzo(modelica_setup):
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, {
         "convection": [.123, .456, .789],
-    }, engine="python", calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
+    }, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
 
     # Test fzo
     result = fz.fzo("results", {"output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}})
@@ -162,7 +162,7 @@ def test_modelica_cache(modelica_setup):
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, {
         "convection": [.123, .456, .789],
-    }, engine="python", calculators="sh:///bin/bash ./Modelica.sh", results_dir="results_cache")
+    }, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results_cache")
 
     # Second run with cache
     result = fz.fzr("NewtonCooling.mo", {
@@ -173,7 +173,7 @@ def test_modelica_cache(modelica_setup):
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, {
         "convection": [.123, .456, .789],
-    }, engine="python", calculators=["cache://results_cache*", "sh:///bin/bash ./Modelica.sh"], results_dir="results_cache")
+    }, calculators=["cache://results_cache*", "sh:///bin/bash ./Modelica.sh"], results_dir="results_cache")
 
     assert len(result) == 3
 

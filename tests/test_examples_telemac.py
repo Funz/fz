@@ -85,7 +85,7 @@ def test_telemac_fzr(telemac_setup):
             "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
             "H": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_H.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_H.csv\")}))'"
         }
-    }, input_variables={}, engine="python", calculators="sh:///bin/bash .fz/calculators/Telemac.sh", results_dir="result")
+    }, input_variables={}, calculators="sh:///bin/bash .fz/calculators/Telemac.sh", results_dir="result")
 
     assert len(result) >= 1
 
@@ -97,7 +97,7 @@ def test_telemac_with_aliases(telemac_setup):
     if not Path("t2d_breach.cas").exists() or not Path(".fz").exists():
         pytest.skip("Telemac setup files not found")
 
-    result = fz.fzr("t2d_breach.cas", "Telemac", input_variables={}, engine="python", calculators="*", results_dir="result")
+    result = fz.fzr("t2d_breach.cas", "Telemac", input_variables={}, calculators="*", results_dir="result")
 
     assert len(result) >= 1
 

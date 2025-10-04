@@ -75,7 +75,7 @@ def test_perfect_gas():
                     "V_L": [1.0, 1.5],
                     "n_mol": [1.0, 0.5]  # Fixed: Use 0.5 instead of 0 to avoid division by zero
                 },
-                engine="python",
+                
                 calculators=["sh://bash ./PerfectGazPressure.sh"],  # Fixed: Single calculator, proper path
                 results_dir="results"
             )

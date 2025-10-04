@@ -66,7 +66,7 @@ def test_final_path_resolution():
             {
                 "T": [f"final_{i}"]
             },
-            engine="python",
+            
             calculators=[test_case['calculator']],
             results_dir=f"final_test_{i}")
 
