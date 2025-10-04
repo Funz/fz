@@ -1,0 +1,85 @@
+name: Plugin Import Tests
+
+on:
+  push:
+    branches: [ plugin-moret-wrapper ]
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'scripts/import_plugin.py'
+      - '.fz/models/**'
+      - 'tests/test_*_plugin.py'
+      - 'examples/**'
+  workflow_dispatch:
+
+jobs:
+  test-plugin-imports:
+    name: Test Plugin Imports (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc
+
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install bc
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest
+
+    - name: Import MORET plugin
+      run: |
+        python scripts/import_plugin.py moret
+        echo "✓ MORET plugin import completed"
+
+    - name: Import MCNP plugin
+      run: |
+        python scripts/import_plugin.py mcnp
+        echo "✓ MCNP plugin import completed"
+
+    - name: Verify models and calculators were created
+      run: |
+        python -c "
+        from pathlib import Path
+        import sys
+        errors = []
+        for plugin in ['moret', 'mcnp']:
+            model_file = Path(f'.fz/models/{plugin}.json')
+            calc_file = Path(f'.fz/calculators/{plugin}.json')
+            if not model_file.exists():
+                errors.append(f'Model file not found: {model_file}')
+            else:
+                print(f'✓ {plugin} model exists')
+            if not calc_file.exists():
+                errors.append(f'Calculator file not found: {calc_file}')
+            else:
+                print(f'✓ {plugin} calculator exists')
+        if errors:
+            for error in errors:
+                print(f'ERROR: {error}')
+            sys.exit(1)
+        "
+
+    - name: Run all plugin tests
+      run: |
+        python -m pytest tests/test_moret_plugin.py tests/test_mcnp_plugin.py -v --tb=short
