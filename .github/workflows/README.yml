@@ -152,7 +152,7 @@ jobs:
             model,
             var_values,
             calculators="sh://bash PerfectGazPressure.sh",
-            resultsdir="results"
+            results_dir="results"
         )
 
         # Display results
@@ -257,7 +257,7 @@ jobs:
                 model,
                 var_values,
                 engine="python",
-                outputdir=str(output_dir)
+                output_dir=str(output_dir)
             )
 
             # Check that output was created

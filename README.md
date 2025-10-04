@@ -133,7 +133,7 @@ results = fz.fzr(
     model,
     var_values,
     calculators="sh://bash PerfectGazPressure.sh",
-    resultsdir="results"
+    results_dir="results"
 )
 
 # Display results
@@ -208,7 +208,7 @@ fz.fzc(
     model,
     var_values,
     engine="python",
-    outputdir="compiled"
+    output_dir="compiled"
 )
 
 # Compile with multiple value sets (creates subdirectories)
@@ -220,7 +220,7 @@ fz.fzc(
         "V_L": [5, 10],         # 2 values
         "n_mol": 1              # fixed
     },
-    outputdir="compiled_grid"
+    output_dir="compiled_grid"
 )
 # Creates: compiled_grid/T_celsius=20,V_L=5/, T_celsius=20,V_L=10/, etc.
 ```
@@ -230,7 +230,7 @@ fz.fzc(
 - `model`: Model definition (dict or alias name)
 - `var_values`: Dictionary of variable values (scalar or list)
 - `engine`: Expression evaluator (`"python"` or `"R"`, default: `"python"`)
-- `outputdir`: Output directory path
+- `output_dir`: Output directory path
 
 ### fzo - Read Output Files
 
@@ -296,7 +296,7 @@ results = fz.fzr(
     },
     engine="python",
     calculators=["sh://bash calculate.sh"],
-    resultsdir="results"
+    results_dir="results"
 )
 
 # Results DataFrame includes:
@@ -312,7 +312,7 @@ print(results)
 - `var_values`: Variable values (creates Cartesian product of lists)
 - `engine`: Expression evaluator (default: `"python"`)
 - `calculators`: Calculator URI(s) - string or list
-- `resultsdir`: Results directory path
+- `results_dir`: Results directory path
 
 **Returns**: pandas DataFrame with all results
 
@@ -561,7 +561,7 @@ results1 = fz.fzr(
     "input.txt", model,
     {"temp": [10, 20, 30]},
     calculators="sh://expensive_calc.sh",
-    resultsdir="run1"
+    results_dir="run1"
 )
 
 # Add more cases - reuse previous results
@@ -572,7 +572,7 @@ results2 = fz.fzr(
         "cache://run1",              # Check cache first
         "sh://expensive_calc.sh"     # Only run new cases
     ],
-    resultsdir="run2"
+    results_dir="run2"
 )
 # Only runs calculations for temp=40 and temp=50
 ```
@@ -658,7 +658,7 @@ results = fz.fzr(
         "V_L": [5, 10]
     },
     calculators="sh://bash PerfectGazPressure.sh",
-    resultsdir="perfectgas_results"
+    results_dir="perfectgas_results"
 )
 
 print(results)
@@ -705,7 +705,7 @@ results = fz.fzr(
         "cache://previous_runs/*",  # Check cache first
         "ssh://user@hpc.university.edu/sbatch /path/to/submit.sh"
     ],
-    resultsdir="hpc_results"
+    results_dir="hpc_results"
 )
 
 # Analyze convergence
@@ -737,7 +737,7 @@ results = fz.fzr(
         "sh://bash robust_method.sh",        # 3. Fallback to robust
         "ssh://user@server/bash remote.sh"   # 4. Last resort: remote
     ],
-    resultsdir="results"
+    results_dir="results"
 )
 
 # Check which calculator was used for each case
@@ -850,7 +850,7 @@ results1 = fz.fzr(
     "input.txt", model,
     {"param": list(range(100))},
     calculators="sh://bash calc.sh",
-    resultsdir="results"
+    results_dir="results"
 )
 print(f"Completed {len(results1)} cases before interrupt")
 
@@ -862,7 +862,7 @@ results2 = fz.fzr(
         "cache://results",      # Reuse completed cases
         "sh://bash calc.sh"     # Run remaining cases
     ],
-    resultsdir="results_resumed"
+    results_dir="results_resumed"
 )
 print(f"Total completed: {len(results2)} cases")
 ```
@@ -886,7 +886,7 @@ def main():
             model,
             {"param": list(range(1000))},  # Many cases
             calculators="sh://bash slow_calculation.sh",
-            resultsdir="results"
+            results_dir="results"
         )
 
         print(f"\n✅ Completed {len(results)} calculations")
@@ -1015,7 +1015,7 @@ echo "result=$param" > output.txt
             model,
             {"param": [1, 2, 3]},
             calculators=f"sh://bash {calc_script}",
-            resultsdir=str(Path(tmpdir) / "results")
+            results_dir=str(Path(tmpdir) / "results")
         )
 
         # Verify
