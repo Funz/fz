@@ -207,7 +207,6 @@ fz.fzc(
     "input.txt",
     model,
     input_variables,
-    engine="python",
     output_dir="compiled"
 )
 
@@ -294,7 +293,6 @@ results = fz.fzr(
         "pressure": [1, 10, 100],
         "concentration": 0.5
     },
-    engine="python",
     calculators=["sh://bash calculate.sh"],
     results_dir="results"
 )
@@ -764,8 +762,8 @@ export FZ_SSH_KEEPALIVE=300
 # Auto-accept SSH host keys (use with caution!)
 export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=0
 
-# Default formula engine
-export FZ_DEFAULT_FORMULA_ENGINE=python
+# Default formula interpreter
+export FZ_INTERPRETER=python
 ```
 
 ### Python Configuration

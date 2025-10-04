@@ -158,7 +158,7 @@ def test_comprehensive_path_resolution():
             {
                 "T": [f"comprehensive_{i}"]
             },
-            engine="python",
+            
             calculators=[test_case['calculator']],
             results_dir=f"comprehensive_test_{i}")
 

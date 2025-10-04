@@ -89,7 +89,7 @@ def test_edge_cases():
             {
                 "T": [f"edge_{i+1}"]
             },
-            engine="python",
+            
             calculators=[test_case['calculator']],
             results_dir=f"edge_test_{i+1}")
 

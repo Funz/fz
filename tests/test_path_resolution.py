@@ -110,7 +110,7 @@ def test_various_path_formats():
             {
                 "X": [f"test_{i+1}"]
             },
-            engine="python",
+            
             calculators=[test_case['calculator']],
             results_dir=f"path_test_{i+1}")
 

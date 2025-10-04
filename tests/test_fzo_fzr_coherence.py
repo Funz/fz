@@ -250,7 +250,7 @@ def test_fzo_fzr_coherence_with_formulas():
 
             # Run fzr
             fzr_result = fz.fzr("input.txt", model, variables,
-                                engine="python",
+                                
                                 calculators="sh://bash calc.sh",
                                 results_dir="formula_results")
 

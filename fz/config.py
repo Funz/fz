@@ -9,8 +9,8 @@ from typing import Optional, Union
 from enum import Enum
 
 
-class DefaultFormulaEngine(Enum):
-    """Available formula evaluation engines"""
+class Interpreter(Enum):
+    """Available formula interpreters"""
     PYTHON = "python"
     R = "R"
     JAVASCRIPT = "javascript"
@@ -32,12 +32,12 @@ class Config:
         # Calculator retry configuration
         self.max_retries = int(os.getenv('FZ_MAX_RETRIES', '5'))
 
-        # Default formula evaluation engine
-        formula_engine_str = os.getenv('FZ_DEFAULT_FORMULA_ENGINE', 'python').lower()
+        # Default formula interpreter
+        interpreter_str = os.getenv('FZ_INTERPRETER', 'python').lower()
         try:
-            self.default_formula_engine = DefaultFormulaEngine(formula_engine_str)
+            self.default_interpreter = Interpreter(interpreter_str)
         except ValueError:
-            self.default_formula_engine = DefaultFormulaEngine.PYTHON
+            self.default_interpreter = Interpreter.PYTHON
 
         # Parallel execution configuration
         self.max_workers = self._parse_int_env('FZ_MAX_WORKERS', None)
@@ -75,7 +75,7 @@ class Config:
         return {
             'log_level': self.log_level,
             'max_retries': self.max_retries,
-            'default_formula_engine': self.default_formula_engine.value,
+            'default_interpreter': self.default_interpreter.value,
             'max_workers': self.max_workers,
             'ssh_auto_accept_hostkeys': self.ssh_auto_accept_hostkeys,
             'ssh_keepalive': self.ssh_keepalive
@@ -96,6 +96,45 @@ def reload_config():
     config.reload()
 
 
+# Global formula interpreter
+_interpreter: Optional[str] = None
+
+
+def set_interpreter(interpreter: str):
+    """
+    Set the global formula interpreter
+
+    Args:
+        interpreter: Interpreter name ("python", "R", "javascript", "auto")
+
+    Raises:
+        ValueError: If interpreter name is not valid
+    """
+    global _interpreter
+
+    # Validate interpreter name
+    valid_interpreters = [i.value for i in Interpreter]
+    if interpreter.lower() not in valid_interpreters:
+        raise ValueError(f"Invalid interpreter '{interpreter}'. Must be one of: {valid_interpreters}")
+
+    _interpreter = interpreter.lower()
+
+
+def get_interpreter() -> str:
+    """
+    Get the current global formula interpreter
+
+    Returns:
+        Interpreter name (defaults to FZ_INTERPRETER env var or "python")
+    """
+    # If interpreter was explicitly set, use that
+    if _interpreter is not None:
+        return _interpreter
+
+    # Otherwise use the configured default from environment variable
+    return config.default_interpreter.value
+
+
 def print_config():
     """Print current configuration in a readable format"""
     print("=" * 60)
@@ -109,7 +148,8 @@ def print_config():
 
     print("\n🔄 CALCULATION:")
     print(f"  FZ_MAX_RETRIES = {summary['max_retries']}")
-    print(f"  FZ_DEFAULT_FORMULA_ENGINE = {summary['default_formula_engine']}")
+    print(f"  FZ_INTERPRETER = {summary['default_interpreter']}")
+    print(f"  Current interpreter = {get_interpreter()}")
 
     print("\n⚡ PERFORMANCE:")
     print(f"  FZ_MAX_WORKERS = {summary['max_workers'] or 'auto'}")

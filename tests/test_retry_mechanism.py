@@ -71,7 +71,7 @@ def test_retry_success():
     {
         "T_celsius": [20, 30]
     },
-    engine="python",
+    
     calculators=[
         "sh:///bin/bash ./FailThenSuccess.sh",  # Fails first time
         "sh:///bin/bash ./AlwaysSucceeds.sh"    # Should succeed on retry
@@ -102,7 +102,7 @@ def test_all_fail():
     {
         "T_celsius": [40]
     },
-    engine="python",
+    
     calculators=[
         "sh:///bin/bash ./AlwaysFails.sh",     # Always fails
         "sh:///bin/bash ./AlwaysFails.sh"      # Also always fails
@@ -133,7 +133,7 @@ def test_first_succeeds():
     {
         "T_celsius": [50]
     },
-    engine="python",
+    
     calculators=[
         "sh:///bin/bash ./AlwaysSucceeds.sh",   # Should succeed immediately
         "sh:///bin/bash ./FailThenSuccess.sh"   # Won't be tried

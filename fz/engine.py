@@ -136,15 +136,15 @@ def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
     return content
 
 
-def evaluate_formulas(content: str, model: Dict, input_variables: Dict, engine: str = "python") -> str:
+def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpreter: str = "python") -> str:
     """
-    Evaluate formulas in content using specified engine
+    Evaluate formulas in content using specified interpreter
 
     Args:
         content: Text content containing formulas
         model: Model definition dict
         input_variables: Dict of variable values
-        engine: Engine for evaluation ("python", "R", etc.)
+        interpreter: Interpreter for evaluation ("python", "R", etc.)
 
     Returns:
         Content with formulas evaluated
@@ -168,8 +168,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, engine: 
             code_part = stripped[len(commentline + formulaprefix):]
             context_lines.append(code_part)
 
-    # Setup engine environment
-    if engine.lower() == "python":
+    # Setup interpreter environment
+    if interpreter.lower() == "python":
         # Create execution environment
         env = dict(input_variables)  # Start with variable values
 
@@ -227,8 +227,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, engine: 
         content = re.sub(formula_pattern, replace_formula, content)
 
     else:
-        # For other engines, we'd need to implement support
-        print(f"Warning: Engine '{engine}' not yet implemented, skipping formula evaluation")
+        # For other interpreters, we'd need to implement support
+        print(f"Warning: Interpreter '{interpreter}' not yet implemented, skipping formula evaluation")
 
     return content
 

@@ -91,7 +91,7 @@ def test_robust_parallel():
         start_time = time.time()
 
         result = fz.fzr("input.txt", model, variables,
-                       engine="python",
+                       
                        calculators=calculators,
                        results_dir="results")
 

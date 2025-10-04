@@ -78,7 +78,7 @@ def test_final_specification():
         start_time = time.time()
 
         result = fz.fzr("input.txt", model, variables,
-                       engine="python",
+                       
                        calculators=calculators,
                        results_dir="results")
 

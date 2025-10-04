@@ -186,7 +186,7 @@ fz.fzc("input.txt",
     "T_celsius": 20,
     "V_L": 1,
     "n_mol": 1
-}, engine="python", output_dir="output")
+}, output_dir="output")
 ```
 
 run calculation for one case
@@ -203,7 +203,7 @@ fz.fzr("input.txt",
     "T_celsius": 20,
     "V_L": 1,
     "n_mol": 1
-}, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="result")
+}, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="result")
 ```
 
 run calculation for many cases (factorial design of experiments)
@@ -220,7 +220,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25,30],
     "V_L": [1,1.5],
     "n_mol": 1
-}, engine="python", calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
+}, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
 ```
 
 use fzo to get same results from previous fzr
@@ -241,7 +241,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25,30],
     "V_L": [1,1.5],
     "n_mol": 1
-}, engine="python", calculators=["cache://results_*","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+}, calculators=["cache://results_*","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
 # test parallel execution of calculators
@@ -261,7 +261,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25],
     "V_L": 1,
     "n_mol": 1
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
 now 3 calculators, 2 cases, so should run in 5 seconds instead of 10 seconds if run sequentially)
@@ -277,7 +277,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25],
     "V_L": 1,
     "n_mol": 1
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
 now 2 calculators, 3 cases, so should run in 10 seconds instead of 15 seconds if run sequentially)
@@ -293,7 +293,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25,30],
     "V_L": 1,
     "n_mol": 1
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
 # test Modelica example
@@ -319,7 +319,7 @@ fz.fzc("NewtonCooling.mo",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
 },{
     "convection": 123
-}, engine="python", output_dir="output")
+}, output_dir="output")
 ```
 
 ```python
@@ -332,7 +332,7 @@ results=fz.fzr("NewtonCooling.mo",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
 },{
     "convection": [.123,.456, .789],
-}, engine="python", calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
+}, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
 
 # plot temperature for the 3 cases
 import matplotlib.pyplot as plt
@@ -359,7 +359,7 @@ fz.fzr("NewtonCooling.mo",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
 },{
     "convection": [.123,.456, .789],
-}, engine="python", calculators=["cache://results_*","sh:///bin/bash ./Modelica.sh"], results_dir="results")
+}, calculators=["cache://results_*","sh:///bin/bash ./Modelica.sh"], results_dir="results")
 ```
 
 # test Telemac example
@@ -386,12 +386,11 @@ fz.fzr("t2d_breach.cas",
         "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
         "H": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_H.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_H.csv\")}))'"
     }
-},input_variables={}, engine="python", calculators="sh:///bin/bash .fz/calculators/Telemac.sh", results_dir="result")
+},input_variables={}, calculators="sh:///bin/bash .fz/calculators/Telemac.sh", results_dir="result")
 ```
 
 use cache and aliases for Telemac:
 ```python
-fz.fzr("t2d_breach.cas","Telemac",input_variables={}, engine="python", calculators="*", results_dir="result")
 ```
 
 # test ssh
@@ -424,7 +423,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,30,40],
     "V_L": 1,
     "n_mol": 1
-}, engine="python", calculators=ssh_calculator, results_dir="results")
+}, calculators=ssh_calculator, results_dir="results")
 ```
 
 # test parallel execution of calculators
@@ -441,7 +440,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,30,40],
     "V_L": [1,1.5],
     "n_mol": 1
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*6, results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*6, results_dir="results")
 ```
 
 fzo to get same results from previous fzr
@@ -464,7 +463,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25,30],
     "V_L": [1,1.5],
     "n_mol": [1,0]  
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*3, results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*3, results_dir="results")
 ```
 
 sometimes fails, but retries and succeeds (must return numerics for all pressure values)
@@ -480,7 +479,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25,30],
     "V_L": [1,1.5],
     "n_mol": [1,0] 
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureRandomFails.sh"]*3, results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressureRandomFails.sh"]*3, results_dir="results")
 ```
 
 always fails (must return None in all pressure values)
@@ -496,7 +495,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25,30],
     "V_L": [1,1.5],
     "n_mol": [1,0]
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"]*3, results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"]*3, results_dir="results")
 ```
 
 now use previous results in cache, but as failed should run calculations again
@@ -512,7 +511,7 @@ fz.fzr("input.txt",
     "T_celsius": [20,25,30],
     "V_L": [1,1.5],
     "n_mol": [1,0]  
-}, engine="python", calculators=["cache://_","sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+}, calculators=["cache://_","sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
 # non-numeric variables
@@ -530,5 +529,5 @@ fz.fzr("input.txt",
     "T_celsius": ["20","25","abc"],
     "V_L": [1,1.5],
     "n_mol": [1,0]  
-}, engine="python", calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*3, results_dir="results")
+}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*3, results_dir="results")
 ```

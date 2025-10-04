@@ -24,7 +24,6 @@ def main():
     parser_fzc.add_argument("input", help="Input file or directory")
     parser_fzc.add_argument("model", help="Model definition (JSON file or inline JSON)")
     parser_fzc.add_argument("variables", help="Variable values (JSON)")
-    parser_fzc.add_argument("--engine", default="python", help="Formula evaluation engine")
     parser_fzc.add_argument("--output", default="output", help="Output directory")
 
     # fzo command
@@ -37,7 +36,6 @@ def main():
     parser_fzr.add_argument("input", help="Input file or directory")
     parser_fzr.add_argument("model", help="Model definition (JSON file or inline JSON)")
     parser_fzr.add_argument("variables", help="Variable values (JSON)")
-    parser_fzr.add_argument("--engine", default="python", help="Formula evaluation engine")
     parser_fzr.add_argument("--results", default="results", help="Results directory")
     parser_fzr.add_argument("--calculators", help="Calculator specifications (JSON)")
 
@@ -75,7 +73,7 @@ def main():
         elif args.command == "fzc":
             model = parse_model(args.model)
             variables = parse_variables(args.variables)
-            fzc(args.input, model, variables, engine=args.engine, output_dir=args.output)
+            fzc(args.input, model, variables, output_dir=args.output)
             print(f"Compiled input saved to {args.output}")
 
         elif args.command == "fzo":
@@ -96,7 +94,7 @@ def main():
                     calculators = json.loads(args.calculators)
 
             result = fzr(args.input, model, variables,
-                        engine=args.engine, results_dir=args.results,
+                        results_dir=args.results,
                         calculators=calculators)
             print(json.dumps(result, indent=2))
 
