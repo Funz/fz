@@ -207,7 +207,6 @@ fz.fzc(
     "input.txt",
     model,
     input_variables,
-    engine="python",
     output_dir="compiled"
 )
 
@@ -294,7 +293,6 @@ results = fz.fzr(
         "pressure": [1, 10, 100],
         "concentration": 0.5
     },
-    engine="python",
     calculators=["sh://bash calculate.sh"],
     results_dir="results"
 )

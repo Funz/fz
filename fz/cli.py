@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import fzi, fzc, fzo, fzr
+from . import fzi, fzc, fzo, fzr, set_engine
 
 
 def main():
@@ -75,7 +75,9 @@ def main():
         elif args.command == "fzc":
             model = parse_model(args.model)
             variables = parse_variables(args.variables)
-            fzc(args.input, model, variables, engine=args.engine, output_dir=args.output)
+            # Set the global engine before calling fzc
+            set_engine(args.engine)
+            fzc(args.input, model, variables, output_dir=args.output)
             print(f"Compiled input saved to {args.output}")
 
         elif args.command == "fzo":
@@ -95,8 +97,10 @@ def main():
                 else:
                     calculators = json.loads(args.calculators)
 
+            # Set the global engine before calling fzr
+            set_engine(args.engine)
             result = fzr(args.input, model, variables,
-                        engine=args.engine, results_dir=args.results,
+                        results_dir=args.results,
                         calculators=calculators)
             print(json.dumps(result, indent=2))
 

@@ -347,7 +347,6 @@ def fzc(
     input_path: str,
     model: Union[str, Dict],
     input_variables: Dict,
-    engine: str = None,
     output_dir: str = "output",
 ) -> None:
     """
@@ -357,7 +356,6 @@ def fzc(
         input_path: Path to input file or directory
         model: Model definition dict or alias string
         input_variables: Dict of variable values or lists of values for grid
-        engine: Engine for formula evaluation ("python", "R", etc.)
         output_dir: Output directory for compiled files
     """
 
@@ -366,10 +364,9 @@ def fzc(
 
     model = _resolve_model(model)
 
-    # Use configured default formula engine if not specified
-    if engine is None:
-        config = get_config()
-        engine = config.default_formula_engine.value
+    # Get the global formula engine
+    from .config import get_engine
+    engine = get_engine()
 
     varprefix = model.get("varprefix", "$")
     delim = model.get("delim", "()")
@@ -732,7 +729,6 @@ def fzr(
     input_path: str,
     model: Union[str, Dict],
     input_variables: Dict,
-    engine: str = None,
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
@@ -743,7 +739,6 @@ def fzr(
         input_path: Path to input file or directory
         model: Model definition dict or alias string
         input_variables: Dict of variable values or lists of values for grid
-        engine: Engine for formula evaluation
         results_dir: Results directory
         calculators: Calculator specifications
 
@@ -764,10 +759,9 @@ def fzr(
 
     model = _resolve_model(model)
 
-    # Use configured default formula engine if not specified
-    if engine is None:
-        config = get_config()
-        engine = config.default_formula_engine.value
+    # Get the global formula engine
+    from .config import get_engine
+    engine = get_engine()
 
     if calculators is None:
         calculators = ["sh://"]
@@ -833,7 +827,7 @@ def fzr(
 
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
-            input_path, model, input_variables, engine, var_combinations, results_dir
+            input_path, model, input_variables, var_combinations, results_dir
         )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)

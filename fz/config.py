@@ -96,6 +96,47 @@ def reload_config():
     config.reload()
 
 
+# Global formula engine
+_engine: Optional[str] = None
+
+
+def set_engine(engine: str):
+    """
+    Set the global formula evaluation engine
+
+    Args:
+        engine: Engine name ("python", "R", "javascript", "auto")
+
+    Raises:
+        ValueError: If engine name is not valid
+    """
+    global _engine
+
+    # Validate engine name
+    valid_engines = [e.value for e in DefaultFormulaEngine]
+    if engine.lower() not in valid_engines:
+        raise ValueError(f"Invalid engine '{engine}'. Must be one of: {valid_engines}")
+
+    _engine = engine.lower()
+
+
+def get_engine() -> str:
+    """
+    Get the current global formula evaluation engine
+
+    Returns:
+        Engine name (defaults to FZ_DEFAULT_FORMULA_ENGINE env var or "python")
+    """
+    global _engine
+
+    # If engine was explicitly set, use that
+    if _engine is not None:
+        return _engine
+
+    # Otherwise use the configured default from environment variable
+    return config.default_formula_engine.value
+
+
 def print_config():
     """Print current configuration in a readable format"""
     print("=" * 60)
@@ -110,6 +151,7 @@ def print_config():
     print("\n🔄 CALCULATION:")
     print(f"  FZ_MAX_RETRIES = {summary['max_retries']}")
     print(f"  FZ_DEFAULT_FORMULA_ENGINE = {summary['default_formula_engine']}")
+    print(f"  Current engine = {get_engine()}")
 
     print("\n⚡ PERFORMANCE:")
     print(f"  FZ_MAX_WORKERS = {summary['max_workers'] or 'auto'}")

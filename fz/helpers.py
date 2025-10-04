@@ -986,7 +986,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
 
 
 def compile_to_result_directories(input_path: str, model: Dict, input_variables: Dict,
-                                 engine: str, var_combinations: List[Dict],
+                                 var_combinations: List[Dict],
                                  resultsdir: Path) -> None:
     """
     Compile input files directly to result directories for each case
@@ -995,12 +995,15 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
         input_path: Path to input file or directory
         model: Model definition dict
         input_variables: Dict of variable values
-        engine: Engine for formula evaluation
         var_combinations: List of variable combinations (cases)
         resultsdir: Results directory
     """
     from .engine import replace_variables_in_content, evaluate_formulas
     from .io import create_hash_file
+    from .config import get_engine
+
+    # Get the global formula engine
+    engine = get_engine()
 
     varprefix = model.get("varprefix", "$")
     delim = model.get("delim", "()")

@@ -19,6 +19,8 @@ from .config import (
     get_config,
     reload_config,
     print_config,
+    set_engine,
+    get_engine,
 )
 
 __version__ = "0.8.0"
@@ -26,4 +28,5 @@ __all__ = [
     "fzi", "fzc", "fzo", "fzr",
     "set_log_level", "get_log_level",
     "get_config", "reload_config", "print_config",
+    "set_engine", "get_engine",
 ]
