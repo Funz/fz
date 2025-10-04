@@ -127,8 +127,6 @@ def get_interpreter() -> str:
     Returns:
         Interpreter name (defaults to FZ_INTERPRETER env var or "python")
     """
-    global _interpreter
-
     # If interpreter was explicitly set, use that
     if _interpreter is not None:
         return _interpreter
