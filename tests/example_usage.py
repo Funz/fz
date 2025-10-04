@@ -56,7 +56,7 @@ calculated_value = @(calculate($base, $mult))
 
         # Set the formula interpreter (uses python by default)
         fz.set_interpreter("python")
-        fz.fzc(str(input_file), model, single_values,
+        fz.fzc(str(input_file), single_values, model,
                output_dir=str(output_dir))
 
         compiled_content = (output_dir / "input.txt").read_text()
@@ -69,7 +69,7 @@ calculated_value = @(calculate($base, $mult))
         multi_values = {"base": [2, 4, 6], "mult": [1, 2]}
         output_multi_dir = temp_path / "compiled_multi"
 
-        fz.fzc(str(input_file), model, multi_values,
+        fz.fzc(str(input_file), multi_values, model,
                output_dir=str(output_multi_dir))
 
         print(f"   Created {len(list(output_multi_dir.iterdir()))} combinations:")
@@ -92,7 +92,7 @@ calculated_value = @(calculate($base, $mult))
         try:
             # Create a simple mock calculator that just echoes
             results_all = fz.fzr(
-                str(input_file), model, {"base": [1, 2], "mult": [3, 4]},
+                str(input_file), {"base": [1, 2], "mult": [3, 4]}, model,
                 results_dir=str(temp_path / "results"),
                 calculators=["sh://echo 'The result is: calculated'"]
             )

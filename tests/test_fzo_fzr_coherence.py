@@ -70,7 +70,7 @@ def test_fzo_fzr_coherence_single_case():
             variables = {"T": 300}
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash calc.sh",
                                 results_dir="test_results")
 
@@ -126,7 +126,7 @@ def test_fzo_fzr_coherence_multiple_cases():
             variables = {"T": [100, 200, 300], "P": [1, 2]}  # 6 cases
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash calc.sh",
                                 results_dir="multi_results")
 
@@ -188,7 +188,7 @@ def test_fzo_fzr_coherence_multiple_outputs():
             variables = {"X": [2, 3, 4, 5]}  # 4 cases
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash calc.sh",
                                 results_dir="multi_output_results")
 
@@ -249,8 +249,8 @@ def test_fzo_fzr_coherence_with_formulas():
             variables = {"base": [5, 10], "mult": [2, 3]}  # 4 cases
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
-                                
+            fzr_result = fz.fzr("input.txt", variables, model,
+
                                 calculators="sh://bash calc.sh",
                                 results_dir="formula_results")
 
@@ -306,7 +306,7 @@ def test_fzo_fzr_coherence_with_failures():
             variables = {"value": [1, 2, 3]}  # Case 2 will fail
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash calc.sh",
                                 results_dir="failure_results")
 
@@ -374,7 +374,7 @@ def test_fzo_fzr_coherence_perfectgaz_example():
             }  # 6 cases total
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash PerfectGazPressure.sh",
                                 results_dir="perfectgaz_results")
 
@@ -432,7 +432,7 @@ def test_fzo_fzr_coherence_simple_echo():
             variables = {"x": [1, 2, 3], "y": [10, 20]}  # 6 cases
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://sh calc.sh",
                                 results_dir="echo_results")
 
@@ -489,7 +489,7 @@ def test_fzo_fzr_coherence_three_variables():
             variables = {"a": [1, 2], "b": [10, 20], "c": [100, 200, 300]}
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://sh calc.sh",
                                 results_dir="three_var_results")
 
@@ -544,7 +544,7 @@ def test_fzo_fzr_coherence_float_values():
             variables = {"temp": [20.5, 25.0, 30.5], "pressure": [1.0, 1.5]}
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://sh calc.sh",
                                 results_dir="float_results")
 
@@ -595,7 +595,7 @@ def test_fzo_fzr_coherence_large_grid():
             variables = {"p1": [1, 2, 3, 4, 5], "p2": [10, 20, 30, 40]}
 
             # Run fzr
-            fzr_result = fz.fzr("input.txt", model, variables,
+            fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://sh calc.sh",
                                 results_dir="large_grid_results")
 

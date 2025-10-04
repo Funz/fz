@@ -61,8 +61,8 @@ echo "Final stderr message" >&2
 
             result = fzr(
                 input_path="timing_input.txt",
-                model={"output": {"value": "echo 'Timing test completed'"}},
                 input_variables={},
+                model={"output": {"value": "echo 'Timing test completed'"}},
                 calculators=["sh://bash timing_test_script.sh"],
                 results_dir=f"timing_test_{test_num + 1}"
             )

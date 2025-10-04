@@ -64,14 +64,14 @@ def test_retry_success():
 
     result = fzr("input.txt",
     {
+        "T_celsius": [20, 30]
+    },
+    {
         "varprefix": "$",
         "delim": "()",
         "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
     },
-    {
-        "T_celsius": [20, 30]
-    },
-    
+
     calculators=[
         "sh:///bin/bash ./FailThenSuccess.sh",  # Fails first time
         "sh:///bin/bash ./AlwaysSucceeds.sh"    # Should succeed on retry
@@ -95,14 +95,14 @@ def test_all_fail():
 
     result = fzr("input.txt",
     {
+        "T_celsius": [40]
+    },
+    {
         "varprefix": "$",
         "delim": "()",
         "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
     },
-    {
-        "T_celsius": [40]
-    },
-    
+
     calculators=[
         "sh:///bin/bash ./AlwaysFails.sh",     # Always fails
         "sh:///bin/bash ./AlwaysFails.sh"      # Also always fails
@@ -126,14 +126,14 @@ def test_first_succeeds():
 
     result = fzr("input.txt",
     {
+        "T_celsius": [50]
+    },
+    {
         "varprefix": "$",
         "delim": "()",
         "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
     },
-    {
-        "T_celsius": [50]
-    },
-    
+
     calculators=[
         "sh:///bin/bash ./AlwaysSucceeds.sh",   # Should succeed immediately
         "sh:///bin/bash ./FailThenSuccess.sh"   # Won't be tried

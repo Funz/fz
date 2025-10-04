@@ -76,8 +76,8 @@ echo "Calculation complete for x=$x"
         try:
             results = fzr(
                 str(input_dir),
-                model,
                 input_variables,
+                model,
                 results_dir=str(results_dir),
                 calculators=["sh://"]
             )

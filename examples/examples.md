@@ -177,15 +177,15 @@ fz.fzi("input.txt",
 ```python
 fz.fzc("input.txt",
 {
+    "T_celsius": 20,
+    "V_L": 1,
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": 20,
-    "V_L": 1,
-    "n_mol": 1
 }, output_dir="output")
 ```
 
@@ -194,15 +194,15 @@ run calculation for one case
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": 20,
+    "V_L": 1,
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": 20,
-    "V_L": 1,
-    "n_mol": 1
 }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="result")
 ```
 
@@ -211,15 +211,15 @@ run calculation for many cases (factorial design of experiments)
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25,30],
+    "V_L": [1,1.5],
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25,30],
-    "V_L": [1,1.5],
-    "n_mol": 1
 }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
 ```
 
@@ -232,15 +232,15 @@ test cache (all cases should be in cache, so no more calculation should be done)
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25,30],
+    "V_L": [1,1.5],
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25,30],
-    "V_L": [1,1.5],
-    "n_mol": 1
 }, calculators=["cache://results_*","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
@@ -252,15 +252,15 @@ here 2 calculators, 2 cases, so should run in 5 seconds instead of 10 seconds if
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25],
+    "V_L": 1,
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25],
-    "V_L": 1,
-    "n_mol": 1
 }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
@@ -268,15 +268,15 @@ now 3 calculators, 2 cases, so should run in 5 seconds instead of 10 seconds if 
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25],
+    "V_L": 1,
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25],
-    "V_L": 1,
-    "n_mol": 1
 }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
@@ -284,15 +284,15 @@ now 2 calculators, 3 cases, so should run in 10 seconds instead of 15 seconds if
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25,30],
+    "V_L": 1,
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25,30],
-    "V_L": 1,
-    "n_mol": 1
 }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
@@ -312,26 +312,26 @@ fz.fzi("NewtonCooling.mo",
 ```python
 fz.fzc("NewtonCooling.mo",
 {
+    "convection": 123
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
-},{
-    "convection": 123
 }, output_dir="output")
 ```
 
 ```python
 results=fz.fzr("NewtonCooling.mo",
 {
+    "convection": [.123,.456, .789],
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
-},{
-    "convection": [.123,.456, .789],
 }, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
 
 # plot temperature for the 3 cases
@@ -352,13 +352,13 @@ use cache of previous results
 ```python
 fz.fzr("NewtonCooling.mo",
 {
+    "convection": [.123,.456, .789],
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
-},{
-    "convection": [.123,.456, .789],
 }, calculators=["cache://results_*","sh:///bin/bash ./Modelica.sh"], results_dir="results")
 ```
 
@@ -376,7 +376,7 @@ fz.fzi("t2d_breach.cas",
 
 ```python
 fz.fzr("t2d_breach.cas",
-{
+input_variables={},{
     "id": "Telemac",
     "varprefix": "$",
     "formulaprefix": "@",
@@ -386,7 +386,7 @@ fz.fzr("t2d_breach.cas",
         "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
         "H": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_H.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_H.csv\")}))'"
     }
-},input_variables={}, calculators="sh:///bin/bash .fz/calculators/Telemac.sh", results_dir="result")
+}, calculators="sh:///bin/bash .fz/calculators/Telemac.sh", results_dir="result")
 ```
 
 use cache and aliases for Telemac:
@@ -414,15 +414,15 @@ ssh_calculator=f"ssh://localhost//bin/bash {current_dir}/PerfectGazPressure.sh"
 
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,30,40],
+    "V_L": 1,
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,30,40],
-    "V_L": 1,
-    "n_mol": 1
 }, calculators=ssh_calculator, results_dir="results")
 ```
 
@@ -431,15 +431,15 @@ fz.fzr("input.txt",
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,30,40],
+    "V_L": [1,1.5],
+    "n_mol": 1
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,30,40],
-    "V_L": [1,1.5],
-    "n_mol": 1
 }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*6, results_dir="results")
 ```
 
@@ -454,15 +454,15 @@ never fails
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25,30],
+    "V_L": [1,1.5],
+    "n_mol": [1,0]
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25,30],
-    "V_L": [1,1.5],
-    "n_mol": [1,0]  
 }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*3, results_dir="results")
 ```
 
@@ -470,15 +470,15 @@ sometimes fails, but retries and succeeds (must return numerics for all pressure
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25,30],
+    "V_L": [1,1.5],
+    "n_mol": [1,0]
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25,30],
-    "V_L": [1,1.5],
-    "n_mol": [1,0] 
 }, calculators=["sh:///bin/bash ./PerfectGazPressureRandomFails.sh"]*3, results_dir="results")
 ```
 
@@ -486,15 +486,15 @@ always fails (must return None in all pressure values)
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25,30],
+    "V_L": [1,1.5],
+    "n_mol": [1,0]
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25,30],
-    "V_L": [1,1.5],
-    "n_mol": [1,0]
 }, calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"]*3, results_dir="results")
 ```
 
@@ -502,15 +502,15 @@ now use previous results in cache, but as failed should run calculations again
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": [20,25,30],
+    "V_L": [1,1.5],
+    "n_mol": [1,0]
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": [20,25,30],
-    "V_L": [1,1.5],
-    "n_mol": [1,0]  
 }, calculators=["cache://_","sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
 ```
 
@@ -520,14 +520,14 @@ with some wrong values "abc", should fail for these cases only
 ```python
 fz.fzr("input.txt",
 {
+    "T_celsius": ["20","25","abc"],
+    "V_L": [1,1.5],
+    "n_mol": [1,0]
+},{
     "varprefix": "$",
     "formulaprefix": "@",
     "delim": "()",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-},{
-    "T_celsius": ["20","25","abc"],
-    "V_L": [1,1.5],
-    "n_mol": [1,0]  
 }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"]*3, results_dir="results")
 ```

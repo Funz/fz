@@ -29,8 +29,8 @@ def test_absolute_path_resolution():
         # Run a command that creates output in the original directory
         result = fzr(
             input_path=".",
-            model={"output": {"value": "echo 'Execution completed'"}},
             input_variables={},
+            model={"output": {"value": "echo 'Execution completed'"}},
             calculators=["sh://bash test_script.sh"],
             results_dir="absolute_test_result"
         )

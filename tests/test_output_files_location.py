@@ -46,8 +46,8 @@ echo "Final stdout message"
         # Run the test
         result = fzr(
             input_path="test_input_files.txt",
-            model={"output": {"value": "echo 'Model output'"}},
             input_variables={},
+            model={"output": {"value": "echo 'Model output'"}},
             calculators=["sh://bash test_multi_output.sh"],
             results_dir="file_location_test"
         )

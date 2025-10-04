@@ -95,15 +95,15 @@ def test_perfectgaz_fzi(perfectgaz_setup):
 def test_perfectgaz_fzc(perfectgaz_setup):
     """Test fzc - from examples.md lines 178-190"""
     fz.fzc("input.txt", {
+        "T_celsius": 20,
+        "V_L": 1,
+        "n_mol": 1
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, {
-        "T_celsius": 20,
-        "V_L": 1,
-        "n_mol": 1
     }, output_dir="output")
 
     # Check if (relative) output directory is created
@@ -113,15 +113,15 @@ def test_perfectgaz_fzc(perfectgaz_setup):
 def test_perfectgaz_fzr_single_case(perfectgaz_setup):
     """Test fzr with single case - from examples.md lines 194-207"""
     result = fz.fzr("input.txt", {
+        "T_celsius": 20,
+        "V_L": 1,
+        "n_mol": 1
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, {
-        "T_celsius": 20,
-        "V_L": 1,
-        "n_mol": 1
     }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="result")
 
     assert len(result) == 1
@@ -131,15 +131,15 @@ def test_perfectgaz_fzr_single_case(perfectgaz_setup):
 def test_perfectgaz_fzr_factorial_design(perfectgaz_setup):
     """Test fzr with factorial design - from examples.md lines 211-224"""
     result = fz.fzr("input.txt", {
+        "T_celsius": [20, 25, 30],
+        "V_L": [1, 1.5],
+        "n_mol": 1
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, {
-        "T_celsius": [20, 25, 30],
-        "V_L": [1, 1.5],
-        "n_mol": 1
     }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
 
     assert len(result) == 6  # 3 * 2 combinations
@@ -149,15 +149,15 @@ def test_perfectgaz_fzo(perfectgaz_setup):
     """Test fzo to read results - from examples.md lines 227-229"""
     # First run fzr to create results
     fz.fzr("input.txt", {
+        "T_celsius": [20, 25, 30],
+        "V_L": [1, 1.5],
+        "n_mol": 1
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, {
-        "T_celsius": [20, 25, 30],
-        "V_L": [1, 1.5],
-        "n_mol": 1
     }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
 
     # Now test fzo
@@ -170,28 +170,28 @@ def test_perfectgaz_cache(perfectgaz_setup):
     """Test cache usage - from examples.md lines 232-245"""
     # First run to populate cache
     result1 = fz.fzr("input.txt", {
+        "T_celsius": [20, 25, 30],
+        "V_L": [1, 1.5],
+        "n_mol": 1
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, {
-        "T_celsius": [20, 25, 30],
-        "V_L": [1, 1.5],
-        "n_mol": 1
     }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results_cache")
 
     # Second run should use cache
     result2 = fz.fzr("input.txt", {
+        "T_celsius": [20, 25, 30],
+        "V_L": [1, 1.5],
+        "n_mol": 1
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, {
-        "T_celsius": [20, 25, 30],
-        "V_L": [1, 1.5],
-        "n_mol": 1
     }, calculators=["cache://results_cache*", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results_cache")
 
     assert len(result2) == 6

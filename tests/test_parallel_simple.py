@@ -34,8 +34,8 @@ def test_parallel_vs_single():
         start_time = time.time()
         results_single = fz.fzr(
             temp_input,
-            test_model,
             {"param": 1},
+            test_model,
             calculators=["sh://echo 'fast result' > result.txt"]
         )
         single_time = time.time() - start_time
@@ -46,8 +46,8 @@ def test_parallel_vs_single():
         start_time = time.time()
         results_parallel = fz.fzr(
             temp_input,
-            test_model,
             {"param": 1},
+            test_model,
             results_dir="results_parallel",
             calculators=[
                 "sh://sleep 2 && echo 'slow result' > result.txt",

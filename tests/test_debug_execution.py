@@ -107,8 +107,8 @@ def test_debug_execution():
 
         start_time = time.time()
 
-        result = fz.fzr("input.txt", model, variables,
-                       
+        result = fz.fzr("input.txt", variables, model,
+
                        calculators=calculators,
                        results_dir="results")
 

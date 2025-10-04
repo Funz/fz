@@ -345,8 +345,8 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
 
 def fzc(
     input_path: str,
-    model: Union[str, Dict],
     input_variables: Dict,
+    model: Union[str, Dict],
     output_dir: str = "output",
 ) -> None:
     """
@@ -354,8 +354,8 @@ def fzc(
 
     Args:
         input_path: Path to input file or directory
-        model: Model definition dict or alias string
         input_variables: Dict of variable values or lists of values for grid
+        model: Model definition dict or alias string
         output_dir: Output directory for compiled files
     """
 
@@ -727,8 +727,8 @@ def fzo(
 
 def fzr(
     input_path: str,
-    model: Union[str, Dict],
     input_variables: Dict,
+    model: Union[str, Dict],
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
@@ -737,8 +737,8 @@ def fzr(
 
     Args:
         input_path: Path to input file or directory
-        model: Model definition dict or alias string
         input_variables: Dict of variable values or lists of values for grid
+        model: Model definition dict or alias string
         results_dir: Results directory
         calculators: Calculator specifications
 

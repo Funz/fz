@@ -103,14 +103,14 @@ def test_various_path_formats():
         try:
             result = fzr("input.txt",
             {
+                "X": [f"test_{i+1}"]
+            },
+            {
                 "varprefix": "$",
                 "delim": "()",
                 "output": {"result": "grep 'result = ' output.txt | awk '{print $3}' || echo 'none'"}
             },
-            {
-                "X": [f"test_{i+1}"]
-            },
-            
+
             calculators=[test_case['calculator']],
             results_dir=f"path_test_{i+1}")
 
