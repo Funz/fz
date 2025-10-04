@@ -182,7 +182,7 @@ def import_plugin(plugin_name):
                 shutil.copy(sample, examples_dir / sample.name)
                 print(f"Copied sample: {sample.name}")
 
-    # Copy execution scripts and create calculator alias
+    # Create execution script and calculator alias
     scripts_dir = plugin_dir / 'src' / 'main' / 'scripts'
     if scripts_dir.exists():
         # Try both lowercase and capitalized plugin name
@@ -191,39 +191,95 @@ def import_plugin(plugin_name):
             script_files = list(scripts_dir.glob(f'{plugin_name.capitalize()}.*'))
         if not script_files:
             script_files = list(scripts_dir.glob(f'{plugin_name.upper()}.*'))
+
         if script_files:
             # Create calculators directory
             calc_dir = fz_dir / '.fz' / 'calculators'
             calc_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create scripts directory
-            fz_scripts_dir = fz_dir / 'scripts' / 'calculators'
-            fz_scripts_dir.mkdir(parents=True, exist_ok=True)
-
-            # Copy shell script
-            script_name = None
+            # Read the original script to understand the structure
+            original_script = None
             for script_file in script_files:
-                if script_file.suffix in ['.sh', '.bat']:
-                    dest_script = fz_scripts_dir / script_file.name
-                    shutil.copy(script_file, dest_script)
-                    if script_file.suffix == '.sh':
-                        dest_script.chmod(0o755)
-                        script_name = script_file.name
-                    print(f"Copied script: {script_file.name}")
+                if script_file.suffix == '.sh':
+                    with open(script_file, 'r') as f:
+                        original_script = f.read()
+                    break
+
+            # Create simplified wrapper script
+            script_name = f'{plugin_name.lower()}.sh'
+            wrapper_script = fz_dir / 'scripts' / script_name
+
+            if plugin_name.lower() == 'moret':
+                script_content = """#!/bin/bash
+# MORET calculator wrapper
+# Assumes MORET is installed at /opt/MORET or in PATH
+
+if [ -f "/opt/MORET/scripts/moret.py" ]; then
+    /opt/MORET/scripts/moret.py "$@"
+elif command -v moret &> /dev/null; then
+    moret "$@"
+else
+    echo "ERROR: MORET not found. Please install MORET or set the path in this script."
+    exit 1
+fi
+"""
+            elif plugin_name.lower() == 'mcnp':
+                script_content = """#!/bin/bash
+# MCNP calculator wrapper
+# Assumes MCNP6 is installed at /Applications/MCNP6 or in PATH
+
+# Default installation path (adjust as needed)
+MCNP_PATH="${MCNP_PATH:-/Applications/MCNP6}"
+export DATAPATH="$MCNP_PATH/MCNP_DATA"
+
+ulimit -s unlimited 2>/dev/null
+
+# Track process IDs for cleanup
+echo $$ >> PID
+
+if [ -f "$MCNP_PATH/MCNP_CODE/bin/mcnp6" ]; then
+    $MCNP_PATH/MCNP_CODE/bin/mcnp6 inp="$@" &
+    PID_MCNP=$!
+    echo $PID_MCNP >> PID
+    wait $PID_MCNP
+elif command -v mcnp6 &> /dev/null; then
+    mcnp6 inp="$@" &
+    PID_MCNP=$!
+    echo $PID_MCNP >> PID
+    wait $PID_MCNP
+else
+    echo "ERROR: MCNP6 not found. Please install MCNP6 or set MCNP_PATH environment variable."
+    rm -f PID
+    exit 1
+fi
+
+# Cleanup
+if [ -f "PID" ]; then
+    rm -f "PID"
+fi
+"""
+            else:
+                # Generic wrapper for other plugins
+                script_content = f"""#!/bin/bash
+# {plugin_name.upper()} calculator wrapper
+# TODO: Configure the path to {plugin_name.upper()} executable
+
+echo "ERROR: {plugin_name.upper()} calculator not configured yet."
+echo "Please edit this script to set the correct path to {plugin_name.upper()}."
+exit 1
+"""
+
+            with open(wrapper_script, 'w') as f:
+                f.write(script_content)
+            wrapper_script.chmod(0o755)
+            print(f"Created wrapper script: {script_name}")
 
             # Create calculator alias
-            if script_name:
-                calculator_alias = {
-                    "id": plugin_name.lower(),
-                    "command": f"sh://bash scripts/calculators/{script_name}",
-                    "description": f"{plugin_name.upper()} calculator (assumes local installation)"
-                }
-            else:
-                calculator_alias = {
-                    "id": plugin_name.lower(),
-                    "command": f"sh://echo 'No executable script found for {plugin_name}'",
-                    "description": f"{plugin_name.upper()} calculator (no script available)"
-                }
+            calculator_alias = {
+                "id": plugin_name.lower(),
+                "command": f"sh://bash {script_name}",
+                "description": f"{plugin_name.upper()} calculator (assumes local installation)"
+            }
 
             calc_file = calc_dir / f'{plugin_name.lower()}.json'
             with open(calc_file, 'w') as f:
