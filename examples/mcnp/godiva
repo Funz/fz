@@ -1,0 +1,10 @@
+Godiva-type critical reactor and kcode example
+c skip 10 and run a total of 110 keff cycles with 1000 neutrons per cycle
+ 1    1  -18.74  -1  imp:n=1   $ enriched uranium sphere (godiva)
+ 2    0           1  imp:n=0   $ all space outside the sphere
+
+ 1    so 8.741                 $ radius of the godiva sphere
+
+ kcode 1000 1.0 10 1010         $ kcode defines a criticality calculation
+ ksrc  0 0 0                   $ initial keff spatial dist is point at origin
+ m1    92235 -93.71  92238 -5.27  92234 -1.02  $ define u with weight fractions

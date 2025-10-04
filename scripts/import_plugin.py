@@ -95,6 +95,14 @@ def create_model_alias(plugin_name, config, samples_dir):
             elif 'sigma' in key:
                 # Extract value after +/-
                 outputs[key] = 'grep -E "(FAIBLE|LOWEST) SIGMA" *.listing | head -1 | sed -E "s/.*\\/\\-[[:space:]]+([0-9.E+-]+).*/\\1/"'
+        # For MCNP-specific patterns with "final estimated combined"
+        elif 'final estimated combined' in pattern:
+            if 'mean_keff' in key:
+                # Extract keff value after "keff = "
+                outputs[key] = 'grep "final estimated combined" outp | sed -E "s/.*keff = ([0-9.E+-]+).*/\\1/"'
+            elif 'sigma' in key:
+                # Extract standard deviation value
+                outputs[key] = 'grep "final estimated combined" outp | sed -E "s/.*standard deviation of ([0-9.E+-]+).*/\\1/"'
         else:
             # Default: create a TODO placeholder
             outputs[key] = f'echo "TODO: implement extraction for {key}"'
