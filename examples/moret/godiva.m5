@@ -1,0 +1,52 @@
+MORET_BEGIN
+TITLE GODIVA
+
+TERM
+  CYCL
+    ACTI 100
+    PASS 3
+  KEFF
+    SIGM 0.001
+ENDT
+
+* Geometry modelling
+GEOM
+  MODU 0
+  TYPE 1 SPHE 8.741
+  VOLU Ext0 0 1 1 0.0 0.0 0.0
+  ENDM
+ENDG
+
+* Description of the materials
+MATE
+  CONT 
+  LIBR jeff311.xml 
+  TEMP 300 
+  
+  COMP UMET
+    CONC
+    U234     4.91895E-04
+    U235     4.49988E-02
+    U238     2.49865E-03
+  ENDC   
+ENDM
+
+* Neutron source distribution
+SOUR
+  POIN 1000
+    MODU 0
+    VOLU Ext0 0.0 0.0 0.0
+  ENDP
+ENDS
+
+* geometry plotting 
+GRAP  Z 0.0  ENDG
+PAIN  Z 0.0  ENDP
+
+* Simuation properties
+SIMU
+  NATU
+FSIM
+
+ENDD
+MORET_END
