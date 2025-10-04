@@ -683,8 +683,13 @@ def run_local_calculation(
             # On Windows, use bash if available (Git Bash, WSL, etc.)
             # Check common Git Bash installation paths first
             git_bash_paths = [
-                r"C:\Program Files\Git\bin\bash.exe",
-                r"C:\Program Files (x86)\Git\bin\bash.exe",
+                # cygwin bash
+                r"C:\cygwin64\bin\bash.exe",
+                # Git for Windows default paths
+                r"C:\Progra~1\Git\bin\bash.exe",
+                r"C:\Progra~2\Git\bin\bash.exe",
+                # win-bash
+                r"C:\win-bash\bin\bash.exe",
             ]
 
             for bash_path in git_bash_paths:
@@ -707,14 +712,25 @@ def run_local_calculation(
 
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
-            process = subprocess.Popen(
-                full_command,
-                shell=True,
-                stdout=out_file,
-                stderr=err_file,
-                cwd=working_dir,
-                executable=executable,
-            )
+            if platform.system() == "Windows":
+                # On Windows, use shell=False without executable, but with fullcommand as list
+                process = subprocess.Popen(
+                    full_command.replace('bash', executable).split(),
+                    shell=False,
+                    stdout=out_file,
+                    stderr=err_file,
+                    cwd=working_dir,
+                    executable=None,
+                )
+            else:
+                process = subprocess.Popen(
+                    full_command,
+                    shell=True,
+                    stdout=out_file,
+                    stderr=err_file,
+                    cwd=working_dir,
+                    executable=executable,
+                )
 
             # Poll process and check for interrupts
             try:
