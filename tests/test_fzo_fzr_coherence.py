@@ -50,8 +50,8 @@ def test_fzo_fzr_coherence_single_case():
     """Test that fzo output matches fzr results for single case"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -73,9 +73,15 @@ def test_fzo_fzr_coherence_single_case():
             fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash calc.sh",
                                 results_dir="test_results")
+            print("fzr_result:", fzr_result)
+
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
 
             # Parse with fzo
             fzo_result = fz.fzo("test_results", model)
+            print("fzo_result:", fzo_result)
 
             # Verify coherence
             assert "result" in fzr_result, "result not in fzr output"
@@ -95,16 +101,18 @@ def test_fzo_fzr_coherence_single_case():
             # fzo won't have T variable for single case - this is expected
 
             print("✅ Single case: fzo matches fzr (outputs only)")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            # IMPORTANT: Change back to original directory BEFORE tempfile cleanup
+            # Windows cannot delete a directory that is the current working directory
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_multiple_cases():
     """Test that fzo output matches fzr results for multiple cases"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -129,6 +137,10 @@ def test_fzo_fzr_coherence_multiple_cases():
             fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash calc.sh",
                                 results_dir="multi_results")
+            
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
 
             # Parse with fzo
             fzo_result = fz.fzo("multi_results", model)
@@ -154,16 +166,16 @@ def test_fzo_fzr_coherence_multiple_cases():
                 assert fzr_p == fzo_p, f"Case {i} P: fzr={fzr_p}, fzo={fzo_p}"
 
             print("✅ Multiple cases: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_multiple_outputs():
     """Test fzo/fzr coherence with multiple output values"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -192,6 +204,10 @@ def test_fzo_fzr_coherence_multiple_outputs():
                                 calculators="sh://bash calc.sh",
                                 results_dir="multi_output_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("multi_output_results", model)
 
@@ -213,16 +229,16 @@ def test_fzo_fzr_coherence_multiple_outputs():
                 assert fzr_x == fzo_x, f"Case {i} X: fzr={fzr_x}, fzo={fzo_x}"
 
             print("✅ Multiple outputs: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_with_formulas():
     """Test fzo/fzr coherence with formula evaluation"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -250,9 +266,12 @@ def test_fzo_fzr_coherence_with_formulas():
 
             # Run fzr
             fzr_result = fz.fzr("input.txt", variables, model,
-
                                 calculators="sh://bash calc.sh",
                                 results_dir="formula_results")
+
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
 
             # Parse with fzo
             fzo_result = fz.fzo("formula_results", model)
@@ -272,16 +291,16 @@ def test_fzo_fzr_coherence_with_formulas():
                 assert fzr_mult == fzo_mult
 
             print("✅ Formula evaluation: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_with_failures():
     """Test fzo/fzr coherence when some cases fail"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -310,6 +329,10 @@ def test_fzo_fzr_coherence_with_failures():
                                 calculators="sh://bash calc.sh",
                                 results_dir="failure_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("failure_results", model)
 
@@ -328,16 +351,16 @@ def test_fzo_fzr_coherence_with_failures():
                     assert fzr_res == fzo_res, f"Case {i} result: fzr={fzr_res}, fzo={fzo_res}"
 
             print("✅ Partial failures: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_perfectgaz_example():
     """Test fzo/fzr coherence with realistic perfect gas example"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup realistic perfect gas example
@@ -378,6 +401,10 @@ def test_fzo_fzr_coherence_perfectgaz_example():
                                 calculators="sh://bash PerfectGazPressure.sh",
                                 results_dir="perfectgaz_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("perfectgaz_results", model)
 
@@ -403,16 +430,16 @@ def test_fzo_fzr_coherence_perfectgaz_example():
                 assert fzr_n == fzo_n
 
             print("✅ Perfect gas example: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_simple_echo():
     """Test fzo/fzr coherence with simple echo commands (cross-platform)"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup simple test that works on all platforms
@@ -435,6 +462,10 @@ def test_fzo_fzr_coherence_simple_echo():
             fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://sh calc.sh",
                                 results_dir="echo_results")
+
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
 
             # Parse with fzo
             fzo_result = fz.fzo("echo_results", model)
@@ -459,16 +490,16 @@ def test_fzo_fzr_coherence_simple_echo():
                 assert fzr_y == fzo_y, f"Case {i} y: fzr={fzr_y}, fzo={fzo_y}"
 
             print("✅ Simple echo: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_three_variables():
     """Test fzo/fzr coherence with three variables (more complex sorting)"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -493,6 +524,10 @@ def test_fzo_fzr_coherence_three_variables():
                                 calculators="sh://sh calc.sh",
                                 results_dir="three_var_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("three_var_results", model)
 
@@ -514,16 +549,16 @@ def test_fzo_fzr_coherence_three_variables():
                 assert fzr_c == fzo_c, f"Case {i} c: fzr={fzr_c}, fzo={fzo_c}"
 
             print("✅ Three variables: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_float_values():
     """Test fzo/fzr coherence with float variable values"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -548,6 +583,10 @@ def test_fzo_fzr_coherence_float_values():
                                 calculators="sh://sh calc.sh",
                                 results_dir="float_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+
             # Parse with fzo
             fzo_result = fz.fzo("float_results", model)
 
@@ -565,16 +604,16 @@ def test_fzo_fzr_coherence_float_values():
                 assert fzr_press == fzo_press, f"Case {i} pressure: fzr={fzr_press}, fzo={fzo_press}"
 
             print("✅ Float values: fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 def test_fzo_fzr_coherence_large_grid():
     """Test fzo/fzr coherence with larger parameter grid"""
 
     original_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
             os.chdir(tmpdir)
 
             # Setup
@@ -599,6 +638,10 @@ def test_fzo_fzr_coherence_large_grid():
                                 calculators="sh://sh calc.sh",
                                 results_dir="large_grid_results")
 
+            # Add delay (mainly fo windows) to ensure files are flushed
+            import time
+            time.sleep(1)
+            
             # Parse with fzo
             fzo_result = fz.fzo("large_grid_results", model)
 
@@ -616,8 +659,8 @@ def test_fzo_fzr_coherence_large_grid():
                 assert fzr_p2 == fzo_p2, f"Case {i} p2: fzr={fzr_p2}, fzo={fzo_p2}"
 
             print("✅ Large grid (20 cases): fzo matches fzr")
-    finally:
-        os.chdir(original_dir)
+        finally:
+            os.chdir(original_dir)
 
 
 if __name__ == "__main__":
