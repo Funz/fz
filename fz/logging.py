@@ -7,7 +7,7 @@ Uses environment variable FZ_LOG_LEVEL or function calls to set verbosity.
 
 import os
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 
 
 class LogLevel(Enum):
@@ -23,8 +23,11 @@ class LogLevel(Enum):
 _current_log_level = LogLevel.ERROR
 
 
-def set_log_level(level: LogLevel) -> None:
+def set_log_level(level: Union[LogLevel, str]) -> None:
     """Set the global logging level"""
+    if isinstance(level, str):
+        set_log_level_from_string(level)
+        return
     global _current_log_level
     _current_log_level = level
 
