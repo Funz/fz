@@ -228,7 +228,6 @@ fz.fzc(
 - `input_path`: Path to input file or directory
 - `input_variables`: Dictionary of variable values (scalar or list)
 - `model`: Model definition (dict or alias name)
-- `engine`: Expression evaluator (`"python"` or `"R"`, default: `"python"`)
 - `output_dir`: Output directory path
 
 ### fzo - Read Output Files
@@ -308,7 +307,6 @@ print(results)
 - `input_path`: Input file or directory path
 - `input_variables`: Variable values (creates Cartesian product of lists)
 - `model`: Model definition (dict or alias)
-- `engine`: Expression evaluator (default: `"python"`)
 - `calculators`: Calculator URI(s) - string or list
 - `results_dir`: Results directory path
 
