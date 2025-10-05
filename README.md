@@ -967,7 +967,7 @@ fz/
 ├── fz/                          # Main package
 │   ├── __init__.py              # Public API exports
 │   ├── core.py                  # Core functions (fzi, fzc, fzo, fzr)
-│   ├── engine.py                # Variable parsing, formula evaluation
+│   ├── interpreter.py                # Variable parsing, formula evaluation
 │   ├── runners.py               # Calculation execution (sh, ssh)
 │   ├── helpers.py               # Parallel execution, retry logic
 │   ├── io.py                    # File I/O, caching, hashing

@@ -1,5 +1,5 @@
 """
-Engine utilities for fz package: variable parsing, formula evaluation, and output parsing
+Interpreter utilities for fz package: variable parsing, formula evaluation, and output parsing
 """
 import re
 import json

@@ -35,9 +35,9 @@ class Config:
         # Default formula interpreter
         interpreter_str = os.getenv('FZ_INTERPRETER', 'python').lower()
         try:
-            self.default_interpreter = Interpreter(interpreter_str)
+            self.interpreter = Interpreter(interpreter_str)
         except ValueError:
-            self.default_interpreter = Interpreter.PYTHON
+            self.interpreter = Interpreter.PYTHON
 
         # Parallel execution configuration
         self.max_workers = self._parse_int_env('FZ_MAX_WORKERS', None)
@@ -75,7 +75,7 @@ class Config:
         return {
             'log_level': self.log_level,
             'max_retries': self.max_retries,
-            'default_interpreter': self.default_interpreter.value,
+            'interpreter': self.interpreter.value,
             'max_workers': self.max_workers,
             'ssh_auto_accept_hostkeys': self.ssh_auto_accept_hostkeys,
             'ssh_keepalive': self.ssh_keepalive
@@ -132,7 +132,7 @@ def get_interpreter() -> str:
         return _interpreter
 
     # Otherwise use the configured default from environment variable
-    return config.default_interpreter.value
+    return config.interpreter.value
 
 
 def print_config():
@@ -148,7 +148,7 @@ def print_config():
 
     print("\n🔄 CALCULATION:")
     print(f"  FZ_MAX_RETRIES = {summary['max_retries']}")
-    print(f"  FZ_INTERPRETER = {summary['default_interpreter']}")
+    print(f"  FZ_INTERPRETER = {summary['interpreter']}")
     print(f"  Current interpreter = {get_interpreter()}")
 
     print("\n⚡ PERFORMANCE:")
