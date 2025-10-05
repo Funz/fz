@@ -391,6 +391,7 @@ input_variables={},{
 
 use cache and aliases for Telemac:
 ```python
+fz.fzr("t2d_breach.cas",input_variables={},"Telemac", calculators="*", results_dir="result")
 ```
 
 # test ssh

@@ -998,7 +998,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
         var_combinations: List of variable combinations (cases)
         resultsdir: Results directory
     """
-    from .engine import replace_variables_in_content, evaluate_formulas
+    from .interpreter import replace_variables_in_content, evaluate_formulas
     from .io import create_hash_file
     from .config import get_interpreter
 

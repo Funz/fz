@@ -387,7 +387,7 @@ Examples, mockups, references, etc.
 ```
 fz/
 ├── core.py       # Main API functions (fzi, fzc, fzo, fzr)
-├── engine.py     # Variable parsing and formula evaluation
+├── interpreter.py     # Variable parsing and formula evaluation
 ├── runners.py    # Calculation execution (local, SSH)
 ├── helpers.py    # Parallel execution and retry logic
 ├── io.py         # File I/O, caching, hashing
@@ -399,7 +399,7 @@ fz/
 
 1. **Core functions** (`fzi`, `fzc`, `fzo`, `fzr`) should remain stable
 2. **New calculator types**: Add to `runners.py`
-3. **New engines**: Add to `engine.py`
+3. **New interpreters**: Add to `interpreter.py`
 4. **New features**: Consider backward compatibility
 
 ### Performance Considerations

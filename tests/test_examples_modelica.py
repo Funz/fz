@@ -117,13 +117,13 @@ def test_modelica_fzc(modelica_setup):
 def test_modelica_fzr(modelica_setup):
     """Test Modelica fzr - from examples.md lines 326-344"""
     results = fz.fzr("NewtonCooling.mo", {
+        "convection": [.123, .456, .789],
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
-    }, {
-        "convection": [.123, .456, .789],
     }, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
 
     assert len(results) == 3
@@ -135,13 +135,13 @@ def test_modelica_fzo(modelica_setup):
     """Test Modelica fzo - from examples.md lines 347-349"""
     # First run fzr to create results
     fz.fzr("NewtonCooling.mo", {
+        "convection": [.123, .456, .789],
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
-    }, {
-        "convection": [.123, .456, .789],
     }, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results")
 
     # Test fzo
@@ -155,25 +155,25 @@ def test_modelica_cache(modelica_setup):
     """Test Modelica with cache - from examples.md lines 352-363"""
     # First run to populate cache
     fz.fzr("NewtonCooling.mo", {
+        "convection": [.123, .456, .789],
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
-    }, {
-        "convection": [.123, .456, .789],
     }, calculators="sh:///bin/bash ./Modelica.sh", results_dir="results_cache")
 
     # Second run with cache
     result = fz.fzr("NewtonCooling.mo", {
+        "convection": [.123, .456, .789],
+    }, {
         "varprefix": "$",
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
-    }, {
-        "convection": [.123, .456, .789],
-    }, calculators=["cache://results_cache*", "sh:///bin/bash ./Modelica.sh"], results_dir="results_cache")
+    }, calculators="cache://results_cache*", results_dir="results_cache")
 
     assert len(result) == 3
 

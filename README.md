@@ -228,7 +228,6 @@ fz.fzc(
 - `input_path`: Path to input file or directory
 - `input_variables`: Dictionary of variable values (scalar or list)
 - `model`: Model definition (dict or alias name)
-- `engine`: Expression evaluator (`"python"` or `"R"`, default: `"python"`)
 - `output_dir`: Output directory path
 
 ### fzo - Read Output Files
@@ -308,7 +307,6 @@ print(results)
 - `input_path`: Input file or directory path
 - `input_variables`: Variable values (creates Cartesian product of lists)
 - `model`: Model definition (dict or alias)
-- `engine`: Expression evaluator (default: `"python"`)
 - `calculators`: Calculator URI(s) - string or list
 - `results_dir`: Results directory path
 
@@ -969,7 +967,7 @@ fz/
 ├── fz/                          # Main package
 │   ├── __init__.py              # Public API exports
 │   ├── core.py                  # Core functions (fzi, fzc, fzo, fzr)
-│   ├── engine.py                # Variable parsing, formula evaluation
+│   ├── interpreter.py                # Variable parsing, formula evaluation
 │   ├── runners.py               # Calculation execution (sh, ssh)
 │   ├── helpers.py               # Parallel execution, retry logic
 │   ├── io.py                    # File I/O, caching, hashing
