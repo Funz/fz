@@ -4,7 +4,6 @@ Core functions for fz package: fzi, fzc, fzo, fzr
 
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import json
@@ -100,8 +99,6 @@ from .io import (
 )
 from .interpreter import (
     parse_variables_from_path,
-    replace_variables_in_content,
-    evaluate_formulas,
     cast_output,
 )
 from .runners import resolve_calculators, run_calculation
@@ -364,13 +361,6 @@ def fzc(
 
     model = _resolve_model(model)
 
-    # Get the global formula interpreter
-    from .config import get_interpreter
-    interpreter = get_interpreter()
-
-    varprefix = model.get("varprefix", "$")
-    delim = model.get("delim", "()")
-
     input_path = Path(input_path).resolve()
     output_dir = Path(output_dir).resolve()
 
@@ -400,50 +390,10 @@ def fzc(
     else:
         var_combinations = [input_variables]
 
-    for i, var_combo in enumerate(var_combinations):
-        # Create output subdirectory for this combination
-        if len(var_combinations) > 1:
-            subdir_name = ",".join(f"{k}={v}" for k, v in var_combo.items())
-            current_output_dir = output_dir / subdir_name
-        else:
-            current_output_dir = output_dir
-
-        current_output_dir.mkdir(parents=True, exist_ok=True)
-
-        def compile_file(src_path: Path, dst_path: Path):
-            try:
-                with open(src_path, "r") as f:
-                    content = f.read()
-                    eol = f.newlines if f.newlines else '\n' # Preserve original EOL style
-            except UnicodeDecodeError:
-                # Copy binary files as-is
-                shutil.copy2(src_path, dst_path)
-                return
-
-            # Replace variables
-            content = replace_variables_in_content(content, var_combo, varprefix, delim)
-
-            # Evaluate formulas
-            content = evaluate_formulas(content, model, var_combo, interpreter)
-
-            # Write compiled content
-            with open(dst_path, "w", newline=eol) as f:
-                f.write(content)
-
-        if input_path.is_file():
-            dst_path = current_output_dir / input_path.name
-            compile_file(input_path, dst_path)
-        elif input_path.is_dir():
-            # Copy directory structure
-            for src_file in input_path.rglob("*"):
-                if src_file.is_file():
-                    rel_path = src_file.relative_to(input_path)
-                    dst_file = current_output_dir / rel_path
-                    dst_file.parent.mkdir(parents=True, exist_ok=True)
-                    compile_file(src_file, dst_file)
-
-        # Create hash file after compilation
-        create_hash_file(current_output_dir)
+    # Use compile_to_result_directories helper to avoid code duplication
+    compile_to_result_directories(
+        input_path, model, input_variables, var_combinations, output_dir
+    )
 
     # Always restore the original working directory
     os.chdir(working_dir)
