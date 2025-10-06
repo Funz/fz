@@ -412,8 +412,9 @@ def fzc(
 
         def compile_file(src_path: Path, dst_path: Path):
             try:
-                with open(src_path, "r", encoding="utf-8") as f:
+                with open(src_path, "r") as f:
                     content = f.read()
+                    eol = f.newlines if f.newlines else '\n' # Preserve original EOL style
             except UnicodeDecodeError:
                 # Copy binary files as-is
                 shutil.copy2(src_path, dst_path)
@@ -426,7 +427,7 @@ def fzc(
             content = evaluate_formulas(content, model, var_combo, interpreter)
 
             # Write compiled content
-            with open(dst_path, "w", encoding="utf-8") as f:
+            with open(dst_path, "w", newline=eol) as f:
                 f.write(content)
 
         if input_path.is_file():

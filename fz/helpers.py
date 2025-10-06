@@ -1023,8 +1023,9 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
 
         def compile_file(src_path: Path, dst_path: Path):
             try:
-                with open(src_path, 'r', encoding='utf-8') as f:
+                with open(src_path, 'r') as f:
                     content = f.read()
+                    eol = f.newlines if f.newlines else '\n'
             except UnicodeDecodeError:
                 # Copy binary files as-is
                 shutil.copy2(src_path, dst_path)
@@ -1037,7 +1038,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
             content = evaluate_formulas(content, model, var_combo, interpreter)
 
             # Write compiled content
-            with open(dst_path, 'w', encoding='utf-8') as f:
+            with open(dst_path, 'w', newline=eol) as f:
                 f.write(content)
 
         # Compile files to result directory and track input file names in order
