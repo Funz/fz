@@ -70,7 +70,6 @@ except ImportError:
     pd = None
     logging.warning("pandas not available, fzo() and fzr() will return dicts instead of DataFrames")
 
-import itertools
 import threading
 from collections import defaultdict
 
@@ -368,27 +367,8 @@ def fzc(
     output_dir, _ = ensure_unique_directory(output_dir)
 
     # Generate all combinations if lists are provided
-    var_combinations = []
-    var_names = list(input_variables.keys())
-
-    # Check if any values are lists
-    has_lists = any(isinstance(v, list) for v in input_variables.values())
-
-    if has_lists:
-        # Convert single values to lists for consistency
-        list_values = []
-        for var in var_names:
-            val = input_variables[var]
-            if isinstance(val, list):
-                list_values.append(val)
-            else:
-                list_values.append([val])
-
-        # Generate cartesian product
-        for combination in itertools.product(*list_values):
-            var_combinations.append(dict(zip(var_names, combination)))
-    else:
-        var_combinations = [input_variables]
+    from .helpers import generate_variable_combinations
+    var_combinations = generate_variable_combinations(input_variables)
 
     # Use compile_to_result_directories helper to avoid code duplication
     compile_to_result_directories(
@@ -743,23 +723,9 @@ def fzr(
     original_input_was_dir = input_path.is_dir()
 
     # Generate variable combinations
+    from .helpers import generate_variable_combinations
+    var_combinations = generate_variable_combinations(input_variables)
     var_names = list(input_variables.keys())
-    has_lists = any(isinstance(v, list) for v in input_variables.values())
-
-    if has_lists:
-        list_values = []
-        for var in var_names:
-            val = input_variables[var]
-            if isinstance(val, list):
-                list_values.append(val)
-            else:
-                list_values.append([val])
-
-        var_combinations = [
-            dict(zip(var_names, combo)) for combo in itertools.product(*list_values)
-        ]
-    else:
-        var_combinations = [input_variables]
 
     # Prepare results structure
     results = {var: [] for var in var_names}

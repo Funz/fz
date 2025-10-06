@@ -5,6 +5,7 @@ import os
 import shutil
 import threading
 import time
+import itertools
 from pathlib import Path
 from typing import Dict, List, Tuple, Union, Any
 from contextlib import contextmanager
@@ -108,6 +109,48 @@ def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, res
         tmp_dir = temp_path / "single_case"
     
     return tmp_dir, result_dir, case_name
+
+
+def generate_variable_combinations(input_variables: Dict) -> List[Dict]:
+    """
+    Generate variable combinations from input variables
+    
+    Converts input variables dict into a list of variable combinations.
+    If any value is a list, generates the cartesian product of all variables.
+    Single values are treated as single-element lists.
+    
+    Args:
+        input_variables: Dict of variable values or lists of values
+        
+    Returns:
+        List of variable combination dicts
+        
+    Example:
+        >>> generate_variable_combinations({"x": [1, 2], "y": 3})
+        [{"x": 1, "y": 3}, {"x": 2, "y": 3}]
+        
+        >>> generate_variable_combinations({"x": 1, "y": 2})
+        [{"x": 1, "y": 2}]
+    """
+    var_names = list(input_variables.keys())
+    has_lists = any(isinstance(v, list) for v in input_variables.values())
+    
+    if has_lists:
+        list_values = []
+        for var in var_names:
+            val = input_variables[var]
+            if isinstance(val, list):
+                list_values.append(val)
+            else:
+                list_values.append([val])
+        
+        var_combinations = [
+            dict(zip(var_names, combo)) for combo in itertools.product(*list_values)
+        ]
+    else:
+        var_combinations = [input_variables]
+    
+    return var_combinations
 
 
 # Global calculator manager instance
