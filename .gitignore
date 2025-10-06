@@ -19,3 +19,5 @@ test_*
 *.tar.gz
 *.sh
 !examples/**
+!tests/**
+!scripts/**
