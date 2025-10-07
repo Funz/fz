@@ -103,7 +103,11 @@ def test_fzo_fzr_coherence_single_case():
             # Verify path coherence for single case
             fzr_path = _get_value(fzr_result, "path", 0)
             fzo_path = _get_value(fzo_result, "path", 0)
-            assert fzr_path == fzo_path, f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
+            # support windows & python 3.9 : convert to absolute paths
+            if sys.version_info <= (3, 9) and os.name == 'nt':
+                assert os.path.abspath(fzr_path) == os.path.abspath(fzo_path), f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
+            else:
+                assert fzr_path == fzo_path, f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
 
             print("✅ Single case: fzo matches fzr (outputs only)")
         finally:
