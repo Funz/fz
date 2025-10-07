@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 import pytest
 from fz import fzr
+from conftest import SSH_AVAILABLE
 
 # Check if paramiko is available
 try:
@@ -31,7 +32,9 @@ except ImportError:
     PARAMIKO_AVAILABLE = False
 
 
+@pytest.mark.requires_ssh
 @pytest.mark.requires_paramiko
+@pytest.mark.skipif(not SSH_AVAILABLE, reason="SSH server not available on localhost")
 @pytest.mark.skipif(not PARAMIKO_AVAILABLE, reason="paramiko library not installed")
 def test_perfectgaz_via_ssh_localhost():
     """Test perfect gas calculation executed via SSH on localhost."""

@@ -6,8 +6,12 @@ import subprocess
 import tempfile
 from pathlib import Path
 import time
+import pytest
+from conftest import SSH_AVAILABLE
 
 
+@pytest.mark.requires_ssh
+@pytest.mark.skipif(not SSH_AVAILABLE, reason="SSH server not available on localhost")
 def test_ssh_localhost_with_dedicated_key():
     """Test SSH connection to localhost using a dedicated key."""
 

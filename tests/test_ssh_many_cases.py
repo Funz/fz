@@ -14,6 +14,7 @@ import subprocess
 import time
 from pathlib import Path
 import pytest
+from conftest import SSH_AVAILABLE
 
 # Check if paramiko is available
 try:
@@ -23,7 +24,9 @@ except ImportError:
     PARAMIKO_AVAILABLE = False
 
 
+@pytest.mark.requires_ssh
 @pytest.mark.requires_paramiko
+@pytest.mark.skipif(not SSH_AVAILABLE, reason="SSH server not available on localhost")
 @pytest.mark.skipif(not PARAMIKO_AVAILABLE, reason="paramiko library not installed")
 def test_ssh_many_cases_localhost():
     """Test SSH calculator with many parametric cases on localhost."""
@@ -347,7 +350,9 @@ cat output.txt
         print("✓ Test cleanup complete")
 
 
+@pytest.mark.requires_ssh
 @pytest.mark.requires_paramiko
+@pytest.mark.skipif(not SSH_AVAILABLE, reason="SSH server not available on localhost")
 @pytest.mark.skipif(not PARAMIKO_AVAILABLE, reason="paramiko library not installed")
 def test_ssh_many_cases_many_localhost():
     """Test SSH calculator with many parametric cases on localhost."""
