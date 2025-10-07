@@ -57,6 +57,33 @@ jobs:
         pip install pandas
         pip install pytest pytest-cov
 
+    - name: Setup SSH server (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        echo "Configure ssh key auth"
+        sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+        echo "Restart sshd service"
+        sudo systemctl restart sshd
+
+    - name: Setup SSH server (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        echo "Configure ssh key auth"
+        sudo sed -i '' 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+        echo "Restart sshd service"
+        sudo launchctl stop com.openssh.sshd
+        sudo launchctl start com.openssh.sshd
+
+    - name: Setup SSH server (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        echo "Configure ssh key auth"
+        $sshd_config = "$env:ProgramData\ssh\sshd_config"
+        (Get-Content $sshd_config) -replace 'PasswordAuthentication yes', 'PasswordAuthentication no' | Set-Content $sshd_config
+        echo "Restart sshd service"
+        Restart-Service sshd
+
     - name: Run tests (Windows)
       if: runner.os == 'Windows'
       run: |
