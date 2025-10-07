@@ -15,6 +15,7 @@ import queue
 import socket
 import platform
 import shutil
+import uuid
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
@@ -954,8 +955,12 @@ def run_ssh_calculation(
                 f"Could not determine remote root directory, defaulting to ~/: {e}"
             )
 
+        # Create unique remote directory using UUID to avoid collisions
+        # when multiple SSH calculators run in parallel on the same host
+        thread_id = threading.get_ident()
+        unique_id = uuid.uuid4().hex[:8]  # Short UUID for readability
         remote_temp_dir = (
-            f"{remote_root_dir}/.fz/tmp/fz_calc_{int(time.time())}_{os.getpid()}"
+            f"{remote_root_dir}/.fz/tmp/fz_calc_{os.getpid()}_{thread_id}_{unique_id}"
         )
         ssh_client.exec_command(f"mkdir -p {remote_temp_dir}")
 
