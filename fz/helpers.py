@@ -538,8 +538,19 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     # Prepare result
     result = {"var_combo": var_combo}
 
-    # Add relative path to results directory
-    result["path"] = case_name
+    # Add relative path to results directory (from original_cwd)
+    # This matches the behavior of fzo() which includes the results directory name
+    if original_cwd:
+        try:
+            # Compute path relative to original working directory
+            result_dir_rel = result_dir.relative_to(original_cwd)
+            result["path"] = str(result_dir_rel)
+        except ValueError:
+            # result_dir is outside original_cwd, use absolute path
+            result["path"] = str(result_dir)
+    else:
+        # Fallback to case_name if original_cwd not provided
+        result["path"] = case_name
 
     # Always copy files back from temp to result directories, regardless of calculation success/failure
     # This ensures that log.txt and other output files are preserved even for failed calculations

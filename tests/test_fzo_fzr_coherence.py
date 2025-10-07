@@ -100,6 +100,11 @@ def test_fzo_fzr_coherence_single_case():
             assert fzr_t == 300, f"fzr T={fzr_t}, expected 300"
             # fzo won't have T variable for single case - this is expected
 
+            # Verify path coherence for single case
+            fzr_path = _get_value(fzr_result, "path", 0)
+            fzo_path = _get_value(fzo_result, "path", 0)
+            assert fzr_path == fzo_path, f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
+
             print("✅ Single case: fzo matches fzr (outputs only)")
         finally:
             # IMPORTANT: Change back to original directory BEFORE tempfile cleanup
@@ -164,6 +169,11 @@ def test_fzo_fzr_coherence_multiple_cases():
                 fzr_p = _get_value(fzr_result, "P", i)
                 fzo_p = _get_value(fzo_result, "P", i)
                 assert fzr_p == fzo_p, f"Case {i} P: fzr={fzr_p}, fzo={fzo_p}"
+
+                # Verify path coherence (both should include results directory)
+                fzr_path = _get_value(fzr_result, "path", i)
+                fzo_path = _get_value(fzo_result, "path", i)
+                assert fzr_path == fzo_path, f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
 
             print("✅ Multiple cases: fzo matches fzr")
         finally:
