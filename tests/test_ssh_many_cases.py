@@ -123,7 +123,7 @@ def test_ssh_many_cases_localhost():
         result = subprocess.run(
             [
                 "ssh",
-                "-i", str(key_path),
+                "-i" if key_path.exists() else "", str(key_path) if key_path.exists() else "",
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "ConnectTimeout=5",
@@ -450,7 +450,7 @@ def test_ssh_many_cases_many_localhost():
         result = subprocess.run(
             [
                 "ssh",
-                "-i", str(key_path),
+                "-i" if key_path.exists() else "", str(key_path) if key_path.exists() else "",
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "ConnectTimeout=5",
