@@ -56,6 +56,7 @@ jobs:
         pip install -e .
         pip install pandas
         pip install pytest pytest-cov
+        pip install getpass4
         
     - name: Setup SSH server (Linux)
       if: runner.os == 'Linux'

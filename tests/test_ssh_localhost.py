@@ -8,6 +8,7 @@ from pathlib import Path
 import time
 import pytest
 from conftest import SSH_AVAILABLE
+import getpass
 
 
 @pytest.mark.requires_ssh
@@ -104,7 +105,7 @@ Host localhost
                 "-F", str(ssh_config_path),
                 "-o", "BatchMode=yes",
                 "-o", "ConnectTimeout=5",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "echo 'SSH connection successful'"
             ],
             capture_output=True,
@@ -129,7 +130,7 @@ Host localhost
                 "-i", str(key_path),
                 "-F", str(ssh_config_path),
                 "-o", "BatchMode=yes",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "pwd"
             ],
             capture_output=True,
@@ -145,7 +146,7 @@ Host localhost
         test_file = test_dir / "test_file.txt"
         test_file.write_text("Test content for SSH transfer")
 
-        remote_path = f"{os.getenv('USER')}@localhost:/tmp/fz_ssh_test_{os.getpid()}.txt"
+        remote_path = f"{getpass.getuser()}@localhost:/tmp/fz_ssh_test_{os.getpid()}.txt"
 
         result = subprocess.run(
             [
