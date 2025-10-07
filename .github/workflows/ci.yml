@@ -56,10 +56,14 @@ jobs:
         pip install -e .
         pip install pandas
         pip install pytest pytest-cov
-
+        
     - name: Setup SSH server (Linux)
       if: runner.os == 'Linux'
       run: |
+        sudo apt-get install -y openssh-server
+        sudo systemctl enable ssh
+        sudo systemctl start ssh
+        echo "SSH server installed and started"
         echo "Configure ssh key auth"
         sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
         echo "Restart sshd service"
@@ -68,6 +72,9 @@ jobs:
     - name: Setup SSH server (macOS)
       if: runner.os == 'macOS'
       run: |
+        sudo systemsetup -setremotelogin on
+        sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
+        echo "SSH server installed and started"
         echo "Configure ssh key auth"
         sudo sed -i '' 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
         echo "Restart sshd service"
@@ -78,6 +85,11 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
+        # Install OpenSSH server on Windows
+        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~
+        Start-Service sshd
+        Set-Service -Name sshd -StartupType 'Automatic'
+        echo "SSH server installed and started"
         echo "Configure ssh key auth"
         $sshd_config = "$env:ProgramData\ssh\sshd_config"
         (Get-Content $sshd_config) -replace 'PasswordAuthentication yes', 'PasswordAuthentication no' | Set-Content $sshd_config
