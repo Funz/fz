@@ -66,6 +66,8 @@ jobs:
         echo "SSH server installed and started"
         echo "Configure ssh key auth"
         sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+        sudo sed -i 's/#PubkeyAuthentication no/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
+        sudo sed -i 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/g' /etc/ssh/sshd_config
         echo "Restart sshd service"
         sudo systemctl restart sshd
 
@@ -77,6 +79,8 @@ jobs:
         echo "SSH server installed and started"
         echo "Configure ssh key auth"
         sudo sed -i '' 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+        sudo sed -i '' 's/#PubkeyAuthentication no/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
+        sudo sed -i '' 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/g' /etc/ssh/sshd_config
         echo "Restart sshd service"
         sudo launchctl stop com.openssh.sshd
         sudo launchctl start com.openssh.sshd
@@ -93,6 +97,8 @@ jobs:
         echo "Configure ssh key auth"
         $sshd_config = "$env:ProgramData\ssh\sshd_config"
         (Get-Content $sshd_config) -replace 'PasswordAuthentication yes', 'PasswordAuthentication no' | Set-Content $sshd_config
+        (Get-Content $sshd_config) -replace '#PubkeyAuthentication no', 'PubkeyAuthentication yes' | Set-Content $sshd_config
+        (Get-Content $sshd_config) -replace '#ChallengeResponseAuthentication yes', 'ChallengeResponseAuthentication no' | Set-Content $sshd_config
         echo "Restart sshd service"
         Restart-Service sshd
 
