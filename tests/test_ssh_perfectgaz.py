@@ -146,6 +146,7 @@ def test_perfectgaz_via_ssh_localhost():
         result = subprocess.run(
             [
                 "ssh",
+                "-i", str(key_path),
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "ConnectTimeout=5",
