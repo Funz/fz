@@ -21,6 +21,7 @@ import subprocess
 import time
 from pathlib import Path
 import pytest
+import getpass
 from fz import fzr
 from conftest import SSH_AVAILABLE
 
@@ -151,7 +152,7 @@ def test_perfectgaz_via_ssh_localhost():
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "ConnectTimeout=5",
                 "-o", "LogLevel=ERROR",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "echo 'SSH OK'"
             ],
             capture_output=True,
@@ -212,7 +213,7 @@ echo "Calculation completed"
         print("\n6. Running fzr with SSH calculator...")
 
         # Build SSH calculator URL
-        ssh_calculator = f"ssh://{os.getenv('USER')}@localhost/bash " + str(calc_script.resolve()) #./PerfectGazPressure.sh"
+        ssh_calculator = f"ssh://{getpass.getuser()}@localhost/bash " + str(calc_script.resolve()) #./PerfectGazPressure.sh"
 
         print(f"Calculator: {ssh_calculator}")
 

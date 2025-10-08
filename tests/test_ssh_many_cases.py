@@ -14,6 +14,7 @@ import subprocess
 import time
 from pathlib import Path
 import pytest
+import getpass
 from conftest import SSH_AVAILABLE
 
 # Check if paramiko is available
@@ -128,7 +129,7 @@ def test_ssh_many_cases_localhost():
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "ConnectTimeout=5",
                 "-o", "LogLevel=ERROR",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "echo 'SSH OK'"
             ],
             capture_output=True,
@@ -193,7 +194,7 @@ cat output.txt
         from fz import fzr
 
         # Build SSH calculator URL
-        ssh_calculator = f"ssh://{os.getenv('USER')}@localhost/bash {calc_script.resolve()}"
+        ssh_calculator = f"ssh://{getpass.getuser()}@localhost/bash {calc_script.resolve()}"
 
         print(f"   Calculator: {ssh_calculator}")
 
@@ -455,7 +456,7 @@ def test_ssh_many_cases_many_localhost():
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "ConnectTimeout=5",
                 "-o", "LogLevel=ERROR",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "echo 'SSH OK'"
             ],
             capture_output=True,
@@ -520,7 +521,7 @@ cat output.txt
         from fz import fzr
 
         # Build SSH calculator URL
-        ssh_calculator = [f"ssh://{os.getenv('USER')}@localhost/bash {calc_script.resolve()}"]*3
+        ssh_calculator = [f"ssh://{getpass.getuser()}@localhost/bash {calc_script.resolve()}"]*3
 
         print(f"   Calculators: {ssh_calculator}")
 
