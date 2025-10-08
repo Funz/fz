@@ -48,7 +48,7 @@ def test_ssh_localhost_with_dedicated_key():
 
     assert key_path.exists(), "Private key not created"
     assert pub_key_path.exists(), "Public key not created"
-    print(f"✓ SSH key pair generated")
+    print(f"SSH key pair generated")
 
     # Set correct permissions
     key_path.chmod(0o600)
@@ -56,7 +56,7 @@ def test_ssh_localhost_with_dedicated_key():
 
     # Step 2: Read the public key
     pub_key_content = pub_key_path.read_text().strip()
-    print(f"✓ Public key: {pub_key_content[:50]}...")
+    print(f"Public key: {pub_key_content[:50]}...")
 
     # Step 3: Add public key to authorized_keys
     print("\n2. Adding public key to ~/.ssh/authorized_keys...")
@@ -79,7 +79,7 @@ def test_ssh_localhost_with_dedicated_key():
         with open(authorized_keys_path, "a") as f:
             f.write(key_entry)
         authorized_keys_path.chmod(0o600)
-        print(f"✓ Public key added to {authorized_keys_path}")
+        print(f"Public key added to {authorized_keys_path}")
 
         # Give SSH a moment to recognize the change
         time.sleep(0.5)
@@ -120,7 +120,7 @@ Host localhost
 
         assert result.returncode == 0, f"SSH connection failed: {result.stderr}"
         assert "SSH connection successful" in result.stdout, "SSH command output unexpected"
-        print("✓ SSH connection to localhost successful")
+        print("SSH connection to localhost successful")
 
         # Step 5: Test SSH with command execution
         print("\n4. Testing SSH command execution...")
@@ -139,7 +139,7 @@ Host localhost
         )
 
         assert result.returncode == 0, "SSH command execution failed"
-        print(f"✓ Remote pwd: {result.stdout.strip()}")
+        print(f"Remote pwd: {result.stdout.strip()}")
 
         # Step 6: Test file transfer with scp
         print("\n5. Testing file transfer with scp...")
@@ -163,14 +163,14 @@ Host localhost
         )
 
         assert result.returncode == 0, f"SCP transfer failed: {result.stderr}"
-        print("✓ File transfer via scp successful")
+        print("File transfer via scp successful")
 
         # Verify the transferred file
         remote_file = Path(f"/tmp/fz_ssh_test_{os.getpid()}.txt")
         if remote_file.exists():
             assert remote_file.read_text() == "Test content for SSH transfer"
             remote_file.unlink()  # Clean up
-            print("✓ Transferred file verified and cleaned up")
+            print("Transferred file verified and cleaned up")
 
         print("\n✅ All SSH tests passed!")
 
@@ -208,9 +208,9 @@ Host localhost
                     # Remove empty authorized_keys file
                     authorized_keys_path.unlink()
 
-            print("✓ Cleaned up authorized_keys")
+            print("Cleaned up authorized_keys")
 
-        print("✓ Test cleanup complete")
+        print("Test cleanup complete")
 
 
 if __name__ == "__main__":

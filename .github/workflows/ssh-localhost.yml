@@ -96,6 +96,8 @@ jobs:
         echo "Checking if SSH server is listening..."
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           netstat -an | grep ":22 " || netstat -an | grep LISTENING
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          netstat -an | grep LISTEN | grep :22
         else
           ss -tln | grep :22 || netstat -an | grep LISTEN | grep :22
         fi
