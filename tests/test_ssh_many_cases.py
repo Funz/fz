@@ -121,6 +121,17 @@ def test_ssh_many_cases_localhost():
 
         # Step 4: Test basic SSH connection
         print("\n4. Testing SSH connection...")
+
+        # Create SSH config to avoid host key checking
+        ssh_config_path = ssh_dir / "config"
+        ssh_config_path.write_text("""
+Host localhost
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+""")
+        ssh_config_path.chmod(0o600)
+
         result = subprocess.run(
             [
                 "ssh",
@@ -448,6 +459,17 @@ def test_ssh_many_cases_many_localhost():
 
         # Step 4: Test basic SSH connection
         print("\n4. Testing SSH connection...")
+
+        # Create SSH config to avoid host key checking
+        ssh_config_path = ssh_dir / "config"
+        ssh_config_path.write_text("""
+Host localhost
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+""")
+        ssh_config_path.chmod(0o600)
+        
         result = subprocess.run(
             [
                 "ssh",
