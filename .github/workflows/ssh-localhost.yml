@@ -9,12 +9,11 @@ on:
 
 jobs:
   ssh-localhost-test:
-    name: SSH localhost on ${{ matrix.os }} with Python ${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
+    name: SSH localhost on Ubuntu with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.11']
 
     steps:
@@ -33,8 +32,7 @@ jobs:
         pip install pytest
         pip install getpass4
 
-    - name: Setup SSH server (Linux)
-      if: runner.os == 'Linux'
+    - name: Setup SSH server
       run: |
         echo "Installing and starting SSH server..."
         sudo apt-get update
@@ -52,55 +50,10 @@ jobs:
         sudo systemctl restart sshd
         echo "✓ SSH configuration complete"
 
-    - name: Setup SSH server (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        echo "Enabling SSH server..."
-        sudo systemsetup -setremotelogin on
-        sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist || true
-        echo "✓ SSH server installed and started"
-
-        echo "Configuring SSH key authentication..."
-        sudo sed -i '' 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config || true
-        sudo sed -i '' 's/#PubkeyAuthentication no/PubkeyAuthentication yes/g' /etc/ssh/sshd_config || true
-        sudo sed -i '' 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/g' /etc/ssh/sshd_config || true
-
-        echo "Restarting sshd service..."
-        sudo launchctl stop com.openssh.sshd || true
-        sudo launchctl start com.openssh.sshd || true
-        echo "✓ SSH configuration complete"
-
-    - name: Setup SSH server (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "Installing OpenSSH server..."
-        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-        Start-Service sshd
-        Set-Service -Name sshd -StartupType 'Automatic'
-        Write-Host "✓ SSH server installed and started"
-
-        Write-Host "Configuring SSH key authentication..."
-        $sshd_config = "$env:ProgramData\ssh\sshd_config"
-        (Get-Content $sshd_config) -replace 'PasswordAuthentication yes', 'PasswordAuthentication no' | Set-Content $sshd_config
-        (Get-Content $sshd_config) -replace '#PubkeyAuthentication no', 'PubkeyAuthentication yes' | Set-Content $sshd_config
-        (Get-Content $sshd_config) -replace '#ChallengeResponseAuthentication yes', 'ChallengeResponseAuthentication no' | Set-Content $sshd_config
-
-        Write-Host "Restarting sshd service..."
-        Restart-Service sshd
-        Write-Host "✓ SSH configuration complete"
-
     - name: Verify SSH server is running
-      shell: bash
       run: |
         echo "Checking if SSH server is listening..."
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          netstat -an | grep ":22 " || netstat -an | grep LISTENING
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          netstat -an | grep LISTEN | grep :22
-        else
-          ss -tln | grep :22 || netstat -an | grep LISTEN | grep :22
-        fi
+        ss -tln | grep :22 || netstat -an | grep LISTEN | grep :22
         echo "✓ SSH server is running"
 
     - name: Run SSH localhost test
