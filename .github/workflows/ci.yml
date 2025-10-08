@@ -72,6 +72,15 @@ jobs:
         echo "Restart sshd service"
         sudo systemctl restart sshd
 
+    - name: Start SSH agent (Linux only)
+      if: runner.os == 'Linux'
+      run: |
+        echo "Starting SSH agent..."
+        eval "$(ssh-agent -s)"
+        echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+        echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+        echo "✓ SSH agent started"
+
     - name: Run tests (Windows)
       if: runner.os == 'Windows'
       run: |
