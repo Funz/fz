@@ -140,13 +140,12 @@ def test_ssh_many_cases_localhost():
         ssh_known_hosts.write_text(result.stdout)
         ssh_known_hosts.chmod(0o644)
         print("✓ Known hosts updated")
-        
+
         # Create SSH config to avoid host key checking
         ssh_config_path = ssh_dir / "config"
         ssh_config_path.write_text("""
 Host localhost
     StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
     LogLevel ERROR
 """)
         ssh_config_path.chmod(0o600)
@@ -506,7 +505,6 @@ def test_ssh_many_cases_many_localhost():
         ssh_config_path.write_text("""
 Host localhost
     StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
     LogLevel ERROR
 """)
         ssh_config_path.chmod(0o600)
