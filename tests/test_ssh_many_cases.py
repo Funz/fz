@@ -250,7 +250,7 @@ cat output.txt
         # Check 'error' does not exists or is None
         if 'error' in result:
             assert len(result['error']) == total_cases, "Mismatch in number of error values"
-            assert all(e is None for e in result['error']), "Error values should be None, while: "+str(result['error'])
+            assert all(e is None for e in result['error']), "Error values should be None, while: "+ [str(result['error'][i]) for i in range(total_cases) if result['error'][i] is not None].__str__()
 
         assert all(result['sum'] == [result['x'][i] + result['y'][i] + result['z'][i] for i in range(total_cases)]), "Sum values incorrect"
 
