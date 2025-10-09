@@ -124,6 +124,23 @@ def test_ssh_many_cases_localhost():
         # Step 4: Test basic SSH connection
         print("\n4. Testing SSH connection...")
 
+        # Add knwon hosts to avoid prompts
+        ssh_known_hosts = ssh_dir / "known_hosts"
+        result = subprocess.run(
+            [
+                "ssh-keyscan",
+                "-H",
+                "localhost"
+            ],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"ssh-keyscan failed: {result.stderr}")
+        ssh_known_hosts.write_text(result.stdout)
+        ssh_known_hosts.chmod(0o644)
+        print("✓ Known hosts updated")
+        
         # Create SSH config to avoid host key checking
         ssh_config_path = ssh_dir / "config"
         ssh_config_path.write_text("""
@@ -466,8 +483,26 @@ def test_ssh_many_cases_many_localhost():
         ## Step 4: Test basic SSH connection
         #print("\n4. Testing SSH connection...")
 
+        # Add knwon hosts to avoid prompts
+        ssh_known_hosts = ssh_dir / "known_hosts"
+        result = subprocess.run(
+            [
+                "ssh-keyscan",
+                "-H",
+                "localhost"
+            ],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"ssh-keyscan failed: {result.stderr}")
+        ssh_known_hosts.write_text(result.stdout)
+        ssh_known_hosts.chmod(0o644)
+        print("✓ Known hosts updated")
+
         # Create SSH config to avoid host key checking
         ssh_config_path = ssh_dir / "config"
+        # Add knwon hosts to avoid prompts
         ssh_config_path.write_text("""
 Host localhost
     StrictHostKeyChecking no
