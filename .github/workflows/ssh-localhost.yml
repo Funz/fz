@@ -1,0 +1,74 @@
+name: SSH Localhost Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  ssh-localhost-test:
+    name: SSH localhost on Ubuntu with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest
+        pip install getpass4
+
+    - name: Setup SSH server
+      run: |
+        echo "Installing and starting SSH server..."
+        sudo apt-get update
+        sudo apt-get install -y openssh-server
+        sudo systemctl enable ssh
+        sudo systemctl start ssh
+        echo "✓ SSH server installed and started"
+
+        echo "Configuring SSH key authentication..."
+        sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+        sudo sed -i 's/#PubkeyAuthentication no/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
+        sudo sed -i 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/g' /etc/ssh/sshd_config
+
+        echo "Restarting sshd service..."
+        sudo systemctl restart sshd
+        echo "✓ SSH configuration complete"
+
+    - name: Start SSH agent
+      run: |
+        echo "Starting SSH agent..."
+        eval "$(ssh-agent -s)"
+        echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+        echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+        echo "✓ SSH agent started"
+
+    - name: Verify SSH server is running
+      run: |
+        echo "Checking if SSH server is listening..."
+        ss -tln | grep :22 || netstat -an | grep LISTEN | grep :22
+        echo "✓ SSH server is running"
+
+    - name: Run SSH localhost test
+      run: |
+        python -m pytest tests/test_ssh_localhost.py::test_ssh_localhost_with_dedicated_key -v -s
+
+    - name: Test summary
+      if: always()
+      run: |
+        echo "SSH localhost connectivity test completed"

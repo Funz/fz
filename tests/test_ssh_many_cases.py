@@ -14,6 +14,7 @@ import subprocess
 import time
 from pathlib import Path
 import pytest
+import getpass
 from conftest import SSH_AVAILABLE
 
 # Check if paramiko is available
@@ -59,6 +60,8 @@ def test_ssh_many_cases_localhost():
 
     if result.returncode != 0:
         raise RuntimeError(f"Failed to generate SSH key: {result.stderr}")
+    else:
+        print(result.stdout)
 
     assert key_path.exists(), "Private key not created"
     assert pub_key_path.exists(), "Public key not created"
@@ -99,35 +102,62 @@ def test_ssh_many_cases_localhost():
             capture_output=True,
             text=True
         )
-
+        
         if result.returncode != 0:
             print(f"Warning: Could not add key to agent: {result.stderr}")
             print("Trying fallback method...")
-
+        
             # Fallback: Copy key to standard location
             home_ssh = Path.home() / ".ssh"
             test_key_std = home_ssh / "id_rsa_fz_many_test"
             test_key_std_pub = home_ssh / "id_rsa_fz_many_test.pub"
-
+        
             test_key_std.write_bytes(key_path.read_bytes())
             test_key_std.chmod(0o600)
             test_key_std_pub.write_bytes(pub_key_path.read_bytes())
             test_key_std_pub.chmod(0o644)
-
+        
             print(f"✓ Test key copied to {test_key_std}")
         else:
             print("✓ Key added to SSH agent")
 
         # Step 4: Test basic SSH connection
         print("\n4. Testing SSH connection...")
+
+        # Add knwon hosts to avoid prompts
+        ssh_known_hosts = ssh_dir / "known_hosts"
+        result = subprocess.run(
+            [
+                "ssh-keyscan",
+                "-H",
+                "localhost"
+            ],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"ssh-keyscan failed: {result.stderr}")
+        ssh_known_hosts.write_text(result.stdout)
+        ssh_known_hosts.chmod(0o644)
+        print("✓ Known hosts updated")
+
+        # Create SSH config to avoid host key checking
+        ssh_config_path = ssh_dir / "config"
+        ssh_config_path.write_text("""
+Host localhost
+    StrictHostKeyChecking no
+    LogLevel ERROR
+""")
+        ssh_config_path.chmod(0o600)
+
         result = subprocess.run(
             [
                 "ssh",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
+                "-i" if key_path.exists() else "", str(key_path) if key_path.exists() else "",
+                "-F", str(ssh_config_path),
+                "-o", "BatchMode=yes",
                 "-o", "ConnectTimeout=5",
-                "-o", "LogLevel=ERROR",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "echo 'SSH OK'"
             ],
             capture_output=True,
@@ -192,7 +222,7 @@ cat output.txt
         from fz import fzr
 
         # Build SSH calculator URL
-        ssh_calculator = f"ssh://{os.getenv('USER')}@localhost/bash {calc_script.resolve()}"
+        ssh_calculator = f"ssh://{getpass.getuser()}@localhost/bash {calc_script.resolve()}"
 
         print(f"   Calculator: {ssh_calculator}")
 
@@ -232,6 +262,11 @@ cat output.txt
         assert len(result['y']) == total_cases, "Mismatch in number of y values"
         assert len(result['z']) == total_cases, "Mismatch in number of z values"
         assert len(result['sum']) == total_cases, "Mismatch in number of sum values"
+        # Check 'error' does not exists or is None
+        if 'error' in result:
+            assert len(result['error']) == total_cases, "Mismatch in number of error values"
+            assert all(e is None for e in result['error']), "Error values should be None, while: "+ [str(result['error'][i]) for i in range(total_cases) if result['error'][i] is not None].__str__()
+
         assert all(result['sum'] == [result['x'][i] + result['y'][i] + result['z'][i] for i in range(total_cases)]), "Sum values incorrect"
 
         # Expected: 3 * 2 * 1 = 6 cases
@@ -425,35 +460,63 @@ def test_ssh_many_cases_many_localhost():
             capture_output=True,
             text=True
         )
-
+        
         if result.returncode != 0:
             print(f"Warning: Could not add key to agent: {result.stderr}")
             print("Trying fallback method...")
-
+        
             # Fallback: Copy key to standard location
             home_ssh = Path.home() / ".ssh"
             test_key_std = home_ssh / "id_rsa_fz_many_test"
             test_key_std_pub = home_ssh / "id_rsa_fz_many_test.pub"
-
+        
             test_key_std.write_bytes(key_path.read_bytes())
             test_key_std.chmod(0o600)
             test_key_std_pub.write_bytes(pub_key_path.read_bytes())
             test_key_std_pub.chmod(0o644)
-
+        
             print(f"✓ Test key copied to {test_key_std}")
         else:
             print("✓ Key added to SSH agent")
-
+        
         # Step 4: Test basic SSH connection
         print("\n4. Testing SSH connection...")
+
+        # Add knwon hosts to avoid prompts
+        ssh_known_hosts = ssh_dir / "known_hosts"
+        result = subprocess.run(
+            [
+                "ssh-keyscan",
+                "-H",
+                "localhost"
+            ],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"ssh-keyscan failed: {result.stderr}")
+        ssh_known_hosts.write_text(result.stdout)
+        ssh_known_hosts.chmod(0o644)
+        print("✓ Known hosts updated")
+
+        # Create SSH config to avoid host key checking
+        ssh_config_path = ssh_dir / "config"
+        # Add knwon hosts to avoid prompts
+        ssh_config_path.write_text("""
+Host localhost
+    StrictHostKeyChecking no
+    LogLevel ERROR
+""")
+        ssh_config_path.chmod(0o600)
+        
         result = subprocess.run(
             [
                 "ssh",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
+                "-i" if key_path.exists() else "", str(key_path) if key_path.exists() else "",
+                "-F", str(ssh_config_path),
+                "-o", "BatchMode=yes",
                 "-o", "ConnectTimeout=5",
-                "-o", "LogLevel=ERROR",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "echo 'SSH OK'"
             ],
             capture_output=True,
@@ -518,7 +581,7 @@ cat output.txt
         from fz import fzr
 
         # Build SSH calculator URL
-        ssh_calculator = [f"ssh://{os.getenv('USER')}@localhost/bash {calc_script.resolve()}"]*3
+        ssh_calculator = [f"ssh://{getpass.getuser()}@localhost/bash {calc_script.resolve()}"]*6
 
         print(f"   Calculators: {ssh_calculator}")
 

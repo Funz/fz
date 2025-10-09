@@ -7,6 +7,7 @@ import tempfile
 import pytest
 import socket
 import subprocess
+import getpass
 from pathlib import Path
 
 
@@ -66,7 +67,7 @@ def is_ssh_server_available():
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "LogLevel=ERROR",
-                f"{os.getenv('USER')}@localhost",
+                f"{getpass.getuser()}@localhost",
                 "exit 0"
             ],
             capture_output=True,

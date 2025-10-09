@@ -11,6 +11,7 @@ import sys
 import tempfile
 from pathlib import Path
 import pytest
+import platform
 
 # Add parent directory to Python path
 parent_dir = Path(__file__).parent.parent.absolute()
@@ -104,7 +105,7 @@ def test_fzo_fzr_coherence_single_case():
             fzr_path = _get_value(fzr_result, "path", 0)
             fzo_path = _get_value(fzo_result, "path", 0)
             # support windows & python 3.9 : convert to absolute paths
-            if sys.version_info <= (3, 9) and os.name == 'nt':
+            if sys.version_info <= (3, 9) and platform.system() == 'Windows':
                 assert os.path.abspath(fzr_path) == os.path.abspath(fzo_path), f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
             else:
                 assert fzr_path == fzo_path, f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
@@ -177,7 +178,11 @@ def test_fzo_fzr_coherence_multiple_cases():
                 # Verify path coherence (both should include results directory)
                 fzr_path = _get_value(fzr_result, "path", i)
                 fzo_path = _get_value(fzo_result, "path", i)
-                assert fzr_path == fzo_path, f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
+                # support windows & python 3.9 : convert to absolute paths
+                if sys.version_info <= (3, 9) and platform.system() == 'Windows':
+                    assert os.path.abspath(fzr_path) == os.path.abspath(fzo_path), f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
+                else:
+                    assert fzr_path == fzo_path, f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
 
             print("✅ Multiple cases: fzo matches fzr")
         finally:
