@@ -5,7 +5,6 @@ Comprehensive test for ALL file path resolution in sh:// commands
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 from fz import fzr
 

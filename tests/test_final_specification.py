@@ -6,15 +6,9 @@ All cases should run well and return a result
 
 import os
 import sys
-import tempfile
 import shutil
 import time
 from pathlib import Path
-
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
 
 import fz
 
@@ -162,8 +156,5 @@ def test_final_specification():
             shutil.rmtree("results")
 
 if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as temp_dir:
-        os.chdir(temp_dir)
-        print(f"Working directory: {temp_dir}\n")
-        success = test_final_specification()
-        print(f"\n{'🏆 SUCCESS' if success else '💥 FAILURE'}: Final specification test!")
+    success = test_final_specification()
+    print(f"\n{'🏆 SUCCESS' if success else '💥 FAILURE'}: Final specification test!")

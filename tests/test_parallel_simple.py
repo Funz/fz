@@ -6,10 +6,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-
-# Add fz package to path
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import fz
 

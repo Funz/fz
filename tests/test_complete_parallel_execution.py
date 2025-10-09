@@ -6,15 +6,9 @@ Diagnose and fix any post-processing issues
 
 import os
 import sys
-import tempfile
 import shutil
 import time
 from pathlib import Path
-
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
 
 import fz
 
@@ -180,8 +174,5 @@ def test_complete_parallel_execution():
             shutil.rmtree("results")
 
 if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as temp_dir:
-        os.chdir(temp_dir)
-        print(f"Working in: {temp_dir}\n")
-        success = test_complete_parallel_execution()
-        print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Complete parallel execution test!")
+    success = test_complete_parallel_execution()
+    print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Complete parallel execution test!")

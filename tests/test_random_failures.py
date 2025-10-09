@@ -11,11 +11,6 @@ import random
 import time
 from pathlib import Path
 
-# Add parent directory to Python path for importing fz
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 from fz import fzr
 
 

@@ -4,7 +4,6 @@ Test script to verify the logging system works correctly at different levels
 """
 import os
 import sys
-import tempfile
 import platform
 from pathlib import Path
 import pytest
@@ -22,41 +21,38 @@ def test_logging_levels():
     print("TESTING LOGGING SYSTEM WITH DIFFERENT LEVELS")
     print("=" * 60)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        original_cwd = os.getcwd()
+    # Use temp directory from conftest fixture
+    temp_dir = Path.cwd()
+    print(f"Working in: {temp_dir}")
 
-        try:
-            os.chdir(temp_dir)
-            print(f"Working in: {temp_dir}")
+    # Create input file
+    with open("input.txt", "w") as f:
+        f.write("x = $(x)\n")
 
-            # Create input file
-            with open("input.txt", "w") as f:
-                f.write("x = $(x)\n")
+    # Create simple calculator
+    with open("calc.sh", "w") as f:
+        f.write("#!/bin/bash\necho 'result = success' > output.txt\n")
+    os.chmod("calc.sh", 0o755)
 
-            # Create simple calculator
-            with open("calc.sh", "w") as f:
-                f.write("#!/bin/bash\necho 'result = success' > output.txt\n")
-            os.chmod("calc.sh", 0o755)
-
-            model = {
+    model = {
                 "varprefix": "$",
                 "delim": "()",
                 "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
             }
 
-            # Test different logging levels
-            levels = [
+    # Test different logging levels
+    levels = [
                 (LogLevel.ERROR, "ERROR (only errors)"),
                 (LogLevel.WARNING, "WARNING (errors + warnings)"),
                 (LogLevel.INFO, "INFO (errors + warnings + info)"),
                 (LogLevel.DEBUG, "DEBUG (all messages)")
             ]
 
-            for level, description in levels:
-                print(f"\n{'='*20} {description} {'='*20}")
-                set_log_level(level)
+    for level, description in levels:
+        print(f"\n{'='*20} {description} {'='*20}")
+        set_log_level(level)
 
-                result = fzr(
+        result = fzr(
                     "input.txt",
                     model,
                     {"x": [1]},  # Single case for cleaner output
@@ -64,14 +60,12 @@ def test_logging_levels():
                     results_dir=f"results_{level.name.lower()}"
                 )
 
-                print(f"Result: {result['result']}")
+        print(f"Result: {result['result']}")
 
-        except Exception as e:
-            print(f"Error during test: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            os.chdir(original_cwd)
+    except Exception as e:
+        print(f"Error during test: {e}")
+        import traceback
+        traceback.print_exc()
 
 def test_environment_variable():
     """Test setting log level via environment variable"""

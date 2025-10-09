@@ -5,7 +5,6 @@ Test script to verify comprehensive path resolution in sh:// commands
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fz import fzr
 import tempfile

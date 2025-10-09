@@ -13,7 +13,6 @@ The script will:
 4. Show partial results and proper cleanup
 """
 
-import tempfile
 from pathlib import Path
 from fz import fzr
 
@@ -31,81 +30,81 @@ def main():
     print("=" * 70)
     print()
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
+    # Use temp directory from conftest fixture
+    tmp_path = Path.cwd()
 
-        # Create input directory and script
-        input_dir = tmp_path / "input"
-        input_dir.mkdir()
+    # Create input directory and script
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
 
-        # Create a script that takes a few seconds to run
-        script = input_dir / "slow_calc.sh"
-        script.write_text("""#!/bin/bash
+    # Create a script that takes a few seconds to run
+    script = input_dir / "slow_calc.sh"
+    script.write_text("""#!/bin/bash
 # Simulate a slow calculation
 echo "Starting calculation for case x=$x..."
 sleep 3
 echo "Result: $(($x * $x))" > output.txt
 echo "Calculation complete for x=$x"
 """)
-        script.chmod(0o755)
+    script.chmod(0o755)
 
-        # Define the model
-        model = {
-            "varprefix": "$",
-            "delim": "()",
-            "output": {
-                "result": "cat output.txt"
-            }
+    # Define the model
+    model = {
+        "varprefix": "$",
+        "delim": "()",
+        "output": {
+            "result": "cat output.txt"
         }
+    }
 
-        # Define variable values (10 cases)
-        input_variables = {
-            "x": list(range(1, 11))  # [1, 2, 3, ..., 10]
-        }
+    # Define variable values (10 cases)
+    input_variables = {
+        "x": list(range(1, 11))  # [1, 2, 3, ..., 10]
+    }
 
-        results_dir = tmp_path / "results"
+    results_dir = tmp_path / "results"
 
-        print("Starting calculations...")
-        print(f"Cases to run: {len(input_variables['x'])}")
-        print(f"Estimated time: ~{len(input_variables['x']) * 3} seconds")
-        print()
-        print("Press Ctrl+C at any time to gracefully stop...")
-        print()
+    print("Starting calculations...")
+    print(f"Cases to run: {len(input_variables['x'])}")
+    print(f"Estimated time: ~{len(input_variables['x']) * 3} seconds")
+    print()
+    print("Press Ctrl+C at any time to gracefully stop...")
+    print()
 
-        # Run the calculation
-        try:
-            results = fzr(
-                str(input_dir),
-                input_variables,
-                model,
-                results_dir=str(results_dir),
-                calculators=["sh://"]
-            )
-
-            print()
-            print("=" * 70)
-            print("EXECUTION COMPLETED")
-            print("=" * 70)
-            print()
-            print(f"Total cases completed: {len(results)}")
-            print()
-            print("Results:")
-            for i, row in results.iterrows():
-                status = row.get('status', 'unknown')
-                x = row.get('x', '?')
-                result = row.get('result', 'N/A')
-                print(f"  Case x={x}: status={status}, result={result}")
-
-        except KeyboardInterrupt:
-            print()
-            print("=" * 70)
-            print("FORCE QUIT - Resources may not be cleaned up properly!")
-            print("=" * 70)
-            raise
+    # Run the calculation
+    try:
+        results = fzr(
+            str(input_dir),
+            input_variables,
+            model,
+            results_dir=str(results_dir),
+            calculators=["sh://"]
+        )
 
         print()
-        print(f"Results saved to: {results_dir}")
+        print("=" * 70)
+        print("EXECUTION COMPLETED")
+        print("=" * 70)
         print()
+        print(f"Total cases completed: {len(results)}")
+        print()
+        print("Results:")
+        for i, row in results.iterrows():
+            status = row.get('status', 'unknown')
+            x = row.get('x', '?')
+            result = row.get('result', 'N/A')
+            print(f"  Case x={x}: status={status}, result={result}")
+
+    except KeyboardInterrupt:
+        print()
+        print("=" * 70)
+        print("FORCE QUIT - Resources may not be cleaned up properly!")
+        print("=" * 70)
+        raise
+
+    print()
+    print(f"Results saved to: {results_dir}")
+    print()
 
 if __name__ == "__main__":
     main()

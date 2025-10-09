@@ -5,15 +5,9 @@ Debug execution to understand why one case fails
 
 import os
 import sys
-import tempfile
 import shutil
 import time
 from pathlib import Path
-
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
 
 import fz
 
@@ -195,8 +189,5 @@ def test_debug_execution():
             shutil.rmtree("results")
 
 if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as temp_dir:
-        os.chdir(temp_dir)
-        print(f"Working in: {temp_dir}\n")
-        success = test_debug_execution()
-        print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Debug execution test!")
+    success = test_debug_execution()
+    print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Debug execution test!")

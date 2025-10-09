@@ -5,7 +5,6 @@ Test script to demonstrate the retry mechanism for failed calculations
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 from fz import fzr
 import time
@@ -59,6 +58,9 @@ def create_test_files():
 def test_retry_success():
     """Test case where first calculator fails, but retry succeeds"""
     print("=" * 60)
+
+    create_test_files()
+
     print("TEST 1: Retry Success (First fails, second succeeds)")
     print("=" * 60)
 
@@ -93,6 +95,8 @@ def test_all_fail():
     print("TEST 2: All Calculators Fail")
     print("=" * 60)
 
+    create_test_files()
+
     result = fzr("input.txt",
     {
         "T_celsius": [40]
@@ -124,6 +128,8 @@ def test_first_succeeds():
     print("TEST 3: First Calculator Succeeds (No retry needed)")
     print("=" * 60)
 
+    create_test_files()
+
     result = fzr("input.txt",
     {
         "T_celsius": [50]
@@ -153,8 +159,6 @@ if __name__ == "__main__":
     print("1. When a calculation fails, it will retry with a different calculator")
     print("2. Failed calculations get status='error' and error messages in results")
     print("3. Both exit code failures and parsing errors trigger retries")
-
-    create_test_files()
 
     try:
         # Test 1: Retry success scenario

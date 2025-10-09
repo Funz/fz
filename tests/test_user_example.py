@@ -5,7 +5,6 @@ Test script to reproduce random case failures using the user's example
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 from fz import fzr
 import time

@@ -6,7 +6,6 @@ import time
 import signal
 import threading
 from pathlib import Path
-import tempfile
 import shutil
 
 from fz import fzr

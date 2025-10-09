@@ -11,11 +11,6 @@ import shutil
 from pathlib import Path
 import pytest
 
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 import fz
 
 

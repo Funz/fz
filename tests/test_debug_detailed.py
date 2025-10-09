@@ -7,11 +7,6 @@ import shlex
 import os
 from pathlib import Path
 
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 def debug_resolve_paths_in_segment(segment: str, original_cwd: str) -> str:
     """
     Debug version of _resolve_paths_in_segment with detailed output
@@ -148,7 +143,8 @@ def debug_resolve_paths_in_segment(segment: str, original_cwd: str) -> str:
 
 def test_detailed_resolution():
     """Test with detailed debug output"""
-    original_cwd = "/home/richet/Sync/Open/Funz/fz"
+    # Use project root (parent of tests directory)
+    original_cwd = str(Path(__file__).parent.parent.absolute())
 
     test_segments = [
         "cp test_input.txt copy.txt",

@@ -7,10 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 from datetime import datetime
-
-# Add fz package to path
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import fz
 
