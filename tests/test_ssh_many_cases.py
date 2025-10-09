@@ -95,31 +95,31 @@ def test_ssh_many_cases_localhost():
 
         time.sleep(0.5)  # Give SSH time to recognize changes
 
-        # Step 3: Add key to SSH agent
-        print("\n3. Adding key to SSH agent...")
-        result = subprocess.run(
-            ["ssh-add", str(key_path)],
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
-            print(f"Warning: Could not add key to agent: {result.stderr}")
-            print("Trying fallback method...")
-
-            # Fallback: Copy key to standard location
-            home_ssh = Path.home() / ".ssh"
-            test_key_std = home_ssh / "id_rsa_fz_many_test"
-            test_key_std_pub = home_ssh / "id_rsa_fz_many_test.pub"
-
-            test_key_std.write_bytes(key_path.read_bytes())
-            test_key_std.chmod(0o600)
-            test_key_std_pub.write_bytes(pub_key_path.read_bytes())
-            test_key_std_pub.chmod(0o644)
-
-            print(f"✓ Test key copied to {test_key_std}")
-        else:
-            print("✓ Key added to SSH agent")
+        ## Step 3: Add key to SSH agent
+        #print("\n3. Adding key to SSH agent...")
+        #result = subprocess.run(
+        #    ["ssh-add", str(key_path)],
+        #    capture_output=True,
+        #    text=True
+        #)
+        #
+        #if result.returncode != 0:
+        #    print(f"Warning: Could not add key to agent: {result.stderr}")
+        #    print("Trying fallback method...")
+        #
+        #    # Fallback: Copy key to standard location
+        #    home_ssh = Path.home() / ".ssh"
+        #    test_key_std = home_ssh / "id_rsa_fz_many_test"
+        #    test_key_std_pub = home_ssh / "id_rsa_fz_many_test.pub"
+        #
+        #    test_key_std.write_bytes(key_path.read_bytes())
+        #    test_key_std.chmod(0o600)
+        #    test_key_std_pub.write_bytes(pub_key_path.read_bytes())
+        #    test_key_std_pub.chmod(0o644)
+        #
+        #    print(f"✓ Test key copied to {test_key_std}")
+        #else:
+        #    print("✓ Key added to SSH agent")
 
         # Step 4: Test basic SSH connection
         print("\n4. Testing SSH connection...")
@@ -138,10 +138,9 @@ Host localhost
             [
                 "ssh",
                 "-i" if key_path.exists() else "", str(key_path) if key_path.exists() else "",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
+                "-F", str(ssh_config_path),
+                "-o", "BatchMode=yes",
                 "-o", "ConnectTimeout=5",
-                "-o", "LogLevel=ERROR",
                 f"{getpass.getuser()}@localhost",
                 "echo 'SSH OK'"
             ],
@@ -438,34 +437,34 @@ def test_ssh_many_cases_many_localhost():
 
         time.sleep(0.5)  # Give SSH time to recognize changes
 
-        # Step 3: Add key to SSH agent
-        print("\n3. Adding key to SSH agent...")
-        result = subprocess.run(
-            ["ssh-add", str(key_path)],
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
-            print(f"Warning: Could not add key to agent: {result.stderr}")
-            print("Trying fallback method...")
-
-            # Fallback: Copy key to standard location
-            home_ssh = Path.home() / ".ssh"
-            test_key_std = home_ssh / "id_rsa_fz_many_test"
-            test_key_std_pub = home_ssh / "id_rsa_fz_many_test.pub"
-
-            test_key_std.write_bytes(key_path.read_bytes())
-            test_key_std.chmod(0o600)
-            test_key_std_pub.write_bytes(pub_key_path.read_bytes())
-            test_key_std_pub.chmod(0o644)
-
-            print(f"✓ Test key copied to {test_key_std}")
-        else:
-            print("✓ Key added to SSH agent")
-
-        # Step 4: Test basic SSH connection
-        print("\n4. Testing SSH connection...")
+        ## Step 3: Add key to SSH agent
+        #print("\n3. Adding key to SSH agent...")
+        #result = subprocess.run(
+        #    ["ssh-add", str(key_path)],
+        #    capture_output=True,
+        #    text=True
+        #)
+        #
+        #if result.returncode != 0:
+        #    print(f"Warning: Could not add key to agent: {result.stderr}")
+        #    print("Trying fallback method...")
+        #
+        #    # Fallback: Copy key to standard location
+        #    home_ssh = Path.home() / ".ssh"
+        #    test_key_std = home_ssh / "id_rsa_fz_many_test"
+        #    test_key_std_pub = home_ssh / "id_rsa_fz_many_test.pub"
+        #
+        #    test_key_std.write_bytes(key_path.read_bytes())
+        #    test_key_std.chmod(0o600)
+        #    test_key_std_pub.write_bytes(pub_key_path.read_bytes())
+        #    test_key_std_pub.chmod(0o644)
+        #
+        #    print(f"✓ Test key copied to {test_key_std}")
+        #else:
+        #    print("✓ Key added to SSH agent")
+        #
+        ## Step 4: Test basic SSH connection
+        #print("\n4. Testing SSH connection...")
 
         # Create SSH config to avoid host key checking
         ssh_config_path = ssh_dir / "config"
@@ -481,10 +480,9 @@ Host localhost
             [
                 "ssh",
                 "-i" if key_path.exists() else "", str(key_path) if key_path.exists() else "",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
+                "-F", str(ssh_config_path),
+                "-o", "BatchMode=yes",
                 "-o", "ConnectTimeout=5",
-                "-o", "LogLevel=ERROR",
                 f"{getpass.getuser()}@localhost",
                 "echo 'SSH OK'"
             ],
