@@ -60,6 +60,8 @@ def test_ssh_many_cases_localhost():
 
     if result.returncode != 0:
         raise RuntimeError(f"Failed to generate SSH key: {result.stderr}")
+    else:
+        print(result.stdout)
 
     assert key_path.exists(), "Private key not created"
     assert pub_key_path.exists(), "Public key not created"
@@ -245,6 +247,11 @@ cat output.txt
         assert len(result['y']) == total_cases, "Mismatch in number of y values"
         assert len(result['z']) == total_cases, "Mismatch in number of z values"
         assert len(result['sum']) == total_cases, "Mismatch in number of sum values"
+        # Check 'error' does not exists or is None
+        if 'error' in result:
+            assert len(result['error']) == total_cases, "Mismatch in number of error values"
+            assert all(e is None for e in result['error']), "Error values should be None, while: "+str(result['error'])
+
         assert all(result['sum'] == [result['x'][i] + result['y'][i] + result['z'][i] for i in range(total_cases)]), "Sum values incorrect"
 
         # Expected: 3 * 2 * 1 = 6 cases
@@ -543,7 +550,7 @@ cat output.txt
         from fz import fzr
 
         # Build SSH calculator URL
-        ssh_calculator = [f"ssh://{getpass.getuser()}@localhost/bash {calc_script.resolve()}"]*3
+        ssh_calculator = [f"ssh://{getpass.getuser()}@localhost/bash {calc_script.resolve()}"]*6
 
         print(f"   Calculators: {ssh_calculator}")
 
