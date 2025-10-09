@@ -99,7 +99,7 @@ jobs:
     - name: Run tests with coverage (Ubuntu only)
       if: runner.os == 'Linux' && matrix.python-version == '3.11'
       run: |
-        pytest tests/ --cov=fz --cov-report=xml --cov-report=term -v --ignore=tests/test_examples_advanced.py --ignore=tests/test_examples_modelica.py --ignore=tests/test_examples_perfectgaz.py --ignore=tests/test_examples_runner.py --ignore=tests/test_examples_telemac.py
+        pytest tests/ --full-trace --cov=fz --cov-report=xml --cov-report=term -v --ignore=tests/test_examples_advanced.py --ignore=tests/test_examples_modelica.py --ignore=tests/test_examples_perfectgaz.py --ignore=tests/test_examples_runner.py --ignore=tests/test_examples_telemac.py
 
     - name: Upload coverage to Codecov
       if: runner.os == 'Linux' && matrix.python-version == '3.11'
