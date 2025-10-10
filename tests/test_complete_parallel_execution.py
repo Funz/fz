@@ -91,18 +91,21 @@ def test_complete_parallel_execution():
 
         start_time = time.time()
 
-        result = fz.fzr("input.txt", model, variables,
-                       
-                       calculators=calculators,
-                       results_dir="results")
+        result = fz.fzr("input.txt",
+                        variables,
+                        model, 
+                        calculators=calculators,
+                        results_dir="results")
 
         end_time = time.time()
         total_time = end_time - start_time
 
         print(f"✅ Execution completed in {total_time:.2f} seconds")
 
-        # Detailed result analysis
-        if result:
+        print(f"\n🔍 Result: {result.to_dict()}")
+
+        # Detailed result
+        if result is not None:
             print(f"\n📊 Results Analysis:")
             print(f"   Result keys: {list(result.keys())}")
 
@@ -160,6 +163,8 @@ def test_complete_parallel_execution():
                 pytest.fail("No pressure results found")
         else:
             pytest.fail("No results returned")
+    except Exception as e:
+        pytest.fail(f"Test failed with error: {e}")
 
 if __name__ == "__main__":
     test_complete_parallel_execution()
