@@ -86,7 +86,7 @@ def test_final_specification():
         success_count = 0
         all_results_valid = True
 
-        if result and "pressure" in result:
+        if "result" and "pressure" in result:
             pressure_values = result["pressure"]
             print(f"\n📊 RESULTS:")
 

@@ -103,7 +103,7 @@ def test_robust_parallel():
                     print(f"   {line.strip()}")
 
         # Analyze results
-        if result and "pressure" in result:
+        if "result" and "pressure" in result:
             pressure_values = result["pressure"]
             successful_cases = len([p for p in pressure_values if p is not None])
 
