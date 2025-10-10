@@ -55,49 +55,39 @@ def test_perfect_gas():
     print("- input.txt")
     print("- PerfectGazPressure.sh")
 
-    # Fixed fzr call
+    # Fixed fzr call (correct argument order: input_path, input_variables, model)
     print("\n🚀 Running fzr with fixed configuration...")
     result = fzr(
-                "input.txt",
-                {
-                    "varprefix": "$",
-                    "delim": "()",
-                    "commentline": "#",
-                    "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-                },
-                {
-                    "T_celsius": [20, 25, 30],
-                    "V_L": [1.0, 1.5],
-                    "n_mol": [1.0, 0.5]  # Fixed: Use 0.5 instead of 0 to avoid division by zero
-                },
-                
-                calculators=["sh://bash ./PerfectGazPressure.sh"],  # Fixed: Single calculator, proper path
-                results_dir="results"
-            )
+        "input.txt",
+        {
+            "T_celsius": [20, 25, 30],
+            "V_L": [1.0, 1.5],
+            "n_mol": [1.0, 0.5]  # Fixed: Use 0.5 instead of 0 to avoid division by zero
+        },
+        {
+            "varprefix": "$",
+            "delim": "()",
+            "commentline": "#",
+            "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+        },
+        calculators=["sh://bash ./PerfectGazPressure.sh"],  # Fixed: Single calculator, proper path
+        results_dir="results"
+    )
 
     print("\n📊 Results:")
-            print(f"Cases executed: {len(result['T_celsius'])}")
-            print(f"Statuses: {set(result['status'])}")
-            print(f"Sample pressures: {result['pressure'][:5]}...")  # Show first 5 results
+    print(f"Cases executed: {len(result['T_celsius'])}")
+    print(f"Statuses: {set(result['status'])}")
+    print(f"Sample pressures: {result['pressure'][:5]}...")  # Show first 5 results
 
-    # Verify results
+    # Verify results with assertions
     success_count = sum(1 for status in result['status'] if status == 'done')
     total_count = len(result['status'])
 
     print(f"\n✅ Success: {success_count}/{total_count} cases completed successfully")
 
-    if success_count == total_count:
-        print("🎉 All test cases passed!")
-        return True
-    else:
-        print("⚠️  Some test cases failed")
-        return False
-
-    except Exception as e:
-        print(f"❌ Test failed with error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    # Assert all cases completed successfully
+    assert success_count == total_count, f"Expected all {total_count} cases to succeed, but only {success_count} succeeded"
+    print("🎉 All test cases passed!")
 
 if __name__ == "__main__":
     test_perfect_gas()

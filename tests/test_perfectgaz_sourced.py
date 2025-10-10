@@ -21,6 +21,19 @@ def test_perfectgaz_sourced():
         f.write('T_kelvin=${T_kelvin}\n')
         f.write('V_m3=${V_m3}\n')
 
+    # Create the PerfectGazPressure.sh script
+    with open('PerfectGazPressure.sh', 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write('source perfectgaz_vars.txt\n')
+        f.write('if [ -z "$n_mol" ] || [ -z "$T_kelvin" ] || [ -z "$V_m3" ]; then\n')
+        f.write('  echo "Error: Missing variables n_mol, T_kelvin, or V_m3" >&2\n')
+        f.write('  exit 1\n')
+        f.write('fi\n')
+        f.write('R=8.314  # J/(mol·K)\n')
+        f.write('pressure=$(echo "scale=2; ($n_mol * $R * $T_kelvin) / $V_m3" | bc -l)\n')
+        f.write('echo "pressure = $pressure" > output.txt\n')
+        f.write('exit 0\n')
+
     print("🧪 PerfectGaz Sourced Variables Test - 24 Cases")
     print("=" * 60)
 
@@ -50,7 +63,8 @@ def test_perfectgaz_sourced():
                 "n_mol": amounts,
                 "V_m3": volumes
             },
-            model={"output": {"pressure": "cat output.txt"}},
+            model={varprefix": "$",delim": "{}",
+                "output": {"pressure": "cat output.txt"}},
             calculators=["sh:///bin/bash ./PerfectGazPressure.sh"],
             results_dir="perfectgaz_sourced_results"
         )
@@ -137,6 +151,15 @@ def test_perfectgaz_sourced():
                                 print(f"  ⚠️  {expected_file}: Check for errors")
                         except Exception as e:
                             print(f"  ⚠️  {expected_file}: Error reading ({e})")
+                    elif expected_file == "err.txt" and size > 0:
+                        try:
+                            content = file_path.read_text().strip()
+                            if content:
+                                print(f"  ⚠️  {expected_file}: Contains errors:\n    {content.splitlines()}")
+                            else:
+                                print(f"  ✅ {expected_file}: Empty (no errors)")
+                        except Exception as e:
+                            print(f"  ⚠️  {expected_file}: Error reading ({e})")
                     else:
                         status = "✅" if size > 0 or expected_file == "err.txt" else "⚠️ "
                         print(f"  {status} {expected_file}: Present ({size} bytes)")
@@ -206,10 +229,17 @@ def test_perfectgaz_sourced():
         else:
             print(f"\n⚠️  PARTIAL SUCCESS: {success_rate:.1f}% success rate")
 
+        # Assert test succeeded
+        assert success_rate >= 95, \
+            f"Expected success rate >= 95%, got {success_rate:.1f}%"
+        assert len(case_dirs) == total_cases, \
+            f"Expected {total_cases} case directories, got {len(case_dirs)}"
+
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
+        raise
 
     finally:
         # Cleanup

@@ -426,5 +426,10 @@ def test_multiple_input_files_with_variables():
     print(f"   - Multiple case execution: ✅")
     print(f"   - Results validation: ✅")
 
+    # Assert test passed
+    assert actual_cases == expected_cases, \
+        f"Expected {expected_cases} cases, got {actual_cases}"
+    assert all_cases_verified, "Not all cases verified successfully"
+
 if __name__ == "__main__":
     test_multiple_input_files_with_variables()

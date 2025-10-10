@@ -9,10 +9,12 @@ import sys
 import shutil
 import time
 from pathlib import Path
+import pytest
 
 import fz
 
-def setup_final_test():
+@pytest.fixture(autouse=True)
+def final_test_setup():
     """Setup the final specification test"""
     # Create input.txt exactly as in examples.md
     input_content = """T_celsius=$T_celsius
@@ -36,7 +38,6 @@ echo 'Done'
 
 def test_final_specification():
     """Test the final specification: 2 calculators, 2 cases, ~5s parallel vs ~10s sequential"""
-    setup_final_test()
 
     model = {
         "varprefix": "$",
@@ -125,36 +126,20 @@ def test_final_specification():
             print(f"   Results valid: {'✅' if all_results_valid else '❌'}")
             print(f"   Timing correct: {'✅' if timing_success else '❌'}")
 
-            overall_success = all_cases_successful and all_results_valid and timing_success
+            # Use assertions instead of returning boolean
+            assert all_cases_successful, f"Not all cases successful: {success_count}/{len(variables['T_celsius'])}"
+            assert all_results_valid, "Some results are invalid (None or non-numeric)"
+            assert timing_success, f"Timing incorrect: took {total_time:.2f}s, expected ~5s for parallel execution"
 
-            if overall_success:
-                print(f"\n🎉 SPECIFICATION FULLY SATISFIED!")
-                print(f"   ✓ 2 calculators with duplicate URIs working independently")
-                print(f"   ✓ 2 cases running in parallel")
-                print(f"   ✓ ~{total_time:.1f}s execution (parallel) vs ~10s (sequential)")
-                print(f"   ✓ All cases return valid pressure results")
-            else:
-                print(f"\n💥 SPECIFICATION NOT MET")
-
-            return overall_success
+            print(f"\n🎉 SPECIFICATION FULLY SATISFIED!")
+            print(f"   ✓ 2 calculators with duplicate URIs working independently")
+            print(f"   ✓ 2 cases running in parallel")
+            print(f"   ✓ ~{total_time:.1f}s execution (parallel) vs ~10s (sequential)")
+            print(f"   ✓ All cases return valid pressure results")
 
         else:
-            print("❌ No results returned at all")
-            return False
-
-    except Exception as e:
-        print(f"❌ Final test failed with exception: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    finally:
-        # Cleanup
-        for f in ["input.txt", "PerfectGazPressure.sh"]:
-            if os.path.exists(f):
-                os.remove(f)
-        if os.path.exists("results"):
-            shutil.rmtree("results")
+            pytest.fail("No results returned at all")
 
 if __name__ == "__main__":
-    success = test_final_specification()
-    print(f"\n{'🏆 SUCCESS' if success else '💥 FAILURE'}: Final specification test!")
+    test_final_specification()
+    print(f"\n🏆 SUCCESS: Final specification test!")

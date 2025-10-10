@@ -16,6 +16,23 @@ def test_final_path_resolution():
         f.write("# Final path test\n")
         f.write("value = $(T)\n")
 
+    # Create dummy scripts for testing
+    scripts = {
+        "local_script.sh": "#!/bin/bash\necho 'Local script executed'\n",
+        "folder with spaces/script with spaces.sh": "#!/bin/bash\necho 'Script with spaces executed'\n",
+        "multi_path_script.sh": "#!/bin/bash\necho 'Multi path script executed'\n",
+        "helper.sh": "#!/bin/bash\necho 'Helper script executed'\n",
+        "tools/bin/complex_script.sh": "#!/bin/bash\necho 'Complex script executed'\n"
+    }
+    for path, content in scripts.items():
+        print(f"Creating script: '{path}'")
+        if not os.path.exists(os.path.dirname(path)) and os.path.dirname(path) != '':
+            print(f"Creating directory: '{os.path.dirname(path)}'")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f:
+            f.write(content)
+        os.chmod(path, 0o755)
+
     test_cases = [
         {
             "name": "Simple relative path",
@@ -58,14 +75,13 @@ def test_final_path_resolution():
         try:
             result = fzr("input.txt",
             {
+                "T": [f"final_{i}"]
+            },
+            {
                 "varprefix": "$",
                 "delim": "()",
                 "output": {"test": "echo 'success' || echo 'failed'"}
             },
-            {
-                "T": [f"final_{i}"]
-            },
-            
             calculators=[test_case['calculator']],
             results_dir=f"final_test_{i}")
 
@@ -106,7 +122,9 @@ def test_final_path_resolution():
     else:
         print("⚠️  Some tests failed - path resolution needs further improvement")
 
-    return all_passed
+    # Assert all tests passed
+    assert all_passed, \
+        f"Expected all {total} path resolution tests to pass, but only {passed} passed"
 
 if __name__ == "__main__":
     test_final_path_resolution()

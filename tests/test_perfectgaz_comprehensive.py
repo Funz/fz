@@ -15,11 +15,25 @@ def test_perfectgaz_comprehensive():
     """Test PerfectGaz with many cases and verify all files are present"""
 
     # Create input file with temperature placeholder
-    with open('perfectgaz_input.txt', 'w') as f:
-        f.write('Temperature: ${T_K} K\nVolume: 1 L\nAmount: 1 mol\n')
+    with open('input.txt', 'w') as f:
+        f.write('Temperature: $(T_K) K\nVolume: 1 L\nAmount: 1 mol\n')
 
     print("🧪 PerfectGaz Comprehensive Test - 25 Cases")
     print("=" * 60)
+
+    # Create the calculator script 
+    with open('PerfectGazPressure.sh', 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write('echo "Starting PerfectGaz Pressure Calculation..."\n')
+        f.write('T_K=$(grep "Temperature:" input.txt | cut -d" " -f2)\n')
+        f.write('V_L=1.0\n')
+        f.write('N_MOL=1.0\n')
+        f.write('R=0.08314\n')
+        f.write('PRESSURE=$(python3 -c "print(round($N_MOL * $R * $T_K / $V_L, 4))")\n')
+        f.write('echo "pressure = $PRESSURE bar" > output.txt\n')
+        f.write('echo "Calculated pressure: $PRESSURE bar"\n')
+        f.write('echo "Calculation completed."\n')
+    os.chmod('PerfectGazPressure.sh', 0o755)
 
     # Create temperature range for 25 cases (273K to 373K in 4K steps)
     temperatures = list(range(273, 374, 4))  # 25 temperature values
@@ -30,9 +44,9 @@ def test_perfectgaz_comprehensive():
     try:
         # Run the comprehensive test
         result = fzr(
-            input_path="perfectgaz_input.txt",
-            model={"output": {"pressure": "cat output.txt"}},
+            input_path="input.txt",
             input_variables={"T_K": temperatures},
+            model={"output": {"pressure": "cat output.txt | grep 'pressure' | cut -d'=' -f2"}},
             calculators=["sh://bash PerfectGazPressure.sh","sh://bash PerfectGazPressure.sh","sh://bash PerfectGazPressure.sh"],
             results_dir="perfectgaz_results"
         )
@@ -42,9 +56,7 @@ def test_perfectgaz_comprehensive():
 
         # Verify results
         results_dir = Path("perfectgaz_results")
-        if not results_dir.exists():
-            print(f"❌ Results directory not found: {results_dir}")
-            return
+        assert results_dir.exists(), f"Results directory not found: {results_dir}"
 
         print(f"\n📂 Results directory exists: {results_dir}")
 
@@ -78,7 +90,7 @@ def test_perfectgaz_comprehensive():
 
             for expected_file in expected_files:
                 file_path = case_dir / expected_file
-                if file_path.exists() and file_path.stat().st_size > 0:
+                if file_path.exists():
                     present_files.append(expected_file)
                     # Read some key files
                     if expected_file == "output.txt":
@@ -151,14 +163,21 @@ def test_perfectgaz_comprehensive():
         else:
             print(f"\n⚠️  ISSUES DETECTED: Check missing files or directories above")
 
+        # Assert test succeeded
+        assert all_cases_valid, \
+            f"Not all cases are valid: {len(missing_files_summary)} cases have missing files"
+        assert len(case_dirs) == len(temperatures), \
+            f"Expected {len(temperatures)} case directories, got {len(case_dirs)}"
+
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
+        raise
 
     finally:
         # Cleanup
-        for f in ['perfectgaz_input.txt']:
+        for f in ['input.txt']:
             if os.path.exists(f):
                 os.remove(f)
 

@@ -62,5 +62,11 @@ def test_current_dir_fix():
         print(f"   Expected path: {expected_path}")
         print(f"   Resolved command: {resolved_cmd}")
 
+    # Assert path resolution is correct
+    assert result_dict.get('status', ['unknown'])[0] == 'done', \
+        f"Expected status 'done', got: {result_dict.get('status', ['unknown'])[0]}"
+    assert resolved_cmd and expected_path in resolved_cmd, \
+        f"Path resolution incorrect: expected '{expected_path}' in command '{resolved_cmd}'"
+
 if __name__ == "__main__":
     test_current_dir_fix()

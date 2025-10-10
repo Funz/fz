@@ -154,10 +154,15 @@ def test_detailed_resolution():
     print("🔍 Detailed Path Resolution Debug")
     print("=" * 60)
 
+    results = []
     for segment in test_segments:
         print(f"\n{'='*60}")
         result = debug_resolve_paths_in_segment(segment, original_cwd)
+        results.append(result is not None)
         print(f"{'='*60}")
+
+    # Assert all segments were processed
+    assert all(results), "Some segments failed to process"
 
 if __name__ == "__main__":
     test_detailed_resolution()

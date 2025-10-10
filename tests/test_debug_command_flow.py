@@ -38,11 +38,16 @@ def test_debug_command_flow():
         print(f"Command: {result.get('command', 'missing')}")
 
         # Let's also check if there are any values in the list
-        if 'command' in result and result['command']:
+        if 'command' in result:
             print(f"Command list: {result['command']}")
+
+        # Assert command flow works
+        assert result.get('status')[0] is not None, "Status field missing from result"
+        assert result.get('calculator')[0] is not None, "Calculator field missing from result"
 
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
+        raise
 
     finally:
         # Cleanup

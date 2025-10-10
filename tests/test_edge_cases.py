@@ -5,10 +5,12 @@ Test edge cases for path resolution in sh:// commands
 
 import sys
 import os
+import pytest
 
 from fz import fzr
 
-def create_edge_case_scripts():
+@pytest.fixture(autouse=True)
+def edge_case_scripts():
     """Create scripts for edge case testing"""
 
     # Create input file
@@ -62,7 +64,7 @@ def test_edge_cases():
         },
         {
             "name": "Mixed absolute and relative paths",
-            "calculator": f"sh:///bin/bash /bin/echo 'test' && ./multi_path_script.sh",
+            "calculator": f"sh:///bin/echo 'test' && ./multi_path_script.sh",
             "expected_result": 456
         }
     ]
@@ -81,14 +83,13 @@ def test_edge_cases():
         try:
             result = fzr("input.txt",
             {
+                "T": [f"edge_{i+1}"]
+            },
+            {
                 "varprefix": "$",
                 "delim": "()",
                 "output": {"result": "grep 'result = ' output.txt | awk '{print $3}' || echo 'none'"}
-            },
-            {
-                "T": [f"edge_{i+1}"]
-            },
-            
+            },            
             calculators=[test_case['calculator']],
             results_dir=f"edge_test_{i+1}")
 
@@ -132,8 +133,8 @@ def test_edge_cases():
 
     print(f"\nResults: {successful}/{total} edge cases passed")
 
-    return results
+    # Assert all edge cases passed
+    assert successful == total, f"Expected all {total} edge cases to pass, but only {successful} passed"
 
 if __name__ == "__main__":
-    create_edge_case_scripts()
     test_edge_cases()

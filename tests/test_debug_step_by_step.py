@@ -23,11 +23,16 @@ def test_segment_resolution():
     print("🔍 Testing Segment Path Resolution")
     print("=" * 50)
 
+    results = []
     for segment in test_segments:
         print(f"\nSegment: {segment}")
         resolved = _resolve_paths_in_segment(segment, original_cwd)
         print(f"Resolved: {resolved}")
+        results.append(resolved is not None)
         print("-" * 30)
+
+    # Assert all segments were resolved
+    assert all(results), "Some segments failed to resolve"
 
 if __name__ == "__main__":
     test_segment_resolution()

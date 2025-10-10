@@ -136,5 +136,9 @@ def run_multiple_tests(num_tests=5):
         print(f"\n✅ NO RELIABILITY ISSUES DETECTED")
         print(f"   All {num_tests} tests passed consistently")
 
+    # Assert no reliability issues
+    assert failure_count == 0, \
+        f"Reliability issue detected: {failure_count}/{num_tests} tests failed randomly"
+
 if __name__ == "__main__":
     run_multiple_tests(10)

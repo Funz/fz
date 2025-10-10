@@ -30,9 +30,9 @@ else
 fi
 
 if [ -f ".fz_hash" ]; then
-    echo "✅ Hash file found in current directory" >> location_check.txt
+    echo "❌ Hash file found in current directory" >> location_check.txt
 else
-    echo "❌ Hash file NOT found in current directory" >> location_check.txt
+    echo "✅ Hash file NOT found in current directory" >> location_check.txt
 fi
 
 # Final result
@@ -52,8 +52,8 @@ echo "Location check completed" >> location_check.txt
         print("\n1️⃣ Testing Single Case:")
         result1 = fzr(
             input_path="test_case_input.txt",
-            model={"output": {"value": "echo 'Single case test'"}},
             input_variables={},
+            model={"output": {"value": "echo 'Single case test'"}},
             calculators=["sh://bash check_location_script.sh"],
             results_dir="single_case_test"
         )
@@ -73,10 +73,10 @@ echo "Location check completed" >> location_check.txt
                         print(f"    {line}")
 
                 # Analyze the results
-                if "✅ Input file found" in content and "✅ Hash file found" in content:
-                    print(f"  ✅ Single case: Calculator ran in prepared results directory")
+                if "✅ Input file found" in content and "✅ Hash file NOT found" in content:
+                    print(f"  ✅ Single case: Calculator ran in prepared working directory")
                 else:
-                    print(f"  ❌ Single case: Calculator did not run in prepared results directory")
+                    print(f"  ❌ Single case: Calculator did not run in prepared working directory")
             else:
                 print(f"  ❌ Location check file not found")
         else:
@@ -86,8 +86,8 @@ echo "Location check completed" >> location_check.txt
         print(f"\n2️⃣ Testing Multiple Cases:")
         result2 = fzr(
             input_path="test_case_input.txt",
-            model={"output": {"value": "echo 'Multiple case test'"}},
             input_variables={"param1": ["a", "b"], "param2": ["1", "2"]},
+            model={"output": {"value": "echo 'Multiple case test'"}},
             calculators=["sh://bash check_location_script.sh"],
             results_dir="multi_case_test"
         )
@@ -108,11 +108,11 @@ echo "Location check completed" >> location_check.txt
                 location_file = subdir / "location_check.txt"
                 if location_file.exists():
                     content = location_file.read_text()
-                    if "✅ Input file found" in content and "✅ Hash file found" in content:
-                        print(f"      ✅ Calculator ran in prepared directory")
+                    if "✅ Input file found" in content and "✅ Hash file NOT found" in content:
+                        print(f"      ✅ Calculator ran in working directory")
                         cases_correct += 1
                     else:
-                        print(f"      ❌ Calculator did not run in prepared directory")
+                        print(f"      ❌ Calculator did not run in working directory")
                         # Show some of the content for debugging
                         lines = content.split('\n')[:5]
                         for line in lines:
@@ -122,8 +122,13 @@ echo "Location check completed" >> location_check.txt
                     print(f"      ❌ Location check file not found")
 
             print(f"  📊 Summary: {cases_correct}/{len(subdirs)} cases ran in prepared directories")
+
+            # Assert all cases ran in prepared directories
+            assert cases_correct == len(subdirs), \
+                f"Expected all {len(subdirs)} cases to run in prepared directories, but only {cases_correct} did"
         else:
             print(f"  ❌ Results directory not found")
+            assert False, "Multi-case results directory not found"
 
         print(f"\n📋 Overall Summary:")
         print(f"  • Case directories are created in results directory BEFORE calculator execution")
@@ -135,6 +140,7 @@ echo "Location check completed" >> location_check.txt
         print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
+        raise
 
     finally:
         # Cleanup

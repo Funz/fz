@@ -8,10 +8,12 @@ import sys
 import shutil
 import time
 from pathlib import Path
+import pytest
 
 import fz
 
-def setup_robust_test():
+@pytest.fixture(autouse=True)
+def robust_test_setup():
     """Setup test with robust file handling"""
     # Create input.txt
     input_content = """T_celsius=$T_celsius
@@ -53,7 +55,6 @@ echo 'Done'
 
 def test_robust_parallel():
     """Test robust parallel execution"""
-    setup_robust_test()
 
     model = {
         "varprefix": "$",
@@ -149,24 +150,12 @@ def test_robust_parallel():
             print(f"   All cases successful: {'✅' if all_successful else '❌'}")
             print(f"   Parallel timing: {'✅' if timing_ok else '❌'}")
 
-            return all_successful and timing_ok
+            # Assert test criteria
+            assert all_successful, f"Expected all {len(variables['T_celsius'])} cases to succeed, but only {successful_cases} succeeded"
+            assert timing_ok, f"Expected parallel execution (≤3s), but took {total_time:.2f}s"
         else:
-            print("❌ No results returned")
-            return False
-
-    except Exception as e:
-        print(f"❌ Robust parallel test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    finally:
-        # Cleanup
-        for f in ["input.txt", "RobustCalc.sh", "calc.log"]:
-            if os.path.exists(f):
-                os.remove(f)
-        if os.path.exists("results"):
-            shutil.rmtree("results")
+            pytest.fail("No results returned")
 
 if __name__ == "__main__":
-    success = test_robust_parallel()
-    print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Robust parallel execution test!")
+    test_robust_parallel()
+    print(f"\n🎉 SUCCESS: Robust parallel execution test!")

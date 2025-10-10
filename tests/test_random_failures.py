@@ -10,11 +10,13 @@ import shutil
 import random
 import time
 from pathlib import Path
+import pytest
 
 from fz import fzr
 
 
-def setup_test_environment():
+@pytest.fixture(autouse=True)
+def test_environment():
     """Create test files and scripts for comprehensive testing"""
 
     # Create various test files
@@ -253,7 +255,6 @@ def run_comprehensive_test(num_iterations=3):
     print("🧪 Comprehensive Test: sh:// Path Resolution with Random Failures")
     print("=" * 70)
 
-    setup_test_environment()
     test_cases = create_comprehensive_test_cases()
 
     all_results = []
@@ -320,6 +321,14 @@ def run_comprehensive_test(num_iterations=3):
     print(f"✅ {len(successful_path_tests)} path-dependent tests succeeded")
     print("✅ Relative paths properly resolved to absolute paths")
     print("✅ Complex command structures handled correctly")
+
+    # Assert test isolation is working
+    assert unexpected_failures == 0, \
+        f"Test isolation failed: {unexpected_failures} unexpected failures detected"
+
+    # Assert path resolution is working
+    assert len(successful_path_tests) > 0, \
+        "Path resolution failed: No path-dependent tests succeeded"
 
     return {
         "total_tests": total_tests,

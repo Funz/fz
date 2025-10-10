@@ -8,10 +8,12 @@ import sys
 import shutil
 import time
 from pathlib import Path
+import pytest
 
 import fz
 
-def setup_debug_test():
+@pytest.fixture(autouse=True)
+def debug_test_setup():
     """Setup test with detailed debugging"""
     # Create input.txt
     input_content = """T_celsius=$T_celsius
@@ -71,7 +73,6 @@ echo 'Done'
 
 def test_debug_execution():
     """Test with debugging to see what fails"""
-    setup_debug_test()
 
     model = {
         "varprefix": "$",
@@ -170,24 +171,12 @@ def test_debug_execution():
                         else:
                             print(f"     ❌ output.txt: MISSING")
 
-            return successful_cases == len(variables['T_celsius'])
+            # Assert all cases successful
+            assert successful_cases == len(variables['T_celsius']), \
+                f"Expected all {len(variables['T_celsius'])} cases to succeed, but only {successful_cases} succeeded"
         else:
-            print("❌ No results returned")
-            return False
-
-    except Exception as e:
-        print(f"❌ Debug execution test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    finally:
-        # Cleanup
-        for f in ["input.txt", "DebugCalc.sh"]:
-            if os.path.exists(f):
-                os.remove(f)
-        if os.path.exists("results"):
-            shutil.rmtree("results")
+            pytest.fail("No results returned")
 
 if __name__ == "__main__":
-    success = test_debug_execution()
-    print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Debug execution test!")
+    test_debug_execution()
+    print(f"\n🎉 SUCCESS: Debug execution test!")

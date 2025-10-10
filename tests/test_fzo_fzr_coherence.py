@@ -76,30 +76,30 @@ def test_fzo_fzr_coherence_single_case():
     print("fzo_result:", fzo_result)
 
     # Verify coherence
-    assert"result" in fzr_result, "result not in fzr output"
-    assert"result" in fzo_result, "result not in fzo output"
+    assert "result" in fzr_result, "result not in fzr output"
+    assert "result" in fzo_result, "result not in fzo output"
 
     fzr_res = _get_value(fzr_result, "result", 0)
     fzo_res = _get_value(fzo_result, "result", 0)
             # cast_output() converts "42" to int 42
-    assertfzr_res == 42, f"fzr result={fzr_res}, expected 42"
-    assertfzo_res == 42, f"fzo result={fzo_res}, expected 42"
-    assertfzr_res == fzo_res, f"Result mismatch: fzr={fzr_res}, fzo={fzo_res}"
+    assert fzr_res == 42, f"fzr result={fzr_res}, expected 42"
+    assert fzo_res == 42, f"fzo result={fzo_res}, expected 42"
+    assert fzr_res == fzo_res, f"Result mismatch: fzr={fzr_res}, fzo={fzo_res}"
 
     # For single case, fzr includes variable in results but fzo doesn't
-            # (since it can't extract from directory name when using results dir directly)
+    # (since it can't extract from directory name when using results dir directly)
     fzr_t = _get_value(fzr_result, "T", 0)
-    assertfzr_t == 300, f"fzr T={fzr_t}, expected 300"
-            # fzo won't have T variable for single case - this is expected
+    assert fzr_t == 300, f"fzr T={fzr_t}, expected 300"
+    # fzo won't have T variable for single case - this is expected
 
     # Verify path coherence for single case
     fzr_path = _get_value(fzr_result, "path", 0)
     fzo_path = _get_value(fzo_result, "path", 0)
-            # support windows & python 3.9 : convert to absolute paths
-            if sys.version_info <= (3, 9) and platform.system() == 'Windows':
-        assertos.path.abspath(fzr_path) == os.path.abspath(fzo_path), f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
-            else:
-        assertfzr_path == fzo_path, f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
+    # support windows & python 3.9 : convert to absolute paths
+    if sys.version_info <= (3, 9) and platform.system() == 'Windows':
+        assert os.path.abspath(fzr_path) == os.path.abspath(fzo_path), f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
+    else:
+        assert fzr_path == fzo_path, f"Path mismatch: fzr={fzr_path}, fzo={fzo_path}"
 
     print("✅ Single case: fzo matches fzr (outputs only)")
 
@@ -142,31 +142,31 @@ def test_fzo_fzr_coherence_multiple_cases():
     # Verify coherence
     fzr_len = _get_length(fzr_result, "result")
     fzo_len = _get_length(fzo_result, "result")
-    assertfzr_len == 6, f"Expected 6 results from fzr, got {fzr_len}"
-    assertfzo_len == 6, f"Expected 6 results from fzo, got {fzo_len}"
+    assert fzr_len == 6, f"Expected 6 results from fzr, got {fzr_len}"
+    assert fzo_len == 6, f"Expected 6 results from fzo, got {fzo_len}"
 
     for i in range(6):
         fzr_res = _get_value(fzr_result, "result", i)
         fzo_res = _get_value(fzo_result, "result", i)
-        assertfzr_res == fzo_res, \
+        assert fzr_res == fzo_res, \
                     f"Case {i}: fzr={fzr_res}, fzo={fzo_res}"
 
         fzr_t = _get_value(fzr_result, "T", i)
         fzo_t = _get_value(fzo_result, "T", i)
-        assertfzr_t == fzo_t, f"Case {i} T: fzr={fzr_t}, fzo={fzo_t}"
+        assert fzr_t == fzo_t, f"Case {i} T: fzr={fzr_t}, fzo={fzo_t}"
 
         fzr_p = _get_value(fzr_result, "P", i)
         fzo_p = _get_value(fzo_result, "P", i)
-        assertfzr_p == fzo_p, f"Case {i} P: fzr={fzr_p}, fzo={fzo_p}"
+        assert fzr_p == fzo_p, f"Case {i} P: fzr={fzr_p}, fzo={fzo_p}"
 
         # Verify path coherence (both should include results directory)
         fzr_path = _get_value(fzr_result, "path", i)
         fzo_path = _get_value(fzo_result, "path", i)
-                # support windows & python 3.9 : convert to absolute paths
-                if sys.version_info <= (3, 9) and platform.system() == 'Windows':
-            assertos.path.abspath(fzr_path) == os.path.abspath(fzo_path), f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
-                else:
-            assertfzr_path == fzo_path, f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
+        # support windows & python 3.9 : convert to absolute paths
+        if sys.version_info <= (3, 9) and platform.system() == 'Windows':
+            assert os.path.abspath(fzr_path) == os.path.abspath(fzo_path), f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
+        else:
+            assert fzr_path == fzo_path, f"Case {i} path: fzr={fzr_path}, fzo={fzo_path}"
 
     print("✅ Multiple cases: fzo matches fzr")
 
@@ -210,21 +210,21 @@ def test_fzo_fzr_coherence_multiple_outputs():
     fzo_result = fz.fzo("multi_output_results", model)
 
     # Verify coherence
-    assert_get_length(fzr_result, "square") == 4
-    assert_get_length(fzo_result, "square") == 4
+    assert _get_length(fzr_result, "square") == 4
+    assert _get_length(fzo_result, "square") == 4
 
     for i in range(4):
         fzr_sq = _get_value(fzr_result, "square", i)
         fzo_sq = _get_value(fzo_result, "square", i)
-        assertfzr_sq == fzo_sq, f"Case {i} square: fzr={fzr_sq}, fzo={fzo_sq}"
+        assert fzr_sq == fzo_sq, f"Case {i} square: fzr={fzr_sq}, fzo={fzo_sq}"
 
         fzr_cube = _get_value(fzr_result, "cube", i)
         fzo_cube = _get_value(fzo_result, "cube", i)
-        assertfzr_cube == fzo_cube, f"Case {i} cube: fzr={fzr_cube}, fzo={fzo_cube}"
+        assert fzr_cube == fzo_cube, f"Case {i} cube: fzr={fzr_cube}, fzo={fzo_cube}"
 
         fzr_x = _get_value(fzr_result, "X", i)
         fzo_x = _get_value(fzo_result, "X", i)
-        assertfzr_x == fzo_x, f"Case {i} X: fzr={fzr_x}, fzo={fzo_x}"
+        assert fzr_x == fzo_x, f"Case {i} X: fzr={fzr_x}, fzo={fzo_x}"
 
     print("✅ Multiple outputs: fzo matches fzr")
 
@@ -273,15 +273,15 @@ def test_fzo_fzr_coherence_with_formulas():
     for i in range(4):
         fzr_comp = _get_value(fzr_result, "computed", i)
         fzo_comp = _get_value(fzo_result, "computed", i)
-        assertfzr_comp == fzo_comp, f"Case {i} computed: fzr={fzr_comp}, fzo={fzo_comp}"
+        assert fzr_comp == fzo_comp, f"Case {i} computed: fzr={fzr_comp}, fzo={fzo_comp}"
 
         fzr_base = _get_value(fzr_result, "base", i)
         fzo_base = _get_value(fzo_result, "base", i)
-        assertfzr_base == fzo_base
+        assert fzr_base == fzo_base
 
         fzr_mult = _get_value(fzr_result, "mult", i)
         fzo_mult = _get_value(fzo_result, "mult", i)
-        assertfzr_mult == fzo_mult
+        assert fzr_mult == fzo_mult
 
     print("✅ Formula evaluation: fzo matches fzr")
 
@@ -328,15 +328,15 @@ def test_fzo_fzr_coherence_with_failures():
             # Successful cases should have matching results
     fzr_len = _get_length(fzr_result, "result")
     fzo_len = _get_length(fzo_result, "result")
-    assertfzr_len == fzo_len
+    assert fzr_len == fzo_len
 
     for i in range(fzr_len):
         # For successful cases, results should match
         fzr_status = _get_value(fzr_result, "status", i)
-                if fzr_status == "done":
+        if fzr_status == "done":
             fzr_res = _get_value(fzr_result, "result", i)
             fzo_res = _get_value(fzo_result, "result", i)
-            assertfzr_res == fzo_res, f"Case {i} result: fzr={fzr_res}, fzo={fzo_res}"
+            assert fzr_res == fzo_res, f"Case {i} result: fzr={fzr_res}, fzo={fzo_res}"
 
     print("✅ Partial failures: fzo matches fzr")
 
@@ -392,25 +392,25 @@ def test_fzo_fzr_coherence_perfectgaz_example():
     fzo_result = fz.fzo("perfectgaz_results", model)
 
     # Verify coherence
-    assert_get_length(fzr_result, "pressure") == 6
-    assert_get_length(fzo_result, "pressure") == 6
+    assert _get_length(fzr_result, "pressure") == 6
+    assert _get_length(fzo_result, "pressure") == 6
 
     for i in range(6):
         fzr_press = _get_value(fzr_result, "pressure", i)
         fzo_press = _get_value(fzo_result, "pressure", i)
-        assertfzr_press == fzo_press, f"Case {i} pressure: fzr={fzr_press}, fzo={fzo_press}"
+        assert fzr_press == fzo_press, f"Case {i} pressure: fzr={fzr_press}, fzo={fzo_press}"
 
         fzr_t = _get_value(fzr_result, "T_celsius", i)
         fzo_t = _get_value(fzo_result, "T_celsius", i)
-        assertfzr_t == fzo_t
+        assert fzr_t == fzo_t
 
         fzr_v = _get_value(fzr_result, "V_L", i)
         fzo_v = _get_value(fzo_result, "V_L", i)
-        assertfzr_v == fzo_v
+        assert fzr_v == fzo_v
 
         fzr_n = _get_value(fzr_result, "n_mol", i)
         fzo_n = _get_value(fzo_result, "n_mol", i)
-        assertfzr_n == fzo_n
+        assert fzr_n == fzo_n
 
     print("✅ Perfect gas example: fzo matches fzr")
 
@@ -451,21 +451,21 @@ def test_fzo_fzr_coherence_simple_echo():
     # Verify coherence
     fzr_len = _get_length(fzr_result, "output")
     fzo_len = _get_length(fzo_result, "output")
-    assertfzr_len == 6, f"Expected 6 results from fzr, got {fzr_len}"
-    assertfzo_len == 6, f"Expected 6 results from fzo, got {fzo_len}"
+    assert fzr_len == 6, f"Expected 6 results from fzr, got {fzr_len}"
+    assert fzo_len == 6, f"Expected 6 results from fzo, got {fzo_len}"
 
     for i in range(6):
         fzr_out = _get_value(fzr_result, "output", i)
         fzo_out = _get_value(fzo_result, "output", i)
-        assertfzr_out == fzo_out, f"Case {i}: fzr={fzr_out}, fzo={fzo_out}"
+        assert fzr_out == fzo_out, f"Case {i}: fzr={fzr_out}, fzo={fzo_out}"
 
         fzr_x = _get_value(fzr_result, "x", i)
         fzo_x = _get_value(fzo_result, "x", i)
-        assertfzr_x == fzo_x, f"Case {i} x: fzr={fzr_x}, fzo={fzo_x}"
+        assert fzr_x == fzo_x, f"Case {i} x: fzr={fzr_x}, fzo={fzo_x}"
 
         fzr_y = _get_value(fzr_result, "y", i)
         fzo_y = _get_value(fzo_result, "y", i)
-        assertfzr_y == fzo_y, f"Case {i} y: fzr={fzr_y}, fzo={fzo_y}"
+        assert fzr_y == fzo_y, f"Case {i} y: fzr={fzr_y}, fzo={fzo_y}"
 
     print("✅ Simple echo: fzo matches fzr")
 
@@ -505,21 +505,21 @@ def test_fzo_fzr_coherence_three_variables():
     fzo_result = fz.fzo("three_var_results", model)
 
     # Verify coherence
-    assert_get_length(fzr_result, "result") == 12
-    assert_get_length(fzo_result, "result") == 12
+    assert _get_length(fzr_result, "result") == 12
+    assert _get_length(fzo_result, "result") == 12
 
     for i in range(12):
         fzr_a = _get_value(fzr_result, "a", i)
         fzo_a = _get_value(fzo_result, "a", i)
-        assertfzr_a == fzo_a, f"Case {i} a: fzr={fzr_a}, fzo={fzo_a}"
+        assert fzr_a == fzo_a, f"Case {i} a: fzr={fzr_a}, fzo={fzo_a}"
 
         fzr_b = _get_value(fzr_result, "b", i)
         fzo_b = _get_value(fzo_result, "b", i)
-        assertfzr_b == fzo_b, f"Case {i} b: fzr={fzr_b}, fzo={fzo_b}"
+        assert fzr_b == fzo_b, f"Case {i} b: fzr={fzr_b}, fzo={fzo_b}"
 
         fzr_c = _get_value(fzr_result, "c", i)
         fzo_c = _get_value(fzo_result, "c", i)
-        assertfzr_c == fzo_c, f"Case {i} c: fzr={fzr_c}, fzo={fzo_c}"
+        assert fzr_c == fzo_c, f"Case {i} c: fzr={fzr_c}, fzo={fzo_c}"
 
     print("✅ Three variables: fzo matches fzr")
 
@@ -559,17 +559,17 @@ def test_fzo_fzr_coherence_float_values():
     fzo_result = fz.fzo("float_results", model)
 
     # Verify coherence - 3x2 = 6 cases
-    assert_get_length(fzr_result, "measurement") == 6
-    assert_get_length(fzo_result, "measurement") == 6
+    assert _get_length(fzr_result, "measurement") == 6
+    assert _get_length(fzo_result, "measurement") == 6
 
     for i in range(6):
         fzr_temp = _get_value(fzr_result, "temp", i)
         fzo_temp = _get_value(fzo_result, "temp", i)
-        assertfzr_temp == fzo_temp, f"Case {i} temp: fzr={fzr_temp}, fzo={fzo_temp}"
+        assert fzr_temp == fzo_temp, f"Case {i} temp: fzr={fzr_temp}, fzo={fzo_temp}"
 
         fzr_press = _get_value(fzr_result, "pressure", i)
         fzo_press = _get_value(fzo_result, "pressure", i)
-        assertfzr_press == fzo_press, f"Case {i} pressure: fzr={fzr_press}, fzo={fzo_press}"
+        assert fzr_press == fzo_press, f"Case {i} pressure: fzr={fzr_press}, fzo={fzo_press}"
 
     print("✅ Float values: fzo matches fzr")
 
@@ -609,17 +609,17 @@ def test_fzo_fzr_coherence_large_grid():
     fzo_result = fz.fzo("large_grid_results", model)
 
     # Verify coherence - 20 cases
-    assert_get_length(fzr_result, "value") == 20
-    assert_get_length(fzo_result, "value") == 20
+    assert _get_length(fzr_result, "value") == 20
+    assert _get_length(fzo_result, "value") == 20
 
     for i in range(20):
         fzr_p1 = _get_value(fzr_result, "p1", i)
         fzo_p1 = _get_value(fzo_result, "p1", i)
-        assertfzr_p1 == fzo_p1, f"Case {i} p1: fzr={fzr_p1}, fzo={fzo_p1}"
+        assert fzr_p1 == fzo_p1, f"Case {i} p1: fzr={fzr_p1}, fzo={fzo_p1}"
 
         fzr_p2 = _get_value(fzr_result, "p2", i)
         fzo_p2 = _get_value(fzo_result, "p2", i)
-        assertfzr_p2 == fzo_p2, f"Case {i} p2: fzr={fzr_p2}, fzo={fzo_p2}"
+        assert fzr_p2 == fzo_p2, f"Case {i} p2: fzr={fzr_p2}, fzo={fzo_p2}"
 
     print("✅ Large grid (20 cases): fzo matches fzr")
 

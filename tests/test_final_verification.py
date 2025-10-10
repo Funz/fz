@@ -52,10 +52,19 @@ def test_final_verification():
         print(f"\n✅ Results Summary:")
         print(f"   Test 1 status: {result1.get('status', ['unknown'])[0]}")
         print(f"   Test 2 status: {result2.get('status', ['unknown'])[0]}")
-        print(f"   Command tracking: {'✅ Working' if result1.get('command', [None])[0] else '❌ Failed'}")
+        command_tracking_works = result1.get('command', [None])[0] is not None
+        print(f"   Command tracking: {'✅ Working' if command_tracking_works else '❌ Failed'}")
+
+        # Assert results are correct
+        assert result1.get('status', ['unknown'])[0] == 'done', \
+            f"Test 1 failed: expected status 'done', got {result1.get('status', ['unknown'])[0]}"
+        assert result2.get('status', ['unknown'])[0] == 'done', \
+            f"Test 2 failed: expected status 'done', got {result2.get('status', ['unknown'])[0]}"
+        assert command_tracking_works, "Command tracking failed: no command recorded"
 
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
+        raise
 
     finally:
         # Cleanup

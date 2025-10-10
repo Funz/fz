@@ -72,7 +72,7 @@ fi
         },
         {
             "name": "file_operations",
-            "calculator": "sh://cp test_input.txt copy.txt && echo 'result = 10' > output.txt",
+            "calculator": "sh://cp test_input.txt copy.txt && echo 'result = 10'",
             "should_succeed": True
         },
         {
@@ -96,8 +96,8 @@ fi
             # Run test
             result = fzr(
                 input_path="test_input.txt",  # Use a specific input file
-                model={"output": {"result": "cat output.txt | grep 'result = ' | awk '{print $NF}' || echo 'failed'"}},
                 input_variables={},
+                model={"output": {"result": "cat out*.txt | grep 'result = ' | awk '{print $3}' || echo 'failed'"}},
                 calculators=[case["calculator"]],
                 results_dir=f"test_{case['name']}"
             )
@@ -174,12 +174,11 @@ fi
         if os.path.exists(f):
             os.remove(f)
 
-    return {
-        "total": total_tests,
-        "successes": successes,
-        "path_resolution_working": path_dependent_success and file_ops_success,
-        "isolation_working": isolation_ok
-    }
+    # Assert path resolution is working
+    assert path_dependent_success, "Path-dependent script failed - path resolution not working"
+    assert file_ops_success, "File operations failed - path resolution not working"
+    assert isolation_ok, \
+        f"Expected tests were affected by random failures: {actual_expected_successes}/{expected_successes} passed"
 
 
 if __name__ == "__main__":

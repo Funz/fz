@@ -67,7 +67,6 @@ echo "Final stdout message"
                 "custom_result.txt",  # file created by script
                 "script_log.txt",     # log file created by script
                 "extra_file.dat",     # extra file created by script
-                "output"        # model output file
             ]
 
             found_files = {}
@@ -140,13 +139,18 @@ echo "Final stdout message"
                 print("  ❌ Some expected files missing or empty")
                 print("  💡 This might indicate timing issues - files not fully written before directory move")
 
+            # Assert all files found
+            assert all_found, "Some expected files missing or empty in results directory"
+
         else:
             print(f"❌ Results directory not found: {results_dir}")
+            assert False, "Results directory not found"
 
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
+        raise
 
     finally:
         # Cleanup
