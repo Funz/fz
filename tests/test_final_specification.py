@@ -139,6 +139,11 @@ def test_final_specification():
 
         else:
             pytest.fail("No results returned at all")
+    except Exception as e:
+        print(f"❌ TEST FAILED with error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 if __name__ == "__main__":
     test_final_specification()

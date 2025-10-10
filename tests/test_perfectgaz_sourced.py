@@ -63,8 +63,10 @@ def test_perfectgaz_sourced():
                 "n_mol": amounts,
                 "V_m3": volumes
             },
-            model={varprefix": "$",delim": "{}",
-                "output": {"pressure": "cat output.txt"}},
+            model={
+                "varprefix": "$",
+                "delim": "{}",
+                "output": {"pressure": "cat output.txt | grep 'pressure' | cut -d'=' -f2 | tr -d ' '"}},
             calculators=["sh:///bin/bash ./PerfectGazPressure.sh"],
             results_dir="perfectgaz_sourced_results"
         )
@@ -151,7 +153,7 @@ def test_perfectgaz_sourced():
                                 print(f"  ⚠️  {expected_file}: Check for errors")
                         except Exception as e:
                             print(f"  ⚠️  {expected_file}: Error reading ({e})")
-                    elif expected_file == "err.txt" and size > 0:
+                    elif expected_file == "err.txt":
                         try:
                             content = file_path.read_text().strip()
                             if content:
@@ -160,8 +162,17 @@ def test_perfectgaz_sourced():
                                 print(f"  ✅ {expected_file}: Empty (no errors)")
                         except Exception as e:
                             print(f"  ⚠️  {expected_file}: Error reading ({e})")
+                    elif expected_file == "out.txt":
+                        try:
+                            content = file_path.read_text().strip()
+                            if content:
+                                print(f"  📝 {expected_file}: Contains output:\n    {content.splitlines()}")
+                            else:
+                                print(f"  ✅  {expected_file}: Empty output")
+                        except Exception as e:
+                            print(f"  ⚠️  {expected_file}: Error reading ({e})")
                     else:
-                        status = "✅" if size > 0 or expected_file == "err.txt" else "⚠️ "
+                        status = "✅" if size > 0 or expected_file == "err.txt" or expected_file == "out.txt" else "⚠️ "
                         print(f"  {status} {expected_file}: Present ({size} bytes)")
                 else:
                     missing_files.append(expected_file)
@@ -174,6 +185,9 @@ def test_perfectgaz_sourced():
             # Show file count summary
             print(f"  📊 Files: {len(present_files)}/{len(expected_files)} present")
 
+        if missing_files:
+            print(f"  ❌  Missing files: {missing_files}")
+
         # Summary for remaining cases
         if len(case_dirs) > 10:
             print(f"\n📋 Checking remaining {len(case_dirs)-10} cases...")
@@ -182,7 +196,7 @@ def test_perfectgaz_sourced():
                 missing_count = 0
                 for expected_file in expected_files:
                     file_path = case_dir / expected_file
-                    if not (file_path.exists() and (file_path.stat().st_size > 0 or expected_file == "err.txt")):
+                    if not (file_path.exists() and (file_path.stat().st_size > 0 or expected_file == "err.txt" or expected_file == "out.txt")):
                         missing_count += 1
                 if missing_count > 0:
                     remaining_issues += 1

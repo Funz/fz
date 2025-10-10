@@ -155,6 +155,13 @@ def test_robust_parallel():
             assert timing_ok, f"Expected parallel execution (≤3s), but took {total_time:.2f}s"
         else:
             pytest.fail("No results returned")
+    finally:
+        # Cleanup
+        for fname in ["input.txt", "RobustCalc.sh", "calc.log"]:
+            if os.path.exists(fname):
+                os.remove(fname)
+        if os.path.exists("results"):
+            shutil.rmtree("results")
 
 if __name__ == "__main__":
     test_robust_parallel()
