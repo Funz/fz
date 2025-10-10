@@ -113,7 +113,7 @@ def test_debug_execution():
         print(f"✅ Execution completed in {total_time:.2f} seconds")
 
         # Analyze results and debug info
-        if result and "pressure" in result:
+        if "result" and "pressure" in result:
             pressure_values = result["pressure"]
             successful_cases = len([p for p in pressure_values if p is not None])
 
@@ -176,6 +176,11 @@ def test_debug_execution():
                 f"Expected all {len(variables['T_celsius'])} cases to succeed, but only {successful_cases} succeeded"
         else:
             pytest.fail("No results returned")
+    except Exception as e:
+        print(f"❌ Test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 if __name__ == "__main__":
     test_debug_execution()
