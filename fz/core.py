@@ -363,6 +363,12 @@ def fzc(
     input_path = Path(input_path).resolve()
     output_dir = Path(output_dir).resolve()
 
+    # Check if any input_variable keys are missing in input files
+    found_variables = fzi(str(input_path), model)
+    missing_vars = set(input_variables.keys()) - set(found_variables.keys())
+    if missing_vars:
+        log_warning(f"⚠️  Warning: The following input variables are not found in input files: {', '.join(sorted(missing_vars))}")
+
     # Ensure output directory is unique (rename existing with timestamp)
     output_dir, _ = ensure_unique_directory(output_dir)
 
@@ -704,6 +710,12 @@ def fzr(
     # Convert to absolute paths immediately while we're in the correct working directory
     input_path = Path(input_path).resolve()
     results_dir = Path(results_dir).resolve()
+
+    # Check if any input_variable keys are missing in input files
+    found_variables = fzi(str(input_path), model)
+    missing_vars = set(input_variables.keys()) - set(found_variables.keys())
+    if missing_vars:
+        log_warning(f"⚠️  Warning: The following input variables are not found in input files: {', '.join(sorted(missing_vars))}")
 
     # Ensure results directory is unique (rename existing with timestamp)
     results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
