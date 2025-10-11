@@ -689,8 +689,12 @@ def run_local_calculation(
                 # Git for Windows default paths
                 r"C:\Progra~1\Git\bin\bash.exe",
                 r"C:\Progra~2\Git\bin\bash.exe",
+                # Msys2 bash (if installed)
+                r"C:\msys64\usr\bin\bash.exe",
+                # WSL bash
+                r"C:\Windows\System32\bash.exe",
                 # win-bash
-                r"C:\win-bash\bin\bash.exe",
+                r"C:\win-bash\bin\bash.exe"
             ]
 
             for bash_path in git_bash_paths:
