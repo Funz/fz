@@ -537,6 +537,7 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
             "chown",
             "python",
             "python3",
+            "bash",
             "sh",
             "perl",
             "ruby",
@@ -682,7 +683,7 @@ def run_local_calculation(
         if platform.system() == "Windows":
             # On Windows, use bash if available (Git Bash, WSL, etc.)
             # Check common Git Bash installation paths first
-            git_bash_paths = [
+            bash_paths = [
                 # cygwin bash
                 r"C:\cygwin64\bin\bash.exe",
                 # Git for Windows default paths
@@ -696,7 +697,7 @@ def run_local_calculation(
                 r"C:\win-bash\bin\bash.exe"
             ]
 
-            for bash_path in git_bash_paths:
+            for bash_path in bash_paths:
                 if os.path.exists(bash_path):
                     executable = bash_path
                     log_debug(f"Using bash at: {executable}")
