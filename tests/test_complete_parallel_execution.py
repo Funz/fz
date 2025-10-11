@@ -63,7 +63,7 @@ echo 'Done'
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }
 
     # 2 calculators, 2 cases - should run in ~2s parallel vs ~4s sequential
