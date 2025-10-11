@@ -167,5 +167,6 @@ def test_complete_parallel_execution():
         pytest.fail(f"Test failed with error: {e}")
 
 if __name__ == "__main__":
+    complete_test_setup()
     test_complete_parallel_execution()
     print(f"\n🎉 SUCCESS: Complete parallel execution test!")
