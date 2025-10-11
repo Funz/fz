@@ -21,7 +21,7 @@ def test_complete_parallel_execution():
 V_L=$V_L
 n_mol=$n_mol
 """
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write(input_content)
 
     # Create a more robust calculator script
@@ -53,7 +53,7 @@ echo "pressure=$pressure" >> debug.txt
 echo "Calculator finished for T_celsius=$T_celsius at $(date +%H:%M:%S.%3N)"
 echo 'Done'
 """
-    with open("PerfectGazPressure.sh", "w") as f:
+    with open("PerfectGazPressure.sh", "w", newline='\n') as f:
         f.write(script_content)
     os.chmod("PerfectGazPressure.sh", 0o755)
 
