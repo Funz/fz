@@ -102,7 +102,7 @@ def test_perfectgaz_sourced():
         missing_files_summary = {}
         pressure_samples = {}
 
-        for i, case_dir in enumerate(case_dirs[:10]):  # Show first 10 cases in detail
+        for i, case_dir in enumerate(case_dirs):  # Show first 10 cases in detail
             case_name = case_dir.name
             print(f"\n📁 Case {i+1}: {case_name}")
 
