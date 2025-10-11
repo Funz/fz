@@ -43,7 +43,7 @@ def test_interrupt_sequential_execution(tmp_path):
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
-    interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
+    interrupt_thread = threading.Thread(target=send_interrupt, daemon=False)
     interrupt_thread.start()
 
     results_dir = tmp_path / "results"
@@ -102,7 +102,7 @@ def test_interrupt_parallel_execution(tmp_path):
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
-    interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
+    interrupt_thread = threading.Thread(target=send_interrupt, daemon=False)
     interrupt_thread.start()
 
     results_dir = tmp_path / "results"
@@ -152,7 +152,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
-    interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
+    interrupt_thread = threading.Thread(target=send_interrupt, daemon=False)
     interrupt_thread.start()
 
     results_dir = tmp_path / "results"
