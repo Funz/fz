@@ -537,7 +537,6 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
             "chown",
             "python",
             "python3",
-            "bash",
             "sh",
             "perl",
             "ruby",
