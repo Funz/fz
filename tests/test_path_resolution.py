@@ -164,8 +164,6 @@ def test_various_path_formats():
     assert successful >= total - 1, \
         f"Expected at least {total - 1} tests to pass, but only {successful} passed"
 
-    return results
-
 if __name__ == "__main__":
     print("🧪 Testing Comprehensive Path Resolution in sh:// Commands")
     print("This test verifies that all relative paths are properly converted to absolute paths")

@@ -69,7 +69,9 @@ def test_concurrent_multi_case_execution():
         assert len(results.get('value', [])) == 3, \
             f"Expected 3 cases to complete, got {len(results.get('value', []))}"
 
-        return is_concurrent, "concurrent" if is_concurrent else ("sequential" if execution_time > 5.0 else "unclear")
+        # Store timing result without returning
+        timing_result = "concurrent" if is_concurrent else ("sequential" if execution_time > 5.0 else "unclear")
+        return timing_result  # This is needed by __main__ but pytest will ignore it
 
     except Exception as e:
         print(f"✗ Test FAILED: {e}")
@@ -128,7 +130,9 @@ def test_single_case_multiple_calculators():
         # Assert single case completed successfully
         assert results.get('calculator') is not None, "No calculator result returned"
 
-        return is_parallel
+        # Assert parallel execution
+        # Note: We don't strictly enforce this since timing can vary
+        return is_parallel  # This is needed by __main__ but pytest will ignore it
 
     except Exception as e:
         print(f"✗ Baseline test FAILED: {e}")
@@ -153,7 +157,8 @@ if __name__ == "__main__":
         print("\n❌ Baseline test failed - parallel execution not working properly")
         exit(1)
 
-    concurrent_success, execution_type = test_concurrent_multi_case_execution()
+    execution_type = test_concurrent_multi_case_execution()
+    concurrent_success = execution_type == "concurrent"
 
     print("\n" + "=" * 60)
     print("SUMMARY:")
