@@ -5,7 +5,6 @@ Test script to reproduce random case failures using the user's example
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 from fz import fzr
 import time
@@ -136,6 +135,10 @@ def run_multiple_tests(num_tests=5):
     else:
         print(f"\n✅ NO RELIABILITY ISSUES DETECTED")
         print(f"   All {num_tests} tests passed consistently")
+
+    # Assert no reliability issues
+    assert failure_count == 0, \
+        f"Reliability issue detected: {failure_count}/{num_tests} tests failed randomly"
 
 if __name__ == "__main__":
     run_multiple_tests(10)

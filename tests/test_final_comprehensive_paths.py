@@ -5,7 +5,6 @@ Final test demonstrating comprehensive path resolution in sh:// commands
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 from fz import fzr
 
@@ -43,12 +42,13 @@ def test_final_comprehensive_paths():
             "name": "Complex command with multiple file operations",
             "calculator": "sh://echo 'line1' > temp1.txt && echo 'line2' > temp2.txt && cat temp1.txt temp2.txt > combined.txt && echo 'result = 200' > output.txt",
             "description": "Multiple file arguments should all be resolved"
-        },
-        {
-            "name": "Script with subdirectory path",
-            "calculator": "sh://mkdir -p work/scripts && cp comprehensive_test.sh work/scripts/ && bash work/scripts/comprehensive_test.sh",
-            "description": "Nested directory paths should be resolved"
         }
+        #, NO: relative path (to input_dir) is supported as working dir of command scripts, not inside command line
+        #{
+        #    "name": "Script with subdirectory path",
+        #    "calculator": "sh://mkdir -p work/scripts && cp comprehensive_test.sh work/scripts/ && bash work/scripts/comprehensive_test.sh",
+        #    "description": "Nested directory paths should be resolved"
+        #}
     ]
 
     print("🎯 Final Comprehensive Path Resolution Demonstration")
@@ -67,14 +67,13 @@ def test_final_comprehensive_paths():
         try:
             result = fzr("input.txt",
             {
+                "V": [f"final_{i}"]
+            },            
+            {
                 "varprefix": "$",
                 "delim": "()",
                 "output": {"result": "grep 'result = ' output.txt | awk '{print $3}' || echo 'none'"}
-            },
-            {
-                "V": [f"final_{i}"]
-            },
-            
+            },            
             calculators=[test_case['calculator']],
             results_dir=f"final_comprehensive_{i}")
 
@@ -124,7 +123,8 @@ def test_final_comprehensive_paths():
     else:
         print("⚠️  Some path resolution issues remain")
 
-    return all_passed
+    # Assert all tests passed
+    assert all_passed, "Not all comprehensive path resolution tests passed"
 
 if __name__ == "__main__":
     test_final_comprehensive_paths()

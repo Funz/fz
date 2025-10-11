@@ -7,10 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 from datetime import datetime
-
-# Add fz package to path
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import fz
 
@@ -43,8 +40,8 @@ def test_concurrent_multi_case_execution():
 
         results = fz.fzr(
             temp_input,
-            test_model,
             {"value": [1, 2, 3]},  # 3 cases
+            test_model,
             results_dir="concurrent_test_results",
             calculators=[
                 "sh://echo 'calc1 result' > result.txt && sleep 2",  # 2 second delay
@@ -60,19 +57,25 @@ def test_concurrent_multi_case_execution():
         print(f"Calculators used: {results.get('calculator', [])}")
 
         # Analyze timing
-        if execution_time < 4.0:
+        is_concurrent = execution_time < 4.0
+        if is_concurrent:
             print("✓ CONCURRENT execution detected (all cases ran simultaneously)")
-            return True, "concurrent"
         elif execution_time > 5.0:
             print("⚠ SEQUENTIAL execution detected (cases ran one after another)")
-            return False, "sequential"
         else:
             print("? UNCLEAR execution pattern (timing is ambiguous)")
-            return False, "unclear"
+
+        # Assert results are valid
+        assert len(results.get('value', [])) == 3, \
+            f"Expected 3 cases to complete, got {len(results.get('value', []))}"
+
+        # Store timing result without returning
+        timing_result = "concurrent" if is_concurrent else ("sequential" if execution_time > 5.0 else "unclear")
+        return timing_result  # This is needed by __main__ but pytest will ignore it
 
     except Exception as e:
         print(f"✗ Test FAILED: {e}")
-        return False, "error"
+        raise
 
     finally:
         try:
@@ -118,16 +121,22 @@ def test_single_case_multiple_calculators():
         print(f"Calculator used: {results.get('calculator', ['unknown'])[0]}")
 
         # Should be close to 1 second (fastest calculator wins in parallel)
-        if execution_time < 1.5:
+        is_parallel = execution_time < 1.5
+        if is_parallel:
             print("✓ Parallel calculator execution working for single case")
-            return True
         else:
             print("⚠ Calculators may not be running in parallel for single case")
-            return False
+
+        # Assert single case completed successfully
+        assert results.get('calculator') is not None, "No calculator result returned"
+
+        # Assert parallel execution
+        # Note: We don't strictly enforce this since timing can vary
+        return is_parallel  # This is needed by __main__ but pytest will ignore it
 
     except Exception as e:
         print(f"✗ Baseline test FAILED: {e}")
-        return False
+        raise
 
     finally:
         try:
@@ -148,7 +157,8 @@ if __name__ == "__main__":
         print("\n❌ Baseline test failed - parallel execution not working properly")
         exit(1)
 
-    concurrent_success, execution_type = test_concurrent_multi_case_execution()
+    execution_type = test_concurrent_multi_case_execution()
+    concurrent_success = execution_type == "concurrent"
 
     print("\n" + "=" * 60)
     print("SUMMARY:")

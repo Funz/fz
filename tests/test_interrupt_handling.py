@@ -6,7 +6,6 @@ import time
 import signal
 import threading
 from pathlib import Path
-import tempfile
 import shutil
 
 from fz import fzr
@@ -27,10 +26,13 @@ def test_interrupt_sequential_execution(tmp_path):
     # Create input file with longer sleep time
     input_dir = tmp_path / "input"
     input_dir.mkdir()
-    input_file = input_dir / "script.sh"
+    input_file = input_dir / "input.dat"
+    input_file.write_text("nothing")
+
+    script_file = tmp_path / "script.sh"
     # Each case takes 3 seconds
-    input_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
-    input_file.chmod(0o755)
+    script_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
+    script_file.chmod(0o755)
 
     # Create multiple cases
     input_variables = {
@@ -55,22 +57,22 @@ def test_interrupt_sequential_execution(tmp_path):
         input_variables,
         model,
         results_dir=str(results_dir),
-        calculators=["sh://"]
+        calculators=["sh://bash "+str(script_file.absolute())]  # Use bash to run the script
     )
+
+    print(f"Results obtained: {results.to_dict()}")
 
     # Verify that execution was interrupted (not all cases completed)
     # Allow some tolerance since timing isn't exact
     assert len(results) <= 5, f"Expected at most 5 results, got {len(results)}"
 
-    # If we got all 5 results, the interrupt came too late, but that's still valid behavior
-    if len(results) < 5:
-        print(f"✓ Interrupt test passed: {len(results)}/5 cases completed before interrupt")
-        # Verify that partial results are available
-        assert len(results) >= 1, f"Expected at least 1 completed case, got {len(results)}"
-    else:
-        print(f"✓ All cases completed before interrupt (timing variation)")
-        # This is acceptable - the calculation was just too fast
+    # If we got all 5 results, the interrupt came too late
+    assert len(results) < 5, f"Expected less than 5 results, got {len(results)}"
 
+    # We should have at least one results well completed
+    assert len(results) >= 1, f"Expected at least 1 result, got {len(results)}"
+
+    interrupt_thread.join()
 
 def test_interrupt_parallel_execution(tmp_path):
     """Test that interrupt stops parallel execution gracefully"""
@@ -87,10 +89,13 @@ def test_interrupt_parallel_execution(tmp_path):
     # Create input file with longer sleep
     input_dir = tmp_path / "input"
     input_dir.mkdir()
-    input_file = input_dir / "script.sh"
-    # Each case takes 4 seconds
-    input_file.write_text("#!/bin/bash\nsleep 4\necho 'done' > output.txt\n")
-    input_file.chmod(0o755)
+    input_file = input_dir / "input.dat"
+    input_file.write_text("nothing")
+
+    script_file = tmp_path / "script.sh"
+    # Each case takes 3 seconds
+    script_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
+    script_file.chmod(0o755)
 
     # Create multiple cases
     input_variables = {
@@ -114,17 +119,21 @@ def test_interrupt_parallel_execution(tmp_path):
         input_variables,
         model,
         results_dir=str(results_dir),
-        calculators=["sh://", "sh://"]  # 2 parallel calculators
+        calculators=["sh://bash "+str(script_file.absolute())]*3  
     )
+
+    print(f"Results obtained: {results.to_dict()}")
 
     # Verify results - with timing variations, we might get all 10
     assert len(results) <= 10, f"Expected at most 10 results, got {len(results)}"
 
-    if len(results) < 10:
-        print(f"✓ Parallel interrupt test passed: {len(results)}/10 cases completed before interrupt")
-    else:
-        print(f"✓ All cases completed before interrupt (timing variation)")
+    # If we got all 10 results, the interrupt came too late
+    assert len(results) < 10, f"Expected less than 10 results, got {len(results)}"
 
+    # We should have at least one results well completed
+    assert len(results) >= 2, f"Expected at least 2 result, got {len(results)}"
+
+    interrupt_thread.join()
 
 def test_graceful_cleanup_on_interrupt(tmp_path):
     """Test that resources are cleaned up properly on interrupt"""
@@ -141,15 +150,19 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     # Create input file
     input_dir = tmp_path / "input"
     input_dir.mkdir()
-    input_file = input_dir / "script.sh"
-    input_file.write_text("#!/bin/bash\nsleep 5\necho 'done' > output.txt\n")
-    input_file.chmod(0o755)
+    input_file = input_dir / "input.dat"
+    input_file.write_text("nothing")
+
+    script_file = tmp_path / "script.sh"
+    # Each case takes 3 seconds
+    script_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
+    script_file.chmod(0o755)
 
     input_variables = {"x": [1, 2, 3]}
 
     # Set up interrupt
     def send_interrupt():
-        time.sleep(1)
+        time.sleep(5)
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
@@ -165,7 +178,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
             input_variables,
             model,
             results_dir=str(results_dir),
-            calculators=["sh://"]
+            calculators=["sh://bash "+str(script_file.absolute())]  # Use bash to run the script
         )
     except KeyboardInterrupt:
         # Graceful interrupt should not raise KeyboardInterrupt
@@ -179,6 +192,8 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     assert len(subdirs) >= 1, "At least one result subdirectory should exist"
 
     print(f"✓ Cleanup test passed: Results directory preserved with {len(subdirs)} subdirectories")
+        
+    interrupt_thread.join()
 
 
 if __name__ == "__main__":

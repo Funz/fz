@@ -54,3 +54,7 @@ if __name__ == "__main__":
         print("✓ Fast completion - ThreadPoolExecutor working correctly")
     else:
         print("⚠ Slow completion - may be running sequentially")
+
+    # Assert fast completion
+    assert elapsed < 1.5, \
+        f"Expected completion in < 1.5s (parallel), took {elapsed:.2f}s (may be sequential)"

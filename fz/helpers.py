@@ -465,10 +465,25 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                         output_keys = list(model.get("output", {}).keys())
 
                         # Check if any expected output is None
-                        has_none_outputs = any(cached_output.get(key) is None for key in output_keys)
+                        # Extract scalar values properly from DataFrame/dict returned by fzo
+                        none_keys = []
+                        for key in output_keys:
+                            value = cached_output.get(key)
+                            # Extract scalar from pandas Series or list
+                            if hasattr(value, 'iloc'):
+                                # It's a pandas Series, extract first (and only) value
+                                scalar_value = value.iloc[0] if len(value) > 0 else None
+                            elif isinstance(value, list):
+                                # It's a list (dict mode), extract first value
+                                scalar_value = value[0] if len(value) > 0 else None
+                            else:
+                                # Already a scalar
+                                scalar_value = value
 
-                        if has_none_outputs:
-                            none_keys = [key for key in output_keys if cached_output.get(key) is None]
+                            if scalar_value is None:
+                                none_keys.append(key)
+
+                        if none_keys:
                             log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Cache contains None outputs for {none_keys}, skipping cache")
                             # Don't use this cache result, continue to next calculator
                             continue

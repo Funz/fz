@@ -5,12 +5,13 @@ Test script to demonstrate the retry mechanism for failed calculations
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
+import pytest
 
 from fz import fzr
 import time
 
-def create_test_files():
+@pytest.fixture(autouse=True)
+def test_files():
     """Create test files for retry mechanism"""
 
     # Create input file
@@ -71,7 +72,6 @@ def test_retry_success():
         "delim": "()",
         "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
     },
-
     calculators=[
         "sh:///bin/bash ./FailThenSuccess.sh",  # Fails first time
         "sh:///bin/bash ./AlwaysSucceeds.sh"    # Should succeed on retry
@@ -85,7 +85,11 @@ def test_retry_success():
     if 'error' in result:
         print(f"   - Errors: {result['error']}")
 
-    return result
+    # Assert retry mechanism worked
+    assert all(status == 'done' for status in result['status']), \
+        f"Expected all cases to succeed after retry, got statuses: {result['status']}"
+    assert all(r is not None for r in result['result']), \
+        f"Expected all results to be non-None, got: {result['result']}"
 
 def test_all_fail():
     """Test case where all calculators fail"""
@@ -102,7 +106,6 @@ def test_all_fail():
         "delim": "()",
         "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
     },
-
     calculators=[
         "sh:///bin/bash ./AlwaysFails.sh",     # Always fails
         "sh:///bin/bash ./AlwaysFails.sh"      # Also always fails
@@ -116,7 +119,13 @@ def test_all_fail():
     if 'error' in result:
         print(f"   - Error: {result['error']}")
 
-    return result
+    # Assert all calculators failed as expected
+    assert result['status'][0] in ['failed', 'error'], \
+        f"Expected status 'failed' or 'error', got: {result['status'][0]}"
+    assert result['result'][0] is None, \
+        f"Expected None result when all calculators fail, got: {result['result'][0]}"
+    assert 'error' in result and result['error'][0] is not None, \
+        "Expected error message when all calculators fail"
 
 def test_first_succeeds():
     """Test case where first calculator succeeds (no retry needed)"""
@@ -133,7 +142,6 @@ def test_first_succeeds():
         "delim": "()",
         "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
     },
-
     calculators=[
         "sh:///bin/bash ./AlwaysSucceeds.sh",   # Should succeed immediately
         "sh:///bin/bash ./FailThenSuccess.sh"   # Won't be tried
@@ -145,7 +153,14 @@ def test_first_succeeds():
     print(f"   - Calculator: {result['calculator']}")
     print(f"   - Result: {result['result']}")
 
-    return result
+    # Assert first calculator succeeded
+    assert result['status'][0] == 'done', \
+        f"Expected status 'done', got: {result['status'][0]}"
+    assert result['result'][0] == 100, \
+        f"Expected result 100, got: {result['result'][0]}"
+    # Verify used the first calculator (AlwaysSucceeds)
+    assert 'AlwaysSucceeds' in result['calculator'][0], \
+        f"Expected to use AlwaysSucceeds.sh, got: {result['calculator'][0]}"
 
 if __name__ == "__main__":
     print("🧪 Testing Retry Mechanism for Failed Calculations")
@@ -153,8 +168,6 @@ if __name__ == "__main__":
     print("1. When a calculation fails, it will retry with a different calculator")
     print("2. Failed calculations get status='error' and error messages in results")
     print("3. Both exit code failures and parsing errors trigger retries")
-
-    create_test_files()
 
     try:
         # Test 1: Retry success scenario

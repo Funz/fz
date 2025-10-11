@@ -8,36 +8,59 @@ import pytest
 import socket
 import subprocess
 import getpass
+import shutil
 from pathlib import Path
 
 
 @pytest.fixture(autouse=True)
-def temp_test_dir(tmp_path, monkeypatch):
+def temp_test_dir(request, monkeypatch):
     """
-    Automatically run all tests in a temporary directory.
+    Automatically run all tests in a temporary directory under ./tmp.
 
     This fixture:
-    - Creates a temporary directory for each test
+    - Creates a temporary directory for each test in ./tmp
     - Changes the working directory to that temp directory
     - Restores the original directory after the test completes
     - Cleans up the temp directory automatically
 
     Args:
-        tmp_path: pytest's built-in fixture for temporary directories
+        request: pytest's request fixture for test information
         monkeypatch: pytest's fixture for modifying environment
     """
     # Store original directory
     original_dir = os.getcwd()
 
+    # Create ./tmp directory if it doesn't exist
+    tmp_base = Path(original_dir) / "tmp"
+    tmp_base.mkdir(exist_ok=True)
+
+    # Create a unique subdirectory for this test
+    test_name = request.node.name
+    # Sanitize test name for filesystem
+    safe_test_name = "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in test_name)
+    test_dir = tmp_base / safe_test_name
+
+    # If directory exists, remove it first to ensure clean state
+    if test_dir.exists():
+        shutil.rmtree(test_dir)
+
+    test_dir.mkdir(parents=True, exist_ok=True)
+
     # Change to temp directory
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.chdir(test_dir)
 
     # Yield to run the test
-    yield tmp_path
+    yield test_dir
 
     # Cleanup: change back to original directory
     # (monkeypatch automatically restores, but being explicit)
     os.chdir(original_dir)
+
+    # Clean up test directory after test completes
+    try:
+        shutil.rmtree(test_dir)
+    except Exception:
+        pass  # Best effort cleanup
 
 
 def is_ssh_server_available():

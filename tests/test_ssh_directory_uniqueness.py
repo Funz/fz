@@ -11,7 +11,8 @@ def test_remote_directory_naming():
     """Verify that remote directory names include unique identifiers."""
 
     # Simulate the directory naming logic from runners.py
-    remote_root_dir = "/home/user"
+    # Using generic remote path for testing
+    remote_root_dir = "/remote/workspace"
 
     # Create multiple directory names in parallel (simulating concurrent SSH connections)
     directory_names = []

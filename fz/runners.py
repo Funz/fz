@@ -683,17 +683,21 @@ def run_local_calculation(
         if platform.system() == "Windows":
             # On Windows, use bash if available (Git Bash, WSL, etc.)
             # Check common Git Bash installation paths first
-            git_bash_paths = [
+            bash_paths = [
                 # cygwin bash
                 r"C:\cygwin64\bin\bash.exe",
                 # Git for Windows default paths
                 r"C:\Progra~1\Git\bin\bash.exe",
                 r"C:\Progra~2\Git\bin\bash.exe",
+                # Msys2 bash (if installed)
+                r"C:\msys64\usr\bin\bash.exe",
+                # WSL bash
+                r"C:\Windows\System32\bash.exe",
                 # win-bash
-                r"C:\win-bash\bin\bash.exe",
+                r"C:\win-bash\bin\bash.exe"
             ]
 
-            for bash_path in git_bash_paths:
+            for bash_path in bash_paths:
                 if os.path.exists(bash_path):
                     executable = bash_path
                     log_debug(f"Using bash at: {executable}")
