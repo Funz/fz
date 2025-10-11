@@ -43,7 +43,7 @@ def test_interrupt_sequential_execution(tmp_path):
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
-    interrupt_thread = threading.Thread(target=send_interrupt, daemon=False)
+    interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
     interrupt_thread.start()
 
     results_dir = tmp_path / "results"
@@ -70,6 +70,7 @@ def test_interrupt_sequential_execution(tmp_path):
         print(f"✓ All cases completed before interrupt (timing variation)")
         # This is acceptable - the calculation was just too fast
 
+    interrupt_thread.join()
 
 def test_interrupt_parallel_execution(tmp_path):
     """Test that interrupt stops parallel execution gracefully"""
@@ -102,7 +103,7 @@ def test_interrupt_parallel_execution(tmp_path):
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
-    interrupt_thread = threading.Thread(target=send_interrupt, daemon=False)
+    interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
     interrupt_thread.start()
 
     results_dir = tmp_path / "results"
@@ -124,6 +125,7 @@ def test_interrupt_parallel_execution(tmp_path):
     else:
         print(f"✓ All cases completed before interrupt (timing variation)")
 
+    interrupt_thread.join()
 
 def test_graceful_cleanup_on_interrupt(tmp_path):
     """Test that resources are cleaned up properly on interrupt"""
@@ -152,7 +154,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
         import os
         os.kill(os.getpid(), signal.SIGINT)
 
-    interrupt_thread = threading.Thread(target=send_interrupt, daemon=False)
+    interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
     interrupt_thread.start()
 
     results_dir = tmp_path / "results"
@@ -178,6 +180,8 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     assert len(subdirs) >= 1, "At least one result subdirectory should exist"
 
     print(f"✓ Cleanup test passed: Results directory preserved with {len(subdirs)} subdirectories")
+        
+    interrupt_thread.join()
 
 
 if __name__ == "__main__":
