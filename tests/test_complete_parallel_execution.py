@@ -13,9 +13,9 @@ import pytest
 
 import fz
 
-@pytest.fixture(autouse=True)
-def complete_test_setup():
-    """Setup test for complete parallel execution"""
+def test_complete_parallel_execution():
+    """Test that all cases complete successfully with results"""
+
     # Create input.txt
     input_content = """T_celsius=$T_celsius
 V_L=$V_L
@@ -57,8 +57,6 @@ echo 'Done'
         f.write(script_content)
     os.chmod("PerfectGazPressure.sh", 0o755)
 
-def test_complete_parallel_execution():
-    """Test that all cases complete successfully with results"""
 
     model = {
         "varprefix": "$",
@@ -167,6 +165,5 @@ def test_complete_parallel_execution():
         pytest.fail(f"Test failed with error: {e}")
 
 if __name__ == "__main__":
-    complete_test_setup()
     test_complete_parallel_execution()
     print(f"\n🎉 SUCCESS: Complete parallel execution test!")
