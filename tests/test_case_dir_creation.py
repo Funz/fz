@@ -24,15 +24,15 @@ ls -la .. >> location_check.txt
 
 # Check if we're in a results directory by looking for expected files
 if [ -f "test_case_input.txt" ]; then
-    echo "✅ Input file found in current directory" >> location_check.txt
+    echo "v  Input file found in current directory" >> location_check.txt
 else
-    echo "❌ Input file NOT found in current directory" >> location_check.txt
+    echo "x  Input file NOT found in current directory" >> location_check.txt
 fi
 
 if [ -f ".fz_hash" ]; then
-    echo "❌ Hash file found in current directory" >> location_check.txt
+    echo "x  Hash file found in current directory" >> location_check.txt
 else
-    echo "✅ Hash file NOT found in current directory" >> location_check.txt
+    echo "v  Hash file NOT found in current directory" >> location_check.txt
 fi
 
 # Final result
@@ -73,14 +73,14 @@ echo "Location check completed" >> location_check.txt
                         print(f"    {line}")
 
                 # Analyze the results
-                if "✅ Input file found" in content and "✅ Hash file NOT found" in content:
-                    print(f"  ✅ Single case: Calculator ran in prepared working directory")
+                if "v  Input file found" in content and "v  Hash file NOT found" in content:
+                    print(f"  v  Single case: Calculator ran in prepared working directory")
                 else:
-                    print(f"  ❌ Single case: Calculator did not run in prepared working directory")
+                    print(f"  x  Single case: Calculator did not run in prepared working directory")
             else:
-                print(f"  ❌ Location check file not found")
+                print(f"  x  Location check file not found")
         else:
-            print(f"  ❌ Results directory not found")
+            print(f"  x  Results directory not found")
 
         # Test multiple cases
         print(f"\n2️⃣ Testing Multiple Cases:")
@@ -108,18 +108,18 @@ echo "Location check completed" >> location_check.txt
                 location_file = subdir / "location_check.txt"
                 if location_file.exists():
                     content = location_file.read_text()
-                    if "✅ Input file found" in content and "✅ Hash file NOT found" in content:
-                        print(f"      ✅ Calculator ran in working directory")
+                    if "v  Input file found" in content and "v  Hash file NOT found" in content:
+                        print(f"      v  Calculator ran in working directory")
                         cases_correct += 1
                     else:
-                        print(f"      ❌ Calculator did not run in working directory")
+                        print(f"      x  Calculator did not run in working directory")
                         # Show some of the content for debugging
                         lines = content.split('\n')[:5]
                         for line in lines:
                             if line.strip():
                                 print(f"        {line}")
                 else:
-                    print(f"      ❌ Location check file not found")
+                    print(f"      x  Location check file not found")
 
             print(f"  📊 Summary: {cases_correct}/{len(subdirs)} cases ran in prepared directories")
 
@@ -127,7 +127,7 @@ echo "Location check completed" >> location_check.txt
             assert cases_correct == len(subdirs), \
                 f"Expected all {len(subdirs)} cases to run in prepared directories, but only {cases_correct} did"
         else:
-            print(f"  ❌ Results directory not found")
+            print(f"  x  Results directory not found")
             assert False, "Multi-case results directory not found"
 
         print(f"\n📋 Overall Summary:")
@@ -137,7 +137,7 @@ echo "Location check completed" >> location_check.txt
         print(f"  • Calculators execute directly in their final result directories")
 
     except Exception as e:
-        print(f"❌ Test failed with error: {e}")
+        print(f"x  Test failed with error: {e}")
         import traceback
         traceback.print_exc()
         raise
