@@ -40,7 +40,9 @@ sleep 2
 
 # Calculate pressure using ideal gas law: P = nRT/V
 # R = 8.314 J/(mol·K), T in Kelvin, V in m³, P in Pa
-pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc)
+#pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc)
+#replace bc with python
+pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
 
 # Write output
 echo "pressure = $pressure" > output.txt
