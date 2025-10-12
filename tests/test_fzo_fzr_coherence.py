@@ -50,14 +50,14 @@ def test_fzo_fzr_coherence_single_case():
     with open('input.txt', 'w') as f:
                 f.write('Temperature: ${T} K\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\necho "result = 42" > output.txt\n')
     os.chmod('calc.sh', 0o755)
 
     model = {
                 "varprefix": "$",
                 "delim": "{}",
-                "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
             }
     variables = {"T": 300}
 
@@ -113,7 +113,7 @@ def test_fzo_fzr_coherence_multiple_cases():
     with open('input.txt', 'w') as f:
                 f.write('T=${T}\nP=${P}\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\n')
                 f.write('source input.txt\n')
                 f.write('RESULT=$((T * P))\n')
@@ -123,7 +123,7 @@ def test_fzo_fzr_coherence_multiple_cases():
     model = {
                 "varprefix": "$",
                 "delim": "{}",
-                "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
             }
     variables = {"T": [100, 200, 300], "P": [1, 2]}  # 6 cases
 
@@ -180,7 +180,7 @@ def test_fzo_fzr_coherence_multiple_outputs():
     with open('input.txt', 'w') as f:
                 f.write('X=${X}\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\n')
                 f.write('source input.txt\n')
                 f.write('echo "square = $((X * X))" > output1.txt\n')
@@ -191,8 +191,8 @@ def test_fzo_fzr_coherence_multiple_outputs():
                 "varprefix": "$",
                 "delim": "{}",
                 "output": {
-                    "square": "grep 'square = ' output1.txt | awk '{print $3}'",
-                    "cube": "grep 'cube = ' output2.txt | awk '{print $3}'"
+                    "square": "grep 'square = ' output1.txt | cut -d '=' -f2",
+                    "cube": "grep 'cube = ' output2.txt | cut -d '=' -f2"
                 }
             }
     variables = {"X": [2, 3, 4, 5]}  # 4 cases
@@ -242,7 +242,7 @@ def test_fzo_fzr_coherence_with_formulas():
                 f.write('#@     return b * m + 10\n')
                 f.write('result = @{calculate(${base}, ${mult})}\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\n')
                 f.write('source input.txt\n')
                 f.write('echo "computed = $result" > output.txt\n')
@@ -253,7 +253,7 @@ def test_fzo_fzr_coherence_with_formulas():
                 "formulaprefix": "@",
                 "delim": "{}",
                 "commentline": "#",
-                "output": {"computed": "grep 'computed = ' output.txt | awk '{print $3}'"}
+                "output": {"computed": "grep 'computed = ' output.txt | cut -d '=' -f2"}
             }
     variables = {"base": [5, 10], "mult": [2, 3]}  # 4 cases
 
@@ -296,7 +296,7 @@ def test_fzo_fzr_coherence_with_failures():
                 f.write('value = ${value}\n')
 
             # Calculator that fails for value=2
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\n')
                 f.write('source input.txt\n')
                 f.write('if [ "$value" -eq "2" ]; then\n')
@@ -308,7 +308,7 @@ def test_fzo_fzr_coherence_with_failures():
     model = {
                 "varprefix": "$",
                 "delim": "{}",
-                "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
             }
     variables = {"value": [1, 2, 3]}  # Case 2 will fail
 
@@ -353,7 +353,7 @@ def test_fzo_fzr_coherence_perfectgaz_example():
                 f.write('V_L = ${V_L}\n')
                 f.write('n_mol = ${n_mol}\n')
 
-    with open('PerfectGazPressure.sh', 'w') as f:
+    with open('PerfectGazPressure.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\n')
                 f.write('source input.txt\n')
                 f.write('# Convert Celsius to Kelvin\n')
@@ -369,7 +369,7 @@ def test_fzo_fzr_coherence_perfectgaz_example():
                 "varprefix": "$",
                 "delim": "{}",
                 "commentline": "#",
-                "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+                "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
             }
 
             # Test with multiple temperature and volume combinations
@@ -424,7 +424,7 @@ def test_fzo_fzr_coherence_simple_echo():
     with open('input.txt', 'w') as f:
                 f.write('x=${x}\ny=${y}\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/sh\n')
                 f.write('echo "output = test" > output.txt\n')
     os.chmod('calc.sh', 0o755)
@@ -479,7 +479,7 @@ def test_fzo_fzr_coherence_three_variables():
     with open('input.txt', 'w') as f:
                 f.write('a=${a}\nb=${b}\nc=${c}\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/sh\n')
                 f.write('echo "result = ok" > output.txt\n')
     os.chmod('calc.sh', 0o755)
@@ -533,7 +533,7 @@ def test_fzo_fzr_coherence_float_values():
     with open('input.txt', 'w') as f:
                 f.write('temp=${temp}\npressure=${pressure}\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/sh\n')
                 f.write('echo "measurement = 42.5" > output.txt\n')
     os.chmod('calc.sh', 0o755)
@@ -583,7 +583,7 @@ def test_fzo_fzr_coherence_large_grid():
     with open('input.txt', 'w') as f:
                 f.write('p1=${p1}\np2=${p2}\n')
 
-    with open('calc.sh', 'w') as f:
+    with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/sh\n')
                 f.write('echo "value = computed" > output.txt\n')
     os.chmod('calc.sh', 0o755)

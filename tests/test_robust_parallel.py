@@ -20,7 +20,7 @@ def robust_test_setup():
 V_L=$V_L
 n_mol=$n_mol
 """
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write(input_content)
 
     # Create a very robust calculator script with explicit file synchronization
@@ -49,7 +49,7 @@ sync  # Force write to disk
 
 echo 'Done'
 """
-    with open("RobustCalc.sh", "w") as f:
+    with open("RobustCalc.sh", "w", newline='\n') as f:
         f.write(script_content)
     os.chmod("RobustCalc.sh", 0o755)
 

@@ -106,14 +106,14 @@ rm -f temp_config.txt temp_count.txt
     os.makedirs('data', exist_ok=True)
     os.makedirs('tools/bin', exist_ok=True)
 
-    with open('scripts/sub_script.sh', 'w') as f:
+    with open('scripts/sub_script.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Subscript result"\necho "result = 42" > output.txt\n')
     os.chmod('scripts/sub_script.sh', 0o755)
 
     with open('data/sample.txt', 'w') as f:
         f.write('sample data\nfor testing\n')
 
-    with open('tools/bin/tool.sh', 'w') as f:
+    with open('tools/bin/tool.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Tool executed"\necho "result = 999" > output.txt\n')
     os.chmod('tools/bin/tool.sh', 0o755)
 

@@ -16,7 +16,7 @@ def test_output_files_location():
     """Test that all output files are in case directory and timing is correct"""
 
     # Create test script that generates multiple output files
-    with open('test_multi_output.sh', 'w') as f:
+    with open('test_multi_output.sh', 'w', newline='\n') as f:
         f.write('''#!/bin/bash
 echo "Script starting..." > script_log.txt
 echo "This goes to stdout"
@@ -116,7 +116,7 @@ echo "Final stdout message"
 
                 print("  Files by modification time (earliest to latest):")
                 for i, (name, mtime) in enumerate(file_times):
-                    time_str = time.strftime('%H:%M:%S.%f', time.localtime(mtime))[:12]
+                    time_str = time.strftime('%H:%M:%S', time.localtime(mtime))[:12]
                     if i > 0:
                         time_diff = mtime - file_times[i-1][1]
                         print(f"    {name} at {time_str} (+{time_diff:.3f}s)")

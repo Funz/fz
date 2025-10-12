@@ -22,7 +22,7 @@ def test_perfectgaz_sourced():
         f.write('V_m3=${V_m3}\n')
 
     # Create the PerfectGazPressure.sh script
-    with open('PerfectGazPressure.sh', 'w') as f:
+    with open('PerfectGazPressure.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\n')
         f.write('source perfectgaz_vars.txt\n')
         f.write('if [ -z "$n_mol" ] || [ -z "$T_kelvin" ] || [ -z "$V_m3" ]; then\n')
@@ -67,7 +67,7 @@ def test_perfectgaz_sourced():
                 "varprefix": "$",
                 "delim": "{}",
                 "output": {"pressure": "cat output.txt | grep 'pressure' | cut -d'=' -f2 | tr -d ' '"}},
-            calculators=["sh:///bin/bash ./PerfectGazPressure.sh"],
+            calculators=["sh://bash ./PerfectGazPressure.sh"],
             results_dir="perfectgaz_sourced_results"
         )
 

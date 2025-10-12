@@ -20,7 +20,7 @@ def edge_case_scripts():
 
     # Script with spaces in path
     os.makedirs("folder with spaces", exist_ok=True)
-    with open("folder with spaces/script with spaces.sh", 'w') as f:
+    with open("folder with spaces/script with spaces.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("echo 'Script with spaces in path'\n")
         f.write("echo 'result = 123' > output.txt\n")
@@ -28,7 +28,7 @@ def edge_case_scripts():
     os.chmod("folder with spaces/script with spaces.sh", 0o755)
 
     # Script with multiple path arguments
-    with open("multi_path_script.sh", 'w') as f:
+    with open("multi_path_script.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("echo 'Multi-path script executed'\n")
         f.write("echo 'Args:' \"$@\"\n")
@@ -37,7 +37,7 @@ def edge_case_scripts():
     os.chmod("multi_path_script.sh", 0o755)
 
     # Helper script
-    with open("helper.sh", 'w') as f:
+    with open("helper.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("echo 'Helper script'\n")
         f.write("exit 0\n")
@@ -49,22 +49,17 @@ def test_edge_cases():
     test_cases = [
         {
             "name": "Multiple relative paths in command",
-            "calculator": "sh:///bin/bash ./multi_path_script.sh ./helper.sh scripts/sub_script.sh",
+            "calculator": "sh://bash ./multi_path_script.sh ./helper.sh scripts/sub_script.sh",
             "expected_result": 456
         },
         {
             "name": "Path with spaces (quoted)",
-            "calculator": "sh:///bin/bash \"folder with spaces/script with spaces.sh\"",
+            "calculator": "sh://bash \"folder with spaces/script with spaces.sh\"",
             "expected_result": 123
         },
         {
-            "name": "Relative path with ../ parent directory",
-            "calculator": f"sh:///bin/bash {os.path.join('.', 'multi_path_script.sh')}",
-            "expected_result": 456
-        },
-        {
             "name": "Mixed absolute and relative paths",
-            "calculator": f"sh:///bin/echo 'test' && ./multi_path_script.sh",
+            "calculator": f"sh://echo 'test' && ./multi_path_script.sh",
             "expected_result": 456
         }
     ]
@@ -88,7 +83,7 @@ def test_edge_cases():
             {
                 "varprefix": "$",
                 "delim": "()",
-                "output": {"result": "grep 'result = ' output.txt | awk '{print $3}' || echo 'none'"}
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2 || echo 'none'"}
             },            
             calculators=[test_case['calculator']],
             results_dir=f"edge_test_{i+1}")

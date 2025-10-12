@@ -22,7 +22,7 @@ def test_perfectgaz_comprehensive():
     print("=" * 60)
 
     # Create the calculator script 
-    with open('PerfectGazPressure.sh', 'w') as f:
+    with open('PerfectGazPressure.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\n')
         f.write('echo "Starting PerfectGaz Pressure Calculation..."\n')
         f.write('T_K=$(grep "Temperature:" input.txt | cut -d" " -f2)\n')

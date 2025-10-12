@@ -22,7 +22,7 @@ def test_files():
         f.write("echo 'Temperature: $(T_celsius)'\n")
 
     # Create a script that fails on first attempt but succeeds on retry
-    with open("FailThenSuccess.sh", 'w') as f:
+    with open("FailThenSuccess.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("# Script that fails on first execution, succeeds on second\n")
         f.write("FLAG_FILE=\"/tmp/fz_retry_flag_$$\"\n")
@@ -41,7 +41,7 @@ def test_files():
     os.chmod("FailThenSuccess.sh", 0o755)
 
     # Create a script that always fails
-    with open("AlwaysFails.sh", 'w') as f:
+    with open("AlwaysFails.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("# Script that always fails\n")
         f.write("echo 'This script always fails!' >&2\n")
@@ -49,7 +49,7 @@ def test_files():
     os.chmod("AlwaysFails.sh", 0o755)
 
     # Create a script that always succeeds
-    with open("AlwaysSucceeds.sh", 'w') as f:
+    with open("AlwaysSucceeds.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("# Script that always succeeds\n")
         f.write("echo 'This script always succeeds!'\n")
@@ -70,11 +70,11 @@ def test_retry_success():
     {
         "varprefix": "$",
         "delim": "()",
-        "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+        "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
     },
     calculators=[
-        "sh:///bin/bash ./FailThenSuccess.sh",  # Fails first time
-        "sh:///bin/bash ./AlwaysSucceeds.sh"    # Should succeed on retry
+        "sh://bash ./FailThenSuccess.sh",  # Fails first time
+        "sh://bash ./AlwaysSucceeds.sh"    # Should succeed on retry
     ],
     results_dir="retry_test_1")
 
@@ -104,11 +104,11 @@ def test_all_fail():
     {
         "varprefix": "$",
         "delim": "()",
-        "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+        "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
     },
     calculators=[
-        "sh:///bin/bash ./AlwaysFails.sh",     # Always fails
-        "sh:///bin/bash ./AlwaysFails.sh"      # Also always fails
+        "sh://bash ./AlwaysFails.sh",     # Always fails
+        "sh://bash ./AlwaysFails.sh"      # Also always fails
     ],
     results_dir="retry_test_2")
 
@@ -140,11 +140,11 @@ def test_first_succeeds():
     {
         "varprefix": "$",
         "delim": "()",
-        "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+        "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
     },
     calculators=[
-        "sh:///bin/bash ./AlwaysSucceeds.sh",   # Should succeed immediately
-        "sh:///bin/bash ./FailThenSuccess.sh"   # Won't be tried
+        "sh://bash ./AlwaysSucceeds.sh",   # Should succeed immediately
+        "sh://bash ./FailThenSuccess.sh"   # Won't be tried
     ],
     results_dir="retry_test_3")
 

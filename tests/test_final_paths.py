@@ -29,34 +29,34 @@ def test_final_path_resolution():
         if not os.path.exists(os.path.dirname(path)) and os.path.dirname(path) != '':
             print(f"Creating directory: '{os.path.dirname(path)}'")
             os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as f:
+        with open(path, 'w', newline='\n') as f:
             f.write(content)
         os.chmod(path, 0o755)
 
     test_cases = [
         {
             "name": "Simple relative path",
-            "calculator": "sh:///bin/bash ./local_script.sh",
+            "calculator": "sh://bash ./local_script.sh",
             "expected_status": "done"
         },
         {
             "name": "Quoted path with spaces",
-            "calculator": "sh:///bin/bash \"folder with spaces/script with spaces.sh\"",
+            "calculator": "sh://bash \"folder with spaces/script with spaces.sh\"",
             "expected_status": "done"
         },
         {
             "name": "Multiple relative paths",
-            "calculator": "sh:///bin/bash ./multi_path_script.sh ./helper.sh",
+            "calculator": "sh://bash ./multi_path_script.sh ./helper.sh",
             "expected_status": "done"
         },
         {
             "name": "Nested subdirectory path",
-            "calculator": "sh:///bin/bash tools/bin/complex_script.sh",
+            "calculator": "sh://bash tools/bin/complex_script.sh",
             "expected_status": "done"
         },
         {
             "name": "Already absolute path (no change needed)",
-            "calculator": f"sh:///bin/bash {os.path.abspath('local_script.sh')}",
+            "calculator": f"sh://bash {os.path.abspath('local_script.sh').replace(os.sep, '/')}",
             "expected_status": "done"
         }
     ]

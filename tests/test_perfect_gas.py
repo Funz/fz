@@ -14,7 +14,7 @@ def test_perfect_gas():
     print(f"Testing in: {temp_dir}")
 
     # Create input.txt with variables
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write("# Perfect Gas Calculation Input\n")
         f.write("Temperature_Celsius = $(T_celsius)\n")
         f.write("Volume_Liters = $(V_L)\n")
@@ -22,7 +22,7 @@ def test_perfect_gas():
         f.write("Gas_Constant_R = 0.08314  # L⋅bar/(mol⋅K)\n")
 
     # Create the calculator script
-    with open("PerfectGazPressure.sh", "w") as f:
+    with open("PerfectGazPressure.sh", "w", newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("# Perfect Gas Pressure Calculator\n")
         f.write("echo 'Calculating perfect gas pressure...'\n")
@@ -68,7 +68,7 @@ def test_perfect_gas():
             "varprefix": "$",
             "delim": "()",
             "commentline": "#",
-            "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+            "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
         },
         calculators=["sh://bash ./PerfectGazPressure.sh"],  # Fixed: Single calculator, proper path
         results_dir="results"

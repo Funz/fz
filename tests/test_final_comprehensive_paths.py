@@ -17,7 +17,7 @@ def test_final_comprehensive_paths():
         f.write("value = $(V)\n")
 
     # Create a comprehensive test script that shows path resolution working
-    with open("comprehensive_test.sh", 'w') as f:
+    with open("comprehensive_test.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("# Comprehensive test script\n")
         f.write("echo 'Test script executed successfully'\n")
@@ -72,7 +72,7 @@ def test_final_comprehensive_paths():
             {
                 "varprefix": "$",
                 "delim": "()",
-                "output": {"result": "grep 'result = ' output.txt | awk '{print $3}' || echo 'none'"}
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2 || echo 'none'"}
             },            
             calculators=[test_case['calculator']],
             results_dir=f"final_comprehensive_{i}")

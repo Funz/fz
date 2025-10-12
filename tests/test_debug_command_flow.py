@@ -13,7 +13,7 @@ def test_debug_command_flow():
     """Debug where command tracking gets lost"""
 
     # Create test files
-    with open('debug_script.sh', 'w') as f:
+    with open('debug_script.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Debug script"\necho "result = 789" > debug_output.txt\n')
     os.chmod('debug_script.sh', 0o755)
 

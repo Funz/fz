@@ -14,7 +14,7 @@ def test_timing_fix():
     """Test that files are properly written with timing fix"""
 
     # Create a script that creates multiple files with some potential timing complexity
-    with open('timing_test_script.sh', 'w') as f:
+    with open('timing_test_script.sh', 'w', newline='\n') as f:
         f.write('''#!/bin/bash
 # Script to test file timing
 echo "Starting timing test..." > timing_log.txt

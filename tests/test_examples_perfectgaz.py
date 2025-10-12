@@ -20,7 +20,7 @@ def perfectgaz_setup(tmp_path):
     os.chdir(tmp_path)
 
     # Create input.txt (from examples.md lines 10-17)
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write("""# input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
 T_kelvin=@($T_celsius + 273.15)
@@ -30,7 +30,7 @@ V_m3=@(L_to_m3($V_L))
 """)
 
     # Create PerfectGazPressure.sh (from examples.md lines 22-28)
-    with open("PerfectGazPressure.sh", "w") as f:
+    with open("PerfectGazPressure.sh", "w", newline='\n') as f:
         f.write("""#!/bin/bash
 # read input file
 source $1
@@ -41,7 +41,7 @@ echo 'Done'
     os.chmod("PerfectGazPressure.sh", 0o755)
 
     # Create PerfectGazPressureRandomFails.sh (from examples.md lines 30-44)
-    with open("PerfectGazPressureRandomFails.sh", "w") as f:
+    with open("PerfectGazPressureRandomFails.sh", "w", newline='\n') as f:
         f.write("""#!/bin/bash
 # read input file
 source $1
@@ -57,7 +57,7 @@ fi
     os.chmod("PerfectGazPressureRandomFails.sh", 0o755)
 
     # Create PerfectGazPressureAlwaysFails.sh (from examples.md lines 46-54)
-    with open("PerfectGazPressureAlwaysFails.sh", "w") as f:
+    with open("PerfectGazPressureAlwaysFails.sh", "w", newline='\n') as f:
         f.write("""#!/bin/bash
 # read input file
 source $1
@@ -79,7 +79,7 @@ def test_perfectgaz_fzi(perfectgaz_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     })
 
     assert "T_celsius" in result
@@ -98,7 +98,7 @@ def test_perfectgaz_fzc(perfectgaz_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, output_dir="output")
 
     # Check if (relative) output directory is created
@@ -116,8 +116,8 @@ def test_perfectgaz_fzr_single_case(perfectgaz_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="result")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="result")
 
     assert len(result) == 1
     assert result["pressure"][0] is not None
@@ -134,8 +134,8 @@ def test_perfectgaz_fzr_factorial_design(perfectgaz_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results")
 
     assert len(result) == 6  # 3 * 2 combinations
 
@@ -152,11 +152,11 @@ def test_perfectgaz_fzo(perfectgaz_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results")
 
     # Now test fzo
-    result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
+    result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}})
 
     assert len(result) == 6
 
@@ -173,8 +173,8 @@ def test_perfectgaz_cache(perfectgaz_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators="sh:///bin/bash ./PerfectGazPressure.sh", results_dir="results_cache")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results_cache")
 
     # Second run should use cache
     result2 = fz.fzr("input.txt", {
@@ -186,8 +186,8 @@ def test_perfectgaz_cache(perfectgaz_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["cache://results_cache*", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results_cache")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["cache://results_cache*", "sh://bash ./PerfectGazPressure.sh"], results_dir="results_cache")
 
     assert len(result2) == 6
 

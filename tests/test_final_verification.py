@@ -13,7 +13,7 @@ def test_final_verification():
     """Final test of warning display and command tracking"""
 
     # Create test files
-    with open('final_test_script.sh', 'w') as f:
+    with open('final_test_script.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Final test script executed"\necho "result = 999" > final_output.txt\n')
     os.chmod('final_test_script.sh', 0o755)
 

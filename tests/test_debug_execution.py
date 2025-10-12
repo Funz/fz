@@ -20,7 +20,7 @@ def debug_test_setup():
 V_L=$V_L
 n_mol=$n_mol
 """
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write(input_content)
 
     # Create a calculator script with extensive debugging
@@ -67,7 +67,7 @@ fi
 echo "=== DEBUG: Script completed successfully ===" >&2
 echo 'Done'
 """
-    with open("DebugCalc.sh", "w") as f:
+    with open("DebugCalc.sh", "w", newline='\n') as f:
         f.write(script_content)
     os.chmod("DebugCalc.sh", 0o755)
 

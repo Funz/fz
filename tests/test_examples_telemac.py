@@ -80,7 +80,7 @@ def test_telemac_fzr(telemac_setup):
             "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
             "H": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_H.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_H.csv\")}))'"
         }
-    }, calculators="sh:///bin/bash .fz/calculators/Telemac.sh", results_dir="result")
+    }, calculators="sh://bash .fz/calculators/Telemac.sh", results_dir="result")
 
     assert len(result) >= 1
 

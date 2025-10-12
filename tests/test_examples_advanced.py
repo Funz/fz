@@ -20,7 +20,7 @@ def advanced_setup(tmp_path):
     os.chdir(tmp_path)
 
     # Create input.txt
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write("""# input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
 T_kelvin=@($T_celsius + 273.15)
@@ -30,7 +30,7 @@ V_m3=@(L_to_m3($V_L))
 """)
 
     # Create PerfectGazPressure.sh (with shorter sleep for tests)
-    with open("PerfectGazPressure.sh", "w") as f:
+    with open("PerfectGazPressure.sh", "w", newline='\n') as f:
         f.write("""#!/bin/bash
 # read input file
 source $1
@@ -41,7 +41,7 @@ echo 'Done'
     os.chmod("PerfectGazPressure.sh", 0o755)
 
     # Create PerfectGazPressureRandomFails.sh
-    with open("PerfectGazPressureRandomFails.sh", "w") as f:
+    with open("PerfectGazPressureRandomFails.sh", "w", newline='\n') as f:
         f.write("""#!/bin/bash
 # read input file
 source $1
@@ -57,7 +57,7 @@ fi
     os.chmod("PerfectGazPressureRandomFails.sh", 0o755)
 
     # Create PerfectGazPressureAlwaysFails.sh
-    with open("PerfectGazPressureAlwaysFails.sh", "w") as f:
+    with open("PerfectGazPressureAlwaysFails.sh", "w", newline='\n') as f:
         f.write("""#!/bin/bash
 # read input file
 source $1
@@ -83,8 +83,8 @@ def test_parallel_2_calculators_2_cases(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results")
 
     assert len(result) == 2
     assert all(result["status"] == "done")
@@ -101,8 +101,8 @@ def test_parallel_3_calculators_2_cases(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results")
 
     assert len(result) == 2
     assert all(result["status"] == "done")
@@ -119,8 +119,8 @@ def test_parallel_2_calculators_3_cases(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results")
 
     assert len(result) == 3
     assert all(result["status"] == "done")
@@ -137,8 +137,8 @@ def test_parallel_6_calculators_6_cases(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
 
     assert len(result) == 6
     assert all(result["status"] == "done")
@@ -156,11 +156,11 @@ def test_parallel_fzo_result(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
 
     # Test fzo
-    result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
+    result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}})
 
     assert len(result) == 6
 
@@ -176,8 +176,8 @@ def test_failure_never_fails(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 3, results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 3, results_dir="results")
 
     assert len(result) == 12  # 3 * 2 * 2 = 12
     assert all(result["status"] == "done")
@@ -195,8 +195,8 @@ def test_failure_random_fails_retries(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressureRandomFails.sh"] * 3, results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressureRandomFails.sh"] * 3, results_dir="results")
 
     assert len(result) == 12
     # Should eventually succeed with retries
@@ -214,8 +214,8 @@ def test_failure_always_fails(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results")
 
     assert len(result) == 12
     # All should fail
@@ -236,8 +236,8 @@ def test_failure_cache_with_fallback(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results_fail")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results_fail")
 
     # Second run with cache and successful calculator
     result = fz.fzr("input.txt", {
@@ -249,8 +249,8 @@ def test_failure_cache_with_fallback(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["cache://_", "sh:///bin/bash ./PerfectGazPressure.sh", "sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results_fail")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["cache://_", "sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results_fail")
 
     assert len(result) == 12
     # Should now succeed since fallback calculator is successful
@@ -268,8 +268,8 @@ def test_non_numeric_variables(advanced_setup):
         "formulaprefix": "@",
         "delim": "()",
         "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-    }, calculators=["sh:///bin/bash ./PerfectGazPressure.sh"] * 3, results_dir="results")
+        "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+    }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 3, results_dir="results")
 
     assert len(result) == 12  # 3 * 2 * 2 = 12
     # Cases with "abc" should fail

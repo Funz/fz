@@ -26,7 +26,7 @@ def test_user_example():
     print('    "T_celsius": [20,30,40],')
     print('    "V_L": 1,')
     print('    "n_mol": 1')
-    print('}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")')
+    print('}, calculators=["sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")')
     print("=" * 60)
 
     # Check if required files exist
@@ -74,9 +74,9 @@ def test_user_example():
             "formulaprefix": "@",
             "delim": "()",
             "commentline": "#",
-            "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+            "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
         },
-        calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+        calculators=["sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")
 
         elapsed = time.time() - start_time
         print(f"\n🏁 Test completed in {elapsed:.2f}s")

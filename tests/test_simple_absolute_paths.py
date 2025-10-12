@@ -13,7 +13,7 @@ def test_absolute_path_resolution():
     """Test that shows all paths are converted to absolute"""
 
     # Create test files
-    with open('test_script.sh', 'w') as f:
+    with open('test_script.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Script executed successfully"\necho "result = 123" > result_output.txt\n')
     os.chmod('test_script.sh', 0o755)
     with open('test_input.txt', 'w') as f:

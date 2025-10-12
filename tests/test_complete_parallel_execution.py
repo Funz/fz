@@ -16,6 +16,8 @@ import fz
 def test_complete_parallel_execution():
     """Test that all cases complete successfully with results"""
 
+    fz.set_log_level("DEBUG")
+
     # Create input.txt
     input_content = """T_celsius=$T_celsius
 V_L=$V_L

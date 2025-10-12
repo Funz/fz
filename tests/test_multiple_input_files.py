@@ -67,7 +67,7 @@ def test_multiple_input_files_with_variables():
         f.write("dt = $(dt)\n")
 
     # Create a working calculator script that processes the input files
-    with open(input_files_dir / "process_inputs.sh", 'w') as f:
+    with open(input_files_dir / "process_inputs.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("# Multi-input file simulation processor\n")
         f.write(f"# All files should be in the same directory, no copying needed\n")

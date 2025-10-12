@@ -26,18 +26,18 @@ def test_logging_levels():
     print(f"Working in: {temp_dir}")
 
     # Create input file
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write("x = $(x)\n")
 
     # Create simple calculator
-    with open("calc.sh", "w") as f:
+    with open("calc.sh", "w", newline='\n') as f:
         f.write("#!/bin/bash\necho 'result = success' > output.txt\n")
     os.chmod("calc.sh", 0o755)
 
     model = {
                 "varprefix": "$",
                 "delim": "()",
-                "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
             }
 
     # Test different logging levels

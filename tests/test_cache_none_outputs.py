@@ -15,11 +15,11 @@ def test_cache_none_outputs():
     print(f"Testing in: {temp_dir}")
 
     # Create input file
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write("x = $(x)\n")
 
     # Create a failing calculator (exits with error for x=2)
-    with open("calc_fail.sh", "w") as f:
+    with open("calc_fail.sh", "w", newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("X=$(grep 'x =' input.txt | cut -d'=' -f2 | tr -d ' ')\n")
         f.write("if [ \"$X\" = \"2\" ]; then\n")
@@ -31,7 +31,7 @@ def test_cache_none_outputs():
     os.chmod("calc_fail.sh", 0o755)
 
     # Create a working calculator
-    with open("calc_work.sh", "w") as f:
+    with open("calc_work.sh", "w", newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("X=$(grep 'x =' input.txt | cut -d'=' -f2 | tr -d ' ')\n")
         f.write("echo \"result = fixed_$X\" > output.txt\n")
@@ -40,7 +40,7 @@ def test_cache_none_outputs():
     model = {
                 "varprefix": "$",
                 "delim": "()",
-                "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
             }
 
     print("\n🚀 FIRST RUN: Using failing calculator (will create cache with None for x=2)")
