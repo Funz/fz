@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="fz",
-    version="0.8.0",
+    version="0.9.0",
     description="Parametric scientific computing framework",
     long_description=long_description,
     long_description_content_type="text/markdown",

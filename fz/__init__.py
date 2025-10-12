@@ -23,7 +23,7 @@ from .config import (
     get_interpreter,
 )
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 __all__ = [
     "fzi", "fzc", "fzo", "fzr",
     "set_log_level", "get_log_level",

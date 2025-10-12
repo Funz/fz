@@ -45,7 +45,7 @@ Paste the full error traceback here
 
 - **OS**: [e.g., Ubuntu 22.04, Windows 11, macOS 13]
 - **Python version**: [e.g., 3.11.5]
-- **FZ version**: [e.g., 0.8.0]
+- **FZ version**: [e.g., 0.9.0]
 - **Installation method**: [pip, source]
 - **Additional tools**: [e.g., bc version, SSH server details]
 

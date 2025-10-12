@@ -5,7 +5,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/funz.svg)](https://pypi.org/project/funz/)
 -->
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](https://github.com/Funz/fz/releases)
+[![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/Funz/fz/releases)
 
 A powerful Python package for parametric simulations and computational experiments. FZ wraps your simulation codes to automatically run parametric studies, manage input/output files, handle parallel execution, and collect results in structured DataFrames.
 
