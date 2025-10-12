@@ -46,7 +46,9 @@ sleep 1
 
 echo "=== DEBUG: Calculating pressure ===" >&2
 # Calculate pressure using ideal gas law
-pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
+#pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
+#replace bc with python
+pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
 echo "Calculated pressure: $pressure" >&2
 
 echo "=== DEBUG: Writing output ===" >&2

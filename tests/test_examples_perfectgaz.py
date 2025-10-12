@@ -35,7 +35,9 @@ V_m3=@(L_to_m3($V_L))
 # read input file
 source $1
 sleep 1 # simulate a calculation time
-echo 'pressure = '`echo "scale=4;$n_mol*8.314*$T_kelvin/$V_m3" | bc` > output.txt
+#echo 'pressure = '`echo "scale=4;$n_mol*8.314*$T_kelvin/$V_m3" | bc` > output.txt
+#replace bc with python
+echo 'pressure = '`python3 -c "print(round($n_mol*8.314*$T_kelvin/$V_m3,4))"` > output.txt
 echo 'Done'
 """)
     os.chmod("PerfectGazPressure.sh", 0o755)
@@ -47,7 +49,9 @@ echo 'Done'
 source $1
 sleep 1 # simulate a calculation time
 if [ $((RANDOM % 2)) -eq 0 ]; then
-  echo 'pressure = '`echo "scale=4;$n_mol*8.314*$T_kelvin/$V_m3" | bc` > output.txt
+  #echo 'pressure = '`echo "scale=4;$n_mol*8.314*$T_kelvin/$V_m3" | bc` > output.txt
+  #replace bc with python
+  echo 'pressure = '`python3 -c "print(round($n_mol*8.314*$T_kelvin/$V_m3,4))"` > output.txt
   echo 'Done'
 else
   echo "Calculation failed" >&2

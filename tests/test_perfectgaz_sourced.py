@@ -30,7 +30,8 @@ def test_perfectgaz_sourced():
         f.write('  exit 1\n')
         f.write('fi\n')
         f.write('R=8.314  # J/(mol·K)\n')
-        f.write('pressure=$(echo "scale=2; ($n_mol * $R * $T_kelvin) / $V_m3" | bc -l)\n')
+        #f.write('pressure=$(echo "scale=2; ($n_mol * $R * $T_kelvin) / $V_m3" | bc -l)\n')
+        f.write('pressure=$(python3 -c "print(round(($n_mol * $R * $T_kelvin) / $V_m3, 2))")\n')
         f.write('echo "pressure = $pressure" > output.txt\n')
         f.write('exit 0\n')
 
