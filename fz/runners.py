@@ -959,12 +959,20 @@ def run_ssh_calculation(
                 f"Could not determine remote root directory, defaulting to ~/: {e}"
             )
 
-        # Create unique remote directory using UUID to avoid collisions
-        # when multiple SSH calculators run in parallel on the same host
-        thread_id = threading.get_ident()
-        unique_id = uuid.uuid4().hex[:8]  # Short UUID for readability
+        # Create unique remote directory using case-specific identifier
+        # Extract unique identifier from local working_dir to ensure each case gets its own remote dir
+        # working_dir typically looks like: /path/to/.fz/tmp/fz_temp_abc123.../case_name
+        # We use the last component of the path as a unique identifier for this calculation
+        local_dir_identifier = working_dir.name  # e.g., "x=1,y=2" or "single_case"
+
+        # Also include a UUID to handle edge cases where dir names might collide
+        # (e.g., same variable values running on different hosts or at different times)
+        unique_id = uuid.uuid4().hex[:8]  # Short UUID for additional uniqueness
+
+        # Build remote directory name with both case identifier and UUID
+        # This ensures parallel calculations to the same SSH host use distinct directories
         remote_temp_dir = (
-            f"{remote_root_dir}/.fz/tmp/fz_calc_{os.getpid()}_{thread_id}_{unique_id}"
+            f"{remote_root_dir}/.fz/tmp/fz_calc_{local_dir_identifier}_{unique_id}"
         )
         ssh_client.exec_command(f"mkdir -p {remote_temp_dir}")
 

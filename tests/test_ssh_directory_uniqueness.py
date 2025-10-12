@@ -17,18 +17,19 @@ def test_remote_directory_naming():
     # Create multiple directory names in parallel (simulating concurrent SSH connections)
     directory_names = []
 
-    def create_dir_name():
-        thread_id = threading.get_ident()
+    def create_dir_name(case_id):
+        # Simulate local working_dir name (e.g., "x=1,y=2" or "single_case")
+        local_dir_identifier = f"case_{case_id}"
         unique_id = uuid.uuid4().hex[:8]
         remote_temp_dir = (
-            f"{remote_root_dir}/.fz/tmp/fz_calc_{os.getpid()}_{thread_id}_{unique_id}"
+            f"{remote_root_dir}/.fz/tmp/fz_calc_{local_dir_identifier}_{unique_id}"
         )
         directory_names.append(remote_temp_dir)
 
     # Create 10 directory names from different threads
     threads = []
-    for _ in range(10):
-        t = threading.Thread(target=create_dir_name)
+    for i in range(10):
+        t = threading.Thread(target=create_dir_name, args=(i,))
         threads.append(t)
         t.start()
 
