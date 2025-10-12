@@ -228,7 +228,7 @@ echo "Calculation completed"
                 "varprefix": "$",
                 "delim": "()",
                 "commentline": "#",
-                "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+                "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2 | tr -d ' bar'"}
             },
             calculators=[ssh_calculator],
             results_dir="results"

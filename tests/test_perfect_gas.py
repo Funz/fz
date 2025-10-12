@@ -68,7 +68,7 @@ def test_perfect_gas():
             "varprefix": "$",
             "delim": "()",
             "commentline": "#",
-            "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
+            "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2 | tr -d ' bar'"},
         },
         calculators=["sh://bash ./PerfectGazPressure.sh"],  # Fixed: Single calculator, proper path
         results_dir="results"
