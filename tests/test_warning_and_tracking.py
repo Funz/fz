@@ -7,18 +7,13 @@ import os
 import sys
 from pathlib import Path
 
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 from fz import fzr
 
 def test_warning_and_tracking():
     """Test that path resolution warnings are displayed and commands tracked"""
 
     # Create test files
-    with open('test_warning_script.sh', 'w') as f:
+    with open('test_warning_script.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Script with path resolution"\necho "result = 456" > test_output.txt\n')
     os.chmod('test_warning_script.sh', 0o755)
 
@@ -65,8 +60,16 @@ def test_warning_and_tracking():
         else:
             print(f"✅ No command tracking (expected for commands without path changes)")
 
+        # Assert tests passed
+        assert result.get('status', ['unknown'])[0] == 'done', \
+            f"First test failed: expected status 'done', got {result.get('status', ['unknown'])[0]}"
+        assert result2.get('status', ['unknown'])[0] == 'done', \
+            f"Second test failed: expected status 'done', got {result2.get('status', ['unknown'])[0]}"
+        assert 'command' in result, "Command tracking failed for first test"
+
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
+        raise
 
     finally:
         # Cleanup

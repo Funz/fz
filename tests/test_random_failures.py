@@ -10,16 +10,13 @@ import shutil
 import random
 import time
 from pathlib import Path
-
-# Add parent directory to Python path for importing fz
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
+import pytest
 
 from fz import fzr
 
 
-def setup_test_environment():
+@pytest.fixture(autouse=True)
+def test_environment():
     """Create test files and scripts for comprehensive testing"""
 
     # Create various test files
@@ -109,14 +106,14 @@ rm -f temp_config.txt temp_count.txt
     os.makedirs('data', exist_ok=True)
     os.makedirs('tools/bin', exist_ok=True)
 
-    with open('scripts/sub_script.sh', 'w') as f:
+    with open('scripts/sub_script.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Subscript result"\necho "result = 42" > output.txt\n')
     os.chmod('scripts/sub_script.sh', 0o755)
 
     with open('data/sample.txt', 'w') as f:
         f.write('sample data\nfor testing\n')
 
-    with open('tools/bin/tool.sh', 'w') as f:
+    with open('tools/bin/tool.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Tool executed"\necho "result = 999" > output.txt\n')
     os.chmod('tools/bin/tool.sh', 0o755)
 
@@ -258,7 +255,6 @@ def run_comprehensive_test(num_iterations=3):
     print("🧪 Comprehensive Test: sh:// Path Resolution with Random Failures")
     print("=" * 70)
 
-    setup_test_environment()
     test_cases = create_comprehensive_test_cases()
 
     all_results = []
@@ -325,6 +321,14 @@ def run_comprehensive_test(num_iterations=3):
     print(f"✅ {len(successful_path_tests)} path-dependent tests succeeded")
     print("✅ Relative paths properly resolved to absolute paths")
     print("✅ Complex command structures handled correctly")
+
+    # Assert test isolation is working
+    assert unexpected_failures == 0, \
+        f"Test isolation failed: {unexpected_failures} unexpected failures detected"
+
+    # Assert path resolution is working
+    assert len(successful_path_tests) > 0, \
+        "Path resolution failed: No path-dependent tests succeeded"
 
     return {
         "total_tests": total_tests,

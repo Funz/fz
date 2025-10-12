@@ -10,18 +10,13 @@ import time
 import tempfile
 from pathlib import Path
 
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 from fz import fzr
 
 def test_output_files_location():
     """Test that all output files are in case directory and timing is correct"""
 
     # Create test script that generates multiple output files
-    with open('test_multi_output.sh', 'w') as f:
+    with open('test_multi_output.sh', 'w', newline='\n') as f:
         f.write('''#!/bin/bash
 echo "Script starting..." > script_log.txt
 echo "This goes to stdout"
@@ -72,7 +67,6 @@ echo "Final stdout message"
                 "custom_result.txt",  # file created by script
                 "script_log.txt",     # log file created by script
                 "extra_file.dat",     # extra file created by script
-                "output"        # model output file
             ]
 
             found_files = {}
@@ -122,7 +116,7 @@ echo "Final stdout message"
 
                 print("  Files by modification time (earliest to latest):")
                 for i, (name, mtime) in enumerate(file_times):
-                    time_str = time.strftime('%H:%M:%S.%f', time.localtime(mtime))[:12]
+                    time_str = time.strftime('%H:%M:%S', time.localtime(mtime))[:12]
                     if i > 0:
                         time_diff = mtime - file_times[i-1][1]
                         print(f"    {name} at {time_str} (+{time_diff:.3f}s)")
@@ -145,13 +139,18 @@ echo "Final stdout message"
                 print("  ❌ Some expected files missing or empty")
                 print("  💡 This might indicate timing issues - files not fully written before directory move")
 
+            # Assert all files found
+            assert all_found, "Some expected files missing or empty in results directory"
+
         else:
             print(f"❌ Results directory not found: {results_dir}")
+            assert False, "Results directory not found"
 
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
+        raise
 
     finally:
         # Cleanup

@@ -5,7 +5,6 @@ Final comprehensive test of path resolution in sh:// commands
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 from fz import fzr
 
@@ -17,30 +16,47 @@ def test_final_path_resolution():
         f.write("# Final path test\n")
         f.write("value = $(T)\n")
 
+    # Create dummy scripts for testing
+    scripts = {
+        "local_script.sh": "#!/bin/bash\necho 'Local script executed'\n",
+        "folder with spaces/script with spaces.sh": "#!/bin/bash\necho 'Script with spaces executed'\n",
+        "multi_path_script.sh": "#!/bin/bash\necho 'Multi path script executed'\n",
+        "helper.sh": "#!/bin/bash\necho 'Helper script executed'\n",
+        "tools/bin/complex_script.sh": "#!/bin/bash\necho 'Complex script executed'\n"
+    }
+    for path, content in scripts.items():
+        print(f"Creating script: '{path}'")
+        if not os.path.exists(os.path.dirname(path)) and os.path.dirname(path) != '':
+            print(f"Creating directory: '{os.path.dirname(path)}'")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', newline='\n') as f:
+            f.write(content)
+        os.chmod(path, 0o755)
+
     test_cases = [
         {
             "name": "Simple relative path",
-            "calculator": "sh:///bin/bash ./local_script.sh",
+            "calculator": "sh://bash ./local_script.sh",
             "expected_status": "done"
         },
         {
             "name": "Quoted path with spaces",
-            "calculator": "sh:///bin/bash \"folder with spaces/script with spaces.sh\"",
+            "calculator": "sh://bash \"folder with spaces/script with spaces.sh\"",
             "expected_status": "done"
         },
         {
             "name": "Multiple relative paths",
-            "calculator": "sh:///bin/bash ./multi_path_script.sh ./helper.sh",
+            "calculator": "sh://bash ./multi_path_script.sh ./helper.sh",
             "expected_status": "done"
         },
         {
             "name": "Nested subdirectory path",
-            "calculator": "sh:///bin/bash tools/bin/complex_script.sh",
+            "calculator": "sh://bash tools/bin/complex_script.sh",
             "expected_status": "done"
         },
         {
             "name": "Already absolute path (no change needed)",
-            "calculator": f"sh:///bin/bash {os.path.abspath('local_script.sh')}",
+            "calculator": f"sh://bash {os.path.abspath('local_script.sh').replace(os.sep, '/')}",
             "expected_status": "done"
         }
     ]
@@ -59,14 +75,13 @@ def test_final_path_resolution():
         try:
             result = fzr("input.txt",
             {
+                "T": [f"final_{i}"]
+            },
+            {
                 "varprefix": "$",
                 "delim": "()",
                 "output": {"test": "echo 'success' || echo 'failed'"}
             },
-            {
-                "T": [f"final_{i}"]
-            },
-            
             calculators=[test_case['calculator']],
             results_dir=f"final_test_{i}")
 
@@ -107,7 +122,9 @@ def test_final_path_resolution():
     else:
         print("⚠️  Some tests failed - path resolution needs further improvement")
 
-    return all_passed
+    # Assert all tests passed
+    assert all_passed, \
+        f"Expected all {total} path resolution tests to pass, but only {passed} passed"
 
 if __name__ == "__main__":
     test_final_path_resolution()

@@ -5,7 +5,6 @@ Test script to reproduce random case failures using the user's example
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 from fz import fzr
 import time
@@ -27,7 +26,7 @@ def test_user_example():
     print('    "T_celsius": [20,30,40],')
     print('    "V_L": 1,')
     print('    "n_mol": 1')
-    print('}, calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")')
+    print('}, calculators=["sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")')
     print("=" * 60)
 
     # Check if required files exist
@@ -75,9 +74,9 @@ def test_user_example():
             "formulaprefix": "@",
             "delim": "()",
             "commentline": "#",
-            "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+            "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
         },
-        calculators=["sh:///bin/bash ./PerfectGazPressure.sh","sh:///bin/bash ./PerfectGazPressure.sh"], results_dir="results")
+        calculators=["sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")
 
         elapsed = time.time() - start_time
         print(f"\n🏁 Test completed in {elapsed:.2f}s")
@@ -136,6 +135,10 @@ def run_multiple_tests(num_tests=5):
     else:
         print(f"\n✅ NO RELIABILITY ISSUES DETECTED")
         print(f"   All {num_tests} tests passed consistently")
+
+    # Assert no reliability issues
+    assert failure_count == 0, \
+        f"Reliability issue detected: {failure_count}/{num_tests} tests failed randomly"
 
 if __name__ == "__main__":
     run_multiple_tests(10)

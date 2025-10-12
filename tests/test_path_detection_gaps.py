@@ -5,7 +5,6 @@ Test to identify gaps in current path detection logic
 
 import sys
 import os
-sys.path.insert(0, '/home/richet/Sync/Open/Funz/fz')
 
 def analyze_command_path_gaps():
     """Analyze commands that would fail with current path detection"""

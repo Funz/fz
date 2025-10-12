@@ -6,10 +6,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-
-# Add fz package to path
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import fz
 
@@ -73,16 +70,14 @@ def test_local_enhanced_logging():
             if field not in log_content:
                 missing_fields.append(field)
 
-        if missing_fields:
-            print(f"Missing fields in log: {missing_fields}")
-            return False
+        # Assert all required fields are present
+        assert not missing_fields, f"Missing fields in log: {missing_fields}"
 
         print("✓ Enhanced logging test PASSED")
-        return True
 
     except Exception as e:
         print(f"✗ Enhanced logging test FAILED: {e}")
-        return False
+        raise
 
     finally:
         try:
@@ -114,9 +109,8 @@ def test_environment_info_function():
             if field not in env_info:
                 missing_fields.append(field)
 
-        if missing_fields:
-            print(f"Missing fields in environment info: {missing_fields}")
-            return False
+        # Assert all expected fields are present
+        assert not missing_fields, f"Missing fields in environment info: {missing_fields}"
 
         # Check that values are not empty or 'unknown'
         for field, value in env_info.items():
@@ -124,30 +118,25 @@ def test_environment_info_function():
                 print(f"Warning: Field '{field}' has empty or unknown value: '{value}'")
 
         print("✓ Environment info function test PASSED")
-        return True
 
     except Exception as e:
         print(f"✗ Environment info function test FAILED: {e}")
-        return False
+        raise
 
 if __name__ == "__main__":
     print("Testing FZ enhanced logging functionality")
     print("=" * 50)
 
-    success_count = 0
+    try:
+        test_environment_info_function()
+        test_local_enhanced_logging()
 
-    if test_environment_info_function():
-        success_count += 1
-
-    if test_local_enhanced_logging():
-        success_count += 1
-
-    print("\n" + "=" * 50)
-    print(f"Tests completed: {success_count}/2 passed")
-
-    if success_count == 2:
+        print("\n" + "=" * 50)
+        print("Tests completed: 2/2 passed")
         print("🎉 All logging tests PASSED!")
         exit(0)
-    else:
+    except Exception as e:
+        print("\n" + "=" * 50)
         print("❌ Some logging tests FAILED!")
+        print(f"Error: {e}")
         exit(1)

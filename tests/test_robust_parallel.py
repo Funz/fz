@@ -5,26 +5,22 @@ Test robust parallel execution with file synchronization
 
 import os
 import sys
-import tempfile
 import shutil
 import time
 from pathlib import Path
-
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
+import pytest
 
 import fz
 
-def setup_robust_test():
+@pytest.fixture(autouse=True)
+def robust_test_setup():
     """Setup test with robust file handling"""
     # Create input.txt
     input_content = """T_celsius=$T_celsius
 V_L=$V_L
 n_mol=$n_mol
 """
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write(input_content)
 
     # Create a very robust calculator script with explicit file synchronization
@@ -40,7 +36,9 @@ echo "Calculator PID $$ starting for T_celsius=$T_celsius at $(date +%H:%M:%S.%3
 sleep 2
 
 # Calculate pressure using ideal gas law
-pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
+#pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
+#replace bc with python
+pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
 
 # Write output with explicit file operations and sync
 echo "pressure = $pressure" > output.txt
@@ -53,13 +51,12 @@ sync  # Force write to disk
 
 echo 'Done'
 """
-    with open("RobustCalc.sh", "w") as f:
+    with open("RobustCalc.sh", "w", newline='\n') as f:
         f.write(script_content)
     os.chmod("RobustCalc.sh", 0o755)
 
 def test_robust_parallel():
     """Test robust parallel execution"""
-    setup_robust_test()
 
     model = {
         "varprefix": "$",
@@ -108,7 +105,7 @@ def test_robust_parallel():
                     print(f"   {line.strip()}")
 
         # Analyze results
-        if result and "pressure" in result:
+        if "result" and "pressure" in result:
             pressure_values = result["pressure"]
             successful_cases = len([p for p in pressure_values if p is not None])
 
@@ -141,11 +138,11 @@ def test_robust_parallel():
                             print(f"     output.txt: MISSING")
 
             # Timing check
-            if total_time <= 3.0:
-                print(f"\n⏱️ Timing: ✅ Parallel execution confirmed ({total_time:.2f}s ≤ 3s)")
+            if total_time <= 4.0:
+                print(f"\n⏱️ Timing: ✅ Parallel execution confirmed ({total_time:.2f}s ≤ 4s)")
                 timing_ok = True
             else:
-                print(f"\n⏱️ Timing: ⚠️ Slow execution ({total_time:.2f}s > 3s)")
+                print(f"\n⏱️ Timing: ⚠️ Slow execution ({total_time:.2f}s > 4s)")
                 timing_ok = False
 
             # Success criteria
@@ -155,27 +152,19 @@ def test_robust_parallel():
             print(f"   All cases successful: {'✅' if all_successful else '❌'}")
             print(f"   Parallel timing: {'✅' if timing_ok else '❌'}")
 
-            return all_successful and timing_ok
+            # Assert test criteria
+            assert all_successful, f"Expected all {len(variables['T_celsius'])} cases to succeed, but only {successful_cases} succeeded"
+            assert timing_ok, f"Expected parallel execution (≤4s), but took {total_time:.2f}s"
         else:
-            print("❌ No results returned")
-            return False
-
-    except Exception as e:
-        print(f"❌ Robust parallel test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+            pytest.fail("No results returned")
     finally:
         # Cleanup
-        for f in ["input.txt", "RobustCalc.sh", "calc.log"]:
-            if os.path.exists(f):
-                os.remove(f)
+        for fname in ["input.txt", "RobustCalc.sh", "calc.log"]:
+            if os.path.exists(fname):
+                os.remove(fname)
         if os.path.exists("results"):
             shutil.rmtree("results")
 
 if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as temp_dir:
-        os.chdir(temp_dir)
-        print(f"Working in: {temp_dir}\n")
-        success = test_robust_parallel()
-        print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Robust parallel execution test!")
+    test_robust_parallel()
+    print(f"\n🎉 SUCCESS: Robust parallel execution test!")

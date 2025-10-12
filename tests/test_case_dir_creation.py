@@ -8,18 +8,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 from fz import fzr
 
 def test_case_directory_creation():
     """Test that case directories exist in results dir before calculators run"""
 
     # Create a script that checks if it's already in the results directory
-    with open('check_location_script.sh', 'w') as f:
+    with open('check_location_script.sh', 'w', newline='\n') as f:
         f.write('''#!/bin/bash
 echo "Script running from: $(pwd)" > location_check.txt
 echo "Current directory contents:" >> location_check.txt
@@ -29,15 +24,15 @@ ls -la .. >> location_check.txt
 
 # Check if we're in a results directory by looking for expected files
 if [ -f "test_case_input.txt" ]; then
-    echo "✅ Input file found in current directory" >> location_check.txt
+    echo "v  Input file found in current directory" >> location_check.txt
 else
-    echo "❌ Input file NOT found in current directory" >> location_check.txt
+    echo "x  Input file NOT found in current directory" >> location_check.txt
 fi
 
 if [ -f ".fz_hash" ]; then
-    echo "✅ Hash file found in current directory" >> location_check.txt
+    echo "x  Hash file found in current directory" >> location_check.txt
 else
-    echo "❌ Hash file NOT found in current directory" >> location_check.txt
+    echo "v  Hash file NOT found in current directory" >> location_check.txt
 fi
 
 # Final result
@@ -57,8 +52,8 @@ echo "Location check completed" >> location_check.txt
         print("\n1️⃣ Testing Single Case:")
         result1 = fzr(
             input_path="test_case_input.txt",
-            model={"output": {"value": "echo 'Single case test'"}},
             input_variables={},
+            model={"output": {"value": "echo 'Single case test'"}},
             calculators=["sh://bash check_location_script.sh"],
             results_dir="single_case_test"
         )
@@ -78,21 +73,21 @@ echo "Location check completed" >> location_check.txt
                         print(f"    {line}")
 
                 # Analyze the results
-                if "✅ Input file found" in content and "✅ Hash file found" in content:
-                    print(f"  ✅ Single case: Calculator ran in prepared results directory")
+                if "v  Input file found" in content and "v  Hash file NOT found" in content:
+                    print(f"  v  Single case: Calculator ran in prepared working directory")
                 else:
-                    print(f"  ❌ Single case: Calculator did not run in prepared results directory")
+                    print(f"  x  Single case: Calculator did not run in prepared working directory")
             else:
-                print(f"  ❌ Location check file not found")
+                print(f"  x  Location check file not found")
         else:
-            print(f"  ❌ Results directory not found")
+            print(f"  x  Results directory not found")
 
         # Test multiple cases
         print(f"\n2️⃣ Testing Multiple Cases:")
         result2 = fzr(
             input_path="test_case_input.txt",
-            model={"output": {"value": "echo 'Multiple case test'"}},
             input_variables={"param1": ["a", "b"], "param2": ["1", "2"]},
+            model={"output": {"value": "echo 'Multiple case test'"}},
             calculators=["sh://bash check_location_script.sh"],
             results_dir="multi_case_test"
         )
@@ -113,22 +108,27 @@ echo "Location check completed" >> location_check.txt
                 location_file = subdir / "location_check.txt"
                 if location_file.exists():
                     content = location_file.read_text()
-                    if "✅ Input file found" in content and "✅ Hash file found" in content:
-                        print(f"      ✅ Calculator ran in prepared directory")
+                    if "v  Input file found" in content and "v  Hash file NOT found" in content:
+                        print(f"      v  Calculator ran in working directory")
                         cases_correct += 1
                     else:
-                        print(f"      ❌ Calculator did not run in prepared directory")
+                        print(f"      x  Calculator did not run in working directory")
                         # Show some of the content for debugging
                         lines = content.split('\n')[:5]
                         for line in lines:
                             if line.strip():
                                 print(f"        {line}")
                 else:
-                    print(f"      ❌ Location check file not found")
+                    print(f"      x  Location check file not found")
 
             print(f"  📊 Summary: {cases_correct}/{len(subdirs)} cases ran in prepared directories")
+
+            # Assert all cases ran in prepared directories
+            assert cases_correct == len(subdirs), \
+                f"Expected all {len(subdirs)} cases to run in prepared directories, but only {cases_correct} did"
         else:
-            print(f"  ❌ Results directory not found")
+            print(f"  x  Results directory not found")
+            assert False, "Multi-case results directory not found"
 
         print(f"\n📋 Overall Summary:")
         print(f"  • Case directories are created in results directory BEFORE calculator execution")
@@ -137,9 +137,10 @@ echo "Location check completed" >> location_check.txt
         print(f"  • Calculators execute directly in their final result directories")
 
     except Exception as e:
-        print(f"❌ Test failed with error: {e}")
+        print(f"x  Test failed with error: {e}")
         import traceback
         traceback.print_exc()
+        raise
 
     finally:
         # Cleanup

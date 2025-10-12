@@ -7,18 +7,13 @@ import os
 import sys
 from pathlib import Path
 
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 from fz import fzr
 
 def test_final_verification():
     """Final test of warning display and command tracking"""
 
     # Create test files
-    with open('final_test_script.sh', 'w') as f:
+    with open('final_test_script.sh', 'w', newline='\n') as f:
         f.write('#!/bin/bash\necho "Final test script executed"\necho "result = 999" > final_output.txt\n')
     os.chmod('final_test_script.sh', 0o755)
 
@@ -57,10 +52,19 @@ def test_final_verification():
         print(f"\n✅ Results Summary:")
         print(f"   Test 1 status: {result1.get('status', ['unknown'])[0]}")
         print(f"   Test 2 status: {result2.get('status', ['unknown'])[0]}")
-        print(f"   Command tracking: {'✅ Working' if result1.get('command', [None])[0] else '❌ Failed'}")
+        command_tracking_works = result1.get('command', [None])[0] is not None
+        print(f"   Command tracking: {'✅ Working' if command_tracking_works else '❌ Failed'}")
+
+        # Assert results are correct
+        assert result1.get('status', ['unknown'])[0] == 'done', \
+            f"Test 1 failed: expected status 'done', got {result1.get('status', ['unknown'])[0]}"
+        assert result2.get('status', ['unknown'])[0] == 'done', \
+            f"Test 2 failed: expected status 'done', got {result2.get('status', ['unknown'])[0]}"
+        assert command_tracking_works, "Command tracking failed: no command recorded"
 
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
+        raise
 
     finally:
         # Cleanup

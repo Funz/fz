@@ -5,26 +5,22 @@ Debug execution to understand why one case fails
 
 import os
 import sys
-import tempfile
 import shutil
 import time
 from pathlib import Path
-
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
+import pytest
 
 import fz
 
-def setup_debug_test():
+@pytest.fixture(autouse=True)
+def debug_test_setup():
     """Setup test with detailed debugging"""
     # Create input.txt
     input_content = """T_celsius=$T_celsius
 V_L=$V_L
 n_mol=$n_mol
 """
-    with open("input.txt", "w") as f:
+    with open("input.txt", "w", newline='\n') as f:
         f.write(input_content)
 
     # Create a calculator script with extensive debugging
@@ -50,7 +46,9 @@ sleep 1
 
 echo "=== DEBUG: Calculating pressure ===" >&2
 # Calculate pressure using ideal gas law
-pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
+#pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
+#replace bc with python
+pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
 echo "Calculated pressure: $pressure" >&2
 
 echo "=== DEBUG: Writing output ===" >&2
@@ -71,13 +69,12 @@ fi
 echo "=== DEBUG: Script completed successfully ===" >&2
 echo 'Done'
 """
-    with open("DebugCalc.sh", "w") as f:
+    with open("DebugCalc.sh", "w", newline='\n') as f:
         f.write(script_content)
     os.chmod("DebugCalc.sh", 0o755)
 
 def test_debug_execution():
     """Test with debugging to see what fails"""
-    setup_debug_test()
 
     model = {
         "varprefix": "$",
@@ -118,7 +115,7 @@ def test_debug_execution():
         print(f"✅ Execution completed in {total_time:.2f} seconds")
 
         # Analyze results and debug info
-        if result and "pressure" in result:
+        if "result" and "pressure" in result:
             pressure_values = result["pressure"]
             successful_cases = len([p for p in pressure_values if p is not None])
 
@@ -176,27 +173,17 @@ def test_debug_execution():
                         else:
                             print(f"     ❌ output.txt: MISSING")
 
-            return successful_cases == len(variables['T_celsius'])
+            # Assert all cases successful
+            assert successful_cases == len(variables['T_celsius']), \
+                f"Expected all {len(variables['T_celsius'])} cases to succeed, but only {successful_cases} succeeded"
         else:
-            print("❌ No results returned")
-            return False
-
+            pytest.fail("No results returned")
     except Exception as e:
-        print(f"❌ Debug execution test failed: {e}")
+        print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
-        return False
-    finally:
-        # Cleanup
-        for f in ["input.txt", "DebugCalc.sh"]:
-            if os.path.exists(f):
-                os.remove(f)
-        if os.path.exists("results"):
-            shutil.rmtree("results")
+        raise
 
 if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as temp_dir:
-        os.chdir(temp_dir)
-        print(f"Working in: {temp_dir}\n")
-        success = test_debug_execution()
-        print(f"\n{'🎉 SUCCESS' if success else '💥 FAILED'}: Debug execution test!")
+    test_debug_execution()
+    print(f"\n🎉 SUCCESS: Debug execution test!")

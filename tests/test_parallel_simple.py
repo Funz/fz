@@ -6,10 +6,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-
-# Add fz package to path
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import fz
 
@@ -68,11 +65,10 @@ def test_parallel_vs_single():
         assert results_parallel.get('status', [''])[0] == 'done', "Should have successful status"
 
         print("✓ Parallel execution test PASSED")
-        return True
 
     except Exception as e:
         print(f"✗ Test FAILED: {e}")
-        return False
+        raise
 
     finally:
         try:
@@ -100,26 +96,21 @@ def test_calculators_resolution():
     # Check that we got the expected number
     assert len(resolved) >= len(calculators), "Should resolve at least as many calculators"
     print("✓ Calculator resolution test PASSED")
-    return True
 
 if __name__ == "__main__":
     print("Testing FZ parallel calculator functionality")
     print("=" * 50)
 
-    success_count = 0
+    try:
+        test_parallel_vs_single()
+        test_calculators_resolution()
 
-    if test_parallel_vs_single():
-        success_count += 1
-
-    if test_calculators_resolution():
-        success_count += 1
-
-    print("\n" + "=" * 50)
-    print(f"Tests completed: {success_count}/2 passed")
-
-    if success_count == 2:
+        print("\n" + "=" * 50)
+        print("Tests completed: 2/2 passed")
         print("🎉 All tests PASSED!")
         exit(0)
-    else:
+    except Exception as e:
+        print("\n" + "=" * 50)
         print("❌ Some tests FAILED!")
+        print(f"Error: {e}")
         exit(1)

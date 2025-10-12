@@ -16,6 +16,7 @@ def test_shlex_parsing():
     print("🔍 Testing shlex.split behavior")
     print("=" * 50)
 
+    all_parsed = True
     for cmd in test_commands:
         print(f"\nOriginal: {cmd}")
         try:
@@ -25,7 +26,11 @@ def test_shlex_parsing():
                 print(f"  [{i}]: '{part}'")
         except ValueError as e:
             print(f"Error: {e}")
+            all_parsed = False
         print("-" * 30)
+
+    # Assert all commands were parsed successfully
+    assert all_parsed, "Some commands failed to parse with shlex"
 
 if __name__ == "__main__":
     test_shlex_parsing()

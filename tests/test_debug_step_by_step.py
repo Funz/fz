@@ -3,19 +3,16 @@
 Debug path resolution step by step
 """
 import sys
+import os
 from pathlib import Path
-
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
 
 from fz.runners import _resolve_paths_in_segment
 
 def test_segment_resolution():
     """Test path resolution on individual segments"""
 
-    original_cwd = "/home/richet/Sync/Open/Funz/fz"
+    # Use project root (parent of tests directory)
+    original_cwd = str(Path(__file__).parent.parent.absolute())
 
     test_segments = [
         "cp test_input.txt copy.txt",
@@ -26,11 +23,16 @@ def test_segment_resolution():
     print("🔍 Testing Segment Path Resolution")
     print("=" * 50)
 
+    results = []
     for segment in test_segments:
         print(f"\nSegment: {segment}")
         resolved = _resolve_paths_in_segment(segment, original_cwd)
         print(f"Resolved: {resolved}")
+        results.append(resolved is not None)
         print("-" * 30)
+
+    # Assert all segments were resolved
+    assert all(results), "Some segments failed to resolve"
 
 if __name__ == "__main__":
     test_segment_resolution()

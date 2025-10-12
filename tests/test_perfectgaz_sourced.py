@@ -9,11 +9,6 @@ import sys
 import time
 from pathlib import Path
 
-# Add parent directory to Python path
-parent_dir = Path(__file__).parent.absolute()
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 from fz import fzr
 
 def test_perfectgaz_sourced():
@@ -25,6 +20,20 @@ def test_perfectgaz_sourced():
         f.write('n_mol=${n_mol}\n')
         f.write('T_kelvin=${T_kelvin}\n')
         f.write('V_m3=${V_m3}\n')
+
+    # Create the PerfectGazPressure.sh script
+    with open('PerfectGazPressure.sh', 'w', newline='\n') as f:
+        f.write('#!/bin/bash\n')
+        f.write('source perfectgaz_vars.txt\n')
+        f.write('if [ -z "$n_mol" ] || [ -z "$T_kelvin" ] || [ -z "$V_m3" ]; then\n')
+        f.write('  echo "Error: Missing variables n_mol, T_kelvin, or V_m3" >&2\n')
+        f.write('  exit 1\n')
+        f.write('fi\n')
+        f.write('R=8.314  # J/(mol·K)\n')
+        #f.write('pressure=$(echo "scale=2; ($n_mol * $R * $T_kelvin) / $V_m3" | bc -l)\n')
+        f.write('pressure=$(python3 -c "print(round(($n_mol * $R * $T_kelvin) / $V_m3, 2))")\n')
+        f.write('echo "pressure = $pressure" > output.txt\n')
+        f.write('exit 0\n')
 
     print("🧪 PerfectGaz Sourced Variables Test - 24 Cases")
     print("=" * 60)
@@ -55,8 +64,11 @@ def test_perfectgaz_sourced():
                 "n_mol": amounts,
                 "V_m3": volumes
             },
-            model={"output": {"pressure": "cat output.txt"}},
-            calculators=["sh:///bin/bash ./PerfectGazPressure.sh"],
+            model={
+                "varprefix": "$",
+                "delim": "{}",
+                "output": {"pressure": "cat output.txt | grep 'pressure' | cut -d'=' -f2 | tr -d ' '"}},
+            calculators=["sh://bash ./PerfectGazPressure.sh"],
             results_dir="perfectgaz_sourced_results"
         )
 
@@ -91,7 +103,7 @@ def test_perfectgaz_sourced():
         missing_files_summary = {}
         pressure_samples = {}
 
-        for i, case_dir in enumerate(case_dirs[:10]):  # Show first 10 cases in detail
+        for i, case_dir in enumerate(case_dirs):  # Show first 10 cases in detail
             case_name = case_dir.name
             print(f"\n📁 Case {i+1}: {case_name}")
 
@@ -142,8 +154,26 @@ def test_perfectgaz_sourced():
                                 print(f"  ⚠️  {expected_file}: Check for errors")
                         except Exception as e:
                             print(f"  ⚠️  {expected_file}: Error reading ({e})")
+                    elif expected_file == "err.txt":
+                        try:
+                            content = file_path.read_text().strip()
+                            if content:
+                                print(f"  ⚠️  {expected_file}: Contains errors:\n    {content.splitlines()}")
+                            else:
+                                print(f"  ✅ {expected_file}: Empty (no errors)")
+                        except Exception as e:
+                            print(f"  ⚠️  {expected_file}: Error reading ({e})")
+                    elif expected_file == "out.txt":
+                        try:
+                            content = file_path.read_text().strip()
+                            if content:
+                                print(f"  📝 {expected_file}: Contains output:\n    {content.splitlines()}")
+                            else:
+                                print(f"  ✅  {expected_file}: Empty output")
+                        except Exception as e:
+                            print(f"  ⚠️  {expected_file}: Error reading ({e})")
                     else:
-                        status = "✅" if size > 0 or expected_file == "err.txt" else "⚠️ "
+                        status = "✅" if size > 0 or expected_file == "err.txt" or expected_file == "out.txt" else "⚠️ "
                         print(f"  {status} {expected_file}: Present ({size} bytes)")
                 else:
                     missing_files.append(expected_file)
@@ -156,6 +186,9 @@ def test_perfectgaz_sourced():
             # Show file count summary
             print(f"  📊 Files: {len(present_files)}/{len(expected_files)} present")
 
+        if missing_files:
+            print(f"  ❌  Missing files: {missing_files}")
+
         # Summary for remaining cases
         if len(case_dirs) > 10:
             print(f"\n📋 Checking remaining {len(case_dirs)-10} cases...")
@@ -164,7 +197,7 @@ def test_perfectgaz_sourced():
                 missing_count = 0
                 for expected_file in expected_files:
                     file_path = case_dir / expected_file
-                    if not (file_path.exists() and (file_path.stat().st_size > 0 or expected_file == "err.txt")):
+                    if not (file_path.exists() and (file_path.stat().st_size > 0 or expected_file == "err.txt" or expected_file == "out.txt")):
                         missing_count += 1
                 if missing_count > 0:
                     remaining_issues += 1
@@ -211,10 +244,17 @@ def test_perfectgaz_sourced():
         else:
             print(f"\n⚠️  PARTIAL SUCCESS: {success_rate:.1f}% success rate")
 
+        # Assert test succeeded
+        assert success_rate >= 95, \
+            f"Expected success rate >= 95%, got {success_rate:.1f}%"
+        assert len(case_dirs) == total_cases, \
+            f"Expected {total_cases} case directories, got {len(case_dirs)}"
+
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
+        raise
 
     finally:
         # Cleanup
