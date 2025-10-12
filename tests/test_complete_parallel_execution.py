@@ -135,10 +135,10 @@ echo 'Done'
                 print(f"   Expected sequential: ~4s")
 
                 if total_time <= 4.0:
-                    print(f"   ✅ PARALLEL execution confirmed ({total_time:.2f}s ≤ 3s)")
+                    print(f"   ✅ PARALLEL execution confirmed ({total_time:.2f}s ≤ 4s)")
                     timing_success = True
                 else:
-                    print(f"   ⚠️ Possible sequential execution ({total_time:.2f}s > 3s)")
+                    print(f"   ⚠️ Possible sequential execution ({total_time:.2f}s > 4s)")
                     timing_success = False
 
                 # Check result directories
