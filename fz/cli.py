@@ -293,6 +293,23 @@ def main():
                             choices=["json", "csv", "html", "markdown", "table"],
                             help="Output format (default: markdown)")
 
+    # install command
+    parser_install = subparsers.add_parser("install", help="Install a model from GitHub or local zip file")
+    parser_install.add_argument("source", help="Model source (GitHub name, URL, or local zip file)")
+    parser_install.add_argument("--global", dest="global_install", action="store_true",
+                                help="Install to ~/.fz/models/ (default: ./.fz/models/)")
+
+    # list command
+    parser_list = subparsers.add_parser("list", help="List installed models")
+    parser_list.add_argument("--global", dest="global_list", action="store_true",
+                             help="List models from ~/.fz/models/ (default: ./.fz/models/)")
+
+    # uninstall command
+    parser_uninstall = subparsers.add_parser("uninstall", help="Uninstall a model")
+    parser_uninstall.add_argument("model", help="Model name to uninstall")
+    parser_uninstall.add_argument("--global", dest="global_uninstall", action="store_true",
+                                  help="Uninstall from ~/.fz/models/ (default: ./.fz/models/)")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -332,6 +349,36 @@ def main():
                         results_dir=args.results_dir,
                         calculators=calculators)
             print(format_output(result, args.format))
+
+        elif args.command == "install":
+            from .installer import install_model
+            result = install_model(args.source, global_install=args.global_install)
+            print(f"Successfully installed model '{result['model_name']}'")
+
+        elif args.command == "list":
+            from .installer import list_installed_models
+            models = list_installed_models(global_list=args.global_list)
+            if not models:
+                location = "~/.fz/models/" if args.global_list else "./.fz/models/"
+                print(f"No models installed in {location}")
+            else:
+                print(f"Installed models:")
+                for model_name, model_info in models.items():
+                    model_id = model_info.get('id', 'N/A')
+                    is_global = model_info.get('global', False)
+                    location = "[global]" if is_global else "[local]"
+                    print(f"  - {model_name} (id: {model_id}) {location}")
+
+        elif args.command == "uninstall":
+            from .installer import uninstall_model
+            success = uninstall_model(args.model, global_uninstall=args.global_uninstall)
+            if success:
+                location = "~/.fz/models/" if args.global_uninstall else "./.fz/models/"
+                print(f"Successfully uninstalled model '{args.model}' from {location}")
+            else:
+                location = "~/.fz/models/" if args.global_uninstall else "./.fz/models/"
+                print(f"Model '{args.model}' not found in {location}")
+                return 1
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
