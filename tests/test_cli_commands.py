@@ -473,5 +473,388 @@ class TestCLIPlatformCompatibility:
         assert result.returncode == 0
 
 
+class TestFzInstallCommand:
+    """Test fz install command for model installation"""
+
+    @pytest.fixture
+    def test_model_zip(self, temp_workspace):
+        """Create a test model zip file"""
+        # Create model structure
+        model_dir = temp_workspace / "fz-testmodel-main"
+        model_dir.mkdir(exist_ok=True)
+
+        # Create model definition
+        model_def = {
+            "id": "testmodel",
+            "varprefix": "$",
+            "delim": "()",
+            "formulaprefix": "@",
+            "commentline": "#",
+            "output": {
+                "result": "cat output.txt"
+            }
+        }
+
+        model_json = model_dir / "model.json"
+        model_json.write_text(json.dumps(model_def, indent=2))
+
+        # Create zip file
+        import zipfile
+        zip_path = temp_workspace / "fz-testmodel.zip"
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            zf.write(model_json, arcname="fz-testmodel-main/model.json")
+
+        return zip_path
+
+    @pytest.fixture
+    def test_model_with_calculators(self, temp_workspace):
+        """Create a test model zip with calculators"""
+        import zipfile
+
+        # Create model structure
+        model_dir = temp_workspace / "fz-testcalc-main"
+        fz_dir = model_dir / ".fz"
+        models_dir = fz_dir / "models"
+        calc_dir = fz_dir / "calculators"
+
+        models_dir.mkdir(parents=True, exist_ok=True)
+        calc_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create model definition
+        model_def = {
+            "id": "testcalc",
+            "varprefix": "$",
+            "delim": "()",
+            "output": {
+                "result": "cat output.txt"
+            }
+        }
+        model_json = models_dir / "testcalc.json"
+        model_json.write_text(json.dumps(model_def, indent=2))
+
+        # Create calculator script
+        calc_script = calc_dir / "testcalc.sh"
+        calc_script.write_text("#!/bin/bash\necho 'result = 42'")
+
+        # Create calculator config
+        calc_config = calc_dir / "localhost_testcalc.json"
+        calc_config.write_text(json.dumps({
+            "uri": "sh://",
+            "n": 1,
+            "models": {"testcalc": "bash .fz/calculators/testcalc.sh"}
+        }, indent=2))
+
+        # Create zip file
+        zip_path = temp_workspace / "fz-testcalc.zip"
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            zf.write(model_json, arcname="fz-testcalc-main/.fz/models/testcalc.json")
+            zf.write(calc_script, arcname="fz-testcalc-main/.fz/calculators/testcalc.sh")
+            zf.write(calc_config, arcname="fz-testcalc-main/.fz/calculators/localhost_testcalc.json")
+
+        return zip_path
+
+    @pytest.fixture
+    def install_workspace(self, temp_workspace):
+        """Create a workspace with .fz directories for installation"""
+        fz_dir = temp_workspace / ".fz"
+        models_dir = fz_dir / "models"
+        calc_dir = fz_dir / "calculators"
+
+        models_dir.mkdir(parents=True, exist_ok=True)
+        calc_dir.mkdir(parents=True, exist_ok=True)
+
+        return temp_workspace
+
+    def test_install_help(self):
+        """Test fz install --help"""
+        result = run_fz_cli_function('main', ['install', '--help'])
+        assert result.returncode == 0
+        output = result.stdout + result.stderr
+        assert "install" in output.lower()
+
+    def test_install_from_local_zip(self, test_model_zip, install_workspace):
+        """Test installing model from local zip file"""
+        # Change to install workspace so installation happens there
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            result = run_fz_cli_function('main', [
+                'install',
+                str(test_model_zip)
+            ])
+
+            assert result.returncode == 0
+            assert "Successfully installed" in result.stdout
+            assert "testmodel" in result.stdout
+
+            # Verify model file was created
+            model_file = install_workspace / ".fz" / "models" / "testmodel.json"
+            assert model_file.exists()
+
+            # Verify model content
+            model_data = json.loads(model_file.read_text())
+            assert model_data["id"] == "testmodel"
+        finally:
+            os.chdir(original_cwd)
+
+    def test_install_with_calculators(self, test_model_with_calculators, install_workspace):
+        """Test installing model with calculator files"""
+        # Change to install workspace so installation happens there
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            result = run_fz_cli_function('main', [
+                'install',
+                str(test_model_with_calculators)
+            ])
+
+            assert result.returncode == 0
+            assert "Successfully installed" in result.stdout
+
+            # Verify model file
+            model_file = install_workspace / ".fz" / "models" / "testcalc.json"
+            assert model_file.exists()
+
+            # Verify calculator files
+            calc_dir = install_workspace / ".fz" / "calculators"
+            calc_script = calc_dir / "testcalc.sh"
+            calc_config = calc_dir / "localhost_testcalc.json"
+
+            assert calc_script.exists()
+            assert calc_config.exists()
+
+            # Verify script is executable on Unix-like systems
+            if not IS_WINDOWS:
+                assert os.access(calc_script, os.X_OK)
+        finally:
+            os.chdir(original_cwd)
+
+    def test_list_installed_models(self, test_model_zip, install_workspace):
+        """Test listing installed models"""
+        # Change to install workspace
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            # Install a model first
+            install_result = run_fz_cli_function('main', [
+                'install',
+                str(test_model_zip)
+            ])
+            assert install_result.returncode == 0
+
+            # List models
+            result = run_fz_cli_function('main', ['list'])
+
+            assert result.returncode == 0
+            assert "testmodel" in result.stdout
+        finally:
+            os.chdir(original_cwd)
+
+    def test_list_empty_models(self, temp_workspace):
+        """Test listing when no local models are installed"""
+        # Use a fresh workspace with empty .fz directory
+        empty_workspace = temp_workspace / "empty"
+        empty_workspace.mkdir()
+        (empty_workspace / ".fz" / "models").mkdir(parents=True, exist_ok=True)
+
+        # Change to empty workspace
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(empty_workspace)
+            result = run_fz_cli_function('main', ['list'])
+
+            assert result.returncode == 0
+            # May show global models, just verify it runs without error
+            # If there are any models listed, they should be marked [global]
+            if "Installed models" in result.stdout:
+                # Should only have global models, no local ones
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if line.strip() and line.strip().startswith('-'):
+                        # This is a model line, should have [global] flag
+                        assert "[global]" in line
+        finally:
+            os.chdir(original_cwd)
+
+    def test_install_invalid_source(self, temp_workspace):
+        """Test error handling for invalid source"""
+        result = run_fz_cli_function('main', [
+            'install',
+            str(temp_workspace / "nonexistent.zip")
+        ])
+
+        assert result.returncode != 0
+        assert "Error" in result.stderr or "Failed" in result.stderr or "error" in result.stdout.lower()
+
+    @pytest.mark.skipif(True, reason="Requires network access, skip for CI")
+    def test_install_from_github_name(self, install_workspace):
+        """Test installing from GitHub shortname (requires network)"""
+        result = run_fz_cli_function('main', [
+            'install',
+            'moret'
+        ])
+
+        # May fail if repo structure changes or network issues
+        if result.returncode == 0:
+            assert "Successfully installed" in result.stdout
+            model_file = install_workspace / ".fz" / "models" / "Moret.json"
+            assert model_file.exists()
+
+    @pytest.mark.skipif(True, reason="Requires network access, skip for CI")
+    def test_install_from_github_url(self, install_workspace):
+        """Test installing from full GitHub URL (requires network)"""
+        result = run_fz_cli_function('main', [
+            'install',
+            'https://github.com/Funz/fz-moret'
+        ])
+
+        # May fail if repo structure changes or network issues
+        if result.returncode == 0:
+            assert "Successfully installed" in result.stdout
+
+    def test_install_overwrites_existing(self, test_model_zip, install_workspace):
+        """Test that installing same model twice overwrites"""
+        # Change to install workspace
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            # Install first time
+            result1 = run_fz_cli_function('main', [
+                'install',
+                str(test_model_zip)
+            ])
+            assert result1.returncode == 0
+
+            # Install again (should overwrite)
+            result2 = run_fz_cli_function('main', [
+                'install',
+                str(test_model_zip)
+            ])
+            assert result2.returncode == 0
+            assert "Successfully installed" in result2.stdout
+        finally:
+            os.chdir(original_cwd)
+
+    def test_uninstall_help(self):
+        """Test fz uninstall --help"""
+        result = run_fz_cli_function('main', ['uninstall', '--help'])
+        assert result.returncode == 0
+        output = result.stdout + result.stderr
+        assert "uninstall" in output.lower()
+
+    def test_uninstall_model(self, test_model_zip, install_workspace):
+        """Test uninstalling a model"""
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            # Install model first
+            install_result = run_fz_cli_function('main', [
+                'install',
+                str(test_model_zip)
+            ])
+            assert install_result.returncode == 0
+
+            # Verify it's installed
+            model_file = install_workspace / ".fz" / "models" / "testmodel.json"
+            assert model_file.exists()
+
+            # Uninstall
+            result = run_fz_cli_function('main', [
+                'uninstall',
+                'testmodel'
+            ])
+
+            assert result.returncode == 0
+            assert "Successfully uninstalled" in result.stdout
+
+            # Verify it's removed
+            assert not model_file.exists()
+        finally:
+            os.chdir(original_cwd)
+
+    def test_uninstall_nonexistent_model(self, install_workspace):
+        """Test error handling when uninstalling non-existent model"""
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            result = run_fz_cli_function('main', [
+                'uninstall',
+                'nonexistent_model'
+            ])
+
+            assert result.returncode != 0
+            assert "not found" in result.stdout.lower()
+        finally:
+            os.chdir(original_cwd)
+
+    def test_list_shows_global_flag(self, test_model_zip, install_workspace):
+        """Test that list command shows [global] and [local] flags"""
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            # Install a local model
+            install_result = run_fz_cli_function('main', [
+                'install',
+                str(test_model_zip)
+            ])
+            assert install_result.returncode == 0
+
+            # List models
+            result = run_fz_cli_function('main', ['list'])
+
+            assert result.returncode == 0
+            # Should show local flag for installed model
+            assert "[local]" in result.stdout or "[global]" in result.stdout
+        finally:
+            os.chdir(original_cwd)
+
+    def test_global_install_and_uninstall(self, test_model_zip):
+        """Test installing and uninstalling globally"""
+        # Install globally
+        result1 = run_fz_cli_function('main', [
+            'install',
+            str(test_model_zip),
+            '--global'
+        ])
+        assert result1.returncode == 0
+        assert "Successfully installed" in result1.stdout
+
+        # Verify in global location
+        global_model = Path.home() / ".fz" / "models" / "testmodel.json"
+        assert global_model.exists()
+
+        # Uninstall globally
+        result2 = run_fz_cli_function('main', [
+            'uninstall',
+            'testmodel',
+            '--global'
+        ])
+        assert result2.returncode == 0
+        assert "Successfully uninstalled" in result2.stdout
+
+        # Verify removed
+        assert not global_model.exists()
+
+    def test_list_global_only(self, test_model_zip, install_workspace):
+        """Test listing only global models"""
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            # Install locally
+            run_fz_cli_function('main', [
+                'install',
+                str(test_model_zip)
+            ])
+
+            # List only global (should not show local model)
+            result = run_fz_cli_function('main', ['list', '--global'])
+
+            assert result.returncode == 0
+            # Local testmodel should not appear
+            assert "testmodel" not in result.stdout
+        finally:
+            os.chdir(original_cwd)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
