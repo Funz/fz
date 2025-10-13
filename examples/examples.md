@@ -394,6 +394,58 @@ use cache and aliases for Telemac:
 fz.fzr("t2d_breach.cas",input_variables={},"Telemac", calculators="*", results_dir="result")
 ```
 
+## Cathare
+
+copy cathare_input.dat from examples/Cathare to tmp directory
+```bash
+cp -r ../examples/Cathare/cathare_input.dat .
+```
+copy fz aliases for Cathare to tmp directory
+```bash
+cp -r ../examples/Cathare/.fz . # contains calculators/Cathare.sh, calculators/Localhost_Cathare.json, models/Cathare.json
+```
+
+# test Cathare example
+
+```python
+fz.fzi("cathare_input.dat",
+{
+    "varprefix": "$",
+    "formulaprefix": "@",
+    "delim": "()",
+    "commentline": "#"
+})
+```
+
+```python
+fz.fzr("cathare_input.dat",
+input_variables={
+    "pressure": 100000,
+    "temperature": 300,
+    "flow_rate": 10
+},{
+    "id": "Cathare",
+    "varprefix": "$",
+    "formulaprefix": "@",
+    "delim": "()",
+    "commentline": "#",
+    "output": {
+        "temperature": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"temperature_evolution.csv\")}))'",
+        "pressure": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"pressure_evolution.csv\")}))'",
+        "flow": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"flow_evolution.csv\")}))'"
+    }
+}, calculators="sh://bash .fz/calculators/Cathare.sh", results_dir="result")
+```
+
+use cache and aliases for Cathare:
+```python
+fz.fzr("cathare_input.dat",input_variables={
+    "pressure": 100000,
+    "temperature": 300,
+    "flow_rate": 10
+},"Cathare", calculators="*", results_dir="result")
+```
+
 # test ssh
 
 add ssh server to localhost:

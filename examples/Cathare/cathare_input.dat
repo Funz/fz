@@ -1,0 +1,12 @@
+#!/bin/bash
+# Cathare input file with parametric variables
+# This file defines the initial conditions for the simulation
+
+# Pressure (Pa)
+pressure=$pressure
+
+# Temperature (K)
+temperature=$temperature
+
+# Flow rate (kg/s)
+flow_rate=$flow_rate
