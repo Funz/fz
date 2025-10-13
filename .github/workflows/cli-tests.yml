@@ -310,7 +310,7 @@ jobs:
 
         # 3. Compile with values
         Write-Host "Step 2: Compile input with variable values..."
-        python -m fz.cli compile -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -v "{""T"": 300, ""P"": 101325}' -o compiled/
+        python -m fz.cli compile -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -v "{""T"": 300, ""P"": 101325}" -o compiled/
         if (Test-Path compiled) {
           Write-Host "✓ Compilation successful"
           Get-ChildItem compiled/
