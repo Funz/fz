@@ -8,6 +8,10 @@ if [ -d "$1" ]; then
   cd "$1"
   INPUT_FILE=`ls *.dat | head -n 1`
   shift
+# If single .dat file as input, use it
+elif [ $# -eq 1 ] && [ -f "$1" ] && [ `echo $1 | grep -c '\.dat$'` -eq 1 ]; then
+  INPUT_FILE="$1"
+  shift
 # If $* are files, find the .dat file
 elif [ $# -gt 1 ]; then
   INPUT_FILE=""

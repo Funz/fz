@@ -430,9 +430,9 @@ input_variables={
     "delim": "()",
     "commentline": "#",
     "output": {
-        "temperature": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"temperature_evolution.csv\")}))'",
-        "pressure": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"pressure_evolution.csv\")}))'",
-        "flow": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"flow_evolution.csv\")}))'"
+        "temperature_evolution": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"temperature_evolution.csv\")}))'",
+        "pressure_evolution": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"pressure_evolution.csv\")}))'",
+        "flow_evolution": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_evolution.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"flow_evolution.csv\")}))'"
     }
 }, calculators="sh://bash .fz/calculators/Cathare.sh", results_dir="result")
 ```
