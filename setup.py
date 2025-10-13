@@ -31,6 +31,10 @@ setup(
     entry_points={
         "console_scripts": [
             "fz=fz.cli:main",
+            "fzi=fz.cli:fzi_main",
+            "fzc=fz.cli:fzc_main",
+            "fzo=fz.cli:fzo_main",
+            "fzr=fz.cli:fzr_main",
         ],
     },
     classifiers=[

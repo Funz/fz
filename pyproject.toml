@@ -45,6 +45,10 @@ dev = [
 
 [project.scripts]
 fz = "fz.cli:main"
+fzi = "fz.cli:fzi_main"
+fzc = "fz.cli:fzc_main"
+fzo = "fz.cli:fzo_main"
+fzr = "fz.cli:fzr_main"
 
 [tool.setuptools]
 packages = ["fz"]

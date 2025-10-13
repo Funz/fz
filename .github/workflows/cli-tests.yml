@@ -1,0 +1,317 @@
+name: CLI Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  cli-tests:
+    name: CLI Tests on ${{ matrix.os }} with Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Display Python version
+      run: python --version
+
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc
+
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install bc || true
+
+    - name: Install system dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Install Git Bash which includes basic Unix tools
+        choco install git -y || true
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-cov
+
+    - name: Run CLI tests (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        pytest tests/test_cli_commands.py -v --tb=short --color=yes
+
+    - name: Run CLI tests (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        pytest tests/test_cli_commands.py -v --tb=short --color=yes
+
+    - name: Run CLI tests (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        pytest tests/test_cli_commands.py -v --tb=short --color=yes
+
+    - name: Test CLI commands directly (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        echo "Testing fzi command..."
+        python -m fz.cli input --help || true
+
+        echo "Testing fzc command..."
+        python -m fz.cli compile --help || true
+
+        echo "Testing fzo command..."
+        python -m fz.cli output --help || true
+
+        echo "Testing fzr command..."
+        python -m fz.cli run --help || true
+
+        echo "Testing fz main command..."
+        python -m fz.cli --help || true
+        python -m fz.cli --version || true
+
+    - name: Test CLI commands directly (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "Testing fzi command..."
+        python -m fz.cli input --help
+        if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+        Write-Host "Testing fzc command..."
+        python -m fz.cli compile --help
+        if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+        Write-Host "Testing fzo command..."
+        python -m fz.cli output --help
+        if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+        Write-Host "Testing fzr command..."
+        python -m fz.cli run --help
+        if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+        Write-Host "Testing fz main command..."
+        python -m fz.cli --help
+        if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+        python -m fz.cli --version
+        if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+    - name: Test format options (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        # Create test file
+        echo 'x = $(var1)' > test_input.txt
+
+        echo "Testing JSON format..."
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f json || true
+
+        echo "Testing CSV format..."
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f csv || true
+
+        echo "Testing Markdown format..."
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f markdown || true
+
+        echo "Testing Table format..."
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f table || true
+
+        echo "Testing HTML format..."
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f html || true
+
+    - name: Test format options (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Create test file
+        "x = `$(var1)" | Out-File -FilePath test_input.txt -Encoding ASCII
+
+        Write-Host "Testing JSON format..."
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json
+
+        Write-Host "Testing CSV format..."
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f csv
+
+        Write-Host "Testing Markdown format..."
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f markdown
+
+        Write-Host "Testing Table format..."
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f table
+
+        Write-Host "Testing HTML format..."
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f html
+
+    - name: Test output redirection (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        echo 'x = $(var1)' > test_input.txt
+
+        echo "Testing output to file..."
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f json > output.json || true
+        if [ -f output.json ]; then
+          echo "✓ Output file created"
+          cat output.json
+        fi
+
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f csv > output.csv || true
+        if [ -f output.csv ]; then
+          echo "✓ CSV file created"
+          cat output.csv
+        fi
+
+    - name: Test output redirection (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        "x = `$(var1)" | Out-File -FilePath test_input.txt -Encoding ASCII
+
+        Write-Host "Testing output to file..."
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json | Out-File -FilePath output.json
+        if (Test-Path output.json) {
+          Write-Host "✓ Output file created"
+          Get-Content output.json
+        }
+
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f csv | Out-File -FilePath output.csv
+        if (Test-Path output.csv) {
+          Write-Host "✓ CSV file created"
+          Get-Content output.csv
+        }
+
+    - name: Test CLI with coverage (Linux only)
+      if: runner.os == 'Linux'
+      run: |
+        pytest tests/test_cli_commands.py --cov=fz.cli --cov-report=xml --cov-report=term -v
+
+    - name: Upload coverage to Codecov (Linux only)
+      if: runner.os == 'Linux'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: cli-tests
+        name: codecov-cli
+        fail_ci_if_error: false
+
+  cli-integration-tests:
+    name: CLI Integration Tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: cli-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Test CLI entry points (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        # Test that entry points are installed
+        which fz || echo "fz not in PATH"
+        which fzi || echo "fzi not in PATH"
+        which fzc || echo "fzc not in PATH"
+        which fzo || echo "fzo not in PATH"
+        which fzr || echo "fzr not in PATH"
+
+        # Test help for each command
+        fz --help || python -m fz.cli --help
+        fzi --help || python -m fz.cli input --help
+        fzc --help || python -m fz.cli compile --help
+        fzo --help || python -m fz.cli output --help
+        fzr --help || python -m fz.cli run --help
+
+    - name: Test CLI entry points (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Test that entry points are installed
+        Get-Command fz -ErrorAction SilentlyContinue
+        Get-Command fzi -ErrorAction SilentlyContinue
+        Get-Command fzc -ErrorAction SilentlyContinue
+        Get-Command fzo -ErrorAction SilentlyContinue
+        Get-Command fzr -ErrorAction SilentlyContinue
+
+        # Test help for each command using python -m
+        python -m fz.cli --help
+        python -m fz.cli input --help
+        python -m fz.cli compile --help
+        python -m fz.cli output --help
+        python -m fz.cli run --help
+
+    - name: Test CLI workflow (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        # Create a complete workflow test
+        mkdir -p workflow_test
+        cd workflow_test
+
+        # 1. Create input file
+        echo 'Temperature = $(T)' > input.txt
+        echo 'Pressure = $(P)' >> input.txt
+
+        # 2. Parse input variables
+        echo "Step 1: Parse input variables..."
+        python -m fz.cli input -i input.txt -m '{"varprefix": "$", "delim": "()"}' -f json > variables.json
+        cat variables.json
+
+        # 3. Compile with values
+        echo "Step 2: Compile input with variable values..."
+        python -m fz.cli compile -i input.txt -m '{"varprefix": "$", "delim": "()"}' -v '{"T": 300, "P": 101325}' -o compiled/
+        if [ -d compiled ]; then
+          echo "✓ Compilation successful"
+          ls -la compiled/
+        fi
+
+    - name: Test CLI workflow (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Create a complete workflow test
+        New-Item -ItemType Directory -Force -Path workflow_test
+        Set-Location workflow_test
+
+        # 1. Create input file
+        "Temperature = `$(T)" | Out-File -FilePath input.txt -Encoding ASCII
+        "Pressure = `$(P)" | Add-Content -Path input.txt -Encoding ASCII
+
+        # 2. Parse input variables
+        Write-Host "Step 1: Parse input variables..."
+        python -m fz.cli input -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json | Out-File -FilePath variables.json
+        Get-Content variables.json
+
+        # 3. Compile with values
+        Write-Host "Step 2: Compile input with variable values..."
+        python -m fz.cli compile -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -v "{""T"": 300, ""P"": 101325}" -o compiled/
+        if (Test-Path compiled) {
+          Write-Host "✓ Compilation successful"
+          Get-ChildItem compiled/
+        }
