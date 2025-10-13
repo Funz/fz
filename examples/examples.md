@@ -125,7 +125,7 @@ cp -r ../examples/Telemac/t2d_breach.cas .
 ```
 copy fz aliases for Telemac to tmp directory
 ```bash
-cp -r ../examples/Telemac/.fz . # contains calculators/Telemac.sh, calculators/Localhost_Telemac.sh, models/Telemac.json
+cp -r ../examples/Telemac/.fz . # contains calculators/Telemac.sh, calculators/localhost.sh, models/Telemac.json
 ```
 install docker (for Telemac, assuming ubuntu host)
 ```bash
