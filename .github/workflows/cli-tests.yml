@@ -143,19 +143,19 @@ jobs:
         "x = `$(var1)" | Out-File -FilePath test_input.txt -Encoding ASCII
 
         Write-Host "Testing JSON format..."
-        python -m fz.cli input -i test_input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f json
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f json
 
         Write-Host "Testing CSV format..."
-        python -m fz.cli input -i test_input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f csv
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f csv
 
         Write-Host "Testing Markdown format..."
-        python -m fz.cli input -i test_input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f markdown
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f markdown
 
         Write-Host "Testing Table format..."
-        python -m fz.cli input -i test_input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f table
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f table
 
         Write-Host "Testing HTML format..."
-        python -m fz.cli input -i test_input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f html
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f html
 
     - name: Test output redirection (Linux/macOS)
       if: runner.os != 'Windows'
