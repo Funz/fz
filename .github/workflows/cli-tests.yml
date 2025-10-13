@@ -146,16 +146,16 @@ jobs:
         python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json
 
         Write-Host "Testing CSV format..."
-        python -m fz.cli input -i test_input.txt -m '{""varprefix"": ""$"", ""delim"": ""()""}' -f csv
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f csv
 
         Write-Host "Testing Markdown format..."
-        python -m fz.cli input -i test_input.txt -m '{""varprefix"": ""$"", ""delim"": ""()""}' -f markdown
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f markdown
 
         Write-Host "Testing Table format..."
-        python -m fz.cli input -i test_input.txt -m '{""varprefix"": ""$"", ""delim"": ""()""}' -f table
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f table
 
         Write-Host "Testing HTML format..."
-        python -m fz.cli input -i test_input.txt -m '{""varprefix"": ""$"", ""delim"": ""()""}' -f html
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f html
 
     - name: Test output redirection (Linux/macOS)
       if: runner.os != 'Windows'
@@ -182,13 +182,13 @@ jobs:
         "x = `$(var1)" | Out-File -FilePath test_input.txt -Encoding ASCII
 
         Write-Host "Testing output to file..."
-        python -m fz.cli input -i test_input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f json | Out-File -FilePath output.json
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json | Out-File -FilePath output.json
         if (Test-Path output.json) {
           Write-Host "✓ Output file created"
           Get-Content output.json
         }
 
-        python -m fz.cli input -i test_input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f csv | Out-File -FilePath output.csv
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f csv | Out-File -FilePath output.csv
         if (Test-Path output.csv) {
           Write-Host "✓ CSV file created"
           Get-Content output.csv
@@ -305,12 +305,12 @@ jobs:
 
         # 2. Parse input variables
         Write-Host "Step 1: Parse input variables..."
-        python -m fz.cli input -i input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -f json | Out-File -FilePath variables.json
+        python -m fz.cli input -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json | Out-File -FilePath variables.json
         Get-Content variables.json
 
         # 3. Compile with values
         Write-Host "Step 2: Compile input with variable values..."
-        python -m fz.cli compile -i input.txt -m '{\"varprefix\": \"$\", \"delim\": \"()\"}' -v '{\"T\": 300, \"P\": 101325}' -o compiled/
+        python -m fz.cli compile -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -v "{""T"": 300, ""P"": 101325}' -o compiled/
         if (Test-Path compiled) {
           Write-Host "✓ Compilation successful"
           Get-ChildItem compiled/
