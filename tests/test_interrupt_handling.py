@@ -5,6 +5,7 @@ import pytest
 import time
 import signal
 import threading
+import tempfile
 from pathlib import Path
 import shutil
 
@@ -42,9 +43,14 @@ def test_interrupt_sequential_execution(tmp_path):
     # Set up interrupt after 5 seconds (should complete 1-2 cases)
     def send_interrupt():
         time.sleep(5)
-        # Send SIGINT to current process
-        import os
-        os.kill(os.getpid(), signal.SIGINT)
+        # Send SIGINT to current process (cross-platform)
+        # Use raise_signal if available (Python 3.8+), otherwise call handler directly
+        if hasattr(signal, 'raise_signal'):
+            signal.raise_signal(signal.SIGINT)
+        else:
+            # Fallback: directly call the signal handler
+            import os
+            signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
 
     interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
     interrupt_thread.start()
@@ -105,8 +111,12 @@ def test_interrupt_parallel_execution(tmp_path):
     # Set up interrupt after 6 seconds (with 2 parallel workers, should complete 2-4 cases)
     def send_interrupt():
         time.sleep(6)
-        import os
-        os.kill(os.getpid(), signal.SIGINT)
+        # Send SIGINT to current process (cross-platform)
+        if hasattr(signal, 'raise_signal'):
+            signal.raise_signal(signal.SIGINT)
+        else:
+            # Fallback: directly call the signal handler
+            signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
 
     interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
     interrupt_thread.start()
@@ -163,8 +173,12 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     # Set up interrupt
     def send_interrupt():
         time.sleep(5)
-        import os
-        os.kill(os.getpid(), signal.SIGINT)
+        # Send SIGINT to current process (cross-platform)
+        if hasattr(signal, 'raise_signal'):
+            signal.raise_signal(signal.SIGINT)
+        else:
+            # Fallback: directly call the signal handler
+            signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
 
     interrupt_thread = threading.Thread(target=send_interrupt, daemon=True)
     interrupt_thread.start()

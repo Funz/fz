@@ -738,8 +738,34 @@ def run_local_calculation(
                 )
 
             # Poll process and check for interrupts
+            # Use polling instead of blocking wait to allow interrupt handling on all platforms
             try:
-                process.wait(timeout=timeout)
+                from .core import is_interrupted
+
+                poll_interval = 0.5  # Poll every 500ms
+                elapsed_time = 0.0
+
+                while process.poll() is None:
+                    # Check if user requested interrupt
+                    if is_interrupted():
+                        log_warning(f"⚠️  Interrupt detected, terminating process...")
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            log_warning(f"⚠️  Process didn't terminate, killing...")
+                            process.kill()
+                            process.wait()
+                        raise KeyboardInterrupt("Process interrupted by user")
+
+                    # Check for timeout
+                    if elapsed_time >= timeout:
+                        raise subprocess.TimeoutExpired(full_command, timeout)
+
+                    # Sleep briefly before next poll
+                    time.sleep(poll_interval)
+                    elapsed_time += poll_interval
+
                 result = process
             except subprocess.TimeoutExpired:
                 # Timeout occurred
