@@ -977,6 +977,7 @@ def run_ssh_calculation(
         ssh_client.exec_command(f"mkdir -p {remote_temp_dir}")
 
         log_info(f"Created remote directory: {remote_temp_dir}")
+        log_info(f"🌐 SSH calculation using remote directory: {username}@{host}:{remote_temp_dir}")
 
         try:
             # Transfer input files to remote
