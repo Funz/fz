@@ -1075,7 +1075,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     interpreter = get_interpreter()
 
     varprefix = model.get("varprefix", "$")
-    delim = model.get("delim", "()")
+    delim = model.get("delim", "{}")
     input_path = Path(input_path)
 
     # Ensure main results directory exists

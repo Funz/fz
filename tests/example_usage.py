@@ -16,7 +16,7 @@ def main():
     model = {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {
             "result": "echo 'The result is: $calculated_value'"
@@ -34,7 +34,7 @@ base_value = $base
 multiplier = $mult
 #@ def calculate(base, mult):
 #@     return base * mult + 10
-calculated_value = @(calculate($base, $mult))
+calculated_value = @{calculate($base, $mult)}
 """)
 
     print(f"1. Created input file: {input_file.name}")

@@ -22,7 +22,7 @@ def test_environment():
     # Create input file
     with open("input.txt", 'w') as f:
         f.write("# Test input\n")
-        f.write("value = $(X)\n")
+        f.write("value = ${X}\n")
 
     # Script 1: In current directory (relative path)
     with open("local_script.sh", 'w', newline='\n') as f:
@@ -51,7 +51,7 @@ def test_environment():
     # Script 4: That uses relative paths internally
     with open("path_dependent.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
-        f.write("echo 'Working directory:' $(pwd)\n")
+        f.write("echo 'Working directory:' ${pwd}\n")
         f.write("ls -la > dir_listing.txt\n")
         f.write("echo 'result = 400' > output.txt\n")
         f.write("exit 0\n")
@@ -108,7 +108,7 @@ def test_various_path_formats():
             },
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2 || echo 'none'"}
             },
 

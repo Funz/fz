@@ -11,10 +11,10 @@ input.txt:
 echo '#!/bin/bash
 # input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
-T_kelvin=@($T_celsius + 273.15)
+T_kelvin=@{$T_celsius + 273.15}
 #@ def L_to_m3(L): 
 #@     return(L / 1000)
-V_m3=@(L_to_m3($V_L))' > input.txt
+V_m3=@{L_to_m3($V_L)}' > input.txt
 ```
 
 PerfectGazPressure.sh:
@@ -60,7 +60,7 @@ NewtonCooling.mo:
 echo 'model NewtonCooling "An example of Newton s law of cooling"
   parameter Real T_inf=25 "Ambient temperature";
   parameter Real T0=90 "Initial temperature";
-  parameter Real h=$(convection) "Convective cooling coefficient";
+  parameter Real h=${convection} "Convective cooling coefficient";
   parameter Real A=1.0 "Surface area";
   parameter Real m=0.1 "Mass of thermal capacitance";
   parameter Real c_p=1.2 "Specific heat";
@@ -168,7 +168,7 @@ fz.fzi("input.txt",
 {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 })
@@ -183,7 +183,7 @@ fz.fzc("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, output_dir="output")
@@ -200,7 +200,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="result")
@@ -217,7 +217,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results")
@@ -238,7 +238,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["cache://results_*","sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -258,7 +258,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -274,7 +274,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -290,7 +290,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -303,7 +303,7 @@ fz.fzi("NewtonCooling.mo",
 {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
 })
@@ -316,7 +316,7 @@ fz.fzc("NewtonCooling.mo",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
 }, output_dir="output")
@@ -329,7 +329,7 @@ results=fz.fzr("NewtonCooling.mo",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
 }, calculators="sh://bash ./Modelica.sh", results_dir="results")
@@ -356,7 +356,7 @@ fz.fzr("NewtonCooling.mo",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}
 }, calculators=["cache://results_*","sh://bash ./Modelica.sh"], results_dir="results")
@@ -369,7 +369,7 @@ fz.fzi("t2d_breach.cas",
 {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#"
 })
 ```
@@ -380,7 +380,7 @@ input_variables={},{
     "id": "Telemac",
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {
         "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
@@ -421,7 +421,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=ssh_calculator, results_dir="results")
@@ -438,7 +438,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressure.sh"]*6, results_dir="results")
@@ -461,7 +461,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressure.sh"]*3, results_dir="results")
@@ -477,7 +477,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressureRandomFails.sh"]*3, results_dir="results")
@@ -493,7 +493,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressureAlwaysFails.sh"]*3, results_dir="results")
@@ -509,7 +509,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["cache://_","sh://bash ./PerfectGazPressure.sh","sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -527,7 +527,7 @@ fz.fzr("input.txt",
 },{
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressure.sh"]*3, results_dir="results")

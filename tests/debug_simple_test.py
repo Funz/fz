@@ -29,7 +29,7 @@ def simple_test():
             # Minimal fzr call with only 2 cases to debug
             result = fzr(
                 "input.txt",
-                {"varprefix": "$", "delim": "()", "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}},
+                {"varprefix": "$", "delim": "{}", "output": {"result": "grep 'result = ' output.txt | awk '{print $3}'"}},
                 {"x": [1, 2]},  # Only 2 cases
                 calculators=["sh://bash ./calc.sh"],
                 results_dir="results"

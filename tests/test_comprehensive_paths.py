@@ -16,7 +16,7 @@ def comprehensive_test_environment():
     # Create input file
     with open("input.txt", 'w') as f:
         f.write("# Comprehensive path test\n")
-        f.write("test = $(T)\n")
+        f.write("test = ${T}\n")
 
     # Create data files that will be referenced in commands
     with open("data.txt", 'w') as f:
@@ -157,7 +157,7 @@ def test_comprehensive_path_resolution():
             },
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "output": {"result": "grep 'result = ' out*.txt | cut -d '=' -f2 || echo 'failed'"}
             },
             calculators=[test_case['calculator']],

@@ -18,7 +18,7 @@ def test_user_example():
     print('{')
     print('    "varprefix": "$",')
     print('    "formulaprefix": "@",')
-    print('    "delim": "()",')
+    print('    "delim": "{}",')
     print('    "commentline": "#",')
     print('    "output": {"pressure": "grep \'pressure = \' output.txt | awk \'{print $3}\'"}')
     print('},')
@@ -38,9 +38,9 @@ def test_user_example():
         with open(input_file, 'w') as f:
             f.write("#!/bin/bash\n")
             f.write("# Test input file\n")
-            f.write("# Temperature: $(T_celsius) celsius\n")
-            f.write("# Volume: $(V_L) L\n")
-            f.write("# Moles: $(n_mol) mol\n")
+            f.write("# Temperature: ${T_celsius} celsius\n")
+            f.write("# Volume: ${V_L} L\n")
+            f.write("# Moles: ${n_mol} mol\n")
             f.write("echo 'Running calculation...'\n")
 
     if not os.path.exists(script_file):
@@ -72,7 +72,7 @@ def test_user_example():
         {
             "varprefix": "$",
             "formulaprefix": "@",
-            "delim": "()",
+            "delim": "{}",
             "commentline": "#",
             "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
         },

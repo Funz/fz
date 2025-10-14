@@ -17,7 +17,7 @@ def test_interrupt_sequential_execution(tmp_path):
     # Create a test model with a long-running calculation
     model = {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {
             "result": "cat output.txt"
         }
@@ -80,7 +80,7 @@ def test_interrupt_parallel_execution(tmp_path):
     # Create a test model with a long-running calculation
     model = {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {
             "result": "cat output.txt"
         }
@@ -141,7 +141,7 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
     # Create a test model
     model = {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {
             "result": "cat output.txt"
         }

@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Dict, List, Union, Any, Set
 
 
-def parse_variables_from_content(content: str, varprefix: str = "$", delim: str = "()") -> Set[str]:
+def parse_variables_from_content(content: str, varprefix: str = "$", delim: str = "{}") -> Set[str]:
     """
     Parse variables from text content using specified prefix and delimiters
 
     Args:
         content: Text content to parse
         varprefix: Variable prefix (e.g., "$")
-        delim: Delimiter characters (e.g., "()")
+        delim: Delimiter characters (e.g., "{}")
 
     Returns:
         Set of variable names found
@@ -46,14 +46,14 @@ def parse_variables_from_content(content: str, varprefix: str = "$", delim: str 
     return variables
 
 
-def parse_variables_from_file(filepath: Path, varprefix: str = "$", delim: str = "()") -> Set[str]:
+def parse_variables_from_file(filepath: Path, varprefix: str = "$", delim: str = "{}") -> Set[str]:
     """
     Parse variables from a single file
 
     Args:
         filepath: Path to file to parse
         varprefix: Variable prefix (e.g., "$")
-        delim: Delimiter characters (e.g., "()")
+        delim: Delimiter characters (e.g., "{}")
 
     Returns:
         Set of variable names found
@@ -68,14 +68,14 @@ def parse_variables_from_file(filepath: Path, varprefix: str = "$", delim: str =
     return parse_variables_from_content(content, varprefix, delim)
 
 
-def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str = "()") -> Set[str]:
+def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str = "{}") -> Set[str]:
     """
     Parse variables from file or directory
 
     Args:
         input_path: Path to input file or directory
         varprefix: Variable prefix (e.g., "$")
-        delim: Delimiter characters (e.g., "()")
+        delim: Delimiter characters (e.g., "{}")
 
     Returns:
         Set of variable names found
@@ -95,7 +95,7 @@ def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str
 
 
 def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
-                                varprefix: str = "$", delim: str = "()") -> str:
+                                varprefix: str = "$", delim: str = "{}") -> str:
     """
     Replace variables in content with their values
 
@@ -103,7 +103,7 @@ def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
         content: Text content to process
         input_variables: Dict of variable values
         varprefix: Variable prefix (e.g., "$")
-        delim: Delimiter characters (e.g., "()")
+        delim: Delimiter characters (e.g., "{}")
 
     Returns:
         Content with variables replaced
@@ -112,7 +112,7 @@ def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
     if len(delim) == 2:
         left_delim, right_delim = delim[0], delim[1]
         for var, val in input_variables.items():
-            # Pattern for delimited variables: $var or $(var)
+            # Pattern for delimited variables: $var or ${var}
             esc_varprefix = re.escape(varprefix)
             esc_var = re.escape(var)
             esc_left = re.escape(left_delim)
@@ -150,7 +150,7 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
         Content with formulas evaluated
     """
     formulaprefix = model.get("formulaprefix", "@")
-    delim = model.get("delim", "()")
+    delim = model.get("delim", "{}")
     commentline = model.get("commentline", "#")
 
     if len(delim) != 2:

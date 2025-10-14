@@ -32,7 +32,7 @@ def modelica_setup(tmp_path):
         f.write("""model NewtonCooling "An example of Newton s law of cooling"
   parameter Real T_inf=25 "Ambient temperature";
   parameter Real T0=90 "Initial temperature";
-  parameter Real h=$(convection) "Convective cooling coefficient";
+  parameter Real h=${convection} "Convective cooling coefficient";
   parameter Real A=1.0 "Surface area";
   parameter Real m=0.1 "Mass of thermal capacitance";
   parameter Real c_p=1.2 "Specific heat";
@@ -85,7 +85,7 @@ def test_modelica_fzi(modelica_setup):
     result = fz.fzi("NewtonCooling.mo", {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     })
@@ -98,7 +98,7 @@ def test_modelica_fzc(modelica_setup):
     fz.fzc("NewtonCooling.mo", {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, {
@@ -116,7 +116,7 @@ def test_modelica_fzr(modelica_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, calculators="sh://bash ./Modelica.sh", results_dir="results")
@@ -134,7 +134,7 @@ def test_modelica_fzo(modelica_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, calculators="sh://bash ./Modelica.sh", results_dir="results")
@@ -154,7 +154,7 @@ def test_modelica_cache(modelica_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, calculators="sh://bash ./Modelica.sh", results_dir="results_cache")
@@ -165,7 +165,7 @@ def test_modelica_cache(modelica_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}
     }, calculators="cache://results_cache*", results_dir="results_cache")

@@ -16,7 +16,7 @@ def test_cache_none_outputs():
 
     # Create input file
     with open("input.txt", "w", newline='\n') as f:
-        f.write("x = $(x)\n")
+        f.write("x = ${x}\n")
 
     # Create a failing calculator (exits with error for x=2)
     with open("calc_fail.sh", "w", newline='\n') as f:
@@ -39,7 +39,7 @@ def test_cache_none_outputs():
 
     model = {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
             }
 

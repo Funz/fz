@@ -16,7 +16,7 @@ def edge_case_scripts():
     # Create input file
     with open("input.txt", 'w') as f:
         f.write("# Edge case test input\n")
-        f.write("test = $(T)\n")
+        f.write("test = ${T}\n")
 
     # Script with spaces in path
     os.makedirs("folder with spaces", exist_ok=True)
@@ -82,7 +82,7 @@ def test_edge_cases():
             },
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2 || echo 'none'"}
             },            
             calculators=[test_case['calculator']],

@@ -23,10 +23,10 @@ def perfectgaz_setup(tmp_path):
     with open("input.txt", "w", newline='\n') as f:
         f.write("""# input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
-T_kelvin=@($T_celsius + 273.15)
+T_kelvin=@{$T_celsius + 273.15}
 #@ def L_to_m3(L):
 #@     return(L / 1000)
-V_m3=@(L_to_m3($V_L))
+V_m3=@{L_to_m3($V_L)}
 """)
 
     # Create PerfectGazPressure.sh (from examples.md lines 22-28)
@@ -81,7 +81,7 @@ def test_perfectgaz_fzi(perfectgaz_setup):
     result = fz.fzi("input.txt", {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     })
@@ -100,7 +100,7 @@ def test_perfectgaz_fzc(perfectgaz_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, output_dir="output")
@@ -118,7 +118,7 @@ def test_perfectgaz_fzr_single_case(perfectgaz_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="result")
@@ -136,7 +136,7 @@ def test_perfectgaz_fzr_factorial_design(perfectgaz_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results")
@@ -154,7 +154,7 @@ def test_perfectgaz_fzo(perfectgaz_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results")
@@ -175,7 +175,7 @@ def test_perfectgaz_cache(perfectgaz_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results_cache")
@@ -188,7 +188,7 @@ def test_perfectgaz_cache(perfectgaz_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["cache://results_cache*", "sh://bash ./PerfectGazPressure.sh"], results_dir="results_cache")

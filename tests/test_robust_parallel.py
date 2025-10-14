@@ -61,7 +61,7 @@ def test_robust_parallel():
     model = {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d'=' -f2 | tr -d ' '"}
     }

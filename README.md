@@ -76,10 +76,10 @@ Create `input.txt`:
 ```text
 # input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
-T_kelvin=@($T_celsius + 273.15)
+T_kelvin=@{$T_celsius + 273.15}
 #@ def L_to_m3(L):
 #@     return(L / 1000)
-V_m3=@(L_to_m3($V_L))
+V_m3=@{L_to_m3($V_L)}
 ```
 
 ### 2. Create a Calculation Script
@@ -113,7 +113,7 @@ import fz
 model = {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
@@ -169,7 +169,7 @@ import fz
 
 model = {
     "varprefix": "$",
-    "delim": "()"
+    "delim": "{}"
 }
 
 # Parse single file
@@ -192,7 +192,7 @@ import fz
 model = {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#"
 }
 
@@ -321,7 +321,7 @@ model = {
     # Input parsing
     "varprefix": "$",           # Variable marker (e.g., $temp)
     "formulaprefix": "@",       # Formula marker (e.g., @pressure)
-    "delim": "()",              # Formula delimiters
+    "delim": "{}",              # Formula delimiters
     "commentline": "#",         # Comment character
 
     # Output extraction (shell commands)
@@ -345,7 +345,7 @@ Store reusable models in `.fz/models/`:
 {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
@@ -377,7 +377,7 @@ Volume: $V_L L
 #@T_kelvin = celsius_to_kelvin($T_celsius)
 #@pressure = $n_mol * R * T_kelvin / ($V_L / 1000)
 
-Result: @(pressure) Pa
+Result: @{pressure} Pa
 ```
 
 **Features**:
@@ -614,10 +614,10 @@ results = fz.fzo("output_dir", model)
 ```text
 # input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
-T_kelvin=@($T_celsius + 273.15)
+T_kelvin=@{$T_celsius + 273.15}
 #@ def L_to_m3(L):
 #@     return(L / 1000)
-V_m3=@(L_to_m3($V_L))
+V_m3=@{L_to_m3($V_L)}
 ```
 
 **Calculation script (`PerfectGazPressure.sh`)**:
@@ -643,7 +643,7 @@ import matplotlib.pyplot as plt
 model = {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"

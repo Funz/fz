@@ -16,7 +16,7 @@ def test_parallel_vs_single():
 
     test_model = {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {"result": "cat result.txt 2>/dev/null || echo 'no result'"}
     }
 

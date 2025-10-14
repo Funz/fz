@@ -14,7 +14,7 @@ def test_final_path_resolution():
     # Create input file
     with open("input.txt", 'w') as f:
         f.write("# Final path test\n")
-        f.write("value = $(T)\n")
+        f.write("value = ${T}\n")
 
     # Create dummy scripts for testing
     scripts = {
@@ -79,7 +79,7 @@ def test_final_path_resolution():
             },
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "output": {"test": "echo 'success' || echo 'failed'"}
             },
             calculators=[test_case['calculator']],
