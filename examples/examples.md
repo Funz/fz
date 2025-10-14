@@ -157,8 +157,8 @@ pip install matplotlib pandas
 ```python
 import fz
 #fz.set_log_level(fz.LogLevel.DEBUG)
-#import os
-#os.chdir("tmp")
+import os
+os.chdir("tmp")
 ```
 
 # test PerfectGaz example
@@ -220,7 +220,7 @@ fz.fzr("input.txt",
     "delim": "{}",
     "commentline": "#",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
-}, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results")
+}, calculators=["sh://bash ./PerfectGazPressure.sh"]*2, results_dir="results")
 ```
 
 use fzo to get same results from previous fzr
