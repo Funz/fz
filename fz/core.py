@@ -109,12 +109,29 @@ _original_sigint_handler = None
 
 
 def _signal_handler(signum, frame):
-    """Handle SIGINT (Ctrl+C) gracefully"""
+    """Handle SIGINT (Ctrl+C) gracefully - works on Windows and Unix"""
     global _interrupt_requested
+
+    # On Windows, ensure output is flushed
+    if platform.system() == "Windows":
+        try:
+            sys.stdout.flush()
+            sys.stderr.flush()
+        except:
+            pass
+
     if not _interrupt_requested:
         _interrupt_requested = True
         log_warning("\n⚠️  Interrupt received (Ctrl+C). Gracefully shutting down...")
         log_warning("⚠️  Press Ctrl+C again to force quit (not recommended)")
+
+        # On Windows, ensure messages are visible
+        if platform.system() == "Windows":
+            try:
+                sys.stdout.flush()
+                sys.stderr.flush()
+            except:
+                pass
     else:
         log_error("\n❌ Force quit requested. Exiting immediately...")
         # Restore original handler and re-raise
@@ -124,9 +141,20 @@ def _signal_handler(signum, frame):
 
 
 def _install_signal_handler():
-    """Install custom SIGINT handler"""
+    """Install custom SIGINT handler - Windows and Unix compatible"""
     global _original_sigint_handler
-    _original_sigint_handler = signal.signal(signal.SIGINT, _signal_handler)
+
+    # On Windows, signal handling needs special care
+    if platform.system() == "Windows":
+        try:
+            # Ensure we can handle Ctrl+C events
+            _original_sigint_handler = signal.signal(signal.SIGINT, _signal_handler)
+            log_debug("✓ Signal handler installed for Windows")
+        except (ValueError, OSError) as e:
+            log_warning(f"⚠️  Could not install signal handler on Windows: {e}")
+            log_warning("⚠️  Graceful interrupt may not work. Use Ctrl+Break for forceful termination.")
+    else:
+        _original_sigint_handler = signal.signal(signal.SIGINT, _signal_handler)
 
 
 def _restore_signal_handler():

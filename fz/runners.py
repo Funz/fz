@@ -718,14 +718,26 @@ def run_local_calculation(
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
             if platform.system() == "Windows":
-                # On Windows, use shell=False without executable, but with fullcommand as list
+                # On Windows, use CREATE_NEW_PROCESS_GROUP to allow Ctrl+C handling
+                # This is crucial for proper interrupt handling on Windows
+                import subprocess as sp
+
+                # Create process in new process group so it can receive Ctrl+C
+                creationflags = 0
+                if hasattr(sp, 'CREATE_NEW_PROCESS_GROUP'):
+                    creationflags = sp.CREATE_NEW_PROCESS_GROUP
+                elif hasattr(sp, 'CREATE_NO_WINDOW'):
+                    # Fallback for older Python versions
+                    creationflags = sp.CREATE_NO_WINDOW
+
                 process = subprocess.Popen(
-                    full_command.replace('bash', executable).split(),
-                    shell=False,
+                    full_command.replace('bash', executable).split() if executable else full_command,
+                    shell=False if executable else True,
                     stdout=out_file,
                     stderr=err_file,
                     cwd=working_dir,
                     executable=None,
+                    creationflags=creationflags,
                 )
             else:
                 process = subprocess.Popen(
