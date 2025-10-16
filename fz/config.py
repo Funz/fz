@@ -9,6 +9,38 @@ from typing import Optional, Union
 from enum import Enum
 
 
+def _get_version() -> str:
+    """Get package version from static version file"""
+    try:
+        from fz._version import __version__
+        return __version__
+    except ImportError:
+        # Fallback to __init__.py if _version.py not found
+        try:
+            from fz import __version__
+            return __version__
+        except ImportError:
+            return "unknown"
+
+
+def _get_last_commit_date() -> str:
+    """Get date of last git commit from static version file"""
+    try:
+        from fz._version import __commit_date__
+        return __commit_date__
+    except ImportError:
+        return "unknown"
+
+
+def _get_commit_hash() -> str:
+    """Get git commit hash from static version file"""
+    try:
+        from fz._version import __commit_hash__
+        return __commit_hash__
+    except ImportError:
+        return "unknown"
+
+
 class Interpreter(Enum):
     """Available formula interpreters"""
     PYTHON = "python"
@@ -67,13 +99,24 @@ class Config:
             return default
 
     def reload(self):
-        """Reload configuration from environment variables"""
+        """Reload configuration from environment variables and sync with logging"""
         self._load_from_environment()
+
+        # Sync with logging module
+        from .logging import set_log_level
+        set_log_level(self.log_level)
 
     def get_summary(self) -> dict:
         """Get a summary of current configuration"""
+        # Get actual current log level from logging module
+        from .logging import get_log_level_string
+        current_log_level = get_log_level_string()
+
         return {
-            'log_level': self.log_level,
+            'version': _get_version(),
+            'commit_date': _get_last_commit_date(),
+            'commit_hash': _get_commit_hash(),
+            'log_level': current_log_level,
             'max_retries': self.max_retries,
             'interpreter': self.interpreter.value,
             'max_workers': self.max_workers,
@@ -143,7 +186,10 @@ def print_config():
 
     summary = config.get_summary()
 
-    print("🔧 LOGGING:")
+    print(f"Version: {summary['version']}")
+    print(f"Commit: {summary['commit_hash']} ({summary['commit_date']})")
+
+    print("\n🔧 LOGGING:")
     print(f"  FZ_LOG_LEVEL = {summary['log_level']}")
 
     print("\n🔄 CALCULATION:")
