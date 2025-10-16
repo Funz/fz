@@ -27,7 +27,7 @@ def test_logging_levels():
 
     # Create input file
     with open("input.txt", "w", newline='\n') as f:
-        f.write("x = $(x)\n")
+        f.write("x = ${x}\n")
 
     # Create simple calculator
     with open("calc.sh", "w", newline='\n') as f:
@@ -36,7 +36,7 @@ def test_logging_levels():
 
     model = {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
             }
 

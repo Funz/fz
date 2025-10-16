@@ -55,7 +55,7 @@ def test_telemac_fzi(telemac_setup):
     result = fz.fzi("t2d_breach.cas", {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#"
     })
 
@@ -74,7 +74,7 @@ def test_telemac_fzr(telemac_setup):
         "id": "Telemac",
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {
             "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",

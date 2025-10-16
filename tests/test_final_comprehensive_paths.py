@@ -14,14 +14,14 @@ def test_final_comprehensive_paths():
     # Create input file
     with open("input.txt", 'w') as f:
         f.write("# Final comprehensive path test\n")
-        f.write("value = $(V)\n")
+        f.write("value = ${V}\n")
 
     # Create a comprehensive test script that shows path resolution working
     with open("comprehensive_test.sh", 'w', newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write("# Comprehensive test script\n")
         f.write("echo 'Test script executed successfully'\n")
-        f.write("echo 'Working directory:' $(pwd)\n")
+        f.write("echo 'Working directory:' ${pwd}\n")
         f.write("echo 'Available files:' $(ls -la)\n")
         f.write("echo 'result = 999' > output.txt\n")
         f.write("exit 0\n")
@@ -71,7 +71,7 @@ def test_final_comprehensive_paths():
             },            
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2 || echo 'none'"}
             },            
             calculators=[test_case['calculator']],

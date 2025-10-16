@@ -28,7 +28,7 @@ n_mol=$n_mol
 set -e  # Exit on any error
 
 echo "=== DEBUG: Script starting ===" >&2
-echo "PWD: $(pwd)" >&2
+echo "PWD: ${pwd}" >&2
 echo "Args: $@" >&2
 echo "Input file: $1" >&2
 
@@ -79,7 +79,7 @@ def test_debug_execution():
     model = {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d'=' -f2 | tr -d ' '"}
     }

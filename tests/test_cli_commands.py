@@ -131,14 +131,14 @@ def temp_workspace():
 def sample_input_file(temp_workspace):
     """Create a sample input file with variables"""
     input_file = temp_workspace / "input.txt"
-    input_file.write_text("x = $(var1)\ny = $(var2)\nz = $(var3)")
+    input_file.write_text("x = ${var1}\ny = ${var2}\nz = ${var3}")
     return input_file
 
 
 @pytest.fixture
 def sample_model():
     """Return a sample model configuration"""
-    return {"varprefix": "$", "delim": "()"}
+    return {"varprefix": "$", "delim": "{}"}
 
 
 @pytest.fixture
@@ -445,7 +445,7 @@ class TestCLIPlatformCompatibility:
     def test_path_handling(self, temp_workspace, sample_model):
         """Test that paths are handled correctly on all platforms"""
         input_file = temp_workspace / "test_input.txt"
-        input_file.write_text("x = $(var1)")
+        input_file.write_text("x = ${var1}")
 
         result = run_fz_cli_function('fzi_main', [
             "--input_path", str(input_file),
@@ -462,7 +462,7 @@ class TestCLIPlatformCompatibility:
         subdir.mkdir(exist_ok=True)
 
         input_file = subdir / "input.txt"
-        input_file.write_text("x = $(var1)")
+        input_file.write_text("x = ${var1}")
 
         result = run_fz_cli_function('fzi_main', [
             "--input_path", str(input_file),
@@ -487,7 +487,7 @@ class TestFzInstallCommand:
         model_def = {
             "id": "testmodel",
             "varprefix": "$",
-            "delim": "()",
+            "delim": "{}",
             "formulaprefix": "@",
             "commentline": "#",
             "output": {
@@ -524,7 +524,7 @@ class TestFzInstallCommand:
         model_def = {
             "id": "testcalc",
             "varprefix": "$",
-            "delim": "()",
+            "delim": "{}",
             "output": {
                 "result": "cat output.txt"
             }

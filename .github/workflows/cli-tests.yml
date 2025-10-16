@@ -118,58 +118,58 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         # Create test file
-        echo 'x = $(var1)' > test_input.txt
+        echo 'x = ${var1}' > test_input.txt
 
         echo "Testing JSON format..."
-        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f json || true
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "{}"}' -f json || true
 
         echo "Testing CSV format..."
-        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f csv || true
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "{}"}' -f csv || true
 
         echo "Testing Markdown format..."
-        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f markdown || true
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "{}"}' -f markdown || true
 
         echo "Testing Table format..."
-        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f table || true
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "{}"}' -f table || true
 
         echo "Testing HTML format..."
-        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f html || true
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "{}"}' -f html || true
 
     - name: Test format options (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
         # Create test file
-        "x = `$(var1)" | Out-File -FilePath test_input.txt -Encoding ASCII
+        "x = `${var1}" | Out-File -FilePath test_input.txt -Encoding ASCII
 
         Write-Host "Testing JSON format..."
-        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f json
 
         Write-Host "Testing CSV format..."
-        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f csv
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f csv
 
         Write-Host "Testing Markdown format..."
-        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f markdown
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f markdown
 
         Write-Host "Testing Table format..."
-        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f table
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f table
 
         Write-Host "Testing HTML format..."
-        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f html
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f html
 
     - name: Test output redirection (Linux/macOS)
       if: runner.os != 'Windows'
       run: |
-        echo 'x = $(var1)' > test_input.txt
+        echo 'x = ${var1}' > test_input.txt
 
         echo "Testing output to file..."
-        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f json > output.json || true
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "{}"}' -f json > output.json || true
         if [ -f output.json ]; then
           echo "✓ Output file created"
           cat output.json
         fi
 
-        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "()"}' -f csv > output.csv || true
+        python -m fz.cli input -i test_input.txt -m '{"varprefix": "$", "delim": "{}"}' -f csv > output.csv || true
         if [ -f output.csv ]; then
           echo "✓ CSV file created"
           cat output.csv
@@ -179,16 +179,16 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        "x = `$(var1)" | Out-File -FilePath test_input.txt -Encoding ASCII
+        "x = `${var1}" | Out-File -FilePath test_input.txt -Encoding ASCII
 
         Write-Host "Testing output to file..."
-        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json | Out-File -FilePath output.json
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f json | Out-File -FilePath output.json
         if (Test-Path output.json) {
           Write-Host "✓ Output file created"
           Get-Content output.json
         }
 
-        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f csv | Out-File -FilePath output.csv
+        python -m fz.cli input -i test_input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f csv | Out-File -FilePath output.csv
         if (Test-Path output.csv) {
           Write-Host "✓ CSV file created"
           Get-Content output.csv
@@ -275,17 +275,17 @@ jobs:
         cd workflow_test
 
         # 1. Create input file
-        echo 'Temperature = $(T)' > input.txt
-        echo 'Pressure = $(P)' >> input.txt
+        echo 'Temperature = ${T}' > input.txt
+        echo 'Pressure = ${P}' >> input.txt
 
         # 2. Parse input variables
         echo "Step 1: Parse input variables..."
-        python -m fz.cli input -i input.txt -m '{"varprefix": "$", "delim": "()"}' -f json > variables.json
+        python -m fz.cli input -i input.txt -m '{"varprefix": "$", "delim": "{}"}' -f json > variables.json
         cat variables.json
 
         # 3. Compile with values
         echo "Step 2: Compile input with variable values..."
-        python -m fz.cli compile -i input.txt -m '{"varprefix": "$", "delim": "()"}' -v '{"T": 300, "P": 101325}' -o compiled/
+        python -m fz.cli compile -i input.txt -m '{"varprefix": "$", "delim": "{}"}' -v '{"T": 300, "P": 101325}' -o compiled/
         if [ -d compiled ]; then
           echo "✓ Compilation successful"
           ls -la compiled/
@@ -300,17 +300,17 @@ jobs:
         Set-Location workflow_test
 
         # 1. Create input file
-        "Temperature = `$(T)" | Out-File -FilePath input.txt -Encoding ASCII
-        "Pressure = `$(P)" | Add-Content -Path input.txt -Encoding ASCII
+        "Temperature = `${T}" | Out-File -FilePath input.txt -Encoding ASCII
+        "Pressure = `${P}" | Add-Content -Path input.txt -Encoding ASCII
 
         # 2. Parse input variables
         Write-Host "Step 1: Parse input variables..."
-        python -m fz.cli input -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -f json | Out-File -FilePath variables.json
+        python -m fz.cli input -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -f json | Out-File -FilePath variables.json
         Get-Content variables.json
 
         # 3. Compile with values
         Write-Host "Step 2: Compile input with variable values..."
-        python -m fz.cli compile -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""()""}" -v "{""T"": 300, ""P"": 101325}" -o compiled/
+        python -m fz.cli compile -i input.txt -m "{""varprefix"": ""$"", ""delim"": ""{}""}" -v "{""T"": 300, ""P"": 101325}" -o compiled/
         if (Test-Path compiled) {
           Write-Host "✓ Compilation successful"
           Get-ChildItem compiled/

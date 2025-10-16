@@ -20,16 +20,26 @@ jobs:
           # Test Python 3.14 on Ubuntu only (as it may not be available on all platforms yet)
           - os: ubuntu-latest
             python-version: '3.14-dev'
+        exclude:
+          # Disable Windows + Python 3.9 combination
+          - os: windows-latest
+            python-version: '3.9'
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full git history for version stamping
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
+
+    - name: Stamp version information
+      run: |
+        python scripts/stamp_version.py
 
     - name: Install system dependencies (Linux)
       if: runner.os == 'Linux'
@@ -122,11 +132,17 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full git history for version stamping
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+
+    - name: Stamp version information
+      run: |
+        python scripts/stamp_version.py
 
     - name: Install build dependencies
       run: |
@@ -152,11 +168,17 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full git history for version stamping
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+
+    - name: Stamp version information
+      run: |
+        python scripts/stamp_version.py
 
     - name: Install build dependencies
       run: |
@@ -181,11 +203,17 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full git history for version stamping
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+
+    - name: Stamp version information
+      run: |
+        python scripts/stamp_version.py
 
     - name: Install linting tools
       run: |

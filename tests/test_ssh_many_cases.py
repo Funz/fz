@@ -176,9 +176,9 @@ Host localhost
         # Create input template with 3 variables
         input_file = test_dir / "input.txt"
         input_file.write_text("""# Multi-variable calculation
-x = $(x)
-y = $(y)
-z = $(z)
+x = ${x}
+y = ${y}
+z = ${z}
 """)
 
         # Create calculator script that computes various functions
@@ -237,7 +237,7 @@ cat output.txt
             },
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "commentline": "#",
                 "output": {
                     "sum": "grep '^sum =' output.txt | cut -d'=' -f2 | tr -d ' '",
@@ -535,9 +535,9 @@ Host localhost
         # Create input template with 3 variables
         input_file = test_dir / "input.txt"
         input_file.write_text("""# Multi-variable calculation
-x = $(x)
-y = $(y)
-z = $(z)
+x = ${x}
+y = ${y}
+z = ${z}
 """)
 
         # Create calculator script that computes various functions
@@ -596,7 +596,7 @@ cat output.txt
             },
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "commentline": "#",
                 "output": {
                     "sum": "grep '^sum =' output.txt | cut -d'=' -f2 | tr -d ' '",

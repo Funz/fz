@@ -23,48 +23,48 @@ def test_multiple_input_files_with_variables():
     # File 1: Configuration file with system parameters
     with open(input_files_dir / "config.txt", 'w') as f:
         f.write("# System Configuration\n")
-        f.write("TEMPERATURE = $(T)\n")
-        f.write("PRESSURE = $(P)\n")
+        f.write("TEMPERATURE = ${T}\n")
+        f.write("PRESSURE = ${P}\n")
         f.write("SIMULATION_TIME = 1000\n")
         f.write("OUTPUT_FREQUENCY = 10\n")
 
     # File 2: Material properties with different variables
     with open(input_files_dir / "material.dat", 'w') as f:
         f.write("# Material Properties\n")
-        f.write("DENSITY = $(rho)\n")
-        f.write("VISCOSITY = $(mu)\n")
+        f.write("DENSITY = ${rho}\n")
+        f.write("VISCOSITY = ${mu}\n")
         f.write("THERMAL_CONDUCTIVITY = 0.025\n")
         f.write("SPECIFIC_HEAT = 1005\n")
 
     # File 3: Boundary conditions with another set of variables
     with open(input_files_dir / "boundary.inp", 'w') as f:
         f.write("# Boundary Conditions\n")
-        f.write("INLET_VELOCITY = $(v_in)\n")
-        f.write("OUTLET_PRESSURE = $(P_out)\n")
-        f.write("WALL_TEMPERATURE = $(T_wall)\n")
-        f.write("REFERENCE_PRESSURE = $(P)\n")  # Reuse P from config.txt
+        f.write("INLET_VELOCITY = ${v_in}\n")
+        f.write("OUTLET_PRESSURE = ${P_out}\n")
+        f.write("WALL_TEMPERATURE = ${T_wall}\n")
+        f.write("REFERENCE_PRESSURE = ${P}\n")  # Reuse P from config.txt
 
     # File 4: Solver settings with computational parameters
     with open(input_files_dir / "solver.cfg", 'w') as f:
         f.write("# Solver Configuration\n")
-        f.write("MAX_ITERATIONS = $(max_iter)\n")
+        f.write("MAX_ITERATIONS = ${max_iter}\n")
         f.write("CONVERGENCE_TOLERANCE = 1e-6\n")
-        f.write("TIME_STEP = $(dt)\n")
+        f.write("TIME_STEP = ${dt}\n")
         f.write("CFL_NUMBER = 0.5\n")
 
     # File 5: Main input file (required by fzr)
     with open(input_files_dir / "input.txt", 'w') as f:
         f.write("# Multi-file simulation input\n")
         f.write("# Main variables\n")
-        f.write("T = $(T)\n")
-        f.write("P = $(P)\n")
-        f.write("rho = $(rho)\n")
-        f.write("mu = $(mu)\n")
-        f.write("v_in = $(v_in)\n")
-        f.write("P_out = $(P_out)\n")
-        f.write("T_wall = $(T_wall)\n")
-        f.write("max_iter = $(max_iter)\n")
-        f.write("dt = $(dt)\n")
+        f.write("T = ${T}\n")
+        f.write("P = ${P}\n")
+        f.write("rho = ${rho}\n")
+        f.write("mu = ${mu}\n")
+        f.write("v_in = ${v_in}\n")
+        f.write("P_out = ${P_out}\n")
+        f.write("T_wall = ${T_wall}\n")
+        f.write("max_iter = ${max_iter}\n")
+        f.write("dt = ${dt}\n")
 
     # Create a working calculator script that processes the input files
     with open(input_files_dir / "process_inputs.sh", 'w', newline='\n') as f:
@@ -115,7 +115,7 @@ def test_multiple_input_files_with_variables():
 
     model = {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {
             "result": "grep 'Final result' output.txt | cut -d'=' -f2 | tr -d ' '"
         }

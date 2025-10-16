@@ -718,14 +718,26 @@ def run_local_calculation(
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
             if platform.system() == "Windows":
-                # On Windows, use shell=False without executable, but with fullcommand as list
+                # On Windows, use CREATE_NEW_PROCESS_GROUP to allow Ctrl+C handling
+                # This is crucial for proper interrupt handling on Windows
+                import subprocess as sp
+
+                # Create process in new process group so it can receive Ctrl+C
+                creationflags = 0
+                if hasattr(sp, 'CREATE_NEW_PROCESS_GROUP'):
+                    creationflags = sp.CREATE_NEW_PROCESS_GROUP
+                elif hasattr(sp, 'CREATE_NO_WINDOW'):
+                    # Fallback for older Python versions
+                    creationflags = sp.CREATE_NO_WINDOW
+
                 process = subprocess.Popen(
-                    full_command.replace('bash', executable).split(),
-                    shell=False,
+                    full_command.replace('bash', executable).split() if executable else full_command,
+                    shell=False if executable else True,
                     stdout=out_file,
                     stderr=err_file,
                     cwd=working_dir,
                     executable=None,
+                    creationflags=creationflags,
                 )
             else:
                 process = subprocess.Popen(
@@ -738,8 +750,34 @@ def run_local_calculation(
                 )
 
             # Poll process and check for interrupts
+            # Use polling instead of blocking wait to allow interrupt handling on all platforms
             try:
-                process.wait(timeout=timeout)
+                from .core import is_interrupted
+
+                poll_interval = 0.5  # Poll every 500ms
+                elapsed_time = 0.0
+
+                while process.poll() is None:
+                    # Check if user requested interrupt
+                    if is_interrupted():
+                        log_warning(f"⚠️  Interrupt detected, terminating process...")
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            log_warning(f"⚠️  Process didn't terminate, killing...")
+                            process.kill()
+                            process.wait()
+                        raise KeyboardInterrupt("Process interrupted by user")
+
+                    # Check for timeout
+                    if elapsed_time >= timeout:
+                        raise subprocess.TimeoutExpired(full_command, timeout)
+
+                    # Sleep briefly before next poll
+                    time.sleep(poll_interval)
+                    elapsed_time += poll_interval
+
                 result = process
             except subprocess.TimeoutExpired:
                 # Timeout occurred
@@ -868,6 +906,17 @@ def run_ssh_calculation(
     Returns:
         Dict containing calculation results and status
     """
+    # Import here to avoid circular imports
+    from .core import is_interrupted
+
+    # Check for interrupt before starting
+    if is_interrupted():
+        return {
+            "status": "interrupted",
+            "error": "Execution interrupted by user",
+            "command": ssh_uri,
+        }
+
     if not PARAMIKO_AVAILABLE:
         return {
             "status": "error",
@@ -977,6 +1026,7 @@ def run_ssh_calculation(
         ssh_client.exec_command(f"mkdir -p {remote_temp_dir}")
 
         log_info(f"Created remote directory: {remote_temp_dir}")
+        log_info(f"🌐 SSH calculation using remote directory: {username}@{host}:{remote_temp_dir}")
 
         try:
             # Transfer input files to remote
@@ -1067,7 +1117,7 @@ def _execute_remote_command(
     input_files_list: List[str] = None,
 ) -> Dict[str, Any]:
     """
-    Execute command on remote server
+    Execute command on remote server with interrupt handling
 
     Args:
         ssh_client: SSH client connection
@@ -1079,6 +1129,17 @@ def _execute_remote_command(
         env_info: Environment information
         input_files_list: List of input file names in order (from .fz_hash)
     """
+    # Import here to avoid circular imports
+    from .core import is_interrupted
+
+    # Check for interrupt before starting
+    if is_interrupted():
+        return {
+            "status": "interrupted",
+            "error": "Execution interrupted by user",
+            "command": command,
+        }
+
     # Build arguments from input files list
     input_argument = " ".join(input_files_list) if input_files_list else "."
 
@@ -1094,9 +1155,72 @@ def _execute_remote_command(
     command_start_time = datetime.now()
     stdin, stdout, stderr = ssh_client.exec_command(full_command, timeout=timeout)
 
-    # Wait for completion
-    exit_code = stdout.channel.recv_exit_status()
-    command_end_time = datetime.now()
+    # Get the channel for polling
+    channel = stdout.channel
+
+    # Poll for completion with interrupt checking
+    poll_interval = 0.5  # Poll every 500ms
+    elapsed_time = 0.0
+    exit_code = None
+
+    try:
+        while not channel.exit_status_ready():
+            # Check if user requested interrupt
+            if is_interrupted():
+                log_warning(f"⚠️  Interrupt detected, terminating remote process...")
+                # Send SIGTERM to remote process group
+                try:
+                    # Try to kill the remote process
+                    # Use channel.send to send Ctrl+C
+                    channel.send('\x03')  # Send Ctrl+C (SIGINT)
+                    time.sleep(0.5)  # Give process time to terminate
+
+                    # If still running, force kill
+                    if not channel.exit_status_ready():
+                        # Try killing the process tree
+                        kill_cmd = f"pkill -P $(pgrep -f '{command[:50]}')"  # Kill process tree
+                        try:
+                            ssh_client.exec_command(kill_cmd, timeout=2)
+                        except:
+                            pass
+                except Exception as e:
+                    log_warning(f"⚠️  Could not terminate remote process: {e}")
+
+                raise KeyboardInterrupt("Remote process interrupted by user")
+
+            # Check for timeout
+            if elapsed_time >= timeout:
+                log_warning(f"⚠️  Remote command timeout after {timeout}s")
+                try:
+                    channel.send('\x03')  # Send Ctrl+C
+                    time.sleep(0.5)
+                except:
+                    pass
+                return {
+                    "status": "timeout",
+                    "error": f"Command timed out after {timeout} seconds",
+                    "command": full_command,
+                }
+
+            # Sleep briefly before next poll
+            time.sleep(poll_interval)
+            elapsed_time += poll_interval
+
+        # Get exit status
+        exit_code = channel.recv_exit_status()
+        command_end_time = datetime.now()
+
+    except KeyboardInterrupt:
+        # Handle interrupt - close channel
+        try:
+            channel.close()
+        except:
+            pass
+        return {
+            "status": "interrupted",
+            "error": "Remote calculation interrupted by user",
+            "command": full_command,
+        }
 
     # Get output
     stdout_data = stdout.read().decode("utf-8")

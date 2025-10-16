@@ -23,10 +23,10 @@ def advanced_setup(tmp_path):
     with open("input.txt", "w", newline='\n') as f:
         f.write("""# input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
-T_kelvin=@($T_celsius + 273.15)
+T_kelvin=@{$T_celsius + 273.15}
 #@ def L_to_m3(L):
 #@     return(L / 1000)
-V_m3=@(L_to_m3($V_L))
+V_m3=@{L_to_m3($V_L)}
 """)
 
     # Create PerfectGazPressure.sh (with shorter sleep for tests)
@@ -85,7 +85,7 @@ def test_parallel_2_calculators_2_cases(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -103,7 +103,7 @@ def test_parallel_3_calculators_2_cases(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -121,7 +121,7 @@ def test_parallel_2_calculators_3_cases(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results")
@@ -139,7 +139,7 @@ def test_parallel_6_calculators_6_cases(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
@@ -158,7 +158,7 @@ def test_parallel_fzo_result(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
@@ -178,7 +178,7 @@ def test_failure_never_fails(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 3, results_dir="results")
@@ -197,7 +197,7 @@ def test_failure_random_fails_retries(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressureRandomFails.sh"] * 3, results_dir="results")
@@ -216,7 +216,7 @@ def test_failure_always_fails(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results")
@@ -238,7 +238,7 @@ def test_failure_cache_with_fallback(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressureAlwaysFails.sh"] * 3, results_dir="results_fail")
@@ -251,7 +251,7 @@ def test_failure_cache_with_fallback(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["cache://_", "sh://bash ./PerfectGazPressure.sh", "sh://bash ./PerfectGazPressure.sh"], results_dir="results_fail")
@@ -270,7 +270,7 @@ def test_non_numeric_variables(advanced_setup):
     }, {
         "varprefix": "$",
         "formulaprefix": "@",
-        "delim": "()",
+        "delim": "{}",
         "commentline": "#",
         "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}
     }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 3, results_dir="results")

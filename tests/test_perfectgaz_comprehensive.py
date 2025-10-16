@@ -16,7 +16,7 @@ def test_perfectgaz_comprehensive():
 
     # Create input file with temperature placeholder
     with open('input.txt', 'w') as f:
-        f.write('Temperature: $(T_K) K\nVolume: 1 L\nAmount: 1 mol\n')
+        f.write('Temperature: ${T_K} K\nVolume: 1 L\nAmount: 1 mol\n')
 
     print("🧪 PerfectGaz Comprehensive Test - 25 Cases")
     print("=" * 60)

@@ -7,12 +7,13 @@ import threading
 import time
 import itertools
 from pathlib import Path
-from typing import Dict, List, Tuple, Union, Any
+from typing import Dict, List, Tuple, Union, Any, Optional
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .logging import log_debug, log_info, log_warning, log_error, log_progress, get_log_level, LogLevel
 from .config import get_config
+from .spinner import CaseSpinner, CaseStatus
 
 
 @contextmanager
@@ -401,6 +402,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     original_input_was_dir = case_info["original_input_was_dir"]
     output_keys = case_info["output_keys"]
     original_cwd = case_info.get("original_cwd")
+    spinner = case_info.get("spinner")  # Optional spinner instance
 
     # Get thread ID for debugging
     thread_id = threading.get_ident()
@@ -413,10 +415,17 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     log_debug(f"🔄 [Thread {thread_id}] Starting {case_name}")
     start_time = time.time()
 
+    # Update spinner to show case is running
+    if spinner:
+        spinner.update_status(case_index, CaseStatus.RUNNING)
+
     # Validate that result directory exists (should have been created in preparation phase)
     if not result_dir.exists():
         log_error(f"❌ [Thread {thread_id}] {case_name}: CRITICAL ERROR - Result directory missing: {result_dir}")
         log_error(f"❌ [Thread {thread_id}] {case_name}: This indicates a serious problem with the preparation phase")
+        # Update spinner to show failure
+        if spinner:
+            spinner.update_status(case_index, CaseStatus.FAILED)
         # Return early with error result since we cannot proceed
         elapsed = time.time() - start_time
         return {
@@ -716,6 +725,9 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
             elapsed = time.time() - start_time
             log_error(f"❌ [Thread {thread_id}] {case_name}: FAILED during post-processing ({elapsed:.2f}s total)")
+            # Update spinner to show failure
+            if spinner:
+                spinner.update_status(case_index, CaseStatus.FAILED)
         else:
             # File copying and parsing successful - use original calculation status
             result["calculator"] = used_calculator or "unknown"
@@ -731,8 +743,14 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             elapsed = time.time() - start_time
             if original_status == "done":
                 log_info(f"✅ [Thread {thread_id}] {case_name}: COMPLETED successfully ({elapsed:.2f}s total)")
+                # Update spinner to show success
+                if spinner:
+                    spinner.update_status(case_index, CaseStatus.DONE)
             else:
                 log_debug(f"📁 [Thread {thread_id}] {case_name}: Files preserved for failed calculation ({elapsed:.2f}s total)")
+                # Update spinner to show failure
+                if spinner:
+                    spinner.update_status(case_index, CaseStatus.FAILED)
     else:
         # Failed calculation - provide detailed error information
         elapsed = time.time() - start_time
@@ -791,6 +809,10 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             result[key] = None
         result["status"] = "error"
 
+        # Update spinner to show failure
+        if spinner:
+            spinner.update_status(case_index, CaseStatus.FAILED)
+
     # Clean up tmp_dir after calculation (unless in DEBUG mode)
     from .logging import get_log_level, LogLevel
     if get_log_level() != LogLevel.DEBUG:
@@ -843,6 +865,9 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
     # Map calculator IDs back to original URIs for case processing
     id_to_uri_map = {calc_id: calc_mgr.get_original_uri(calc_id) for calc_id in calculator_ids}
 
+    # Create spinner for case status tracking
+    spinner = CaseSpinner(len(var_combinations))
+
     # Prepare case information for each case
     case_infos = []
     for i, var_combo in enumerate(var_combinations):
@@ -858,7 +883,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
             "original_input_was_dir": original_input_was_dir,
             "output_keys": output_keys,
             "total_cases": var_combinations,
-            "original_cwd": original_cwd
+            "original_cwd": original_cwd,
+            "spinner": spinner  # Add spinner instance
         }
         case_infos.append(case_info)
         case_name = ",".join(f"{k}={v}" for k, v in var_combo.items()) if len(var_combinations) > 1 else "single case"
@@ -881,8 +907,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
     # Track timing
     start_time = time.time()
 
-    # Show initial progress for multiple cases
-    if len(var_combinations) > 1:
+    # Show initial progress for multiple cases (only if spinner is disabled)
+    if len(var_combinations) > 1 and not spinner.enabled:
         log_progress(f"📊 Progress: 0/{len(var_combinations)} cases completed (0.0%)")
 
     # Run cases in parallel
@@ -890,40 +916,43 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         # Single case or single calculator - run sequentially
         log_info(f"🚀 Running sequentially (single case or single calculator)")
         results = []
-        for i, case_info in enumerate(case_infos):
-            # Check for interrupt before starting next case
-            if is_interrupted():
-                log_warning(f"⚠️  Interrupt detected. Stopping after {i} completed cases.")
-                break
 
-            case_start_time = time.time()
-            result = run_single_case(case_info)
-            results.append(result)
+        # Use spinner context manager
+        with spinner:
+            for i, case_info in enumerate(case_infos):
+                # Check for interrupt before starting next case
+                if is_interrupted():
+                    log_warning(f"⚠️  Interrupt detected. Stopping after {i} completed cases.")
+                    break
 
-            # Progress tracking for multiple cases
-            if len(var_combinations) > 1:
-                completed_count = i + 1
-                case_elapsed = time.time() - case_start_time
-                total_elapsed = time.time() - start_time
+                case_start_time = time.time()
+                result = run_single_case(case_info)
+                results.append(result)
 
-                # Estimate remaining time based on average time per case
-                if completed_count > 0:
-                    avg_time_per_case = total_elapsed / completed_count
-                    remaining_cases = len(var_combinations) - completed_count
-                    estimated_remaining = avg_time_per_case * remaining_cases
+                # Progress tracking for multiple cases (only if spinner is disabled)
+                if len(var_combinations) > 1 and not spinner.enabled:
+                    completed_count = i + 1
+                    case_elapsed = time.time() - case_start_time
+                    total_elapsed = time.time() - start_time
 
-                    # Format time estimates
-                    def format_time(seconds):
-                        if seconds < 60:
-                            return f"{seconds:.1f}s"
-                        elif seconds < 3600:
-                            return f"{seconds/60:.1f}m"
-                        else:
-                            return f"{seconds/3600:.1f}h"
+                    # Estimate remaining time based on average time per case
+                    if completed_count > 0:
+                        avg_time_per_case = total_elapsed / completed_count
+                        remaining_cases = len(var_combinations) - completed_count
+                        estimated_remaining = avg_time_per_case * remaining_cases
 
-                    log_progress(f"📊 Progress: {completed_count}/{len(var_combinations)} cases completed "
-                           f"({completed_count/len(var_combinations)*100:.1f}%), "
-                           f"ETA: {format_time(estimated_remaining)}")
+                        # Format time estimates
+                        def format_time(seconds):
+                            if seconds < 60:
+                                return f"{seconds:.1f}s"
+                            elif seconds < 3600:
+                                return f"{seconds/60:.1f}m"
+                            else:
+                                return f"{seconds/3600:.1f}h"
+
+                        log_progress(f"📊 Progress: {completed_count}/{len(var_combinations)} cases completed "
+                               f"({completed_count/len(var_combinations)*100:.1f}%), "
+                               f"ETA: {format_time(estimated_remaining)}")
 
         elapsed = time.time() - start_time
         if is_interrupted():
@@ -934,7 +963,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
     else:
         # Multiple cases and calculators - run in parallel
         log_info(f"🚀 Running in parallel with {max_workers} threads")
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with spinner, ThreadPoolExecutor(max_workers=max_workers) as executor:
             try:
                 # Submit all cases
                 future_to_index = {
@@ -979,8 +1008,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                     try:
                         case_results[index] = future.result()
 
-                        # Enhanced progress tracking with time estimation
-                        if len(var_combinations) > 1:
+                        # Enhanced progress tracking with time estimation (only if spinner is disabled)
+                        if len(var_combinations) > 1 and not spinner.enabled:
                             # Calculate ETA based on average time per case
                             if completed_count > 0:
                                 avg_time_per_case = total_elapsed / completed_count
@@ -1000,7 +1029,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                             else:
                                 log_debug(f"🏁 Task {index} completed successfully ({completed_count}/{len(var_combinations)})")
                         else:
-                            log_info(f"🏁 Task {index} completed successfully ({completed_count}/{len(var_combinations)})")
+                            log_debug(f"🏁 Task {index} completed successfully ({completed_count}/{len(var_combinations)})")
 
                     except Exception as e:
                         import traceback
@@ -1075,7 +1104,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     interpreter = get_interpreter()
 
     varprefix = model.get("varprefix", "$")
-    delim = model.get("delim", "()")
+    delim = model.get("delim", "{}")
     input_path = Path(input_path)
 
     # Ensure main results directory exists

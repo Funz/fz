@@ -16,7 +16,7 @@ def test_case_directory_creation():
     # Create a script that checks if it's already in the results directory
     with open('check_location_script.sh', 'w', newline='\n') as f:
         f.write('''#!/bin/bash
-echo "Script running from: $(pwd)" > location_check.txt
+echo "Script running from: ${pwd}" > location_check.txt
 echo "Current directory contents:" >> location_check.txt
 ls -la >> location_check.txt
 echo "Parent directory:" >> location_check.txt

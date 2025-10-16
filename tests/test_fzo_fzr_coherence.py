@@ -240,7 +240,7 @@ def test_fzo_fzr_coherence_with_formulas():
                 f.write('multiplier = ${mult}\n')
                 f.write('#@ def calculate(b, m):\n')
                 f.write('#@     return b * m + 10\n')
-                f.write('result = @{calculate(${base}, ${mult})}\n')
+                f.write('result = @{calculate(${base}, ${mult)}}\n')
 
     with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\n')

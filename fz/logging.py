@@ -24,17 +24,27 @@ _current_log_level = LogLevel.ERROR
 
 
 def set_log_level(level: Union[LogLevel, str]) -> None:
-    """Set the global logging level"""
+    """Set the global logging level and sync with config"""
     if isinstance(level, str):
         set_log_level_from_string(level)
         return
     global _current_log_level
     _current_log_level = level
 
+    # Sync with config
+    from .config import get_config
+    config = get_config()
+    config.log_level = level.name
+
 
 def get_log_level() -> LogLevel:
     """Get the current logging level"""
     return _current_log_level
+
+
+def get_log_level_string() -> str:
+    """Get the current logging level as a string"""
+    return _current_log_level.name
 
 
 def set_log_level_from_string(level_str: str) -> None:

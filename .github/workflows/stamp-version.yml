@@ -1,0 +1,43 @@
+name: Stamp Version
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  stamp:
+    name: Stamp version information
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full git history for accurate commit info
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Stamp version information
+      run: |
+        python scripts/stamp_version.py
+
+    - name: Upload stamped source
+      uses: actions/upload-artifact@v4
+      with:
+        name: stamped-source
+        path: fz/_version.py
+        retention-days: 1
+
+    - name: Verify stamping
+      run: |
+        echo "=== Stamped version file ==="
+        cat fz/_version.py
+        echo ""
+        echo "=== Testing import ==="
+        python -c "from fz._version import __version__, __commit_date__, __commit_hash__; print(f'Version: {__version__}'); print(f'Commit: {__commit_hash__} ({__commit_date__})')"

@@ -51,7 +51,7 @@ echo "Calculation complete for x=$x"
     # Define the model
     model = {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {
             "result": "cat output.txt"
         }

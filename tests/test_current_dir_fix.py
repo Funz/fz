@@ -20,7 +20,7 @@ def test_current_dir_fix():
     input_file = temp_path / "test_input.txt"
 
     with open(script_file, 'w') as f:
-        f.write('#!/bin/bash\necho "Test executed from: $(pwd)"\necho "result = 777" > test_result.txt\n')
+        f.write('#!/bin/bash\necho "Test executed from: ${pwd}"\necho "result = 777" > test_result.txt\n')
     os.chmod(script_file, 0o755)
 
     with open(input_file, 'w') as f:

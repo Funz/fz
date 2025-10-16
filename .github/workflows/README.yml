@@ -103,10 +103,10 @@ jobs:
             input_file = tmpdir / "input.txt"
             input_file.write_text("""# input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
         n_mol=$n_mol
-        T_kelvin=@($T_celsius + 273.15)
+        T_kelvin=@{$T_celsius + 273.15}
         #@ def L_to_m3(L):
         #@     return(L / 1000)
-        V_m3=@(L_to_m3($V_L))
+        V_m3=@{L_to_m3($V_L)}
         """)
 
             # Create PerfectGazPressure.sh
@@ -132,7 +132,7 @@ jobs:
         model = {
             "varprefix": "$",
             "formulaprefix": "@",
-            "delim": "()",
+            "delim": "{}",
             "commentline": "#",
             "output": {
                 "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
@@ -205,7 +205,7 @@ jobs:
 
             model = {
                 "varprefix": "$",
-                "delim": "()"
+                "delim": "{}"
             }
 
             variables = fz.fzi(str(input_file), model)
@@ -241,7 +241,7 @@ jobs:
             model = {
                 "varprefix": "$",
                 "formulaprefix": "@",
-                "delim": "()",
+                "delim": "{}",
                 "commentline": "#"
             }
 

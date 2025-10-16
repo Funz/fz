@@ -171,9 +171,9 @@ def test_perfectgaz_via_ssh_localhost():
         # Create input template
         input_file = test_dir / "input.txt"
         input_file.write_text("""# Perfect Gas Calculation Input
-Temperature_Celsius = $(T_celsius)
-Volume_Liters = $(V_L)
-Amount_Moles = $(n_mol)
+Temperature_Celsius = ${T_celsius}
+Volume_Liters = ${V_L}
+Amount_Moles = ${n_mol}
 Gas_Constant_R = 0.08314  # L⋅bar/(mol⋅K)
 """)
 
@@ -226,7 +226,7 @@ echo "Calculation completed"
             },
             {
                 "varprefix": "$",
-                "delim": "()",
+                "delim": "{}",
                 "commentline": "#",
                 "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2 | tr -d ' bar'"}
             },

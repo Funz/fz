@@ -16,9 +16,9 @@ def test_perfect_gas():
     # Create input.txt with variables
     with open("input.txt", "w", newline='\n') as f:
         f.write("# Perfect Gas Calculation Input\n")
-        f.write("Temperature_Celsius = $(T_celsius)\n")
-        f.write("Volume_Liters = $(V_L)\n")
-        f.write("Amount_Moles = $(n_mol)\n")
+        f.write("Temperature_Celsius = ${T_celsius}\n")
+        f.write("Volume_Liters = ${V_L}\n")
+        f.write("Amount_Moles = ${n_mol}\n")
         f.write("Gas_Constant_R = 0.08314  # L⋅bar/(mol⋅K)\n")
 
     # Create the calculator script
@@ -66,7 +66,7 @@ def test_perfect_gas():
         },
         {
             "varprefix": "$",
-            "delim": "()",
+            "delim": "{}",
             "commentline": "#",
             "output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2 | tr -d ' bar'"},
         },

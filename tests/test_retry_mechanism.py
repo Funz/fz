@@ -18,8 +18,8 @@ def test_files():
     with open("input.txt", 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("# Test input file\n")
-        f.write("# Temperature: $(T_celsius) celsius\n")
-        f.write("echo 'Temperature: $(T_celsius)'\n")
+        f.write("# Temperature: ${T_celsius} celsius\n")
+        f.write("echo 'Temperature: ${T_celsius}'\n")
 
     # Create a script that fails on first attempt but succeeds on retry
     with open("FailThenSuccess.sh", 'w', newline='\n') as f:
@@ -69,7 +69,7 @@ def test_retry_success():
     },
     {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
     },
     calculators=[
@@ -103,7 +103,7 @@ def test_all_fail():
     },
     {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
     },
     calculators=[
@@ -139,7 +139,7 @@ def test_first_succeeds():
     },
     {
         "varprefix": "$",
-        "delim": "()",
+        "delim": "{}",
         "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
     },
     calculators=[

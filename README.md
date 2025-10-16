@@ -14,6 +14,7 @@ A powerful Python package for parametric simulations and computational experimen
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [CLI Usage](#cli-usage)
 - [Core Functions](#core-functions)
 - [Model Definition](#model-definition)
 - [Calculator Types](#calculator-types)
@@ -76,10 +77,10 @@ Create `input.txt`:
 ```text
 # input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
-T_kelvin=@($T_celsius + 273.15)
+T_kelvin=@{$T_celsius + 273.15}
 #@ def L_to_m3(L):
 #@     return(L / 1000)
-V_m3=@(L_to_m3($V_L))
+V_m3=@{L_to_m3($V_L)}
 ```
 
 ### 2. Create a Calculation Script
@@ -113,7 +114,7 @@ import fz
 model = {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
@@ -158,6 +159,430 @@ Expected output:
 Completed 12 calculations
 ```
 
+## CLI Usage
+
+FZ provides command-line tools for quick operations without writing Python scripts. All four core functions are available as CLI commands.
+
+### Installation of CLI Tools
+
+The CLI commands are automatically installed when you install the fz package:
+
+```bash
+pip install -e .
+```
+
+Available commands:
+- `fz`  - Main entry point (general configuration, plugins management, logging, ...)
+- `fzi` - Parse input variables
+- `fzc` - Compile input files
+- `fzo` - Read output files
+- `fzr` - Run parametric calculations
+
+### fzi - Parse Input Variables
+
+Identify variables in input files:
+
+```bash
+# Parse a single file
+fzi input.txt --model perfectgas
+
+# Parse a directory
+fzi input_dir/ --model mymodel
+
+# Output formats
+fzi input.txt --model perfectgas --format json
+fzi input.txt --model perfectgas --format table
+fzi input.txt --model perfectgas --format csv
+```
+
+**Example:**
+
+```bash
+$ fzi input.txt --model perfectgas --format table
+┌──────────────┬───────┐
+│ Variable     │ Value │
+├──────────────┼───────┤
+│ T_celsius    │ None  │
+│ V_L          │ None  │
+│ n_mol        │ None  │
+└──────────────┴───────┘
+```
+
+**With inline model definition:**
+
+```bash
+fzi input.txt \
+  --varprefix '$' \
+  --delim '{}' \
+  --format json
+```
+
+**Output (JSON):**
+```json
+{
+  "T_celsius": null,
+  "V_L": null,
+  "n_mol": null
+}
+```
+
+### fzc - Compile Input Files
+
+Substitute variables and create compiled input files:
+
+```bash
+# Basic usage
+fzc input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": 25, "V_L": 10, "n_mol": 1}' \
+  --output compiled/
+
+# Grid of values (creates subdirectories)
+fzc input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": [10, 20, 30], "V_L": [1, 2], "n_mol": 1}' \
+  --output compiled_grid/
+```
+
+**Directory structure created:**
+```
+compiled_grid/
+├── T_celsius=10,V_L=1/
+│   └── input.txt
+├── T_celsius=10,V_L=2/
+│   └── input.txt
+├── T_celsius=20,V_L=1/
+│   └── input.txt
+...
+```
+
+**Using formula evaluation:**
+
+```bash
+# Input file with formulas
+cat > input.txt << 'EOF'
+Temperature: $T_celsius C
+#@ T_kelvin = $T_celsius + 273.15
+Calculated T: @{T_kelvin} K
+EOF
+
+# Compile with formula evaluation
+fzc input.txt \
+  --varprefix '$' \
+  --formulaprefix '@' \
+  --delim '{}' \
+  --commentline '#' \
+  --variables '{"T_celsius": 25}' \
+  --output compiled/
+```
+
+### fzo - Read Output Files
+
+Parse calculation results:
+
+```bash
+# Read single directory
+fzo results/case1/ --model perfectgas --format table
+
+# Read directory with subdirectories
+fzo results/ --model perfectgas --format json
+
+# Different output formats
+fzo results/ --model perfectgas --format csv > results.csv
+fzo results/ --model perfectgas --format html > results.html
+fzo results/ --model perfectgas --format markdown
+```
+
+**Example output:**
+
+```bash
+$ fzo results/ --model perfectgas --format table
+┌─────────────────────────┬──────────┬────────────┬──────┬───────┐
+│ path                    │ pressure │ T_celsius  │ V_L  │ n_mol │
+├─────────────────────────┼──────────┼────────────┼──────┼───────┤
+│ T_celsius=10,V_L=1      │ 235358.1 │ 10         │ 1.0  │ 1.0   │
+│ T_celsius=10,V_L=2      │ 117679.1 │ 10         │ 2.0  │ 1.0   │
+│ T_celsius=20,V_L=1      │ 243730.2 │ 20         │ 1.0  │ 1.0   │
+└─────────────────────────┴──────────┴────────────┴──────┴───────┘
+```
+
+**With inline model definition:**
+
+```bash
+fzo results/ \
+  --output-cmd pressure="grep 'pressure = ' output.txt | awk '{print \$3}'" \
+  --output-cmd temperature="cat temp.txt" \
+  --format json
+```
+
+### fzr - Run Parametric Calculations
+
+Execute complete parametric studies from the command line:
+
+```bash
+# Basic usage
+fzr input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": [10, 20, 30], "V_L": [1, 2], "n_mol": 1}' \
+  --calculator "sh://bash PerfectGazPressure.sh" \
+  --results results/
+
+# Multiple calculators for parallel execution
+fzr input.txt \
+  --model perfectgas \
+  --variables '{"param": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}' \
+  --calculator "sh://bash calc.sh" \
+  --calculator "sh://bash calc.sh" \
+  --calculator "sh://bash calc.sh" \
+  --results results/ \
+  --format table
+```
+
+**Using cache:**
+
+```bash
+# First run
+fzr input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": [10, 20, 30], "V_L": [1, 2]}' \
+  --calculator "sh://bash PerfectGazPressure.sh" \
+  --results run1/
+
+# Resume with cache (only runs missing cases)
+fzr input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": [10, 20, 30, 40], "V_L": [1, 2, 3]}' \
+  --calculator "cache://run1" \
+  --calculator "sh://bash PerfectGazPressure.sh" \
+  --results run2/ \
+  --format table
+```
+
+**Remote SSH execution:**
+
+```bash
+fzr input.txt \
+  --model mymodel \
+  --variables '{"mesh_size": [100, 200, 400]}' \
+  --calculator "ssh://user@cluster.edu/bash /path/to/submit.sh" \
+  --results hpc_results/ \
+  --format json
+```
+
+**Output formats:**
+
+```bash
+# Table (default)
+fzr input.txt --model perfectgas --variables '{"x": [1, 2, 3]}' --calculator "sh://calc.sh"
+
+# JSON
+fzr ... --format json
+
+# CSV
+fzr ... --format csv > results.csv
+
+# Markdown
+fzr ... --format markdown
+
+# HTML
+fzr ... --format html > results.html
+```
+
+### CLI Options Reference
+
+#### Common Options (all commands)
+
+```
+--help, -h                Show help message
+--version                 Show version
+--model MODEL             Model alias or inline definition
+--varprefix PREFIX        Variable prefix (default: $)
+--delim DELIMITERS        Formula delimiters (default: {})
+--formulaprefix PREFIX    Formula prefix (default: @)
+--commentline CHAR        Comment character (default: #)
+--format FORMAT           Output format: json, table, csv, markdown, html
+```
+
+#### Model Definition Options
+
+Instead of using `--model alias`, you can define the model inline:
+
+```bash
+fzr input.txt \
+  --varprefix '$' \
+  --formulaprefix '@' \
+  --delim '{}' \
+  --commentline '#' \
+  --output-cmd pressure="grep 'pressure' output.txt | awk '{print \$2}'" \
+  --output-cmd temp="cat temperature.txt" \
+  --variables '{"x": 10}' \
+  --calculator "sh://bash calc.sh"
+```
+
+#### fzr-Specific Options
+
+```
+--calculator URI          Calculator URI (can be specified multiple times)
+--results DIR             Results directory (default: results)
+```
+
+### Complete CLI Examples
+
+#### Example 1: Quick Variable Discovery
+
+```bash
+# Check what variables are in your input files
+$ fzi simulation_template.txt --varprefix '$' --format table
+┌──────────────┬───────┐
+│ Variable     │ Value │
+├──────────────┼───────┤
+│ mesh_size    │ None  │
+│ timestep     │ None  │
+│ iterations   │ None  │
+└──────────────┴───────┘
+```
+
+#### Example 2: Quick Compilation Test
+
+```bash
+# Test variable substitution
+$ fzc simulation_template.txt \
+  --varprefix '$' \
+  --variables '{"mesh_size": 100, "timestep": 0.01, "iterations": 1000}' \
+  --output test_compiled/
+
+$ cat test_compiled/simulation_template.txt
+# Compiled with mesh_size=100
+mesh_size=100
+timestep=0.01
+iterations=1000
+```
+
+#### Example 3: Parse Existing Results
+
+```bash
+# Extract results from previous calculations
+$ fzo old_results/ \
+  --output-cmd energy="grep 'Total Energy' log.txt | awk '{print \$3}'" \
+  --output-cmd time="grep 'CPU Time' log.txt | awk '{print \$3}'" \
+  --format csv > analysis.csv
+```
+
+#### Example 4: End-to-End Parametric Study
+
+```bash
+#!/bin/bash
+# run_study.sh - Complete parametric study from CLI
+
+# 1. Parse input to verify variables
+echo "Step 1: Parsing input variables..."
+fzi input.txt --model perfectgas --format table
+
+# 2. Run parametric study
+echo -e "\nStep 2: Running calculations..."
+fzr input.txt \
+  --model perfectgas \
+  --variables '{
+    "T_celsius": [10, 20, 30, 40, 50],
+    "V_L": [1, 2, 5, 10],
+    "n_mol": 1
+  }' \
+  --calculator "sh://bash PerfectGazPressure.sh" \
+  --calculator "sh://bash PerfectGazPressure.sh" \
+  --results results/ \
+  --format table
+
+# 3. Export results to CSV
+echo -e "\nStep 3: Exporting results..."
+fzo results/ --model perfectgas --format csv > results.csv
+echo "Results saved to results.csv"
+```
+
+#### Example 5: Using Model and Calculator Aliases
+
+First, create model and calculator configurations:
+
+```bash
+# Create model alias
+mkdir -p .fz/models
+cat > .fz/models/perfectgas.json << 'EOF'
+{
+  "varprefix": "$",
+  "formulaprefix": "@",
+  "delim": "{}",
+  "commentline": "#",
+  "output": {
+    "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
+  },
+  "id": "perfectgas"
+}
+EOF
+
+# Create calculator alias
+mkdir -p .fz/calculators
+cat > .fz/calculators/local.json << 'EOF'
+{
+  "uri": "sh://",
+  "models": {
+    "perfectgas": "bash PerfectGazPressure.sh"
+  }
+}
+EOF
+
+# Now run with short aliases
+fzr input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": [10, 20, 30], "V_L": [1, 2]}' \
+  --calculator local \
+  --results results/ \
+  --format table
+```
+
+#### Example 6: Interrupt and Resume
+
+```bash
+# Start long-running calculation
+fzr input.txt \
+  --model mymodel \
+  --variables '{"param": [1..100]}' \
+  --calculator "sh://bash slow_calc.sh" \
+  --results run1/
+# Press Ctrl+C after some cases complete...
+# ⚠️  Interrupt received (Ctrl+C). Gracefully shutting down...
+# ⚠️  Execution was interrupted. Partial results may be available.
+
+# Resume from cache
+fzr input.txt \
+  --model mymodel \
+  --variables '{"param": [1..100]}' \
+  --calculator "cache://run1" \
+  --calculator "sh://bash slow_calc.sh" \
+  --results run1_resumed/ \
+  --format table
+# Only runs the remaining cases
+```
+
+### Environment Variables for CLI
+
+```bash
+# Set logging level
+export FZ_LOG_LEVEL=DEBUG
+fzr input.txt --model perfectgas ...
+
+# Set maximum parallel workers
+export FZ_MAX_WORKERS=4
+fzr input.txt --model perfectgas --calculator "sh://calc.sh" ...
+
+# Set retry attempts
+export FZ_MAX_RETRIES=3
+fzr input.txt --model perfectgas ...
+
+# SSH configuration
+export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1  # Use with caution
+export FZ_SSH_KEEPALIVE=300
+fzr input.txt --calculator "ssh://user@host/bash calc.sh" ...
+```
+
 ## Core Functions
 
 ### fzi - Parse Input Variables
@@ -169,7 +594,7 @@ import fz
 
 model = {
     "varprefix": "$",
-    "delim": "()"
+    "delim": "{}"
 }
 
 # Parse single file
@@ -192,7 +617,7 @@ import fz
 model = {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#"
 }
 
@@ -321,7 +746,7 @@ model = {
     # Input parsing
     "varprefix": "$",           # Variable marker (e.g., $temp)
     "formulaprefix": "@",       # Formula marker (e.g., @pressure)
-    "delim": "()",              # Formula delimiters
+    "delim": "{}",              # Formula delimiters
     "commentline": "#",         # Comment character
 
     # Output extraction (shell commands)
@@ -345,7 +770,7 @@ Store reusable models in `.fz/models/`:
 {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
@@ -377,7 +802,7 @@ Volume: $V_L L
 #@T_kelvin = celsius_to_kelvin($T_celsius)
 #@pressure = $n_mol * R * T_kelvin / ($V_L / 1000)
 
-Result: @(pressure) Pa
+Result: @{pressure} Pa
 ```
 
 **Features**:
@@ -614,10 +1039,10 @@ results = fz.fzo("output_dir", model)
 ```text
 # input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
 n_mol=$n_mol
-T_kelvin=@($T_celsius + 273.15)
+T_kelvin=@{$T_celsius + 273.15}
 #@ def L_to_m3(L):
 #@     return(L / 1000)
-V_m3=@(L_to_m3($V_L))
+V_m3=@{L_to_m3($V_L)}
 ```
 
 **Calculation script (`PerfectGazPressure.sh`)**:
@@ -643,7 +1068,7 @@ import matplotlib.pyplot as plt
 model = {
     "varprefix": "$",
     "formulaprefix": "@",
-    "delim": "()",
+    "delim": "{}",
     "commentline": "#",
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
