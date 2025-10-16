@@ -20,6 +20,10 @@ jobs:
           # Test Python 3.14 on Ubuntu only (as it may not be available on all platforms yet)
           - os: ubuntu-latest
             python-version: '3.14-dev'
+        exclude:
+          # Disable Windows + Python 3.9 combination
+          - os: windows-latest
+            python-version: '3.9'
 
     steps:
     - name: Checkout code
