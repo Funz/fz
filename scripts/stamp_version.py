@@ -84,7 +84,7 @@ __commit_hash__ = "{commit_hash}"
     try:
         with open(version_file, 'w') as f:
             f.write(content)
-        print(f"✓ Stamped version information:")
+        print(f"Stamped version information:")
         print(f"  Version: {version}")
         print(f"  Commit date: {commit_date}")
         print(f"  Commit hash: {commit_hash}")
