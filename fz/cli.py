@@ -19,9 +19,14 @@ from . import fzi as fzi_func, fzc as fzc_func, fzo as fzo_func, fzr as fzr_func
 def get_version():
     """Get the package version"""
     try:
-        return version("fz")
+        # Try the new package name first
+        return version("funz-fz")
     except Exception:
-        return "unknown"
+        try:
+            # Fallback to old package name for backward compatibility
+            return version("fz")
+        except Exception:
+            return "unknown"
 
 
 # Helper functions used by all CLI commands
