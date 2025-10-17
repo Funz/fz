@@ -42,10 +42,24 @@ A powerful Python package for parametric simulations and computational experimen
 
 1. **`fzi`** - Parse **I**nput files to identify variables
 2. **`fzc`** - **C**ompile input files by substituting variable values
-3. **`fzo`** - Read and parse **O**utput files from calculations
+3. **`fzo`** - Parse **O**utput files from calculations
 4. **`fzr`** - **R**un complete parametric calculations end-to-end
 
 ## Installation
+
+### Using pip
+
+```bash
+pip install funz-fz
+```
+
+### Using pipx (recommended for CLI tools)
+
+```bash
+pipx install funz-fz
+```
+
+[pipx](https://pypa.github.io/pipx/) installs the package in an isolated environment while making the CLI commands (`fz`, `fzi`, `fzc`, `fzo`, `fzr`) available globally.
 
 ### From Source
 
@@ -53,6 +67,12 @@ A powerful Python package for parametric simulations and computational experimen
 git clone https://github.com/Funz/fz.git
 cd fz
 pip install -e .
+```
+
+Or straight from GitHub via pip:
+
+```bash
+pip install -e git+https://github.com/Funz/fz.git
 ```
 
 ### Dependencies

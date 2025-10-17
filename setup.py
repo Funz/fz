@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="fz",
+    name="funz-fz",
     version="0.9.0",
     description="Parametric scientific computing framework",
     long_description=long_description,
