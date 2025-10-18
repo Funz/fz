@@ -146,13 +146,14 @@ class TestDataFrameWithFzr:
         self.input_file = self.test_path / "input.txt"
         self.input_file.write_text("x=$x\ny=$y\nsum=@{$x + $y}\n")
 
-        # Create simple calculator script that extracts sum from input.txt
-        # The formula @{$x + $y} is already evaluated by fz, so we just extract it
-        # Using only basic commands available on all platforms
+        # Create simple calculator script that reads from input.txt and computes result
+        # Use source and bash arithmetic like test_fzo_fzr_coherence.py does
         self.calc_script = self.test_path / "calc.sh"
         with open(self.calc_script, "w", newline='\n') as f:
-            # Read sum value and write as result (simple, portable approach)
-            f.write('#!/bin/bash\nsum=$(grep "^sum=" input.txt | cut -d= -f2)\necho "result: $sum" > output.txt\n')
+            f.write('#!/bin/bash\n')
+            f.write('source input.txt\n')
+            f.write('result=$((x + y))\n')
+            f.write('echo "result = $result" > output.txt\n')
         self.calc_script.chmod(0o755)
 
     def teardown_method(self):
@@ -172,7 +173,7 @@ class TestDataFrameWithFzr:
             "delim": "{}",
             "commentline": "#",
             "output": {
-                "result": "grep 'result:' output.txt | cut -d: -f2 | tr -d ' '"
+                "result": "grep 'result = ' output.txt | cut -d '=' -f2"
             }
         }
 
@@ -202,7 +203,7 @@ class TestDataFrameWithFzr:
             "delim": "{}",
             "commentline": "#",
             "output": {
-                "result": "grep 'result:' output.txt | cut -d: -f2 | tr -d ' '"
+                "result": "grep 'result = ' output.txt | cut -d '=' -f2"
             }
         }
 
@@ -258,7 +259,7 @@ class TestDataFrameWithFzr:
             "delim": "{}",
             "commentline": "#",
             "output": {
-                "result": "grep 'result:' output.txt | cut -d: -f2 | tr -d ' '"
+                "result": "grep 'result = ' output.txt | cut -d '=' -f2"
             }
         }
 
