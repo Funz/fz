@@ -4,7 +4,55 @@ This example demonstrates how to use the R interpreter in the fz package using t
 
 ## Installation
 
-First, install the R interpreter support:
+### System Requirements
+
+Before installing rpy2, you need to have R installed along with required system libraries.
+
+#### 1. Install R
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install r-base r-base-dev
+
+# macOS
+brew install r
+
+# Windows
+# Download and install from https://cran.r-project.org/bin/windows/base/
+```
+
+#### 2. Install System Dependencies
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install -y \
+    libpcre2-dev \
+    libdeflate-dev \
+    libzstd-dev \
+    liblzma-dev \
+    libtirpc-dev \
+    libbz2-dev \
+    libcurl4-openssl-dev \
+    libreadline-dev
+```
+
+**macOS:**
+```bash
+# Most dependencies are included with R from Homebrew
+# If you encounter issues, you may need:
+brew install pcre2 zstd xz bzip2
+```
+
+**Windows:**
+```bash
+# For Windows, install Rtools which includes necessary build tools
+# Download from: https://cran.r-project.org/bin/windows/Rtools/
+```
+
+#### 3. Install Python Package
+
+After installing R and system dependencies:
 
 ```bash
 pip install funz-fz[r]
@@ -166,6 +214,8 @@ Note: R has `pi` as a built-in constant, while Python requires importing `math.p
 
 ## Troubleshooting
 
+### rpy2 Not Installed
+
 If you get an error about rpy2 not being installed:
 
 ```
@@ -180,15 +230,77 @@ pip install rpy2
 pip install funz-fz[r]
 ```
 
-For issues with R installation itself, make sure R is installed on your system:
+### rpy2 Installation Fails
 
-```bash
-# Ubuntu/Debian
-sudo apt-get install r-base r-base-dev
+If `pip install rpy2` fails with compilation errors, you're likely missing system dependencies.
 
-# macOS
-brew install r
+**Common Error Messages:**
 
-# Windows
-# Download from https://cran.r-project.org/bin/windows/base/
+1. **"R_HOME not defined"**
+   ```bash
+   # Find R installation
+   which R
+   R RHOME
+
+   # Set R_HOME environment variable
+   export R_HOME=$(R RHOME)
+   ```
+
+2. **"fatal error: pcre2.h: No such file or directory"**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install libpcre2-dev
+
+   # macOS
+   brew install pcre2
+   ```
+
+3. **Missing compression libraries**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install libzstd-dev liblzma-dev libbz2-dev libdeflate-dev
+
+   # macOS
+   brew install zstd xz bzip2
+   ```
+
+4. **"fatal error: tirpc/netconfig.h: No such file or directory"**
+   ```bash
+   # Ubuntu/Debian only
+   sudo apt-get install libtirpc-dev
+   ```
+
+### Testing Installation
+
+To verify rpy2 is working correctly:
+
+```python
+import rpy2.robjects as robjects
+
+# Test basic R functionality
+result = robjects.r('2 + 2')
+print(result[0])  # Should print 4.0
+
+# Test with fz
+from fz.interpreter import evaluate_formulas
+
+content = "Result: @{2 + 2}"
+model = {"formulaprefix": "@", "delim": "{}", "commentline": "#"}
+result = evaluate_formulas(content, model, {}, interpreter="R")
+print(result)  # Should print "Result: 4"
 ```
+
+### Platform-Specific Notes
+
+**Ubuntu/Debian:**
+- Requires both `-dev` packages for compilation
+- `libtirpc-dev` is specific to Linux systems
+
+**macOS:**
+- Homebrew's R includes most dependencies
+- May need Xcode Command Line Tools: `xcode-select --install`
+
+**Windows:**
+- Install Rtools before attempting to install rpy2
+- Ensure R and Rtools are in your system PATH
+- Some features may require additional configuration

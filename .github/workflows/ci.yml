@@ -54,6 +54,32 @@ jobs:
         # Install Git Bash which includes basic Unix tools
         choco install git -y
 
+    - name: Install R and dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install -y \
+          r-base \
+          r-base-dev \
+          libpcre2-dev \
+          libdeflate-dev \
+          libzstd-dev \
+          liblzma-dev \
+          libtirpc-dev \
+          libbz2-dev \
+          libcurl4-openssl-dev \
+          libreadline-dev
+
+    - name: Install R (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install r
+
+    - name: Install R (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        choco install r.project -y
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
@@ -61,6 +87,7 @@ jobs:
         pip install pandas
         pip install pytest pytest-cov
         pip install getpass4
+        pip install rpy2
         
     - name: Setup SSH server (Linux only)
       if: runner.os == 'Linux'
