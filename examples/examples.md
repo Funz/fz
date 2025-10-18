@@ -532,3 +532,30 @@ fz.fzr("input.txt",
     "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
 }, calculators=["sh://bash ./PerfectGazPressure.sh"]*3, results_dir="results")
 ```
+
+# R interpreter example
+
+input_r.txt:
+```bash
+echo '#!/bin/bash
+# input file for Perfect Gaz Pressure, with variables n_mol, T_celsius, V_L
+n_mol=$n_mol
+T_kelvin=@{$T_celsius + 273.15}
+#@ function L_to_m3(L) {
+#@     return(L / 1000)
+#@ }
+V_m3=@{L_to_m3($V_L)}' > input_r.txt
+```
+
+```python
+fz.set_interpreter("R")
+fz.fzi("input_r.txt",
+{
+    "varprefix": "$",
+    "formulaprefix": "@",
+    "delim": "{}",
+    "commentline": "#",
+    "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+})
+```
+
