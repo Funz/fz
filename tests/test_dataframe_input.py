@@ -147,7 +147,15 @@ class TestDataFrameWithFzr:
 
         # Create simple calculator script
         self.calc_script = self.test_path / "calc.sh"
-        self.calc_script.write_text("""#!/bin/bash
+#        self.calc_script.write_text("""#!/bin/bash
+## Read input
+#source input.txt
+## Calculate result
+#result=$((x + y))
+#echo "result: $result" > output.txt
+#""")
+        with open(self.calc_script, "w", newline='\n') as f:
+            f.write("""#!/bin/bash
 # Read input
 source input.txt
 # Calculate result
