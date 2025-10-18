@@ -1,0 +1,19 @@
+# R Interpreter Test File - With Context
+# This file tests context lines (function definitions) in R
+
+#@cylinder_volume <- function(r, h) {
+#@    pi * r^2 * h
+#@}
+#@
+#@cylinder_surface_area <- function(r, h) {
+#@    2 * pi * r * (r + h)
+#@}
+
+Cylinder Parameters:
+- Radius: $radius
+- Height: $height
+
+Calculations using functions:
+- Volume: @{cylinder_volume(radius, height)}
+- Surface Area: @{cylinder_surface_area(radius, height)}
+- Volume/Area Ratio: @{cylinder_volume(radius, height) / cylinder_surface_area(radius, height)}

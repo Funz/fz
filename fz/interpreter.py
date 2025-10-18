@@ -226,6 +226,91 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
 
         content = re.sub(formula_pattern, replace_formula, content)
 
+    elif interpreter.lower() == "r":
+        # R interpreter using rpy2
+        try:
+            from rpy2 import robjects
+            from rpy2.robjects import r
+        except ImportError:
+            print("Warning: rpy2 package not installed. Install with: pip install rpy2")
+            print("Skipping formula evaluation")
+            return content
+
+        # Create R environment with variable values
+        for var, val in input_variables.items():
+            try:
+                # Convert Python values to R
+                if isinstance(val, (int, float)):
+                    robjects.globalenv[var] = val
+                elif isinstance(val, str):
+                    robjects.globalenv[var] = val
+                elif isinstance(val, (list, tuple)):
+                    robjects.globalenv[var] = robjects.FloatVector(val)
+                else:
+                    robjects.globalenv[var] = str(val)
+            except Exception as e:
+                print(f"Warning: Error setting R variable '{var}': {e}")
+
+        # Execute context lines (function definitions, imports, etc.)
+        if context_lines:
+            # Find minimum indentation for proper dedenting
+            non_empty_lines = [line for line in context_lines if line.strip()]
+            if non_empty_lines:
+                min_indent = min(len(line) - len(line.lstrip()) for line in non_empty_lines if line.strip())
+                dedented_lines = []
+                for line in context_lines:
+                    if line.strip():  # Non-empty line
+                        dedented_lines.append(line[min_indent:] if len(line) > min_indent else line.lstrip())
+                    else:  # Empty line
+                        dedented_lines.append("")
+
+                full_context = "\n".join(dedented_lines)
+                try:
+                    r(full_context)
+                except Exception as e:
+                    print(f"Warning: Error executing R context: {e}")
+                    # Try line by line if full context fails
+                    for context_line in dedented_lines:
+                        if context_line.strip():
+                            try:
+                                r(context_line)
+                            except Exception as e:
+                                print(f"Warning: Error executing R context line '{context_line}': {e}")
+
+        # Find and evaluate formulas
+        esc_formulaprefix = re.escape(formulaprefix)
+        esc_left = re.escape(left_delim)
+        esc_right = re.escape(right_delim)
+
+        # Use a more sophisticated pattern to handle nested parentheses
+        if left_delim == '(' and right_delim == ')':
+            formula_pattern = rf"{esc_formulaprefix}\(([^()]*(?:\([^()]*\)[^()]*)*)\)"
+        else:
+            formula_pattern = rf"{esc_formulaprefix}{esc_left}([^{esc_right}]+){esc_right}"
+
+        def replace_formula(match):
+            formula = match.group(1)
+            try:
+                # Replace variables in formula with their values (R uses variable names directly)
+                # So we just remove the $ prefix for R
+                r_formula = formula
+                for var in input_variables.keys():
+                    var_pattern = rf'\${re.escape(var)}\b'
+                    r_formula = re.sub(var_pattern, var, r_formula)
+
+                # Evaluate using R
+                result = r(r_formula)
+                # Convert R result to Python
+                if hasattr(result, '__len__') and len(result) == 1:
+                    return str(result[0])
+                else:
+                    return str(result[0]) if len(result) > 0 else str(result)
+            except Exception as e:
+                print(f"Warning: Error evaluating R formula '{formula}': {e}")
+                return match.group(0)  # Return original if evaluation fails
+
+        content = re.sub(formula_pattern, replace_formula, content)
+
     else:
         # For other interpreters, we'd need to implement support
         print(f"Warning: Interpreter '{interpreter}' not yet implemented, skipping formula evaluation")

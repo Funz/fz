@@ -1,0 +1,29 @@
+# R Interpreter Test File - Statistical Functions
+# Tests R's statistical capabilities
+
+#@# Create sample data
+#@set.seed($seed)
+#@data <- rnorm($n, mean=$mean, sd=$sd)
+#@
+#@# Statistical summary function
+#@stats_summary <- function(x) {
+#@    sprintf("mean=%.2f, sd=%.2f, median=%.2f",
+#@            mean(x), sd(x), median(x))
+#@}
+
+Random Sample Configuration:
+- Sample size (n): $n
+- Mean: $mean
+- Standard deviation: $sd
+- Random seed: $seed
+
+Statistical Summary: @{stats_summary(data)}
+
+Detailed Statistics:
+- Mean: @{mean(data)}
+- Median: @{median(data)}
+- Standard Deviation: @{sd(data)}
+- Variance: @{var(data)}
+- Min: @{min(data)}
+- Max: @{max(data)}
+- Range: @{max(data) - min(data)}

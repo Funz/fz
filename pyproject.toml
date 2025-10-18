@@ -38,6 +38,9 @@ dev = [
     "black",
     "flake8",
 ]
+r = [
+    "rpy2>=3.4.0",
+]
 
 [project.urls]
 "Bug Reports" = "https://github.com/funz/fz/issues"

@@ -1,0 +1,12 @@
+# Python Interpreter Test File - Simple
+# This file tests basic variable substitution and formulas
+
+Input Parameters:
+- Radius: $radius
+- Height: $height
+
+Calculated Values:
+- Diameter: @{2 * $radius}
+- Circumference: @{2 * 3.14159 * $radius}
+- Area: @{3.14159 * $radius ** 2}
+- Volume: @{3.14159 * $radius ** 2 * $height}

@@ -27,6 +27,9 @@ setup(
         "pandas": [
             "pandas>=1.0.0",
         ],
+        "r": [
+            "rpy2>=3.4.0",
+        ],
     },
     entry_points={
         "console_scripts": [

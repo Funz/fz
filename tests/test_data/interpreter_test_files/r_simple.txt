@@ -1,0 +1,12 @@
+# R Interpreter Test File - Simple
+# This file tests basic variable substitution and formulas in R
+
+Input Parameters:
+- Radius: $radius
+- Height: $height
+
+Calculated Values:
+- Diameter: @{2 * radius}
+- Circumference: @{2 * pi * radius}
+- Area: @{pi * radius^2}
+- Volume: @{pi * radius^2 * height}

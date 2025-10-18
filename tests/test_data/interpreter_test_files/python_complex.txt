@@ -1,0 +1,26 @@
+# Python Interpreter Test File - Complex
+# Tests multiple variables, nested formulas, and mathematical operations
+
+#@import math
+#@def quadratic_formula(a, b, c):
+#@    discriminant = b**2 - 4*a*c
+#@    if discriminant < 0:
+#@        return "No real solutions"
+#@    x1 = (-b + math.sqrt(discriminant)) / (2*a)
+#@    x2 = (-b - math.sqrt(discriminant)) / (2*a)
+#@    return f"{x1:.4f}, {x2:.4f}"
+
+Quadratic Equation: ${a}x² + ${b}x + ${c} = 0
+
+Coefficients:
+a = $a
+b = $b
+c = $c
+
+Discriminant: @{($b)**2 - 4*$a*$c}
+Solutions: @{quadratic_formula($a, $b, $c)}
+
+Additional Calculations:
+Sum: @{$a + $b + $c}
+Product: @{$a * $b * $c}
+Average: @{($a + $b + $c) / 3}
