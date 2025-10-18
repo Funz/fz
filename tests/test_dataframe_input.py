@@ -142,26 +142,17 @@ class TestDataFrameWithFzr:
         self.test_path = Path(self.test_dir)
 
         # Create input template
+        # The sum formula will be evaluated by fz, so the result is already in input.txt
         self.input_file = self.test_path / "input.txt"
         self.input_file.write_text("x=$x\ny=$y\nsum=@{$x + $y}\n")
 
-        # Create simple calculator script
+        # Create simple calculator script that extracts sum from input.txt
+        # The formula @{$x + $y} is already evaluated by fz, so we just extract it
+        # Using only basic commands available on all platforms
         self.calc_script = self.test_path / "calc.sh"
-#        self.calc_script.write_text("""#!/bin/bash
-## Read input
-#source input.txt
-## Calculate result
-#result=$((x + y))
-#echo "result: $result" > output.txt
-#""")
         with open(self.calc_script, "w", newline='\n') as f:
-            f.write("""#!/bin/bash
-# Read input
-source input.txt
-# Calculate result
-result=$((x + y))
-echo "result: $result" > output.txt
-""")
+            # Read sum value and write as result (simple, portable approach)
+            f.write('#!/bin/bash\nsum=$(grep "^sum=" input.txt | cut -d= -f2)\necho "result: $sum" > output.txt\n')
         self.calc_script.chmod(0o755)
 
     def teardown_method(self):
@@ -181,7 +172,7 @@ echo "result: $result" > output.txt
             "delim": "{}",
             "commentline": "#",
             "output": {
-                "result": "grep 'result:' output.txt | awk '{print $2}'"
+                "result": "grep 'result:' output.txt | cut -d: -f2 | tr -d ' '"
             }
         }
 
@@ -211,7 +202,7 @@ echo "result: $result" > output.txt
             "delim": "{}",
             "commentline": "#",
             "output": {
-                "result": "grep 'result:' output.txt | awk '{print $2}'"
+                "result": "grep 'result:' output.txt | cut -d: -f2 | tr -d ' '"
             }
         }
 
@@ -267,7 +258,7 @@ echo "result: $result" > output.txt
             "delim": "{}",
             "commentline": "#",
             "output": {
-                "result": "grep 'result:' output.txt | awk '{print $2}'"
+                "result": "grep 'result:' output.txt | cut -d: -f2 | tr -d ' '"
             }
         }
 
