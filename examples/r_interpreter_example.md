@@ -155,6 +155,32 @@ Variables in the content are replaced using the pattern `$variable` or `${variab
 
 - `$x` - Simple variable reference
 - `${x}` - Delimited variable reference (useful when followed by alphanumeric characters)
+- `${x~default}` - Variable with default value (new in v0.9.1)
+
+### Default Values
+
+You can specify default values for variables using the `~` separator:
+
+```
+Port: ${port~8080}
+Host: ${host~localhost}
+Debug: ${debug~false}
+```
+
+**Behavior:**
+- If the variable is provided in `input_variables`, its value is used
+- If the variable is NOT provided but has a default, the default value is used and a warning is printed
+- If the variable is NOT provided and has NO default, it remains unchanged (e.g., `${port}`)
+
+**Example:**
+```python
+content = "Server: ${host~localhost}:${port~8080}"
+input_variables = {"host": "example.com"}  # port not provided
+
+result = replace_variables_in_content(content, input_variables)
+# Result: "Server: example.com:8080"
+# Warning: Variable 'port' not found in input_variables, using default value: '8080'
+```
 
 In formulas, variables are converted from Python to R automatically:
 - Numbers (int, float) → R numeric
