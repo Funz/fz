@@ -12,6 +12,13 @@ from typing import Dict, List, Tuple, Union, Any, Optional
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# Optional pandas import for DataFrame support
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+
 from .logging import log_debug, log_info, log_warning, log_error, log_progress, get_log_level, LogLevel
 from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
@@ -119,30 +126,57 @@ def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, res
     return tmp_dir, result_dir, case_name
 
 
-def generate_variable_combinations(input_variables: Dict) -> List[Dict]:
+def generate_variable_combinations(input_variables: Union[Dict, Any]) -> List[Dict]:
     """
     Generate variable combinations from input variables
-    
-    Converts input variables dict into a list of variable combinations.
-    If any value is a list, generates the cartesian product of all variables.
-    Single values are treated as single-element lists.
-    
+
+    Supports two input formats:
+    1. Dict: Creates Cartesian product (full factorial design)
+       - If any value is a list, generates the cartesian product of all variables
+       - Single values are treated as single-element lists
+
+    2. DataFrame: Non-factorial design
+       - Each row represents one case
+       - Column names become variable names
+       - Allows arbitrary combinations of values
+
     Args:
-        input_variables: Dict of variable values or lists of values
-        
+        input_variables: Dict of variable values/lists OR pandas DataFrame
+
     Returns:
         List of variable combination dicts
-        
-    Example:
-        >>> generate_variable_combinations({"x": [1, 2], "y": 3})
-        [{"x": 1, "y": 3}, {"x": 2, "y": 3}]
-        
+
+    Examples:
+        Dict (factorial design):
+        >>> generate_variable_combinations({"x": [1, 2], "y": [3, 4]})
+        [{"x": 1, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 3}, {"x": 2, "y": 4}]
+
         >>> generate_variable_combinations({"x": 1, "y": 2})
         [{"x": 1, "y": 2}]
+
+        DataFrame (non-factorial design):
+        >>> df = pd.DataFrame({"x": [1, 2, 3], "y": [10, 10, 20]})
+        >>> generate_variable_combinations(df)
+        [{"x": 1, "y": 10}, {"x": 2, "y": 10}, {"x": 3, "y": 20}]
     """
+    # Check if input is a pandas DataFrame
+    if HAS_PANDAS and isinstance(input_variables, pd.DataFrame):
+        # Each row is one case (non-factorial design)
+        var_combinations = []
+        for _, row in input_variables.iterrows():
+            var_combinations.append(row.to_dict())
+
+        log_info(f"📊 DataFrame input detected: {len(var_combinations)} cases (non-factorial design)")
+        return var_combinations
+
+    # Original dict behavior (factorial design)
+    if not isinstance(input_variables, dict):
+        # If not dict and not DataFrame, raise error
+        raise TypeError(f"input_variables must be a dict or pandas DataFrame, got {type(input_variables)}")
+
     var_names = list(input_variables.keys())
     has_lists = any(isinstance(v, list) for v in input_variables.values())
-    
+
     if has_lists:
         list_values = []
         for var in var_names:
@@ -151,13 +185,13 @@ def generate_variable_combinations(input_variables: Dict) -> List[Dict]:
                 list_values.append(val)
             else:
                 list_values.append([val])
-        
+
         var_combinations = [
             dict(zip(var_names, combo)) for combo in itertools.product(*list_values)
         ]
     else:
         var_combinations = [input_variables]
-    
+
     return var_combinations
 
 
