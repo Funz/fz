@@ -28,12 +28,12 @@ A powerful Python package for parametric simulations and computational experimen
 
 ### Core Capabilities
 
-- **🔄 Parametric Studies**: Automatically generate and run all combinations of parameter values (Cartesian product)
+- **🔄 Parametric Studies**: Factorial designs (dict with Cartesian product) or non-factorial designs (DataFrame with specific cases)
 - **⚡ Parallel Execution**: Run multiple cases concurrently across multiple calculators with automatic load balancing
 - **💾 Smart Caching**: Reuse previous calculation results based on input file hashes to avoid redundant computations
 - **🔁 Retry Mechanism**: Automatically retry failed calculations with alternative calculators
 - **🌐 Remote Execution**: Execute calculations on remote servers via SSH with automatic file transfer
-- **📊 DataFrame Output**: Results returned as pandas DataFrames with automatic type casting and variable extraction
+- **📊 DataFrame I/O**: Input and output using pandas DataFrames with automatic type casting and variable extraction
 - **🛑 Interrupt Handling**: Gracefully stop long-running calculations with Ctrl+C while preserving partial results
 - **🔍 Formula Evaluation**: Support for calculated parameters using Python or R expressions
 - **📁 Directory Management**: Automatic organization of inputs, outputs, and logs for each case
@@ -767,12 +767,85 @@ print(results)
 
 **Parameters**:
 - `input_path`: Input file or directory path
-- `input_variables`: Variable values (creates Cartesian product of lists)
+- `input_variables`: Variable values - dict (factorial) or DataFrame (non-factorial)
 - `model`: Model definition (dict or alias)
 - `calculators`: Calculator URI(s) - string or list
 - `results_dir`: Results directory path
 
 **Returns**: pandas DataFrame with all results
+
+### Input Variables: Factorial vs Non-Factorial Designs
+
+FZ supports two types of parametric study designs through different `input_variables` formats:
+
+#### Factorial Design (Dict)
+
+Use a **dict** to create a full factorial design (Cartesian product of all variable values):
+
+```python
+# Dict with lists creates ALL combinations (factorial)
+input_variables = {
+    "temp": [100, 200, 300],      # 3 values
+    "pressure": [1.0, 2.0]         # 2 values
+}
+# Creates 6 cases: 3 × 2 = 6
+# (100,1.0), (100,2.0), (200,1.0), (200,2.0), (300,1.0), (300,2.0)
+
+results = fz.fzr(input_file, input_variables, model, calculators)
+```
+
+**Use factorial design when:**
+- You want to explore all possible combinations
+- Variables are independent
+- You need a complete design space exploration
+
+#### Non-Factorial Design (DataFrame)
+
+Use a **pandas DataFrame** to specify exactly which cases to run (non-factorial):
+
+```python
+import pandas as pd
+
+# DataFrame: each row is ONE case (non-factorial)
+input_variables = pd.DataFrame({
+    "temp":     [100, 200, 100, 300],
+    "pressure": [1.0, 1.0, 2.0, 1.5]
+})
+# Creates 4 cases ONLY:
+# (100,1.0), (200,1.0), (100,2.0), (300,1.5)
+# Note: (100,2.0) is included but (200,2.0) is not
+
+results = fz.fzr(input_file, input_variables, model, calculators)
+```
+
+**Use non-factorial design when:**
+- You have specific combinations to test
+- Variables are coupled or have constraints
+- You want to import a design from another tool
+- You need an irregular or optimized sampling pattern
+
+**Examples of non-factorial patterns:**
+```python
+# Latin Hypercube Sampling
+import pandas as pd
+from scipy.stats import qmc
+
+sampler = qmc.LatinHypercube(d=2)
+sample = sampler.random(n=10)
+input_variables = pd.DataFrame({
+    "x": sample[:, 0] * 100,  # Scale to [0, 100]
+    "y": sample[:, 1] * 10    # Scale to [0, 10]
+})
+
+# Constraint-based design (only valid combinations)
+input_variables = pd.DataFrame({
+    "rpm": [1000, 1500, 2000, 2500],
+    "load": [10, 20, 40, 50]  # load increases with rpm
+})
+
+# Imported from design of experiments tool
+input_variables = pd.read_csv("doe_design.csv")
+```
 
 ## Model Definition
 
