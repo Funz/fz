@@ -11,6 +11,7 @@ from typing import Dict, List, Union, Any, Set
 def parse_variables_from_content(content: str, varprefix: str = "$", delim: str = "{}") -> Set[str]:
     """
     Parse variables from text content using specified prefix and delimiters
+    Supports default value syntax: ${var~default}
 
     Args:
         content: Text content to parse
@@ -18,18 +19,19 @@ def parse_variables_from_content(content: str, varprefix: str = "$", delim: str 
         delim: Delimiter characters (e.g., "{}")
 
     Returns:
-        Set of variable names found
+        Set of variable names found (without default values)
     """
     variables = set()
 
-    # Pattern to match variables: varprefix + optional delim + varname + optional delim
+    # Pattern to match variables: varprefix + optional delim + varname + optional default + optional delim
     if len(delim) == 2:
         left_delim, right_delim = delim[0], delim[1]
         # Escape special regex characters
         esc_varprefix = re.escape(varprefix)
         esc_left = re.escape(left_delim)
         esc_right = re.escape(right_delim)
-        pattern = rf"{esc_varprefix}(?:{esc_left}([a-zA-Z_][a-zA-Z0-9_]*){esc_right}|([a-zA-Z_][a-zA-Z0-9_]*))"
+        # Match ${var~default} or ${var} or $var
+        pattern = rf"{esc_varprefix}(?:{esc_left}([a-zA-Z_][a-zA-Z0-9_]*)(?:~[^{esc_right}]*)?{esc_right}|([a-zA-Z_][a-zA-Z0-9_]*))"
     else:
         esc_varprefix = re.escape(varprefix)
         pattern = rf"{esc_varprefix}([a-zA-Z_][a-zA-Z0-9_]*)"
@@ -98,6 +100,10 @@ def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
                                 varprefix: str = "$", delim: str = "{}") -> str:
     """
     Replace variables in content with their values
+    Supports default value syntax: ${var~default}
+
+    If a variable is not found in input_variables but has a default value,
+    the default will be used and a warning will be printed.
 
     Args:
         content: Text content to process
@@ -108,25 +114,38 @@ def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
     Returns:
         Content with variables replaced
     """
-    # Replace variables
     if len(delim) == 2:
         left_delim, right_delim = delim[0], delim[1]
+        esc_varprefix = re.escape(varprefix)
+        esc_left = re.escape(left_delim)
+        esc_right = re.escape(right_delim)
+
+        # Pattern to match ${var~default} or ${var} or $var
+        # First handle delimited variables (with or without defaults)
+        delim_pattern = rf"{esc_varprefix}{esc_left}([a-zA-Z_][a-zA-Z0-9_]*)(?:~([^{esc_right}]*))?{esc_right}"
+
+        def replace_delimited(match):
+            var_name = match.group(1)
+            default_value = match.group(2)  # None if no default provided
+
+            if var_name in input_variables:
+                return str(input_variables[var_name])
+            elif default_value is not None:
+                print(f"Warning: Variable '{var_name}' not found in input_variables, using default value: '{default_value}'")
+                return default_value
+            else:
+                # Variable not found and no default, leave unchanged
+                return match.group(0)
+
+        content = re.sub(delim_pattern, replace_delimited, content)
+
+        # Then handle simple prefix-only variables (no defaults possible here)
         for var, val in input_variables.items():
-            # Pattern for delimited variables: $var or ${var}
-            esc_varprefix = re.escape(varprefix)
             esc_var = re.escape(var)
-            esc_left = re.escape(left_delim)
-            esc_right = re.escape(right_delim)
-
-            patterns = [
-                rf"{esc_varprefix}{esc_left}{esc_var}{esc_right}",
-                rf"{esc_varprefix}{esc_var}\b"
-            ]
-
-            for pattern in patterns:
-                content = re.sub(pattern, str(val), content)
+            simple_pattern = rf"{esc_varprefix}{esc_var}\b"
+            content = re.sub(simple_pattern, str(val), content)
     else:
-        # Simple prefix-only variables
+        # Simple prefix-only variables (no default value support)
         for var, val in input_variables.items():
             esc_varprefix = re.escape(varprefix)
             esc_var = re.escape(var)
