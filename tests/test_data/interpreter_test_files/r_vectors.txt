@@ -1,0 +1,21 @@
+# R Interpreter Test File - Vector Operations
+# Tests R's vector operations and sequence functions
+
+#@# Create sequences and vectors
+#@x <- seq(1, $max_val, by=1)
+#@y <- seq($start, $end, length.out=$n_points)
+
+Vector Operations:
+Input range: 1 to $max_val
+Sequence start: $start, end: $end, points: $n_points
+
+Statistics on x:
+- Sum: @{sum(x)}
+- Product: @{prod(x)}
+- Length: @{length(x)}
+- Mean: @{mean(x)}
+
+Statistics on y:
+- Min: @{min(y)}
+- Max: @{max(y)}
+- Range: @{diff(range(y))}
