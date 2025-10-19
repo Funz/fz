@@ -745,6 +745,44 @@ def run_local_calculation(
         err_file_path = working_dir / "err.txt"
         log_info(f"Info: Running command: {full_command}")
 
+        # Determine shell executable for Windows
+        executable = None
+        if platform.system() == "Windows":
+            # On Windows, use bash if available (Git Bash, WSL, etc.)
+            # Check common Git Bash installation paths first
+            bash_paths = [
+                # cygwin bash
+                r"C:\cygwin64\bin\bash.exe",
+                # Git for Windows default paths
+                r"C:\Progra~1\Git\bin\bash.exe",
+                r"C:\Progra~2\Git\bin\bash.exe",
+                # Msys2 bash (if installed)
+                r"C:\msys64\usr\bin\bash.exe",
+                # WSL bash
+                r"C:\Windows\System32\bash.exe",
+                # win-bash
+                r"C:\win-bash\bin\bash.exe"
+            ]
+
+            for bash_path in bash_paths:
+                if os.path.exists(bash_path):
+                    executable = bash_path
+                    log_debug(f"Using bash at: {executable}")
+                    break
+
+            # If not found in common paths, try system PATH
+            if not executable:
+                bash_in_path = shutil.which("bash")
+                if bash_in_path:
+                    executable = bash_in_path
+                    log_debug(f"Using bash from PATH: {executable}")
+
+            if not executable:
+                log_warning(
+                    "Bash not found on Windows. Commands may fail if they use bash-specific syntax."
+                )
+                full_command.replace("/","\\") # Adjust slashes for Windows cmd if no bash used
+
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
             # Use centralized run_command that handles Windows bash and process flags
