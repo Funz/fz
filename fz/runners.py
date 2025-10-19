@@ -718,7 +718,7 @@ def run_local_calculation(
         # Construct command - resolve ALL file paths to absolute for reliable parallel execution
         if command:
             resolved_command, was_changed = resolve_all_paths_in_command(
-                command, original_cwd
+                command.replace("\\","/"), original_cwd
             )
 
             # Apply shell path resolution to command if FZ_SHELL_PATH is set
