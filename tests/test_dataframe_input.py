@@ -144,7 +144,10 @@ class TestDataFrameWithFzr:
         # Create input template
         # The sum formula will be evaluated by fz, so the result is already in input.txt
         self.input_file = self.test_path / "input.txt"
-        self.input_file.write_text("x=$x\ny=$y\nsum=@{$x + $y}\n")
+        with open(self.input_file, "w", newline='\n') as f:
+            f.write("x=$x\n")
+            f.write("y=$y\n")
+            f.write("sum=@{$x + $y}\n")
 
         # Create simple calculator script that reads from input.txt and computes result
         # Use source and bash arithmetic like test_fzo_fzr_coherence.py does

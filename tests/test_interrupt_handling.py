@@ -32,7 +32,10 @@ def test_interrupt_sequential_execution(tmp_path):
 
     script_file = tmp_path / "script.sh"
     # Each case takes 3 seconds
-    script_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
+    with open(script_file, 'w', newline='\n') as f:
+        f.write("#!/bin/bash\n")
+        f.write("sleep 3\n")
+        f.write("echo 'done' > output.txt\n")
     script_file.chmod(0o755)
 
     # Create multiple cases
@@ -100,7 +103,10 @@ def test_interrupt_parallel_execution(tmp_path):
 
     script_file = tmp_path / "script.sh"
     # Each case takes 3 seconds
-    script_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
+    with open(script_file, 'w', newline='\n') as f:
+        f.write("#!/bin/bash\n")
+        f.write("sleep 3\n")
+        f.write("echo 'done' > output.txt\n")
     script_file.chmod(0o755)
 
     # Create multiple cases
@@ -165,7 +171,10 @@ def test_graceful_cleanup_on_interrupt(tmp_path):
 
     script_file = tmp_path / "script.sh"
     # Each case takes 3 seconds
-    script_file.write_text("#!/bin/bash\nsleep 3\necho 'done' > output.txt\n")
+    with open(script_file, 'w', newline='\n') as f:
+        f.write("#!/bin/bash\n")
+        f.write("sleep 3\n")
+        f.write("echo 'done' > output.txt\n")
     script_file.chmod(0o755)
 
     input_variables = {"x": [1, 2, 3]}
