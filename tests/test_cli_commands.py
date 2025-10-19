@@ -131,7 +131,10 @@ def temp_workspace():
 def sample_input_file(temp_workspace):
     """Create a sample input file with variables"""
     input_file = temp_workspace / "input.txt"
-    input_file.write_text("x = ${var1}\ny = ${var2}\nz = ${var3}")
+    with input_file.open('w',newline='\n') as f:
+        f.write("x = ${var1}\n")
+        f.write("y = ${var2}\n")
+        f.write("z = ${var3}\n")
     return input_file
 
 
@@ -270,7 +273,9 @@ class TestFzoCommand:
         """Test fzo with JSON format"""
         # Create a simple output file
         output_file = temp_workspace / "output.txt"
-        output_file.write_text("x = 1.0\ny = 2.0")
+        with output_file.open('w',newline='\n') as f:
+            f.write("x = 1.0\n")
+            f.write("y = 2.0\n")
 
         # Use a simple model (same as input model for consistency)
         result = run_fz_cli_function('fzo_main', [
