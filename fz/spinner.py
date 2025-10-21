@@ -76,6 +76,13 @@ class CaseSpinner:
         if self.thread:
             self.thread.join(timeout=1.0)
 
+        # Render final status line to show "Total time:"
+        if not clear:
+            final_status = self._build_status_line()
+            sys.stdout.write('\r' + final_status)
+            sys.stdout.flush()
+            self.last_output = final_status
+
         if clear and self.last_output:
             # Clear the line
             sys.stdout.write('\r' + ' ' * len(self.last_output) + '\r')
@@ -153,7 +160,7 @@ class CaseSpinner:
                 completed = sum(1 for s in self.statuses if s in (CaseStatus.DONE, CaseStatus.FAILED))
                 remaining = self.num_cases - completed
 
-                # Calculate ETA
+                # Calculate ETA or Total time
                 if remaining > 0 and self.case_durations:
                     # Use average duration of completed cases
                     avg_duration = sum(self.case_durations) / len(self.case_durations)
@@ -163,8 +170,12 @@ class CaseSpinner:
                     # No completed cases yet, show calculating
                     eta_text = "ETA: ..."
                 else:
-                    # All cases completed
-                    eta_text = "Done"
+                    # All cases completed - show total time
+                    if self.start_time is not None:
+                        total_time = time.time() - self.start_time
+                        eta_text = f"Total time: {self._format_eta(total_time)}"
+                    else:
+                        eta_text = "Done"
 
                 # Build final line
                 status_line = f"[{''.join(chars)}] {eta_text}"
@@ -220,6 +231,7 @@ class CaseSpinner:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit"""
         if self.enabled:
-            self.stop(clear=True)
+            # Stop but don't clear - keep the final status visible
+            self.stop(clear=False)
             # Print final newline to move to next line
             print()
