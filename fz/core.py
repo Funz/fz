@@ -106,7 +106,6 @@ from .interpreter import (
 from .runners import resolve_calculators, run_calculation
 
 
-
 def check_bash_availability_on_windows():
     """
     Check if bash is available in PATH on Windows.
