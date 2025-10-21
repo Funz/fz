@@ -559,3 +559,149 @@ fz.fzi("input_r.txt",
 })
 ```
 
+# dataframe input variable example
+
+```python
+import pandas as pd
+df=pd.DataFrame({
+    "T_celsius": [20,25,30],
+    "V_L": [1,1.5,2],
+    "n_mol": [1,1,1]
+})
+fz.fzr("input.txt",
+df,{
+    "varprefix": "$",
+    "formulaprefix": "@",
+    "delim": "{}",
+    "commentline": "#",
+    "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+}, calculators=["sh://bash ./PerfectGazPressure.sh"]*3, results_dir="results")
+```
+
+# fzd example
+
+create design of experiments basic algorithm to estimate a mean with given standard deviation and confidence interval.
+
+montecarlo_uniform.py:
+```bash
+echo '
+#title: Estimate mean with given confidence interval range using Monte Carlo
+#author: Yann Richet
+#type: sampling
+#options: batch_sample_size=10;max_iterations=100;confidence=0.9;target_confidence_range=1.0;seed=42
+#require: numpy;scipy;matplotlib;base64
+class MonteCarlo_Uniform:
+  
+    options = {}
+    samples = []
+    n_samples = 0
+    variables = {}
+  
+    def __init__(self, options):
+        # parse (numeric) options
+        self.options["batch_sample_size"] = int(options.get("batch_sample_size",10))
+        self.options["max_iterations"] = int(options.get("max_iterations",100))
+        self.options["confidence"] = float(options.get("confidence",0.9))
+        self.options["target_confidence_range"] = float(options.get("target_confidence_range",1.0))
+    
+        import numpy as np
+        from scipy import stats
+        np.random.seed(int(options.get("seed",42)))
+  
+    def get_initial_design(self, input_variables, output_variables):
+        for v,bounds in input_variables.items():
+            # parse bounds string : [min;max]
+            bounds = bounds.strip("[]").split(";")
+            if len(bounds)!=2:
+                raise Exception(f"Input variable {v} must be defined with min and max values for MonteCarlo_Uniform sampling")
+            min_val=float(bounds[0])
+            max_val=float(bounds[1])
+            self.variables[v] = (min_val, max_val)
+        return self._generate_samples(self.options["batch_sample_size"])
+  
+    def get_next_design(self, X, Y):
+        # check max iterations
+        if self.n_samples >= self.options["max_iterations"] * self.options["batch_sample_size"]:
+            return None
+        # check confidence interval: compute empirical confidence interval (using kernel density) on Y, compare with target_confidence_range
+        import numpy as np
+        from scipy import stats
+        Y_array = np.array(Y)
+        kde = stats.gaussian_kde(Y_array)
+        mean = np.mean(Y_array)
+        conf_int = stats.t.interval(self.options["confidence"], len(Y_array)-1, loc=mean, scale=stats.sem(Y_array))
+        conf_range = conf_int[1] - conf_int[0]
+        if conf_range <= self.options["target_confidence_range"]:
+            return None
+        # else generate new samples
+        return self._generate_samples(self.options["batch_sample_size"])
+      
+    def _generate_samples(self, n):
+        import numpy as np
+        samples = []
+        for _ in range(n):
+            sample = {}
+            for v,(min_val,max_val) in self.variables.items():
+                sample[v] = np.random.uniform(min_val, max_val)
+            samples.append(sample)
+        self.n_samples += n
+        return samples
+  
+    def get_analysis(self, X, Y):
+        html_output = ""
+        import numpy as np
+        from scipy import stats
+        Y_array = np.array(Y)
+        mean = np.mean(Y_array)
+        conf_int = stats.t.interval(self.options["confidence"], len(Y_array)-1, loc=mean, scale=stats.sem(Y_array))
+        html_output += f"<p>Estimated mean: {mean}</p>"
+        html_output += f"<p>{self.options['confidence']*100}% confidence interval: [{conf_int[0]}, {conf_int[1]}]</p>"
+        # plot histogram
+        import matplotlib.pyplot as plt
+        plt.hist(Y_array, bins=20, density=True, alpha=0.6, color='bg')
+        plt.title("Output Y histogram")
+        plt.xlabel("Y")
+        plt.ylabel("Density")
+        plt.grid()
+        # base64 in html
+        import base64
+        from io import BytesIO
+        buffered = BytesIO()
+        plt.savefig(buffered, format="png")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        html_output += f"<img src=\"data:image/png;base64,{img_str}\" alt=\"Histogram\"/>"
+        return html_output
+' > ./examples/algorithms/montecarlo_uniform.py
+```
+
+```python
+analysis = fz.fzd(
+    input_file='input.txt',
+    input_variables={
+        "n_mol": "[0;10]",
+        "T_celsius": "[0;100]",
+        "V_L": "[1;5]"
+    },
+    model={
+        "varprefix": "$",
+        "formulaprefix": "@",
+        "delim": "{}",
+        "commentline": "#",
+        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+    },
+    calculators=["sh://bash ./PerfectGazPressure.sh"]*10,
+    output_expression="pressure+1",
+    algorithm="./examples/algorithms/montecarlo_uniform.py",
+    algorithm_options={
+        "batch_sample_size": 20,
+        "max_iterations": 50,
+        "confidence": 0.90,
+        "target_confidence_range": 1000000,
+        "seed": 123
+    },
+    analysis_dir="fzd_analysis"
+)
+
+from IPython.core.display import display, HTML
+display(HTML(analysis))
+```
