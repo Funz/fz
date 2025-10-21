@@ -97,12 +97,21 @@ from .io import (
     resolve_cache_paths,
     find_cache_match,
     load_aliases,
+    detect_content_type,
+    parse_keyvalue_text,
+    process_display_content,
 )
 from .interpreter import (
     parse_variables_from_path,
     cast_output,
 )
 from .runners import resolve_calculators, run_calculation
+from .algorithms import (
+    parse_input_vars,
+    parse_fixed_vars,
+    evaluate_output_expression,
+    load_algorithm,
+)
 
 
 def _print_function_help(func_name: str, func_doc: str):
@@ -1111,3 +1120,426 @@ def fzr(
         return pd.DataFrame(results)
     else:
         return results
+
+
+def _get_and_process_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    iteration: int,
+    results_dir: Path,
+    method_name: str = 'get_analysis'
+) -> Optional[Dict[str, Any]]:
+    """
+    Helper to call algorithm's display method and process the results.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        iteration: Current iteration number
+        results_dir: Directory to save processed results
+        method_name: Name of the display method ('get_analysis' or 'get_analysis_tmp')
+
+    Returns:
+        Processed display dict or None if method doesn't exist or fails
+    """
+    if not hasattr(algo_instance, method_name):
+        return None
+
+    try:
+        display_method = getattr(algo_instance, method_name)
+        display_dict = display_method(all_input_vars, all_output_values)
+
+        if display_dict:
+            # Process and save content intelligently
+            processed = process_display_content(display_dict, iteration, results_dir)
+            # Also keep the original text/html for backward compatibility
+            processed['_raw'] = display_dict
+            return processed
+        return None
+
+    except Exception as e:
+        log_warning(f"⚠️  {method_name} failed: {e}")
+        return None
+
+
+def _get_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    output_expression: str,
+    algorithm: str,
+    iteration: int,
+    results_dir: Path
+) -> Dict[str, Any]:
+    """
+    Create final analysis results with display information and DataFrame.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        output_expression: Expression for output column name
+        algorithm: Algorithm path/name
+        iteration: Final iteration number
+        results_dir: Directory for saving results
+
+    Returns:
+        Dict with analysis results including XY DataFrame and display info
+    """
+    # Display final results
+    log_info("\n" + "="*60)
+    log_info("📈 Final Results")
+    log_info("="*60)
+
+    # Get and process final display results
+    processed_final_display = _get_and_process_analysis(
+        algo_instance, all_input_vars, all_output_values,
+        iteration, results_dir, 'get_analysis'
+    )
+
+    if processed_final_display and '_raw' in processed_final_display:
+        if 'text' in processed_final_display['_raw']:
+            log_info(processed_final_display['_raw']['text'])
+
+    # If processed_final_display is None, create empty dict for backward compatibility
+    if processed_final_display is None:
+        processed_final_display = {}
+
+    # Create DataFrame with all input and output values
+    df_data = []
+    for inp_dict, out_val in zip(all_input_vars, all_output_values):
+        row = inp_dict.copy()
+        row[output_expression] = out_val  # Use output_expression as column name
+        df_data.append(row)
+
+    data_df = pd.DataFrame(df_data)
+
+    # Prepare return value
+    result = {
+        'XY': data_df,  # DataFrame with all X and Y values
+        'display': processed_final_display,  # Use processed display instead of raw
+        'algorithm': algorithm,
+        'iterations': iteration,
+        'total_evaluations': len(all_input_vars),
+    }
+
+    # Add summary
+    valid_count = sum(1 for v in all_output_values if v is not None)
+    summary = f"{algorithm} completed: {iteration} iterations, {len(all_input_vars)} evaluations ({valid_count} valid)"
+    result['summary'] = summary
+
+    return result
+
+
+def fzd(
+    input_file: str,
+    input_variables: Dict[str, str],
+    model: Union[str, Dict],
+    output_expression: str,
+    algorithm: str,
+    calculators: Union[str, List[str]] = None,
+    algorithm_options: Dict[str, Any] = None,
+    analysis_dir: str = "results_fzd"
+) -> Dict[str, Any]:
+    """
+    Run iterative design of experiments with algorithms
+
+    Requires pandas to be installed.
+
+    Args:
+        input_file: Path to input file or directory
+        input_variables: Input variables to vary, as dict of strings {"var1": "[min;max]", ...}
+        model: Model definition dict or alias string
+        output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2"
+        algorithm: Path to algorithm Python file (e.g., "algorithms/montecarlo.py")
+        calculators: Calculator specifications (default: ["sh://"])
+        algorithm_options: Dict of algorithm-specific options (e.g., {"batch_size": 10, "max_iter": 100})
+        analysis_dir: Analysis results directory (default: "results_fzd")
+
+    Returns:
+        Dict with algorithm results including:
+            - 'input_vars': List of evaluated input combinations
+            - 'output_values': List of corresponding output values
+            - 'display': Display information from algorithm.get_analysis()
+            - 'summary': Summary text
+
+    Raises:
+        ImportError: If pandas is not installed
+
+    Example:
+        >>> analysis = fz.fzd(
+        ...     input_file='input.txt',
+        ...     input_variables={"x1": "[0;10]", "x2": "[0;5]"},
+        ...     model="mymodel",
+        ...     output_expression="pressure",
+        ...     algorithm="algorithms/montecarlo_uniform.py",
+        ...     calculators=["sh://bash ./calculator.sh"],
+        ...     algorithm_options={"batch_sample_size": 20, "max_iterations": 50},
+        ...     analysis_dir="fzd_analysis"
+        ... )
+    """
+    # This represents the directory from which the function was launched
+    working_dir = os.getcwd()
+
+    # Install signal handler for graceful interrupt handling
+    global _interrupt_requested
+    _interrupt_requested = False
+    _install_signal_handler()
+
+    # Require pandas for fzd
+    if not PANDAS_AVAILABLE:
+        raise ImportError(
+            "fzd requires pandas to be installed. "
+            "Install it with: pip install pandas"
+        )
+
+    try:
+        model = _resolve_model(model)
+
+        # Handle calculators parameter (can be string or list)
+        if calculators is None:
+            calculators = ["sh://"]
+        elif isinstance(calculators, str):
+            calculators = [calculators]
+
+        # Get model ID for calculator resolution
+        model_id = model.get("id") if isinstance(model, dict) else None
+        calculators = resolve_calculators(calculators, model_id)
+
+        # Convert to absolute paths
+        input_dir = Path(input_file).resolve()
+        results_dir = Path(analysis_dir).resolve()
+
+        # Parse input variable ranges and fixed values
+        parsed_input_vars = parse_input_vars(input_variables)  # Only variables with ranges
+        fixed_input_vars = parse_fixed_vars(input_variables)   # Fixed (unique) values
+
+        # Log what we're doing
+        if fixed_input_vars:
+            log_info(f"🔒 Fixed variables: {', '.join(f'{k}={v}' for k, v in fixed_input_vars.items())}")
+        if parsed_input_vars:
+            log_info(f"🔄 Variable ranges: {', '.join(f'{k}={v}' for k, v in parsed_input_vars.items())}")
+
+        # Extract output variable names from the model
+        output_spec = model.get("output", {})
+        output_var_names = list(output_spec.keys())
+
+        if not output_var_names:
+            raise ValueError("Model must specify output variables in 'output' field")
+
+        # Load algorithm with options
+        if algorithm_options is None:
+            algorithm_options = {}
+        algo_instance = load_algorithm(algorithm, **algorithm_options)
+
+        # Get initial design from algorithm (only for variable inputs)
+        log_info(f"🎯 Starting {algorithm} algorithm...")
+        initial_design_vars = algo_instance.get_initial_design(parsed_input_vars, output_var_names)
+
+        # Merge fixed values with algorithm-generated design
+        initial_design = []
+        for design_point in initial_design_vars:
+            # Combine variable values (from algorithm) with fixed values
+            full_point = {**design_point, **fixed_input_vars}
+            initial_design.append(full_point)
+
+        # Track all evaluations
+        all_input_vars = []
+        all_output_values = []
+
+        # Iterative loop
+        iteration = 0
+        current_design = initial_design
+
+        while current_design and not _interrupt_requested:
+            iteration += 1
+            log_info(f"\n📊 Iteration {iteration}: Evaluating {len(current_design)} point(s)...")
+
+            # Create results subdirectory for this iteration
+            iteration_result_dir = results_dir / f"iter{iteration:03d}"
+            iteration_result_dir.mkdir(parents=True, exist_ok=True)
+
+            # Run fzr for all points in parallel using calculators
+            try:
+                log_info(f"  Running {len(current_design)} cases in parallel...")
+                # Create DataFrame with all variables (both variable and fixed)
+                all_var_names = list(parsed_input_vars.keys()) + list(fixed_input_vars.keys())
+                result_df = fzr(
+                    str(input_dir),
+                    pd.DataFrame(current_design, columns=all_var_names),# All points in batch
+                    model,
+                    results_dir=str(iteration_result_dir),
+                    calculators=[*["cache://"+str(results_dir / f"iter{j:03d}") for j in range(1,iteration)], *calculators] # add in cache all previous iterations
+                )
+
+                # Extract output values for each point
+                iteration_inputs = []
+                iteration_outputs = []
+
+                # result_df is a DataFrame (pandas is required for fzd)
+                for i, point in enumerate(current_design):
+                    iteration_inputs.append(point)
+
+                    if i < len(result_df):
+                        row = result_df.iloc[i]
+                        output_data = {key: row.get(key, None) for key in output_var_names}
+
+                        # Evaluate output expression
+                        try:
+                            output_value = evaluate_output_expression(
+                                output_expression,
+                                output_data
+                            )
+                            log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
+                            iteration_outputs.append(output_value)
+                        except Exception as e:
+                            log_warning(f"  Point {i+1}: Failed to evaluate expression: {e}")
+                            iteration_outputs.append(None)
+                    else:
+                        log_warning(f"  Point {i+1}: No results")
+                        iteration_outputs.append(None)
+
+            except Exception as e:
+                log_error(f"  ❌ Error evaluating batch: {e}")
+                # Add all points with None outputs
+                iteration_inputs = current_design
+                iteration_outputs = [None] * len(current_design)
+
+            # Add iteration results to overall tracking
+            all_input_vars.extend(iteration_inputs)
+            all_output_values.extend(iteration_outputs)
+
+            # Display intermediate results if the method exists
+            tmp_display_processed = _get_and_process_analysis(
+                algo_instance, all_input_vars, all_output_values,
+                iteration, results_dir, 'get_analysis_tmp'
+            )
+            if tmp_display_processed:
+                log_info(f"\n📊 Iteration {iteration} intermediate results:")
+                if '_raw' in tmp_display_processed and 'text' in tmp_display_processed['_raw']:
+                    log_info(tmp_display_processed['_raw']['text'])
+
+            # Save iteration results to files
+            try:
+                # Save X (input variables) to CSV
+                x_file = results_dir / f"X_{iteration}.csv"
+                with open(x_file, 'w') as f:
+                    if all_input_vars:
+                        # Get all variable names from the first entry
+                        var_names = list(all_input_vars[0].keys())
+                        f.write(','.join(var_names) + '\n')
+                        for inp in all_input_vars:
+                            f.write(','.join(str(inp[var]) for var in var_names) + '\n')
+
+                # Save Y (output values) to CSV
+                y_file = results_dir / f"Y_{iteration}.csv"
+                with open(y_file, 'w') as f:
+                    f.write('output\n')
+                    for val in all_output_values:
+                        f.write(f"{val if val is not None else 'NA'}\n")
+
+                # Save HTML results
+                html_file = results_dir / f"results_{iteration}.html"
+                html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Iteration {iteration} Results</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h1 {{ color: #333; }}
+        h2 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
+        .section {{ margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }}
+        pre {{ background: #f0f0f0; padding: 10px; border-radius: 3px; overflow-x: auto; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #4CAF50; color: white; }}
+    </style>
+</head>
+<body>
+    <h1>Algorithm Results - Iteration {iteration}</h1>
+    <div class="section">
+        <h2>Summary</h2>
+        <p><strong>Total samples:</strong> {len(all_input_vars)}</p>
+        <p><strong>Valid samples:</strong> {sum(1 for v in all_output_values if v is not None)}</p>
+        <p><strong>Iteration:</strong> {iteration}</p>
+    </div>
+"""
+                # Add intermediate results from get_analysis_tmp
+                if tmp_display_processed and '_raw' in tmp_display_processed:
+                    tmp_display = tmp_display_processed['_raw']
+                    html_content += """
+    <div class="section">
+        <h2>Intermediate Progress</h2>
+"""
+                    if 'text' in tmp_display:
+                        html_content += f"<pre>{tmp_display['text']}</pre>\n"
+                    if 'html' in tmp_display:
+                        html_content += tmp_display['html'] + '\n'
+                    html_content += "    </div>\n"
+
+                # Always call get_analysis for this iteration and process content
+                iter_display_processed = _get_and_process_analysis(
+                    algo_instance, all_input_vars, all_output_values,
+                    iteration, results_dir, 'get_analysis'
+                )
+                if iter_display_processed and '_raw' in iter_display_processed:
+                    iter_display = iter_display_processed['_raw']
+                    # Also save traditional HTML results file for compatibility
+                    html_content += """
+    <div class="section">
+        <h2>Current Results</h2>
+"""
+                    if 'text' in iter_display:
+                        html_content += f"<pre>{iter_display['text']}</pre>\n"
+                    if 'html' in iter_display:
+                        html_content += iter_display['html'] + '\n'
+                    html_content += "    </div>\n"
+
+                html_content += """
+</body>
+</html>
+"""
+                with open(html_file, 'w') as f:
+                    f.write(html_content)
+
+                log_info(f"  💾 Saved iteration results: {x_file.name}, {y_file.name}, {html_file.name}")
+
+            except Exception as e:
+                log_warning(f"⚠️  Failed to save iteration files: {e}")
+
+            if _interrupt_requested:
+                break
+
+            # Get next design from algorithm (only for variable inputs)
+            next_design_vars = algo_instance.get_next_design(
+                all_input_vars,
+                all_output_values
+            )
+
+            # Merge fixed values with algorithm-generated design
+            current_design = []
+            for design_point in next_design_vars:
+                # Combine variable values (from algorithm) with fixed values
+                full_point = {**design_point, **fixed_input_vars}
+                current_design.append(full_point)
+
+        # Get final analysis results
+        result = _get_analysis(
+            algo_instance, all_input_vars, all_output_values,
+            output_expression, algorithm, iteration, results_dir
+        )
+
+        return result
+
+    finally:
+        # Restore signal handler
+        _restore_signal_handler()
+
+        # Always restore the original working directory
+        os.chdir(working_dir)
+
+        if _interrupt_requested:
+            log_warning("⚠️  Execution was interrupted. Partial results may be available.")
