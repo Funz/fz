@@ -106,7 +106,6 @@ from .interpreter import (
 from .runners import resolve_calculators, run_calculation
 
 
-
 def _print_function_help(func_name: str, func_doc: str):
     """Print function signature and docstring to help users"""
     print(f"\n{'='*60}", file=sys.stderr)
