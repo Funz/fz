@@ -7,9 +7,9 @@ import glob
 import json
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
-from .logging import log_info
+from .logging import log_info, log_warning
 from datetime import datetime
 
 
@@ -220,7 +220,7 @@ def find_cache_match(cache_base_path: Path, current_hash_file: Path) -> Optional
             print(f"Could not read cache hash file {cache_hash_file}: {e}")
             continue
 
-    print(f"No cache match found in {cache_base_path} or its subdirectories")
+    log_info(f"No cache match found in {cache_base_path} or its subdirectories")
     return None
 
 
@@ -237,3 +237,147 @@ def load_aliases(name: str, alias_type: str = "models") -> Optional[Dict]:
             except (json.JSONDecodeError, IOError):
                 continue
     return None
+
+
+def detect_content_type(text: str) -> str:
+    """
+    Detect the type of content in a text string.
+
+    Returns: 'html', 'json', 'keyvalue', 'markdown', or 'plain'
+    """
+    if not text or not isinstance(text, str):
+        return 'plain'
+
+    text_stripped = text.strip()
+
+    # Check for HTML tags
+    if re.search(r'<(html|div|p|h1|h2|h3|img|table|body|head)', text_stripped, re.IGNORECASE):
+        return 'html'
+
+    # Check for JSON (starts with { or [)
+    if text_stripped.startswith(('{', '[')):
+        try:
+            json.loads(text_stripped)
+            return 'json'
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Check for markdown (has markdown syntax like #, ##, *, -, ```, etc.)
+    markdown_patterns = [
+        r'^#{1,6}\s+.+$',  # Headers
+        r'^\*\*.+\*\*$',   # Bold
+        r'^_.+_$',         # Italic
+        r'^\[.+\]\(.+\)$', # Links
+        r'^```',           # Code blocks
+        r'^\* .+$',        # Unordered lists
+        r'^\d+\. .+$',     # Ordered lists
+    ]
+    for pattern in markdown_patterns:
+        if re.search(pattern, text_stripped, re.MULTILINE):
+            return 'markdown'
+
+    # Check for key=value format (at least 2 lines with = signs)
+    lines = text_stripped.split('\n')
+    kv_lines = [l for l in lines if '=' in l and not l.strip().startswith('#')]
+    if len(kv_lines) >= 2:
+        # Verify they look like key=value pairs
+        if all(len(l.split('=', 1)) == 2 for l in kv_lines[:3]):
+            return 'keyvalue'
+
+    return 'plain'
+
+
+def parse_keyvalue_text(text: str) -> Dict[str, str]:
+    """Parse key=value text into a dictionary."""
+    result = {}
+    for line in text.strip().split('\n'):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '=' in line:
+            key, value = line.split('=', 1)
+            result[key.strip()] = value.strip()
+    return result
+
+
+def process_display_content(
+    display_dict: Dict[str, Any],
+    iteration: int,
+    results_dir: Path
+) -> Dict[str, Any]:
+    """
+    Process get_analysis() output, detecting content types and saving to files.
+
+    Args:
+        display_dict: The dict returned by get_analysis()
+        iteration: Current iteration number
+        results_dir: Directory to save files
+
+    Returns:
+        Processed dict with file references instead of raw content
+    """
+    processed = {'data': display_dict.get('data', {})}
+
+    # Process 'html' field if present
+    if 'html' in display_dict:
+        html_content = display_dict['html']
+        html_file = results_dir / f"analysis_{iteration}.html"
+        with open(html_file, 'w') as f:
+            f.write(html_content)
+        processed['html_file'] = str(html_file.name)
+        log_info(f"  💾 Saved HTML to {html_file.name}")
+
+    # Process 'text' field if present
+    if 'text' in display_dict:
+        text_content = display_dict['text']
+        content_type = detect_content_type(text_content)
+
+        if content_type == 'html':
+            # Save as HTML file
+            html_file = results_dir / f"analysis_{iteration}.html"
+            with open(html_file, 'w') as f:
+                f.write(text_content)
+            processed['html_file'] = str(html_file.name)
+            log_info(f"  💾 Detected HTML in text, saved to {html_file.name}")
+
+        elif content_type == 'json':
+            # Parse JSON and save to file
+            json_file = results_dir / f"analysis_{iteration}.json"
+            try:
+                parsed_json = json.loads(text_content)
+                with open(json_file, 'w') as f:
+                    json.dump(parsed_json, f, indent=2)
+                processed['json_data'] = parsed_json
+                processed['json_file'] = str(json_file.name)
+                log_info(f"  💾 Detected JSON, parsed and saved to {json_file.name}")
+            except Exception as e:
+                log_warning(f"⚠️  Failed to parse JSON: {e}")
+                processed['text'] = text_content
+
+        elif content_type == 'keyvalue':
+            # Parse key=value format and save to file
+            txt_file = results_dir / f"analysis_{iteration}.txt"
+            with open(txt_file, 'w') as f:
+                f.write(text_content)
+            try:
+                parsed_kv = parse_keyvalue_text(text_content)
+                processed['keyvalue_data'] = parsed_kv
+                processed['txt_file'] = str(txt_file.name)
+                log_info(f"  💾 Detected key=value format, parsed and saved to {txt_file.name}")
+            except Exception as e:
+                log_warning(f"⚠️  Failed to parse key=value: {e}")
+                processed['text'] = text_content
+
+        elif content_type == 'markdown':
+            # Save as markdown file
+            md_file = results_dir / f"analysis_{iteration}.md"
+            with open(md_file, 'w') as f:
+                f.write(text_content)
+            processed['md_file'] = str(md_file.name)
+            log_info(f"  💾 Detected markdown, saved to {md_file.name}")
+
+        else:
+            # Keep as plain text
+            processed['text'] = text_content
+
+    return processed
