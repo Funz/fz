@@ -49,7 +49,22 @@ jobs:
         Write-Host "Installing Cygwin with bash and Unix utilities..."
         choco install cygwin -y --params "/InstallDir:C:\cygwin64"
 
-        Write-Host "✓ Cygwin installation complete"
+        Write-Host "Installing required Cygwin packages..."
+        # Install essential packages using Cygwin setup
+        # Note: coreutils includes cat, cut, tr, sort, uniq, head, tail
+        $packages = "bash,grep,gawk,sed,coreutils"
+
+        # Download Cygwin setup if needed
+        if (-not (Test-Path "C:\cygwin64\setup-x86_64.exe")) {
+          Write-Host "Downloading Cygwin setup..."
+          Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile "C:\cygwin64\setup-x86_64.exe"
+        }
+
+        # Install packages quietly
+        Write-Host "Installing packages: $packages"
+        Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","$packages" -Wait -NoNewWindow
+
+        Write-Host "✓ Cygwin installation complete with all required packages"
 
     - name: Add Cygwin to PATH (Windows)
       if: runner.os == 'Windows'
@@ -280,7 +295,23 @@ jobs:
         # fz requires bash and Unix tools (grep, cut, awk, sed, tr) for output parsing
         Write-Host "Installing Cygwin with bash and Unix utilities..."
         choco install cygwin -y --params "/InstallDir:C:\cygwin64"
-        Write-Host "✓ Cygwin installation complete"
+
+        Write-Host "Installing required Cygwin packages..."
+        # Install essential packages using Cygwin setup
+        # Note: coreutils includes cat, cut, tr, sort, uniq, head, tail
+        $packages = "bash,grep,gawk,sed,coreutils"
+
+        # Download Cygwin setup if needed
+        if (-not (Test-Path "C:\cygwin64\setup-x86_64.exe")) {
+          Write-Host "Downloading Cygwin setup..."
+          Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile "C:\cygwin64\setup-x86_64.exe"
+        }
+
+        # Install packages quietly
+        Write-Host "Installing packages: $packages"
+        Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","$packages" -Wait -NoNewWindow
+
+        Write-Host "✓ Cygwin installation complete with all required packages"
 
     - name: Add Cygwin to PATH (Windows)
       if: runner.os == 'Windows'

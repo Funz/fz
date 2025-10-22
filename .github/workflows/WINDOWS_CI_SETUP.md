@@ -18,7 +18,7 @@ The Windows CI workflows have been updated to install Cygwin with bash and essen
 
 For each Windows job, the following steps have been added:
 
-#### 1. Install Cygwin
+#### 1. Install Cygwin with Required Packages
 ```yaml
 - name: Install system dependencies (Windows)
   if: runner.os == 'Windows'
@@ -29,10 +29,30 @@ For each Windows job, the following steps have been added:
     Write-Host "Installing Cygwin with bash and Unix utilities..."
     choco install cygwin -y --params "/InstallDir:C:\cygwin64"
 
-    Write-Host "✓ Cygwin installation complete"
+    Write-Host "Installing required Cygwin packages..."
+    # Install essential packages using Cygwin setup
+    # Note: coreutils includes cat, cut, tr, sort, uniq, head, tail
+    $packages = "bash,grep,gawk,sed,coreutils"
+
+    # Download Cygwin setup if needed
+    if (-not (Test-Path "C:\cygwin64\setup-x86_64.exe")) {
+      Write-Host "Downloading Cygwin setup..."
+      Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile "C:\cygwin64\setup-x86_64.exe"
+    }
+
+    # Install packages quietly
+    Write-Host "Installing packages: $packages"
+    Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","$packages" -Wait -NoNewWindow
+
+    Write-Host "✓ Cygwin installation complete with all required packages"
 ```
 
-**Note**: Cygwin's default installation includes all required Unix utilities (bash, grep, cut, awk, sed, tr, cat, sort, uniq, head, tail), so no additional package installation is needed.
+**Packages Installed**:
+- **bash** - Shell interpreter
+- **grep** - Pattern matching
+- **gawk** - GNU awk for text processing (provides `awk` command)
+- **sed** - Stream editor
+- **coreutils** - Core utilities package including cat, cut, tr, sort, uniq, head, tail
 
 #### 2. Add Cygwin to PATH
 ```yaml
@@ -85,13 +105,13 @@ For each Windows job, the following steps have been added:
 
 We chose Cygwin over Git Bash or WSL for the following reasons:
 
-1. **Complete Unix Environment**: Cygwin provides all required Unix utilities (bash, grep, cut, awk, sed, tr, cat, sort, uniq, head, tail) in the default installation
+1. **Complete Unix Environment**: Cygwin provides all required Unix utilities through well-maintained packages
 2. **Reliability**: Cygwin is specifically designed to provide a comprehensive Unix-like environment on Windows
-3. **Package Management**: Easy to install additional Unix tools if needed (bc, etc.)
+3. **Package Management**: Easy to install specific packages (bash, grep, gawk, sed, coreutils) via setup program
 4. **Consistency**: Cygwin's utilities behave identically to their Unix counterparts, ensuring cross-platform compatibility
 5. **CI Availability**: Cygwin is readily available via Chocolatey on GitHub Actions Windows runners
 6. **PATH Integration**: Easy to add to PATH and verify installation
-7. **No Additional Configuration**: Works out of the box without needing to install individual packages
+7. **Explicit Package Control**: We explicitly install required packages ensuring all utilities are available
 
 ## Installation Location
 
