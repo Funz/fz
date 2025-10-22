@@ -36,12 +36,12 @@ def test_demo_windows_without_bash():
             assert "grep, cut, awk, sed, tr, cat" in error_msg
 
             # Verify installation instructions are present
-            assert "Cygwin (recommended)" in error_msg
+            assert "MSYS2 (recommended)" in error_msg
             assert "Git for Windows" in error_msg
             assert "WSL (Windows Subsystem for Linux)" in error_msg
 
             # Verify download URLs
-            assert "https://www.cygwin.com/" in error_msg
+            assert "https://www.msys2.org/" in error_msg
             assert "https://git-scm.com/download/win" in error_msg
 
             # Verify PATH setup instructions
@@ -50,14 +50,14 @@ def test_demo_windows_without_bash():
             assert "grep --version" in error_msg
 
 
-def test_demo_windows_with_cygwin():
+def test_demo_windows_with_msys2():
     """
-    Demonstrate successful import on Windows with Cygwin bash
+    Demonstrate successful import on Windows with MSYS2 bash
     """
     from fz.core import check_bash_availability_on_windows
 
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value='C:\\cygwin64\\bin\\bash.exe'):
+        with patch('fz.core.shutil.which', return_value='C:\\msys64\\usr\\bin\\bash.exe'):
             # Should succeed without error
             check_bash_availability_on_windows()
 
@@ -113,7 +113,7 @@ def test_demo_error_message_readability():
             assert any('ERROR' in line for line in lines), "Should have ERROR marker"
             assert any('Unix utilities' in line for line in lines), "Should mention Unix utilities"
             assert any('grep' in line for line in lines), "Should mention grep utility"
-            assert any('Cygwin' in line for line in lines), "Should mention Cygwin"
+            assert any('MSYS2' in line for line in lines), "Should mention MSYS2"
             assert any('Git for Windows' in line or 'Git Bash' in line for line in lines), "Should mention Git Bash"
             assert any('WSL' in line for line in lines), "Should mention WSL"
             assert any('verify' in line.lower() or 'version' in line.lower() for line in lines), "Should mention verification"
@@ -133,7 +133,7 @@ def test_demo_bash_used_for_output_evaluation():
 
     # We need to test that subprocess.run is called with executable=bash on Windows
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value='C:\\cygwin64\\bin\\bash.exe'):
+        with patch('fz.core.shutil.which', return_value='C:\\msys64\\usr\\bin\\bash.exe'):
             # The check would pass
             from fz.core import check_bash_availability_on_windows
             check_bash_availability_on_windows()
@@ -192,7 +192,7 @@ def test_actual_windows_bash_availability():
     if bash_path is None:
         pytest.skip(
             "Bash not available on this Windows system. "
-            "Please install Cygwin, Git Bash, or WSL. "
+            "Please install MSYS2, Git Bash, or WSL. "
             "See BASH_REQUIREMENT.md for details."
         )
     else:

@@ -39,7 +39,7 @@ def test_bash_check_on_windows_without_bash():
             error_msg = str(exc_info.value)
             # Verify error message contains expected content
             assert "bash is not available" in error_msg
-            assert "Cygwin" in error_msg
+            assert "MSYS2" in error_msg
             assert "Git for Windows" in error_msg
             assert "WSL" in error_msg
 
@@ -50,7 +50,7 @@ def test_bash_check_on_windows_with_bash():
 
     # Mock platform to be Windows and shutil.which to return a bash path
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value='C:\\cygwin64\\bin\\bash.exe'):
+        with patch('fz.core.shutil.which', return_value='C:\\msys64\\usr\\bin\\bash.exe'):
             # Should not raise any exception
             check_bash_availability_on_windows()
 
@@ -95,12 +95,12 @@ def test_error_message_format():
             assert "grep, cut, awk, sed, tr, cat" in error_msg
 
             # Verify all installation options are mentioned
-            assert "1. Cygwin" in error_msg
+            assert "1. MSYS2" in error_msg
             assert "2. Git for Windows" in error_msg
             assert "3. WSL" in error_msg
 
             # Verify download links are provided
-            assert "https://www.cygwin.com/" in error_msg
+            assert "https://www.msys2.org/" in error_msg
             assert "https://git-scm.com/download/win" in error_msg
 
             # Verify verification instructions are included
@@ -127,9 +127,8 @@ def test_bash_path_logged_when_found():
 
 
 @pytest.mark.parametrize("bash_path", [
-    "C:\\cygwin64\\bin\\bash.exe",
-    "C:\\Program Files\\Git\\bin\\bash.exe",
-    "C:\\msys64\\usr\\bin\\bash.exe",
+    "C:\\msys64\\usr\\bin\\bash.exe",  # MSYS2
+    "C:\\Program Files\\Git\\bin\\bash.exe",  # Git Bash
     "C:\\Windows\\System32\\bash.exe",  # WSL
 ])
 def test_various_bash_installations(bash_path):
@@ -178,25 +177,25 @@ def test_unix_utilities_available():
 @pytest.mark.parametrize("utility", [
     "bash", "grep", "cut", "awk", "sed", "tr", "cat", "sort", "uniq", "head", "tail"
 ])
-def test_cygwin_utilities_in_ci(utility):
+def test_msys2_utilities_in_ci(utility):
     """
-    Test that Cygwin provides all required Unix utilities
+    Test that MSYS2 provides all required Unix utilities
 
-    This test verifies that when Cygwin is installed (as in CI),
+    This test verifies that when MSYS2 is installed (as in CI),
     all required utilities are available.
     """
     import platform
     import shutil
 
-    # Skip on non-Windows unless running in CI with Cygwin
+    # Skip on non-Windows unless running in CI with MSYS2
     if platform.system() != "Windows":
-        pytest.skip("Unix utilities test is for Windows/Cygwin only")
+        pytest.skip("Unix utilities test is for Windows/MSYS2 only")
 
     util_path = shutil.which(utility)
 
     if util_path is None:
         pytest.skip(
             f"{utility} not available on this Windows system. "
-            f"This is expected if Cygwin is not installed. "
-            f"In CI, Cygwin should be installed with all utilities."
+            f"This is expected if MSYS2 is not installed. "
+            f"In CI, MSYS2 should be installed with all utilities."
         )

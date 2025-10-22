@@ -37,10 +37,11 @@ fz requires bash and Unix utilities (grep, cut, awk, sed, tr, cat) to run shell
 commands and evaluate output expressions.
 Please install one of the following:
 
-1. Cygwin (recommended):
-   - Download from: https://www.cygwin.com/
-   - During installation, make sure to select 'bash' package
-   - Add C:\cygwin64\bin to your PATH environment variable
+1. MSYS2 (recommended):
+   - Download from: https://www.msys2.org/
+   - Or install via Chocolatey: choco install msys2
+   - After installation, run: pacman -S bash grep gawk sed coreutils
+   - Add C:\msys64\usr\bin to your PATH environment variable
 
 2. Git for Windows (includes Git Bash):
    - Download from: https://git-scm.com/download/win
@@ -51,31 +52,44 @@ Please install one of the following:
    - Install from Microsoft Store or use: wsl --install
    - Note: bash.exe should be accessible from Windows PATH
 
+4. Cygwin (legacy):
+   - Download from: https://www.cygwin.com/
+   - During installation, make sure to select 'bash' package
+   - Add C:\cygwin64\bin to your PATH environment variable
+
 After installation, verify bash is in PATH by running:
    bash --version
 ```
 
-## Recommended Installation: Cygwin
+## Recommended Installation: MSYS2
 
-We recommend **Cygwin** for Windows users because:
+We recommend **MSYS2** for Windows users because:
 
-- Provides a comprehensive Unix-like environment
-- Includes bash and all required Unix utilities by default (grep, cut, awk, sed, tr, cat, sort, uniq, head, tail)
-- Well-tested and widely used for Windows development
-- Easy to add to PATH
+- Provides a comprehensive Unix-like environment on Windows
+- Modern package manager (pacman) similar to Arch Linux
+- Actively maintained with regular updates
+- Includes all required Unix utilities (grep, cut, awk, sed, tr, cat, sort, uniq, head, tail)
+- Easy to install additional packages
 - All utilities work consistently with Unix versions
+- Available via Chocolatey for easy installation
 
-### Installing Cygwin
+### Installing MSYS2
 
-1. Download the installer from [https://www.cygwin.com/](https://www.cygwin.com/)
-2. Run the installer
-3. During package selection, ensure **bash** is selected (it usually is by default)
-4. Complete the installation
-5. Add `C:\cygwin64\bin` to your system PATH:
+1. Download the installer from [https://www.msys2.org/](https://www.msys2.org/)
+2. Run the installer (or use Chocolatey: `choco install msys2`)
+3. After installation, open MSYS2 terminal and update the package database:
+   ```bash
+   pacman -Syu
+   ```
+4. Install required packages:
+   ```bash
+   pacman -S bash grep gawk sed coreutils
+   ```
+5. Add `C:\msys64\usr\bin` to your system PATH:
    - Right-click "This PC" → Properties → Advanced system settings
    - Click "Environment Variables"
    - Under "System variables", find and edit "Path"
-   - Add `C:\cygwin64\bin` to the list
+   - Add `C:\msys64\usr\bin` to the list
    - Click OK to save
 
 6. Verify bash is available:

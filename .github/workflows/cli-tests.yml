@@ -44,37 +44,33 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Install Cygwin with bash and essential Unix utilities
+        # Install MSYS2 with bash and essential Unix utilities
         # fz requires bash and Unix tools (grep, cut, awk, sed, tr) for output parsing
-        Write-Host "Installing Cygwin with bash and Unix utilities..."
-        choco install cygwin -y --params "/InstallDir:C:\cygwin64"
+        Write-Host "Installing MSYS2 with bash and Unix utilities..."
+        choco install msys2 -y --params="/NoUpdate"
 
-        Write-Host "Installing required Cygwin packages..."
-        # Install essential packages using Cygwin setup
+        Write-Host "Installing required MSYS2 packages..."
+        # Use pacman (MSYS2 package manager) to install packages
         # Note: coreutils includes cat, cut, tr, sort, uniq, head, tail
-        $packages = "bash,grep,gawk,sed,coreutils"
+        $env:MSYSTEM = "MSYS"
 
-        # Download Cygwin setup if needed
-        if (-not (Test-Path "C:\cygwin64\setup-x86_64.exe")) {
-          Write-Host "Downloading Cygwin setup..."
-          Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile "C:\cygwin64\setup-x86_64.exe"
-        }
+        # Update package database
+        C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
 
-        # Install packages quietly
-        Write-Host "Installing packages: $packages"
-        Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","$packages" -Wait -NoNewWindow
+        # Install required packages
+        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed coreutils"
 
-        Write-Host "✓ Cygwin installation complete with all required packages"
+        Write-Host "✓ MSYS2 installation complete with all required packages"
 
-    - name: List installed Cygwin utilities (Windows)
+    - name: List installed MSYS2 utilities (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        Write-Host "Listing executables in C:\cygwin64\bin..."
+        Write-Host "Listing executables in C:\msys64\usr\bin..."
         Write-Host ""
 
-        # List all .exe files in cygwin64/bin
-        $binFiles = Get-ChildItem -Path "C:\cygwin64\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
+        # List all .exe files in msys64/usr/bin
+        $binFiles = Get-ChildItem -Path "C:\msys64\usr\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
 
         # Check for key utilities we need
         $keyUtilities = @("bash.exe", "grep.exe", "cut.exe", "awk.exe", "gawk.exe", "sed.exe", "tr.exe", "cat.exe", "sort.exe", "uniq.exe", "head.exe", "tail.exe")
@@ -94,14 +90,14 @@ jobs:
         Write-Host "Sample of other utilities available:"
         $binFiles | Where-Object { $_ -notin $keyUtilities } | Select-Object -First 20 | ForEach-Object { Write-Host "  - $_" }
 
-    - name: Add Cygwin to PATH (Windows)
+    - name: Add MSYS2 to PATH (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Add Cygwin bin directory to PATH for this workflow
-        $env:PATH = "C:\cygwin64\bin;$env:PATH"
-        echo "C:\cygwin64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        Write-Host "✓ Cygwin added to PATH"
+        # Add MSYS2 bin directory to PATH for this workflow
+        $env:PATH = "C:\msys64\usr\bin;$env:PATH"
+        echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "✓ MSYS2 added to PATH"
 
     - name: Verify Unix utilities (Windows)
       if: runner.os == 'Windows'
@@ -319,37 +315,33 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Install Cygwin with bash and essential Unix utilities
+        # Install MSYS2 with bash and essential Unix utilities
         # fz requires bash and Unix tools (grep, cut, awk, sed, tr) for output parsing
-        Write-Host "Installing Cygwin with bash and Unix utilities..."
-        choco install cygwin -y --params "/InstallDir:C:\cygwin64"
+        Write-Host "Installing MSYS2 with bash and Unix utilities..."
+        choco install msys2 -y --params="/NoUpdate"
 
-        Write-Host "Installing required Cygwin packages..."
-        # Install essential packages using Cygwin setup
+        Write-Host "Installing required MSYS2 packages..."
+        # Use pacman (MSYS2 package manager) to install packages
         # Note: coreutils includes cat, cut, tr, sort, uniq, head, tail
-        $packages = "bash,grep,gawk,sed,coreutils"
+        $env:MSYSTEM = "MSYS"
 
-        # Download Cygwin setup if needed
-        if (-not (Test-Path "C:\cygwin64\setup-x86_64.exe")) {
-          Write-Host "Downloading Cygwin setup..."
-          Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile "C:\cygwin64\setup-x86_64.exe"
-        }
+        # Update package database
+        C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
 
-        # Install packages quietly
-        Write-Host "Installing packages: $packages"
-        Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","$packages" -Wait -NoNewWindow
+        # Install required packages
+        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed coreutils"
 
-        Write-Host "✓ Cygwin installation complete with all required packages"
+        Write-Host "✓ MSYS2 installation complete with all required packages"
 
-    - name: List installed Cygwin utilities (Windows)
+    - name: List installed MSYS2 utilities (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        Write-Host "Listing executables in C:\cygwin64\bin..."
+        Write-Host "Listing executables in C:\msys64\usr\bin..."
         Write-Host ""
 
-        # List all .exe files in cygwin64/bin
-        $binFiles = Get-ChildItem -Path "C:\cygwin64\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
+        # List all .exe files in msys64/usr/bin
+        $binFiles = Get-ChildItem -Path "C:\msys64\usr\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
 
         # Check for key utilities we need
         $keyUtilities = @("bash.exe", "grep.exe", "cut.exe", "awk.exe", "gawk.exe", "sed.exe", "tr.exe", "cat.exe", "sort.exe", "uniq.exe", "head.exe", "tail.exe")
@@ -369,14 +361,14 @@ jobs:
         Write-Host "Sample of other utilities available:"
         $binFiles | Where-Object { $_ -notin $keyUtilities } | Select-Object -First 20 | ForEach-Object { Write-Host "  - $_" }
 
-    - name: Add Cygwin to PATH (Windows)
+    - name: Add MSYS2 to PATH (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Add Cygwin bin directory to PATH
-        $env:PATH = "C:\cygwin64\bin;$env:PATH"
-        echo "C:\cygwin64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        Write-Host "✓ Cygwin added to PATH"
+        # Add MSYS2 bin directory to PATH for this workflow
+        $env:PATH = "C:\msys64\usr\bin;$env:PATH"
+        echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "✓ MSYS2 added to PATH"
 
     - name: Verify Unix utilities (Windows)
       if: runner.os == 'Windows'
