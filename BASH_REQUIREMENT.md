@@ -1,11 +1,24 @@
-# Bash Requirement on Windows
+# Bash and Unix Utilities Requirement on Windows
 
 ## Overview
 
-On Windows, `fz` requires **bash** to be available in the system PATH. This is necessary because:
+On Windows, `fz` requires **bash** and **essential Unix utilities** to be available in the system PATH. This is necessary because:
 
-1. **Output evaluation** (`fzo()`): Shell commands are used to parse and extract output values from result files
+1. **Output evaluation** (`fzo()`): Shell commands using Unix utilities (grep, cut, awk, tr, etc.) are used to parse and extract output values from result files
 2. **Calculation execution** (`fzr()`, `sh://` calculator): Bash is used as the shell interpreter for running calculations
+
+## Required Utilities
+
+The following Unix utilities must be available:
+
+- **bash** - Shell interpreter
+- **grep** - Pattern matching (heavily used for output parsing)
+- **cut** - Field extraction (e.g., `cut -d '=' -f2`)
+- **awk** - Text processing and field extraction
+- **sed** - Stream editing
+- **tr** - Character translation/deletion
+- **cat** - File concatenation
+- **sort**, **uniq**, **head**, **tail** - Text processing utilities
 
 ## Startup Check
 
@@ -20,7 +33,8 @@ If bash is **not found**, a `RuntimeError` is raised with installation instructi
 ```
 ERROR: bash is not available in PATH on Windows.
 
-fz requires bash to run shell commands and evaluate output expressions.
+fz requires bash and Unix utilities (grep, cut, awk, sed, tr, cat) to run shell
+commands and evaluate output expressions.
 Please install one of the following:
 
 1. Cygwin (recommended):
@@ -46,9 +60,10 @@ After installation, verify bash is in PATH by running:
 We recommend **Cygwin** for Windows users because:
 
 - Provides a comprehensive Unix-like environment
-- Includes bash and other common Unix utilities
+- Includes bash and all required Unix utilities by default (grep, cut, awk, sed, tr, cat, sort, uniq, head, tail)
 - Well-tested and widely used for Windows development
 - Easy to add to PATH
+- All utilities work consistently with Unix versions
 
 ### Installing Cygwin
 

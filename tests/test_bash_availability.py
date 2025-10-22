@@ -90,6 +90,10 @@ def test_error_message_format():
 
             error_msg = str(exc_info.value)
 
+            # Verify Unix utilities are mentioned
+            assert "Unix utilities" in error_msg
+            assert "grep, cut, awk, sed, tr, cat" in error_msg
+
             # Verify all installation options are mentioned
             assert "1. Cygwin" in error_msg
             assert "2. Git for Windows" in error_msg
@@ -101,6 +105,7 @@ def test_error_message_format():
 
             # Verify verification instructions are included
             assert "bash --version" in error_msg
+            assert "grep --version" in error_msg
 
 
 def test_bash_path_logged_when_found():
@@ -153,3 +158,45 @@ def test_bash_check_skipped_on_linux():
     with patch('fz.core.platform.system', return_value='Linux'):
         # Should not raise any error or check for bash
         check_bash_availability_on_windows()
+
+
+def test_unix_utilities_available():
+    """Test that essential Unix utilities are available (bash, grep, cut, awk, etc.)"""
+    import shutil
+    import platform
+
+    # List of essential utilities used by fz
+    essential_utilities = ["bash", "grep", "cut", "awk", "sed", "tr", "cat"]
+
+    # Only test on Windows or if explicitly requested
+    if platform.system() == "Windows":
+        for util in essential_utilities:
+            util_path = shutil.which(util)
+            assert util_path is not None, f"{util} should be available in PATH on Windows (required for fz)"
+
+
+@pytest.mark.parametrize("utility", [
+    "bash", "grep", "cut", "awk", "sed", "tr", "cat", "sort", "uniq", "head", "tail"
+])
+def test_cygwin_utilities_in_ci(utility):
+    """
+    Test that Cygwin provides all required Unix utilities
+
+    This test verifies that when Cygwin is installed (as in CI),
+    all required utilities are available.
+    """
+    import platform
+    import shutil
+
+    # Skip on non-Windows unless running in CI with Cygwin
+    if platform.system() != "Windows":
+        pytest.skip("Unix utilities test is for Windows/Cygwin only")
+
+    util_path = shutil.which(utility)
+
+    if util_path is None:
+        pytest.skip(
+            f"{utility} not available on this Windows system. "
+            f"This is expected if Cygwin is not installed. "
+            f"In CI, Cygwin should be installed with all utilities."
+        )

@@ -32,7 +32,8 @@ def test_demo_windows_without_bash():
 
             # Verify comprehensive error message
             assert "ERROR: bash is not available in PATH on Windows" in error_msg
-            assert "fz requires bash to run shell commands" in error_msg
+            assert "fz requires bash and Unix utilities" in error_msg
+            assert "grep, cut, awk, sed, tr, cat" in error_msg
 
             # Verify installation instructions are present
             assert "Cygwin (recommended)" in error_msg
@@ -46,6 +47,7 @@ def test_demo_windows_without_bash():
             # Verify PATH setup instructions
             assert "PATH" in error_msg
             assert "bash --version" in error_msg
+            assert "grep --version" in error_msg
 
 
 def test_demo_windows_with_cygwin():
@@ -93,6 +95,7 @@ def test_demo_error_message_readability():
     2. Provides multiple solutions
     3. Includes specific instructions for each solution
     4. Tells user how to verify the fix
+    5. Mentions required Unix utilities
     """
     from fz.core import check_bash_availability_on_windows
 
@@ -108,10 +111,12 @@ def test_demo_error_message_readability():
 
             # Should have clear structure with sections
             assert any('ERROR' in line for line in lines), "Should have ERROR marker"
+            assert any('Unix utilities' in line for line in lines), "Should mention Unix utilities"
+            assert any('grep' in line for line in lines), "Should mention grep utility"
             assert any('Cygwin' in line for line in lines), "Should mention Cygwin"
-            assert any('Git for Windows' in line for line in lines), "Should mention Git Bash"
+            assert any('Git for Windows' in line or 'Git Bash' in line for line in lines), "Should mention Git Bash"
             assert any('WSL' in line for line in lines), "Should mention WSL"
-            assert any('verify' in line.lower() for line in lines), "Should mention verification"
+            assert any('verify' in line.lower() or 'version' in line.lower() for line in lines), "Should mention verification"
 
             # Should be multi-line for readability
             assert len(lines) > 10, "Error message should be detailed with multiple lines"

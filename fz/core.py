@@ -126,21 +126,25 @@ def check_bash_availability_on_windows():
         # bash not found - provide helpful error message
         error_msg = (
             "ERROR: bash is not available in PATH on Windows.\n\n"
-            "fz requires bash to run shell commands and evaluate output expressions.\n"
+            "fz requires bash and Unix utilities (grep, cut, awk, sed, tr, cat) to run\n"
+            "shell commands and evaluate output expressions.\n\n"
             "Please install one of the following:\n\n"
             "1. Cygwin (recommended):\n"
             "   - Download from: https://www.cygwin.com/\n"
-            "   - During installation, make sure to select 'bash' package\n"
+            "   - During installation, ensure 'bash' is selected (default packages include\n"
+            "     grep, cut, awk, sed, tr, cat, sort, uniq, head, tail)\n"
             "   - Add C:\\cygwin64\\bin to your PATH environment variable\n\n"
             "2. Git for Windows (includes Git Bash):\n"
             "   - Download from: https://git-scm.com/download/win\n"
             "   - Ensure 'Git Bash Here' is selected during installation\n"
-            "   - Add Git\\bin to your PATH (e.g., C:\\Program Files\\Git\\bin)\n\n"
+            "   - Add Git\\bin to your PATH (e.g., C:\\Program Files\\Git\\bin)\n"
+            "   - Note: Git Bash includes bash and common Unix utilities\n\n"
             "3. WSL (Windows Subsystem for Linux):\n"
             "   - Install from Microsoft Store or use: wsl --install\n"
             "   - Note: bash.exe should be accessible from Windows PATH\n\n"
             "After installation, verify bash is in PATH by running:\n"
             "   bash --version\n"
+            "   grep --version\n"
         )
         raise RuntimeError(error_msg)
 

@@ -44,8 +44,53 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Install Git Bash which includes basic Unix tools
-        choco install git -y || true
+        # Install Cygwin with bash and essential Unix utilities
+        # fz requires bash and Unix tools (grep, cut, awk, sed, tr) for output parsing
+        Write-Host "Installing Cygwin with bash and Unix utilities..."
+        choco install cygwin -y --params "/InstallDir:C:\cygwin64"
+
+        Write-Host "✓ Cygwin installation complete"
+
+    - name: Add Cygwin to PATH (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Add Cygwin bin directory to PATH for this workflow
+        $env:PATH = "C:\cygwin64\bin;$env:PATH"
+        echo "C:\cygwin64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "✓ Cygwin added to PATH"
+
+    - name: Verify Unix utilities (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Verify bash and essential Unix utilities are available
+        Write-Host "Verifying Unix utilities..."
+
+        $utilities = @("bash", "grep", "cut", "awk", "sed", "tr", "cat", "sort", "uniq", "head", "tail")
+        $allFound = $true
+
+        foreach ($util in $utilities) {
+          try {
+            & $util --version 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null) {
+              Write-Host "  ✓ $util"
+            } else {
+              Write-Host "  ✗ $util (exit code: $LASTEXITCODE)"
+              $allFound = $false
+            }
+          } catch {
+            Write-Host "  ✗ $util (not found)"
+            $allFound = $false
+          }
+        }
+
+        if (-not $allFound) {
+          Write-Host "`nERROR: Some Unix utilities are missing"
+          exit 1
+        }
+
+        Write-Host "`n✓ All Unix utilities are available and working"
 
     - name: Install Python dependencies
       run: |
@@ -226,6 +271,57 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+
+    - name: Install system dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Install Cygwin with bash and essential Unix utilities
+        # fz requires bash and Unix tools (grep, cut, awk, sed, tr) for output parsing
+        Write-Host "Installing Cygwin with bash and Unix utilities..."
+        choco install cygwin -y --params "/InstallDir:C:\cygwin64"
+        Write-Host "✓ Cygwin installation complete"
+
+    - name: Add Cygwin to PATH (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Add Cygwin bin directory to PATH
+        $env:PATH = "C:\cygwin64\bin;$env:PATH"
+        echo "C:\cygwin64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "✓ Cygwin added to PATH"
+
+    - name: Verify Unix utilities (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Verify bash and essential Unix utilities are available
+        Write-Host "Verifying Unix utilities..."
+
+        $utilities = @("bash", "grep", "cut", "awk", "sed", "tr", "cat", "sort", "uniq", "head", "tail")
+        $allFound = $true
+
+        foreach ($util in $utilities) {
+          try {
+            & $util --version 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null) {
+              Write-Host "  ✓ $util"
+            } else {
+              Write-Host "  ✗ $util (exit code: $LASTEXITCODE)"
+              $allFound = $false
+            }
+          } catch {
+            Write-Host "  ✗ $util (not found)"
+            $allFound = $false
+          }
+        }
+
+        if (-not $allFound) {
+          Write-Host "`nERROR: Some Unix utilities are missing"
+          exit 1
+        }
+
+        Write-Host "`n✓ All Unix utilities are available and working"
 
     - name: Install dependencies
       run: |
