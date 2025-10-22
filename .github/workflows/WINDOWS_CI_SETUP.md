@@ -54,7 +54,41 @@ For each Windows job, the following steps have been added:
 - **sed** - Stream editor
 - **coreutils** - Core utilities package including cat, cut, tr, sort, uniq, head, tail
 
-#### 2. Add Cygwin to PATH
+#### 2. List Installed Utilities
+```yaml
+- name: List installed Cygwin utilities (Windows)
+  if: runner.os == 'Windows'
+  shell: pwsh
+  run: |
+    Write-Host "Listing executables in C:\cygwin64\bin..."
+
+    # List all .exe files in cygwin64/bin
+    $binFiles = Get-ChildItem -Path "C:\cygwin64\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
+
+    # Check for key utilities we need
+    $keyUtilities = @("bash.exe", "grep.exe", "cut.exe", "awk.exe", "gawk.exe", "sed.exe", "tr.exe", "cat.exe", "sort.exe", "uniq.exe", "head.exe", "tail.exe")
+
+    Write-Host "Key utilities required by fz:"
+    foreach ($util in $keyUtilities) {
+      if ($binFiles -contains $util) {
+        Write-Host "  ✓ $util"
+      } else {
+        Write-Host "  ✗ $util (NOT FOUND)"
+      }
+    }
+
+    Write-Host "Total executables installed: $($binFiles.Count)"
+    Write-Host "Sample of other utilities available:"
+    $binFiles | Where-Object { $_ -notin $keyUtilities } | Select-Object -First 20 | ForEach-Object { Write-Host "  - $_" }
+```
+
+This step provides visibility into what utilities were actually installed, helping to:
+- **Debug** package installation issues
+- **Verify** all required utilities are present
+- **Inspect** what other utilities are available
+- **Track** changes in Cygwin package contents over time
+
+#### 3. Add Cygwin to PATH
 ```yaml
 - name: Add Cygwin to PATH (Windows)
   if: runner.os == 'Windows'
@@ -66,7 +100,7 @@ For each Windows job, the following steps have been added:
     Write-Host "✓ Cygwin added to PATH"
 ```
 
-#### 3. Verify Unix Utilities
+#### 4. Verify Unix Utilities
 ```yaml
 - name: Verify Unix utilities (Windows)
   if: runner.os == 'Windows'
