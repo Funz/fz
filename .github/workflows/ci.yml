@@ -50,9 +50,112 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # bc is not commonly used on Windows; tests may need adjustment
-        # Install Git Bash which includes basic Unix tools
-        choco install git -y
+        # Install MSYS2 with bash and essential Unix utilities
+        # fz requires bash and Unix tools (grep, cut, awk, sed, tr) for output parsing
+        Write-Host "Installing MSYS2 with bash and Unix utilities..."
+        choco install msys2 -y --params="/NoUpdate"
+
+        Write-Host "Installing required MSYS2 packages..."
+        # Use pacman (MSYS2 package manager) to install packages
+        # Note: coreutils includes cat, cut, tr, sort, uniq, head, tail
+        $env:MSYSTEM = "MSYS"
+
+        # Update package database
+        C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
+
+        # Install required packages
+        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed bc coreutils"
+
+        Write-Host "✓ MSYS2 installation complete with all required packages"
+
+        # Add MSYS2 bin directory to PATH immediately to ensure it's found first
+        $env:PATH = "C:\msys64\usr\bin;$env:PATH"
+        echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "✓ MSYS2 added to PATH (prepended to ensure priority)"
+
+    - name: List installed MSYS2 utilities (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "Listing executables in C:\msys64\usr\bin..."
+        Write-Host ""
+
+        # List all .exe files in msys64/usr/bin
+        $binFiles = Get-ChildItem -Path "C:\msys64\usr\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
+
+        # Check for key utilities we need
+        $keyUtilities = @("bash.exe", "grep.exe", "cut.exe", "awk.exe", "gawk.exe", "sed.exe", "tr.exe", "cat.exe", "sort.exe", "uniq.exe", "head.exe", "tail.exe")
+
+        Write-Host "Key utilities required by fz:"
+        foreach ($util in $keyUtilities) {
+          if ($binFiles -contains $util) {
+            Write-Host "  ✓ $util"
+          } else {
+            Write-Host "  ✗ $util (NOT FOUND)"
+          }
+        }
+
+        Write-Host ""
+        Write-Host "Total executables installed: $($binFiles.Count)"
+        Write-Host ""
+        Write-Host "Sample of other utilities available:"
+        $binFiles | Where-Object { $_ -notin $keyUtilities } | Select-Object -First 20 | ForEach-Object { Write-Host "  - $_" }
+        
+        Write-Host ""
+        Write-Host "Verifying MSYS2 bash is in PATH:"
+        $bashCmd = Get-Command bash -ErrorAction SilentlyContinue
+        if ($bashCmd) {
+          Write-Host "  ✓ bash found at: $($bashCmd.Source)"
+          if ($bashCmd.Source -like "*msys64*") {
+            Write-Host "  ✓ Using MSYS2 bash (correct)"
+          } else {
+            Write-Host "  ⚠ WARNING: Not using MSYS2 bash (found at $($bashCmd.Source))"
+          }
+        } else {
+          Write-Host "  ✗ bash not found in PATH"
+        }
+
+    - name: Verify Unix utilities (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Verify bash and essential Unix utilities are available
+        Write-Host "Verifying Unix utilities..."
+
+        # First confirm we're using MSYS2 bash
+        $bashPath = (Get-Command bash).Source
+        Write-Host "Using bash at: $bashPath"
+        if ($bashPath -notlike "*msys64*") {
+          Write-Host "ERROR: Not using MSYS2 bash! Found: $bashPath"
+          exit 1
+        }
+        Write-Host "✓ Confirmed MSYS2 bash"
+        Write-Host ""
+
+        $utilities = @("bash", "grep", "cut", "awk", "sed", "tr", "sort", "uniq", "head", "tail")
+        $allFound = $true
+
+        foreach ($util in $utilities) {
+          try {
+            & $util --version 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null) {
+              Write-Host "  ✓ $util"
+            } else {
+              Write-Host "  ✗ $util (exit code: $LASTEXITCODE)"
+              $allFound = $false
+            }
+          } catch {
+            Write-Host "  ✗ $util (not found)"
+            $allFound = $false
+          }
+        }
+
+        if (-not $allFound) {
+          Write-Host "`nERROR: Some Unix utilities are missing"
+          exit 1
+        }
+
+        Write-Host "`n✓ All Unix utilities are available and working"
 
     - name: Install R and dependencies (Linux)
       if: runner.os == 'Linux'

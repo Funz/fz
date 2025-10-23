@@ -10,7 +10,11 @@ A Python package for wrapping parametric simulations with support for:
 - Smart caching and retry mechanisms
 """
 
-from .core import fzi, fzc, fzo, fzr
+from .core import fzi, fzc, fzo, fzr, check_bash_availability_on_windows
+
+# Check bash availability on Windows at import time
+# This ensures users get immediate feedback if bash is not available
+check_bash_availability_on_windows()
 from .logging import (
     set_log_level,
     get_log_level,

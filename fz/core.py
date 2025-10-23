@@ -72,11 +72,14 @@ except ImportError:
 
 import threading
 from collections import defaultdict
+import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug, log_progress
 from .config import get_config
 from .helpers import (
     fz_temporary_directory,
+    get_windows_bash_executable,
+    run_command,
     _get_result_directory,
     _get_case_directories,
     _cleanup_fzr_resources,
@@ -101,6 +104,58 @@ from .interpreter import (
     cast_output,
 )
 from .runners import resolve_calculators, run_calculation
+
+
+def check_bash_availability_on_windows():
+    """
+    Check if bash is available in PATH on Windows.
+
+    On Windows, fz requires bash to be available for running shell commands
+    and evaluating output expressions. This function checks for bash availability
+    and raises an error with installation instructions if not found.
+
+    Raises:
+        RuntimeError: If running on Windows and bash is not found in PATH
+    """
+    if platform.system() != "Windows":
+        # Only check on Windows
+        return
+
+    # Check if bash is in PATH
+    bash_path = shutil.which("bash")
+
+    if bash_path is None:
+        # bash not found - provide helpful error message
+        error_msg = (
+            "ERROR: bash is not available in PATH on Windows.\n\n"
+            "fz requires bash and Unix utilities (grep, cut, awk, sed, tr, cat) to run\n"
+            "shell commands and evaluate output expressions.\n\n"
+            "Please install one of the following:\n\n"
+            "1. MSYS2 (recommended):\n"
+            "   - Download from: https://www.msys2.org/\n"
+            "   - Or install via Chocolatey: choco install msys2\n"
+            "   - After installation, run: pacman -S bash grep gawk sed bc coreutils\n"
+            "   - Add C:\\msys64\\usr\\bin to your PATH environment variable\n\n"
+            "2. Git for Windows (includes Git Bash):\n"
+            "   - Download from: https://git-scm.com/download/win\n"
+            "   - Ensure 'Git Bash Here' is selected during installation\n"
+            "   - Add Git\\bin to your PATH (e.g., C:\\Program Files\\Git\\bin)\n"
+            "   - Note: Git Bash includes bash and common Unix utilities\n\n"
+            "3. WSL (Windows Subsystem for Linux):\n"
+            "   - Install from Microsoft Store or use: wsl --install\n"
+            "   - Note: bash.exe should be accessible from Windows PATH\n\n"
+            "4. Cygwin (alternative):\n"
+            "   - Download from: https://www.cygwin.com/\n"
+            "   - During installation, select 'bash', 'grep', 'gawk', 'sed', and 'coreutils' packages\n"
+            "   - Add C:\\cygwin64\\bin to your PATH environment variable\n\n"
+            "After installation, verify bash is in PATH by running:\n"
+            "   bash --version\n"
+            "   grep --version\n"
+        )
+        raise RuntimeError(error_msg)
+
+    # bash found - log the path for debugging
+    log_debug(f"✓ Bash found on Windows: {bash_path}")
 
 
 # Global interrupt flag for graceful shutdown
@@ -497,7 +552,7 @@ def fzo(
             for key, command in output_spec.items():
                 try:
                     # Execute shell command in subdirectory (use absolute path for cwd)
-                    result = subprocess.run(
+                    result = run_command(
                         command,
                         shell=True,
                         capture_output=True,
@@ -530,8 +585,12 @@ def fzo(
         for key, command in output_spec.items():
             try:
                 # Execute shell command in work_dir (use absolute path for cwd)
-                result = subprocess.run(
-                    command, shell=True, capture_output=True, text=True, cwd=str(work_dir.absolute())
+                result = run_command(
+                    command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=str(work_dir.absolute()),
                 )
 
                 if result.returncode == 0:

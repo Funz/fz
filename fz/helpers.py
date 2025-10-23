@@ -2,6 +2,7 @@
 Helper functions for fz package - internal utilities for core operations
 """
 import os
+import platform
 import shutil
 import threading
 import time
@@ -14,6 +15,220 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from .logging import log_debug, log_info, log_warning, log_error, log_progress, get_log_level, LogLevel
 from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
+
+
+def _get_windows_short_path(path: str) -> str:
+    r"""
+    Convert a Windows path with spaces to its short (8.3) name format.
+
+    This is necessary because Python's subprocess module on Windows doesn't
+    properly handle spaces in the executable parameter when using shell=True.
+
+    Args:
+        path: Windows file path
+
+    Returns:
+        Short format path (e.g., C:\PROGRA~1\...) or original path if conversion fails
+    """
+    if not path or ' ' not in path:
+        return path
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        GetShortPathName = ctypes.windll.kernel32.GetShortPathNameW
+        GetShortPathName.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        GetShortPathName.restype = wintypes.DWORD
+
+        buffer = ctypes.create_unicode_buffer(260)
+        GetShortPathName(path, buffer, 260)
+        short_path = buffer.value
+
+        if short_path:
+            log_debug(f"Converted path with spaces: {path} -> {short_path}")
+            return short_path
+    except Exception as e:
+        log_debug(f"Failed to get short path for {path}: {e}")
+
+    return path
+
+
+def get_windows_bash_executable() -> Optional[str]:
+    """
+    Get the bash executable path on Windows.
+
+    This function determines the appropriate bash executable to use on Windows
+    by checking both the system PATH and common installation locations.
+
+    Priority order:
+    1. Bash in system/user PATH (from MSYS2, Git Bash, WSL, Cygwin, etc.)
+    2. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred)
+    3. Git for Windows bash
+    4. Cygwin bash
+    5. WSL bash
+    6. win-bash
+
+    Returns:
+        Optional[str]: Path to bash executable if found on Windows, None otherwise.
+                      Returns None if not on Windows or if bash is not found.
+    """
+    if platform.system() != "Windows":
+        return None
+
+    # Try system/user PATH first
+    bash_in_path = shutil.which("bash")
+    if bash_in_path:
+        log_debug(f"Using bash from PATH: {bash_in_path}")
+        # Convert to short name if path contains spaces
+        return _get_windows_short_path(bash_in_path)
+
+    # Check common bash installation paths, prioritizing MSYS2
+    # Include both short names (8.3) and long names to handle various Git installations
+    bash_paths = [
+        # MSYS2 bash (preferred - provides complete Unix environment)
+        r"C:\msys64\usr\bin\bash.exe",
+        # Git for Windows with short names (always works)
+        r"C:\Progra~1\Git\bin\bash.exe",
+        r"C:\Progra~2\Git\bin\bash.exe",
+        # Git for Windows with long names (may have spaces issue, will be converted)
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\bin\bash.exe",
+        # Also check usr/bin for newer Git for Windows
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
+        # Cygwin bash (alternative Unix environment)
+        r"C:\cygwin64\bin\bash.exe",
+        r"C:\cygwin\bin\bash.exe",
+        # WSL bash (almost always available on modern Windows)
+        r"C:\Windows\System32\bash.exe",
+        # win-bash
+        r"C:\win-bash\bin\bash.exe",
+    ]
+
+    for bash_path in bash_paths:
+        if os.path.exists(bash_path):
+            log_debug(f"Using bash at: {bash_path}")
+            # Convert to short name if path contains spaces
+            return _get_windows_short_path(bash_path)
+
+    # No bash found
+    log_warning(
+        "Bash not found on Windows. Commands may fail if they use bash-specific syntax."
+    )
+    return None
+
+
+def run_command(
+    command: str,
+    shell: bool = True,
+    capture_output: bool = False,
+    text: bool = True,
+    cwd: Optional[str] = None,
+    stdout=None,
+    stderr=None,
+    timeout: Optional[float] = None,
+    use_popen: bool = False,
+    **kwargs
+):
+    """
+    Centralized function to run shell commands with proper bash handling for Windows.
+
+    This function handles both subprocess.run and subprocess.Popen calls, automatically
+    using bash on Windows when needed for shell commands.
+
+    Args:
+        command: Command string or list of command arguments
+        shell: Whether to execute command through shell (default: True)
+        capture_output: Whether to capture stdout/stderr (for run mode, default: False)
+        text: Whether to decode output as text (default: True)
+        cwd: Working directory for command execution
+        stdout: File object or constant for stdout (for Popen mode)
+        stderr: File object or constant for stderr (for Popen mode)
+        timeout: Timeout in seconds for command execution
+        use_popen: If True, returns Popen object; if False, uses run and returns CompletedProcess
+        **kwargs: Additional keyword arguments to pass to subprocess
+
+    Returns:
+        subprocess.CompletedProcess if use_popen=False
+        subprocess.Popen if use_popen=True
+
+    Examples:
+        # Using subprocess.run (default)
+        result = run_command("echo hello", capture_output=True)
+        print(result.stdout)
+
+        # Using subprocess.Popen
+        process = run_command("long_running_task", use_popen=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+    """
+    import subprocess
+
+    # Get bash executable for Windows if needed
+    executable = get_windows_bash_executable() if platform.system() == "Windows" else None
+
+    # Prepare common arguments
+    common_args = {
+        "shell": shell,
+        "cwd": cwd,
+    }
+
+    # Handle Windows-specific setup for Popen
+    if platform.system() == "Windows" and use_popen:
+        # Set up Windows process creation flags for proper interrupt handling
+        creationflags = 0
+        if hasattr(subprocess, 'CREATE_NEW_PROCESS_GROUP'):
+            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+        elif hasattr(subprocess, 'CREATE_NO_WINDOW'):
+            # Fallback for older Python versions
+            creationflags = subprocess.CREATE_NO_WINDOW
+
+        common_args["creationflags"] = creationflags
+
+        # Handle bash executable and command modification
+        if executable and isinstance(command, str):
+            # Split command and replace 'bash' with executable path
+            command_parts = command.split()
+            command = [s.replace('bash', executable) for s in command_parts]
+            common_args["shell"] = False  # Use direct execution with bash
+            common_args["executable"] = None
+        else:
+            # Use default shell behavior
+            common_args["executable"] = executable if not executable else None
+    else:
+        # Non-Windows or non-Popen: use executable directly
+        # On Windows with shell=True, don't set executable because bash is already in PATH
+        # and passing it causes subprocess issues with spaces in paths
+        # Only set executable for non-shell or non-Windows cases
+        if platform.system() == "Windows" and shell:
+            # On Windows with shell=True, rely on PATH instead of executable parameter
+            # This avoids subprocess issues with spaces in bash path
+            common_args["executable"] = None
+        else:
+            # For non-Windows systems or non-shell execution, use the executable
+            common_args["executable"] = executable
+
+    # Merge with user-provided kwargs (allows override)
+    common_args.update(kwargs)
+
+    if use_popen:
+        # Popen mode - return process object
+        return subprocess.Popen(
+            command,
+            stdout=stdout,
+            stderr=stderr,
+            **common_args
+        )
+    else:
+        # Run mode - execute and return completed process
+        return subprocess.run(
+            command,
+            capture_output=capture_output,
+            text=text,
+            timeout=timeout,
+            **common_args
+        )
 
 
 @contextmanager

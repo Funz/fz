@@ -40,9 +40,9 @@ sleep 2
 
 # Calculate pressure using ideal gas law: P = nRT/V
 # R = 8.314 J/(mol·K), T in Kelvin, V in m³, P in Pa
-#pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc)
+pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc)
 #replace bc with python
-pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
+#pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
 
 # Write output
 echo "pressure = $pressure" > output.txt
@@ -78,8 +78,8 @@ echo 'Done'
     }
 
     calculators = [
-        "sh://bash ./PerfectGazPressure.sh",
-        "sh://bash ./PerfectGazPressure.sh"
+        "sh://bash PerfectGazPressure.sh",
+        "sh://bash PerfectGazPressure.sh"
     ]
 
     try:
@@ -166,6 +166,14 @@ echo 'Done'
         else:
             pytest.fail("No results returned")
     except Exception as e:
+        # try display one case content of files:
+        for case_dir in Path("results").iterdir():
+            if case_dir.is_dir():
+                print(f"\nContents of {case_dir}:")
+                for file in case_dir.iterdir():
+                    print(f"--- {file.name} ---")
+                    with open(file, 'r') as f:
+                        print(f.read())
         pytest.fail(f"Test failed with error: {e}")
 
 if __name__ == "__main__":
