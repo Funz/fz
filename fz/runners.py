@@ -19,6 +19,7 @@ import uuid
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
+from .core import get_windows_bash_executable
 import getpass
 from datetime import datetime
 from pathlib import Path
@@ -679,41 +680,7 @@ def run_local_calculation(
         log_info(f"Info: Running command: {full_command}")
 
         # Determine shell executable for Windows
-        executable = None
-        if platform.system() == "Windows":
-            # On Windows, use bash if available (MSYS2, Git Bash, WSL, Cygwin, etc.)
-            # Check common bash installation paths, prioritizing MSYS2 (preferred)
-            bash_paths = [
-                # MSYS2 bash (preferred - provides complete Unix environment)
-                r"C:\msys64\usr\bin\bash.exe",
-                # Git for Windows default paths
-                r"C:\Progra~1\Git\bin\bash.exe",
-                r"C:\Progra~2\Git\bin\bash.exe",
-                # Cygwin bash (alternative Unix environment)
-                r"C:\cygwin64\bin\bash.exe",
-                # WSL bash
-                r"C:\Windows\System32\bash.exe",
-                # win-bash
-                r"C:\win-bash\bin\bash.exe"
-            ]
-
-            for bash_path in bash_paths:
-                if os.path.exists(bash_path):
-                    executable = bash_path
-                    log_debug(f"Using bash at: {executable}")
-                    break
-
-            # If not found in common paths, try system PATH
-            if not executable:
-                bash_in_path = shutil.which("bash")
-                if bash_in_path:
-                    executable = bash_in_path
-                    log_debug(f"Using bash from PATH: {executable}")
-
-            if not executable:
-                log_warning(
-                    "Bash not found on Windows. Commands may fail if they use bash-specific syntax."
-                )
+        executable = get_windows_bash_executable()
 
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
@@ -731,7 +698,7 @@ def run_local_calculation(
                     creationflags = sp.CREATE_NO_WINDOW
 
                 process = subprocess.Popen(
-                    full_command.replace('bash', executable).split() if executable else full_command,
+                    full_command.split().replace('bash', executable) if executable else full_command.split(),
                     shell=False if executable else True,
                     stdout=out_file,
                     stderr=err_file,

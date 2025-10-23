@@ -156,6 +156,61 @@ def check_bash_availability_on_windows():
     log_debug(f"✓ Bash found on Windows: {bash_path}")
 
 
+def get_windows_bash_executable() -> Optional[str]:
+    """
+    Get the bash executable path on Windows.
+
+    This function determines the appropriate bash executable to use on Windows
+    by checking both the system PATH and common installation locations.
+
+    Priority order:
+    1. Bash in system/user PATH (from MSYS2, Git Bash, WSL, Cygwin, etc.)
+    2. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred)
+    3. Git for Windows bash
+    4. Cygwin bash
+    5. WSL bash
+    6. win-bash
+
+    Returns:
+        Optional[str]: Path to bash executable if found on Windows, None otherwise.
+                      Returns None if not on Windows or if bash is not found.
+    """
+    if platform.system() != "Windows":
+        return None
+
+    # Try system/user PATH first
+    bash_in_path = shutil.which("bash")
+    if bash_in_path:
+        log_debug(f"Using bash from PATH: {bash_in_path}")
+        return bash_in_path
+
+    # Check common bash installation paths, prioritizing MSYS2
+    bash_paths = [
+        # MSYS2 bash (preferred - provides complete Unix environment)
+        r"C:\msys64\usr\bin\bash.exe",
+        # Git for Windows default paths
+        r"C:\Progra~1\Git\bin\bash.exe",
+        r"C:\Progra~2\Git\bin\bash.exe",
+        # Cygwin bash (alternative Unix environment)
+        r"C:\cygwin64\bin\bash.exe",
+        # WSL bash (almost always available on modern Windows)
+        r"C:\Windows\System32\bash.exe",
+        # win-bash
+        r"C:\win-bash\bin\bash.exe",
+    ]
+
+    for bash_path in bash_paths:
+        if os.path.exists(bash_path):
+            log_debug(f"Using bash at: {bash_path}")
+            return bash_path
+
+    # No bash found
+    log_warning(
+        "Bash not found on Windows. Commands may fail if they use bash-specific syntax."
+    )
+    return None
+
+
 # Global interrupt flag for graceful shutdown
 _interrupt_requested = False
 _original_sigint_handler = None
@@ -551,9 +606,7 @@ def fzo(
                 try:
                     # Execute shell command in subdirectory (use absolute path for cwd)
                     # On Windows, use bash as the shell interpreter
-                    executable = None
-                    if platform.system() == "Windows":
-                        executable = shutil.which("bash")
+                    executable = get_windows_bash_executable()
 
                     result = subprocess.run(
                         command,
