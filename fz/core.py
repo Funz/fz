@@ -589,9 +589,7 @@ def fzo(
             try:
                 # Execute shell command in work_dir (use absolute path for cwd)
                 # On Windows, use bash as the shell interpreter
-                executable = None
-                if platform.system() == "Windows":
-                    executable = shutil.which("bash")
+                executable = get_windows_bash_executable()
 
                 result = subprocess.run(
                     command,

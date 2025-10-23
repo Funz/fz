@@ -698,7 +698,8 @@ def run_local_calculation(
                     creationflags = sp.CREATE_NO_WINDOW
 
                 process = subprocess.Popen(
-                    full_command.split().replace('bash', executable) if executable else full_command.split(),
+                    # if "bash" in list, replace with executable path
+                    [s.replace('bash', executable) for s in full_command.split()] if executable else full_command.split(),
                     shell=False if executable else True,
                     stdout=out_file,
                     stderr=err_file,
