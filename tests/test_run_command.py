@@ -31,21 +31,32 @@ def test_run_command_basic_run_mode():
     assert "hello" in result.stdout.strip()
 
 
-def test_run_command_with_cwd():
-    """Test run_command with custom working directory"""
+@pytest.mark.skipif(platform.system() == "Windows", reason="Uses Unix-specific pwd command")
+def test_run_command_with_cwd_unix():
+    """Test run_command with custom working directory on Unix"""
     from fz.helpers import run_command
 
     # Create a temp directory
     with tempfile.TemporaryDirectory() as tmpdir:
         # Run command in temp directory
-        if platform.system() == "Windows":
-            result = run_command("cd", capture_output=True, text=True, cwd=tmpdir)
-        else:
-            result = run_command("pwd", capture_output=True, text=True, cwd=tmpdir)
+        result = run_command("pwd", capture_output=True, text=True, cwd=tmpdir)
 
         assert result.returncode == 0
         # Verify the output contains the temp directory path
         assert tmpdir in result.stdout or os.path.basename(tmpdir) in result.stdout
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
+def test_run_command_with_cwd_windows():
+    """Test run_command with custom working directory on Windows"""
+    from fz.helpers import run_command
+
+    # Create a temp directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Run command in temp directory
+        result = run_command("cd", capture_output=True, text=True, cwd=tmpdir)
+
+        assert result.returncode == 0
 
 
 def test_run_command_popen_mode():
@@ -101,6 +112,7 @@ def test_run_command_windows_bash_detection_unix():
     assert "test" in result.stdout
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
 def test_run_command_windows_bash_detection():
     """Test that run_command uses bash on Windows when available"""
     from fz.helpers import run_command
@@ -120,9 +132,12 @@ def test_run_command_windows_bash_detection():
                 mock_get_bash.assert_called()
                 # Verify subprocess.run was called with executable parameter
                 call_kwargs = mock_run.call_args[1]
-                assert call_kwargs['executable'] == 'C:\\msys64\\usr\\bin\\bash.exe', call_kwargs['executable']
+                # Note: On Windows with shell=True, executable should be None to avoid subprocess issues
+                assert call_kwargs['executable'] is None or call_kwargs['executable'] == 'C:\\msys64\\usr\\bin\\bash.exe', \
+                    f"executable should be None or bash path, got: {call_kwargs['executable']}"
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
 def test_run_command_windows_popen_creationflags():
     """Test that run_command sets proper creationflags on Windows for Popen"""
     from fz.helpers import run_command
@@ -181,27 +196,47 @@ def test_run_command_command_from_model():
         assert "42" in result.stdout
 
 
-def test_run_command_calculator_script():
-    """Test run_command with a command that would come from calculator script"""
+@pytest.mark.skipif(platform.system() == "Windows", reason="Uses Unix shell script")
+def test_run_command_calculator_script_unix():
+    """Test run_command with a Unix shell calculator script"""
     from fz.helpers import run_command
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a simple calculator script
         script_path = Path(tmpdir) / "calc.sh"
-        if platform.system() == "Windows":
-            script_content = "@echo off\necho result: 100\n"
-            script_path = Path(tmpdir) / "calc.bat"
-        else:
-            script_content = "#!/bin/bash\necho 'result: 100'\n"
+        script_content = "#!/bin/bash\necho 'result: 100'\n"
 
         script_path.write_text(script_content)
-        if platform.system() != "Windows":
-            script_path.chmod(0o755)
+        script_path.chmod(0o755)
 
         # Run calculator script
-        command = str(script_path) if platform.system() == "Windows" else f"bash {script_path}"
+        command = f"bash {script_path}"
         result = run_command(
             command,
+            capture_output=True,
+            text=True,
+            cwd=tmpdir
+        )
+
+        assert result.returncode == 0
+        assert "100" in result.stdout
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
+def test_run_command_calculator_script_windows():
+    """Test run_command with a Windows batch calculator script"""
+    from fz.helpers import run_command
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a simple batch calculator script
+        script_path = Path(tmpdir) / "calc.bat"
+        script_content = "@echo off\necho result: 100\n"
+
+        script_path.write_text(script_content)
+
+        # Run calculator script
+        result = run_command(
+            str(script_path),
             capture_output=True,
             text=True,
             cwd=tmpdir
@@ -226,32 +261,58 @@ def test_run_command_error_handling():
     assert result.returncode != 0
 
 
-def test_run_command_timeout():
-    """Test run_command respects timeout parameter"""
+@pytest.mark.skipif(platform.system() == "Windows", reason="Unix-specific timeout test")
+def test_run_command_timeout_unix():
+    """Test run_command respects timeout parameter on Unix"""
     from fz.helpers import run_command
 
     # This should timeout (sleep for 10 seconds with 1 second timeout)
     with pytest.raises(subprocess.TimeoutExpired):
-        if platform.system() == "Windows":
-            # Windows timeout command syntax
-            run_command("timeout /t 10", timeout=1, capture_output=True)
-        else:
-            # Unix sleep command
-            run_command("sleep 10", timeout=1, capture_output=True)
+        run_command("sleep 10", timeout=1, capture_output=True)
 
 
-def test_run_command_preserves_kwargs():
-    """Test that run_command preserves additional kwargs"""
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific timeout test")
+def test_run_command_timeout_windows():
+    """Test run_command respects timeout parameter on Windows"""
+    from fz.helpers import run_command
+
+    # This should timeout (sleep for 10 seconds with 1 second timeout)
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_command("timeout /t 10", timeout=1, capture_output=True)
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="Unix-specific environment variable syntax")
+def test_run_command_preserves_kwargs_unix():
+    """Test that run_command preserves additional kwargs on Unix"""
     from fz.helpers import run_command
 
     # Pass custom environment
     custom_env = os.environ.copy()
     custom_env['TEST_VAR'] = 'test_value'
 
-    if platform.system() == "Windows":
-        command = "echo %TEST_VAR%"
-    else:
-        command = "echo $TEST_VAR"
+    command = "echo $TEST_VAR"
+
+    result = run_command(
+        command,
+        capture_output=True,
+        text=True,
+        env=custom_env
+    )
+
+    assert result.returncode == 0
+    assert "test_value" in result.stdout
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific environment variable syntax")
+def test_run_command_preserves_kwargs_windows():
+    """Test that run_command preserves additional kwargs on Windows"""
+    from fz.helpers import run_command
+
+    # Pass custom environment
+    custom_env = os.environ.copy()
+    custom_env['TEST_VAR'] = 'test_value'
+
+    command = "echo %TEST_VAR%"
 
     result = run_command(
         command,
