@@ -52,9 +52,9 @@ Please install one of the following:
    - Install from Microsoft Store or use: wsl --install
    - Note: bash.exe should be accessible from Windows PATH
 
-4. Cygwin (legacy):
+4. Cygwin (alternative):
    - Download from: https://www.cygwin.com/
-   - During installation, make sure to select 'bash' package
+   - During installation, select 'bash', 'grep', 'gawk', 'sed', and 'coreutils' packages
    - Add C:\cygwin64\bin to your PATH environment variable
 
 After installation, verify bash is in PATH by running:

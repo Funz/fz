@@ -681,16 +681,16 @@ def run_local_calculation(
         # Determine shell executable for Windows
         executable = None
         if platform.system() == "Windows":
-            # On Windows, use bash if available (Git Bash, WSL, etc.)
-            # Check common Git Bash installation paths first
+            # On Windows, use bash if available (MSYS2, Git Bash, WSL, Cygwin, etc.)
+            # Check common bash installation paths, prioritizing MSYS2 (preferred)
             bash_paths = [
-                # cygwin bash
-                r"C:\cygwin64\bin\bash.exe",
+                # MSYS2 bash (preferred - provides complete Unix environment)
+                r"C:\msys64\usr\bin\bash.exe",
                 # Git for Windows default paths
                 r"C:\Progra~1\Git\bin\bash.exe",
                 r"C:\Progra~2\Git\bin\bash.exe",
-                # Msys2 bash (if installed)
-                r"C:\msys64\usr\bin\bash.exe",
+                # Cygwin bash (alternative Unix environment)
+                r"C:\cygwin64\bin\bash.exe",
                 # WSL bash
                 r"C:\Windows\System32\bash.exe",
                 # win-bash

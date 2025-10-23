@@ -1,8 +1,8 @@
-# Windows CI Setup with Cygwin
+# Windows CI Setup with MSYS2
 
 ## Overview
 
-The Windows CI workflows have been updated to install Cygwin with bash and essential Unix utilities to meet the `fz` package requirements. The package requires:
+The Windows CI workflows have been updated to install MSYS2 with bash and essential Unix utilities to meet the `fz` package requirements. The package requires:
 
 - **bash** - Shell interpreter
 - **Unix utilities** - grep, cut, awk, sed, tr, cat, sort, uniq, head, tail (for output parsing)
@@ -18,33 +18,29 @@ The Windows CI workflows have been updated to install Cygwin with bash and essen
 
 For each Windows job, the following steps have been added:
 
-#### 1. Install Cygwin with Required Packages
+#### 1. Install MSYS2 with Required Packages
 ```yaml
 - name: Install system dependencies (Windows)
   if: runner.os == 'Windows'
   shell: pwsh
   run: |
-    # Install Cygwin with bash and essential Unix utilities
+    # Install MSYS2 with bash and essential Unix utilities
     # fz requires bash and Unix tools (grep, cut, awk, sed, tr) for output parsing
-    Write-Host "Installing Cygwin with bash and Unix utilities..."
-    choco install cygwin -y --params "/InstallDir:C:\cygwin64"
+    Write-Host "Installing MSYS2 with bash and Unix utilities..."
+    choco install msys2 -y --params="/NoUpdate"
 
-    Write-Host "Installing required Cygwin packages..."
-    # Install essential packages using Cygwin setup
+    Write-Host "Installing required MSYS2 packages..."
+    # Use pacman (MSYS2 package manager) to install packages
     # Note: coreutils includes cat, cut, tr, sort, uniq, head, tail
-    $packages = "bash,grep,gawk,sed,coreutils"
+    $env:MSYSTEM = "MSYS"
 
-    # Download Cygwin setup if needed
-    if (-not (Test-Path "C:\cygwin64\setup-x86_64.exe")) {
-      Write-Host "Downloading Cygwin setup..."
-      Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile "C:\cygwin64\setup-x86_64.exe"
-    }
+    # Update package database
+    C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
 
-    # Install packages quietly
-    Write-Host "Installing packages: $packages"
-    Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","$packages" -Wait -NoNewWindow
+    # Install required packages
+    C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed coreutils"
 
-    Write-Host "✓ Cygwin installation complete with all required packages"
+    Write-Host "✓ MSYS2 installation complete with all required packages"
 ```
 
 **Packages Installed**:
@@ -56,14 +52,14 @@ For each Windows job, the following steps have been added:
 
 #### 2. List Installed Utilities
 ```yaml
-- name: List installed Cygwin utilities (Windows)
+- name: List installed MSYS2 utilities (Windows)
   if: runner.os == 'Windows'
   shell: pwsh
   run: |
-    Write-Host "Listing executables in C:\cygwin64\bin..."
+    Write-Host "Listing executables in C:\msys64\usr\bin..."
 
-    # List all .exe files in cygwin64/bin
-    $binFiles = Get-ChildItem -Path "C:\cygwin64\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
+    # List all .exe files in msys64/usr/bin
+    $binFiles = Get-ChildItem -Path "C:\msys64\usr\bin" -Filter "*.exe" | Select-Object -ExpandProperty Name
 
     # Check for key utilities we need
     $keyUtilities = @("bash.exe", "grep.exe", "cut.exe", "awk.exe", "gawk.exe", "sed.exe", "tr.exe", "cat.exe", "sort.exe", "uniq.exe", "head.exe", "tail.exe")
@@ -86,18 +82,18 @@ This step provides visibility into what utilities were actually installed, helpi
 - **Debug** package installation issues
 - **Verify** all required utilities are present
 - **Inspect** what other utilities are available
-- **Track** changes in Cygwin package contents over time
+- **Track** changes in MSYS2 package contents over time
 
-#### 3. Add Cygwin to PATH
+#### 3. Add MSYS2 to PATH
 ```yaml
-- name: Add Cygwin to PATH (Windows)
+- name: Add MSYS2 to PATH (Windows)
   if: runner.os == 'Windows'
   shell: pwsh
   run: |
-    # Add Cygwin bin directory to PATH for this workflow
-    $env:PATH = "C:\cygwin64\bin;$env:PATH"
-    echo "C:\cygwin64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-    Write-Host "✓ Cygwin added to PATH"
+    # Add MSYS2 bin directory to PATH for this workflow
+    $env:PATH = "C:\msys64\usr\bin;$env:PATH"
+    echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    Write-Host "✓ MSYS2 added to PATH"
 ```
 
 #### 4. Verify Unix Utilities
@@ -135,20 +131,29 @@ This step provides visibility into what utilities were actually installed, helpi
     Write-Host "`n✓ All Unix utilities are available and working"
 ```
 
-## Why Cygwin?
+## Why MSYS2?
 
-We chose Cygwin over Git Bash or WSL for the following reasons:
+We chose MSYS2 as the preferred option over Cygwin, Git Bash, or WSL for the following reasons:
 
-1. **Complete Unix Environment**: Cygwin provides all required Unix utilities through well-maintained packages
-2. **Reliability**: Cygwin is specifically designed to provide a comprehensive Unix-like environment on Windows
-3. **Package Management**: Easy to install specific packages (bash, grep, gawk, sed, coreutils) via setup program
-4. **Consistency**: Cygwin's utilities behave identically to their Unix counterparts, ensuring cross-platform compatibility
-5. **CI Availability**: Cygwin is readily available via Chocolatey on GitHub Actions Windows runners
-6. **PATH Integration**: Easy to add to PATH and verify installation
-7. **Explicit Package Control**: We explicitly install required packages ensuring all utilities are available
+1. **Complete Unix Environment**: MSYS2 provides all required Unix utilities through well-maintained packages
+2. **Native Package Manager**: Uses pacman (from Arch Linux), a modern and reliable package management system
+3. **Better Performance**: MSYS2 generally offers better performance than Cygwin for file operations
+4. **Active Development**: MSYS2 is actively maintained with regular updates and modern tooling
+5. **Consistency**: MSYS2's utilities behave identically to their Unix counterparts, ensuring cross-platform compatibility
+6. **CI Availability**: MSYS2 is readily available via Chocolatey on GitHub Actions Windows runners
+7. **PATH Integration**: Easy to add to PATH and verify installation
+8. **Explicit Package Control**: We explicitly install required packages ensuring all utilities are available
+
+**Note**: Cygwin is still supported as an alternative Unix environment. The `fz` package will automatically detect and use either MSYS2 or Cygwin bash if available.
 
 ## Installation Location
 
+### MSYS2 (Preferred)
+- MSYS2 is installed to: `C:\msys64`
+- Bash executable is at: `C:\msys64\usr\bin\bash.exe`
+- The bin directory (`C:\msys64\usr\bin`) is added to PATH
+
+### Cygwin (Alternative)
 - Cygwin is installed to: `C:\cygwin64`
 - Bash executable is at: `C:\cygwin64\bin\bash.exe`
 - The bin directory (`C:\cygwin64\bin`) is added to PATH
@@ -164,12 +169,24 @@ This ensures that tests will not run if bash is not properly installed.
 
 ## Testing on Windows
 
-When testing locally on Windows, developers should install Cygwin by:
+When testing locally on Windows, developers should install MSYS2 (recommended) or Cygwin:
 
-1. Downloading from https://www.cygwin.com/
-2. Running the installer and selecting the `bash` package
-3. Adding `C:\cygwin64\bin` to the system PATH
-4. Verifying with `bash --version`
+### Option 1: MSYS2 (Recommended)
+1. Download from https://www.msys2.org/
+2. Run the installer (default location: `C:\msys64`)
+3. Open MSYS2 terminal and install required packages:
+   ```bash
+   pacman -Sy
+   pacman -S bash grep gawk sed coreutils
+   ```
+4. Add `C:\msys64\usr\bin` to the system PATH
+5. Verify with `bash --version`
+
+### Option 2: Cygwin (Alternative)
+1. Download from https://www.cygwin.com/
+2. Run the installer and select the `bash`, `grep`, `gawk`, `sed`, and `coreutils` packages
+3. Add `C:\cygwin64\bin` to the system PATH
+4. Verify with `bash --version`
 
 See `BASH_REQUIREMENT.md` for detailed installation instructions.
 
@@ -179,9 +196,9 @@ The updated Windows CI workflow now follows this sequence:
 
 1. **Checkout code**
 2. **Set up Python**
-3. **Install Cygwin** ← New step
-4. **Add Cygwin to PATH** ← New step
-5. **Verify bash** ← New step
+3. **Install MSYS2** ← New step
+4. **Add MSYS2 to PATH** ← New step
+5. **Verify bash and Unix utilities** ← New step
 6. **Install R and other dependencies**
 7. **Install Python dependencies** (including `fz`)
    - At this point, `import fz` will check for bash and should succeed
@@ -196,10 +213,21 @@ The updated Windows CI workflow now follows this sequence:
 
 ## Alternative Approaches Considered
 
+### Cygwin (Still Supported)
+- **Pros**:
+  - Mature and well-tested Unix environment
+  - Comprehensive package ecosystem
+  - Widely used in enterprise environments
+- **Cons**:
+  - Slower than MSYS2 for file operations
+  - Less active development compared to MSYS2
+  - Older package management system
+
 ### Git Bash
 - **Pros**: Often already installed on developer machines
 - **Cons**:
   - May not be in PATH by default
+  - Minimal Unix utilities included
   - Different behavior from Unix bash in some cases
   - Harder to verify installation in CI
 
@@ -209,6 +237,7 @@ The updated Windows CI workflow now follows this sequence:
   - More complex to set up in CI
   - Requires WSL-specific invocation syntax
   - May have performance overhead
+  - Additional layer of abstraction
 
 ### PowerShell Bash Emulation
 - **Pros**: No installation needed
@@ -219,10 +248,11 @@ The updated Windows CI workflow now follows this sequence:
 
 ## Maintenance Notes
 
-- The Cygwin installation uses Chocolatey, which is pre-installed on GitHub Actions Windows runners
-- If Chocolatey is updated or Cygwin packages change, these workflows may need adjustment
-- The installation path (`C:\cygwin64`) is hardcoded and should remain consistent across updates
-- If additional Unix tools are needed, they can be installed using `cyg-get`
+- The MSYS2 installation uses Chocolatey, which is pre-installed on GitHub Actions Windows runners
+- If Chocolatey is updated or MSYS2 packages change, these workflows may need adjustment
+- The installation path (`C:\msys64`) is hardcoded and should remain consistent across updates
+- If additional Unix tools are needed, they can be installed using `pacman` package manager
+- The `fz` package supports both MSYS2 and Cygwin, automatically detecting which is available
 
 ## Related Documentation
 
