@@ -78,8 +78,8 @@ echo 'Done'
     }
 
     calculators = [
-        "sh://bash ./PerfectGazPressure.sh",
-        "sh://bash ./PerfectGazPressure.sh"
+        "sh://bash PerfectGazPressure.sh",
+        "sh://bash PerfectGazPressure.sh"
     ]
 
     try:
