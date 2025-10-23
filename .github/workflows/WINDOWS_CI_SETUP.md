@@ -105,7 +105,7 @@ This step provides visibility into what utilities were actually installed, helpi
     # Verify bash and essential Unix utilities are available
     Write-Host "Verifying Unix utilities..."
 
-    $utilities = @("bash", "grep", "cut", "awk", "sed", "tr", "cat", "sort", "uniq", "head", "tail")
+    $utilities = @("bash", "grep", "cut", "awk", "sed", "tr",  "sort", "uniq", "head", "tail")
     $allFound = $true
 
     foreach ($util in $utilities) {

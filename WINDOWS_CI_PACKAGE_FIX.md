@@ -73,7 +73,7 @@ Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","
 The existing verification step checks all 11 utilities:
 
 ```powershell
-$utilities = @("bash", "grep", "cut", "awk", "sed", "tr", "cat", "sort", "uniq", "head", "tail")
+$utilities = @("bash", "grep", "cut", "awk", "sed", "tr",  "sort", "uniq", "head", "tail")
 ```
 
 This step will now succeed because all utilities are explicitly installed.

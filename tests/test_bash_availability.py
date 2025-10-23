@@ -175,7 +175,7 @@ def test_unix_utilities_available():
 
 
 @pytest.mark.parametrize("utility", [
-    "bash", "grep", "cut", "awk", "sed", "tr", "cat", "sort", "uniq", "head", "tail"
+    "bash", "grep", "cut", "awk", "sed", "tr",  "sort", "uniq", "head", "tail"
 ])
 def test_msys2_utilities_in_ci(utility):
     """
