@@ -58,7 +58,7 @@ jobs:
         C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
 
         # Install required packages
-        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed coreutils"
+        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed bc coreutils"
 
         Write-Host "✓ MSYS2 installation complete with all required packages"
 
@@ -349,7 +349,7 @@ jobs:
         C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
 
         # Install required packages
-        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed coreutils"
+        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed bc coreutils"
 
         Write-Host "✓ MSYS2 installation complete with all required packages"
 

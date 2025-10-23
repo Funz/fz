@@ -134,7 +134,7 @@ def check_bash_availability_on_windows():
             "1. MSYS2 (recommended):\n"
             "   - Download from: https://www.msys2.org/\n"
             "   - Or install via Chocolatey: choco install msys2\n"
-            "   - After installation, run: pacman -S bash grep gawk sed coreutils\n"
+            "   - After installation, run: pacman -S bash grep gawk sed bc coreutils\n"
             "   - Add C:\\msys64\\usr\\bin to your PATH environment variable\n\n"
             "2. Git for Windows (includes Git Bash):\n"
             "   - Download from: https://git-scm.com/download/win\n"

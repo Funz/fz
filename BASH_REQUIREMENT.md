@@ -40,7 +40,7 @@ Please install one of the following:
 1. MSYS2 (recommended):
    - Download from: https://www.msys2.org/
    - Or install via Chocolatey: choco install msys2
-   - After installation, run: pacman -S bash grep gawk sed coreutils
+   - After installation, run: pacman -S bash grep gawk sed bc coreutils
    - Add C:\msys64\usr\bin to your PATH environment variable
 
 2. Git for Windows (includes Git Bash):
@@ -83,7 +83,7 @@ We recommend **MSYS2** for Windows users because:
    ```
 4. Install required packages:
    ```bash
-   pacman -S bash grep gawk sed coreutils
+   pacman -S bash grep gawk sed bc coreutils
    ```
 5. Add `C:\msys64\usr\bin` to your system PATH:
    - Right-click "This PC" → Properties → Advanced system settings

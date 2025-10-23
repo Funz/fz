@@ -38,7 +38,7 @@ For each Windows job, the following steps have been added:
     C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
 
     # Install required packages
-    C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed coreutils"
+    C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed bc coreutils"
 
     Write-Host "✓ MSYS2 installation complete with all required packages"
 ```
@@ -182,7 +182,7 @@ When testing locally on Windows, developers should install MSYS2 (recommended) o
 3. Open MSYS2 terminal and install required packages:
    ```bash
    pacman -Sy
-   pacman -S bash grep gawk sed coreutils
+   pacman -S bash grep gawk sed bc coreutils
    ```
 4. Add `C:\msys64\usr\bin` to the system PATH
 5. Verify with `bash --version`

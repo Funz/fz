@@ -30,7 +30,7 @@ After completing the Cygwin to MSYS2 migration, several inconsistencies were fou
 1. MSYS2 (recommended):
    - Download from: https://www.msys2.org/
    - Or install via Chocolatey: choco install msys2
-   - After installation, run: pacman -S bash grep gawk sed coreutils
+   - After installation, run: pacman -S bash grep gawk sed bc coreutils
    - Add C:\msys64\usr\bin to your PATH environment variable
 ```
 

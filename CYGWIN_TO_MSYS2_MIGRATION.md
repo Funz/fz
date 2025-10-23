@@ -20,7 +20,7 @@ MSYS2 was chosen over Cygwin for the following reasons:
 
 ### 3. **Simpler Installation**
 - Single command via Chocolatey: `choco install msys2`
-- Cleaner package installation: `pacman -S bash grep gawk sed coreutils`
+- Cleaner package installation: `pacman -S bash grep gawk sed bc coreutils`
 - No need to download/run setup.exe separately
 
 ### 4. **Smaller Footprint**
@@ -54,7 +54,7 @@ Start-Process -FilePath "C:\cygwin64\setup-x86_64.exe" -ArgumentList "-q","-P","
 ```powershell
 choco install msys2 -y --params="/NoUpdate"
 C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
-C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed coreutils"
+C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed bc coreutils"
 ```
 
 ### 2. PATH Configuration
@@ -120,7 +120,7 @@ Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile "setup-x86
 ### MSYS2
 ```bash
 # Simple one-liner
-pacman -S bash grep gawk sed coreutils
+pacman -S bash grep gawk sed bc coreutils
 ```
 
 ## Benefits of MSYS2
@@ -188,7 +188,7 @@ If you already have Cygwin installed and working, no action needed. Keep using i
 
 3. **Install required packages**
    ```bash
-   pacman -S bash grep gawk sed coreutils
+   pacman -S bash grep gawk sed bc coreutils
    ```
 
 4. **Add to PATH**
