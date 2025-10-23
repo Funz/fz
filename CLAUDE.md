@@ -283,7 +283,6 @@ export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
 - Binary paths are cached after first resolution
 - Cache is cleared when config is reloaded with `reinitialize_resolver()`
 - Use `FZ_SHELL_PATH` to prioritize specific tool versions or custom installations
-
 ## Code Style & Standards
 
 ### Style Guide
