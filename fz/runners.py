@@ -19,7 +19,7 @@ import uuid
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
-from .core import get_windows_bash_executable
+from .helpers import get_windows_bash_executable
 import getpass
 from datetime import datetime
 from pathlib import Path
