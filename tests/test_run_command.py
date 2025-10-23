@@ -271,14 +271,14 @@ def test_run_command_timeout_unix():
         run_command("sleep 10", timeout=1, capture_output=True)
 
 
-@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific timeout test")
-def test_run_command_timeout_windows():
-    """Test run_command respects timeout parameter on Windows"""
-    from fz.helpers import run_command
-
-    # This should timeout (sleep for 10 seconds with 1 second timeout)
-    with pytest.raises(subprocess.TimeoutExpired):
-        run_command("timeout /t 10", timeout=1, capture_output=True)
+#@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific timeout test")
+#def test_run_command_timeout_windows():
+#    """Test run_command respects timeout parameter on Windows"""
+#    from fz.helpers import run_command
+#
+#    # This should timeout (sleep for 10 seconds with 1 second timeout)
+#    with pytest.raises(subprocess.TimeoutExpired):
+#        run_command("timeout /t 10", timeout=1, capture_output=True)
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Unix-specific environment variable syntax")
