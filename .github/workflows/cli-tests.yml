@@ -131,6 +131,11 @@ jobs:
 
         Write-Host "`n✓ All Unix utilities are available and working"
 
+        Write-Host "Where is bash?"
+        Get-Command bash
+        Get-Command C:\msys64\usr\bin\bash.exe
+        $env:PATH
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip

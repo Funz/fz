@@ -95,6 +95,11 @@ jobs:
         Write-Host ""
         Write-Host "Sample of other utilities available:"
         $binFiles | Where-Object { $_ -notin $keyUtilities } | Select-Object -First 20 | ForEach-Object { Write-Host "  - $_" }
+        
+        Write-Host "Where is bash?"
+        Get-Command bash
+        Get-Command C:\msys64\usr\bin\bash.exe
+        $env:PATH
 
     - name: Add MSYS2 to PATH (Windows)
       if: runner.os == 'Windows'

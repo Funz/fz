@@ -129,6 +129,11 @@ This step provides visibility into what utilities were actually installed, helpi
     }
 
     Write-Host "`n✓ All Unix utilities are available and working"
+
+    Write-Host "Where is bash?"
+    Get-Command bash
+    Get-Command C:\msys64\usr\bin\bash.exe
+    $env:PATH
 ```
 
 ## Why MSYS2?
