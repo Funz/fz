@@ -167,6 +167,14 @@ echo 'Done'
             pytest.fail("No results returned")
     except Exception as e:
         pytest.fail(f"Test failed with error: {e}")
+        # try display one case content of files:
+        for case_dir in Path("results").iterdir():
+            if case_dir.is_dir():
+                print(f"\nContents of {case_dir}:")
+                for file in case_dir.iterdir():
+                    print(f"--- {file.name} ---")
+                    with open(file, 'r') as f:
+                        print(f.read())
 
 if __name__ == "__main__":
     test_complete_parallel_execution()
