@@ -185,11 +185,38 @@ def test_actual_windows_bash_availability():
 
     This test only runs on Windows and checks if bash is actually available.
     """
+
+    # Clone of the bash detection logic from fz.runners:686 for demonstration
     import shutil
+    # Try system/user PATH first...
+    bash_paths = shutil.which("bash")
+    if bash_paths:
+        executable = bash_paths
+        print(f"Using bash from PATH: {executable}")
 
-    bash_path = shutil.which("bash")
+    if not executable:
+        bash_paths = [
+            # MSYS2 bash (preferred - provides complete Unix environment)
+            r"C:\msys64\usr\bin\bash.exe",
+            # Git for Windows default paths
+            r"C:\Progra~1\Git\bin\bash.exe",
+            r"C:\Progra~2\Git\bin\bash.exe",
+            # Cygwin bash (alternative Unix environment)
+            r"C:\cygwin64\bin\bash.exe",
+            # win-bash
+            r"C:\win-bash\bin\bash.exe"
+            # WSL bash
+            r"C:\Windows\System32\bash.exe",
+        ]
 
-    if bash_path is None:
+        import os
+        for bash_path in bash_paths:
+            if os.path.exists(bash_path):
+                executable = bash_path
+                print(f"Using bash at: {executable}")
+                break
+
+    if bash_paths is None:
         pytest.skip(
             "Bash not available on this Windows system. "
             "Please install MSYS2, Git Bash, or WSL. "
@@ -199,7 +226,7 @@ def test_actual_windows_bash_availability():
         # Bash is available - verify it works
         import subprocess
         result = subprocess.run(
-            ["bash", "--version"],
+            [executable, "--version"],
             capture_output=True,
             text=True
         )
