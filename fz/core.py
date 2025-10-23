@@ -79,6 +79,7 @@ from .config import get_config
 from .helpers import (
     fz_temporary_directory,
     get_windows_bash_executable,
+    run_command,
     _get_result_directory,
     _get_case_directories,
     _cleanup_fzr_resources,
@@ -551,16 +552,12 @@ def fzo(
             for key, command in output_spec.items():
                 try:
                     # Execute shell command in subdirectory (use absolute path for cwd)
-                    # On Windows, use bash as the shell interpreter
-                    executable = get_windows_bash_executable()
-
-                    result = subprocess.run(
+                    result = run_command(
                         command,
                         shell=True,
                         capture_output=True,
                         text=True,
                         cwd=str(subdir.absolute()),
-                        executable=executable,
                     )
 
                     if result.returncode == 0:
@@ -588,16 +585,12 @@ def fzo(
         for key, command in output_spec.items():
             try:
                 # Execute shell command in work_dir (use absolute path for cwd)
-                # On Windows, use bash as the shell interpreter
-                executable = get_windows_bash_executable()
-
-                result = subprocess.run(
+                result = run_command(
                     command,
                     shell=True,
                     capture_output=True,
                     text=True,
                     cwd=str(work_dir.absolute()),
-                    executable=executable,
                 )
 
                 if result.returncode == 0:

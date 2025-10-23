@@ -19,7 +19,7 @@ import uuid
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
-from .helpers import get_windows_bash_executable
+from .helpers import get_windows_bash_executable, run_command
 import getpass
 from datetime import datetime
 from pathlib import Path
@@ -679,43 +679,17 @@ def run_local_calculation(
         err_file_path = working_dir / "err.txt"
         log_info(f"Info: Running command: {full_command}")
 
-        # Determine shell executable for Windows
-        executable = get_windows_bash_executable()
-
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
-            if platform.system() == "Windows":
-                # On Windows, use CREATE_NEW_PROCESS_GROUP to allow Ctrl+C handling
-                # This is crucial for proper interrupt handling on Windows
-                import subprocess as sp
-
-                # Create process in new process group so it can receive Ctrl+C
-                creationflags = 0
-                if hasattr(sp, 'CREATE_NEW_PROCESS_GROUP'):
-                    creationflags = sp.CREATE_NEW_PROCESS_GROUP
-                elif hasattr(sp, 'CREATE_NO_WINDOW'):
-                    # Fallback for older Python versions
-                    creationflags = sp.CREATE_NO_WINDOW
-
-                process = subprocess.Popen(
-                    # if "bash" in list, replace with executable path
-                    [s.replace('bash', executable) for s in full_command.split()] if executable else full_command.split(),
-                    shell=False if executable else True,
-                    stdout=out_file,
-                    stderr=err_file,
-                    cwd=working_dir,
-                    executable=None,
-                    creationflags=creationflags,
-                )
-            else:
-                process = subprocess.Popen(
-                    full_command,
-                    shell=True,
-                    stdout=out_file,
-                    stderr=err_file,
-                    cwd=working_dir,
-                    executable=executable,
-                )
+            # Use centralized run_command that handles Windows bash and process flags
+            process = run_command(
+                full_command,
+                shell=True,
+                stdout=out_file,
+                stderr=err_file,
+                cwd=working_dir,
+                use_popen=True,
+            )
 
             # Poll process and check for interrupts
             # Use polling instead of blocking wait to allow interrupt handling on all platforms
