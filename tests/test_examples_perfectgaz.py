@@ -17,7 +17,7 @@ import fz
 def perfectgaz_setup(tmp_path):
     """Setup test environment for PerfectGaz examples"""
     original_dir = os.getcwd()
-    os.chdir("C:\\Users\\riche\\fz\\tmp")
+    os.chdir(tmp_path)
 
     # Create input.txt (from examples.md lines 10-17)
     with open("input.txt", "w", newline='\n') as f:
@@ -111,8 +111,7 @@ def test_perfectgaz_fzc(perfectgaz_setup):
 
 def test_perfectgaz_fzr_single_case(perfectgaz_setup):
     """Test fzr with single case - from examples.md lines 194-207"""
-    import os
-    os.chdir("C:\\Users\\riche\\fz\\tmp")
+
     result = fz.fzr("input.txt", {
         "T_celsius": 20,
         "V_L": 1,
