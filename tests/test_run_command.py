@@ -120,7 +120,7 @@ def test_run_command_windows_bash_detection():
                 mock_get_bash.assert_called()
                 # Verify subprocess.run was called with executable parameter
                 call_kwargs = mock_run.call_args[1]
-                assert call_kwargs['executable'] == 'C:\\msys64\\usr\\bin\\bash.exe'
+                assert call_kwargs['executable'] == 'C:\\msys64\\usr\\bin\\bash.exe', call_kwargs['executable']
 
 
 def test_run_command_windows_popen_creationflags():

@@ -32,6 +32,8 @@ def test_debug_command_flow():
             results_dir="debug_result"
         )
 
+        print("result =", result.to_dict())
+
         print(f"\nResult keys: {list(result.keys())}")
         print(f"Status: {result.get('status', 'missing')}")
         print(f"Calculator: {result.get('calculator', 'missing')}")

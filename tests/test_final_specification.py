@@ -29,9 +29,9 @@ n_mol=$n_mol
 # read input file
 source $1
 sleep 5  # Exactly 5 seconds per calculation
-#echo 'pressure = '`echo "scale=4;$n_mol*8.314*($T_celsius+273.15)/($V_L/1000)" | bc` > output.txt
+echo 'pressure = '`echo "scale=4;$n_mol*8.314*($T_celsius+273.15)/($V_L/1000)" | bc` > output.txt
 #replace bc with python
-echo 'pressure = '`python3 -c "print(round($n_mol*8.314*($T_celsius+273.15)/($V_L/1000),4))"` > output.txt
+#echo 'pressure = '`python3 -c "print(round($n_mol*8.314*($T_celsius+273.15)/($V_L/1000),4))"` > output.txt
 echo 'Done'
 """
     with open("PerfectGazPressure.sh", "w", newline='\n') as f:

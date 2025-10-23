@@ -17,6 +17,43 @@ from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
 
 
+def _get_windows_short_path(path: str) -> str:
+    r"""
+    Convert a Windows path with spaces to its short (8.3) name format.
+
+    This is necessary because Python's subprocess module on Windows doesn't
+    properly handle spaces in the executable parameter when using shell=True.
+
+    Args:
+        path: Windows file path
+
+    Returns:
+        Short format path (e.g., C:\PROGRA~1\...) or original path if conversion fails
+    """
+    if not path or ' ' not in path:
+        return path
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        GetShortPathName = ctypes.windll.kernel32.GetShortPathNameW
+        GetShortPathName.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        GetShortPathName.restype = wintypes.DWORD
+
+        buffer = ctypes.create_unicode_buffer(260)
+        GetShortPathName(path, buffer, 260)
+        short_path = buffer.value
+
+        if short_path:
+            log_debug(f"Converted path with spaces: {path} -> {short_path}")
+            return short_path
+    except Exception as e:
+        log_debug(f"Failed to get short path for {path}: {e}")
+
+    return path
+
+
 def get_windows_bash_executable() -> Optional[str]:
     """
     Get the bash executable path on Windows.
@@ -43,17 +80,26 @@ def get_windows_bash_executable() -> Optional[str]:
     bash_in_path = shutil.which("bash")
     if bash_in_path:
         log_debug(f"Using bash from PATH: {bash_in_path}")
-        return bash_in_path
+        # Convert to short name if path contains spaces
+        return _get_windows_short_path(bash_in_path)
 
     # Check common bash installation paths, prioritizing MSYS2
+    # Include both short names (8.3) and long names to handle various Git installations
     bash_paths = [
         # MSYS2 bash (preferred - provides complete Unix environment)
         r"C:\msys64\usr\bin\bash.exe",
-        # Git for Windows default paths
+        # Git for Windows with short names (always works)
         r"C:\Progra~1\Git\bin\bash.exe",
         r"C:\Progra~2\Git\bin\bash.exe",
+        # Git for Windows with long names (may have spaces issue, will be converted)
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\bin\bash.exe",
+        # Also check usr/bin for newer Git for Windows
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
         # Cygwin bash (alternative Unix environment)
         r"C:\cygwin64\bin\bash.exe",
+        r"C:\cygwin\bin\bash.exe",
         # WSL bash (almost always available on modern Windows)
         r"C:\Windows\System32\bash.exe",
         # win-bash
@@ -63,7 +109,8 @@ def get_windows_bash_executable() -> Optional[str]:
     for bash_path in bash_paths:
         if os.path.exists(bash_path):
             log_debug(f"Using bash at: {bash_path}")
-            return bash_path
+            # Convert to short name if path contains spaces
+            return _get_windows_short_path(bash_path)
 
     # No bash found
     log_warning(
@@ -151,7 +198,16 @@ def run_command(
             common_args["executable"] = executable if not executable else None
     else:
         # Non-Windows or non-Popen: use executable directly
-        common_args["executable"] = executable
+        # On Windows with shell=True, don't set executable because bash is already in PATH
+        # and passing it causes subprocess issues with spaces in paths
+        # Only set executable for non-shell or non-Windows cases
+        if platform.system() == "Windows" and shell:
+            # On Windows with shell=True, rely on PATH instead of executable parameter
+            # This avoids subprocess issues with spaces in bash path
+            common_args["executable"] = None
+        else:
+            # For non-Windows systems or non-shell execution, use the executable
+            common_args["executable"] = executable
 
     # Merge with user-provided kwargs (allows override)
     common_args.update(kwargs)

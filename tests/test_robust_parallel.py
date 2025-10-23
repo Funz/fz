@@ -36,9 +36,9 @@ echo "Calculator PID $$ starting for T_celsius=$T_celsius at $(date +%H:%M:%S.%3
 sleep 2
 
 # Calculate pressure using ideal gas law
-#pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
+pressure=$(echo "scale=4; $n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000)" | bc -l)
 #replace bc with python
-pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
+#pressure=$(python3 -c "print(round($n_mol * 8.314 * ($T_celsius + 273.15) / ($V_L / 1000), 4))")
 
 # Write output with explicit file operations and sync
 echo "pressure = $pressure" > output.txt
