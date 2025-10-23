@@ -145,7 +145,6 @@ def test_run_command_windows_popen_creationflags():
 
     with patch('fz.shell.platform.system', return_value='Windows'):
         with patch('fz.shell.get_windows_bash_executable') as mock_get_bash:
-
             mock_get_bash.return_value = None
 
             # Mock subprocess module Popen
