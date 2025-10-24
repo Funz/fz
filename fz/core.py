@@ -78,7 +78,6 @@ from .logging import log_error, log_warning, log_info, log_debug, log_progress
 from .config import get_config
 from .helpers import (
     fz_temporary_directory,
-    get_windows_bash_executable,
     _get_result_directory,
     _get_case_directories,
     _cleanup_fzr_resources,

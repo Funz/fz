@@ -19,7 +19,6 @@ import uuid
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
-from .helpers import get_windows_bash_executable
 from .shell import run_command, replace_commands_in_string
 import getpass
 from datetime import datetime

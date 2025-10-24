@@ -119,7 +119,7 @@ def test_run_command_windows_bash_detection():
     import subprocess as sp
 
     with patch('fz.shell.platform.system', return_value='Windows'):
-        with patch('fz.helpers.get_windows_bash_executable') as mock_get_bash:
+        with patch('fz.shell.get_windows_bash_executable') as mock_get_bash:
             mock_get_bash.return_value = 'C:\\msys64\\usr\\bin\\bash.exe'
 
             # Mock subprocess module run function
@@ -144,7 +144,7 @@ def test_run_command_windows_popen_creationflags():
     import subprocess as sp
 
     with patch('fz.shell.platform.system', return_value='Windows'):
-        with patch('fz.helpers.get_windows_bash_executable') as mock_get_bash:
+        with patch('fz.shell.get_windows_bash_executable') as mock_get_bash:
             mock_get_bash.return_value = None
 
             # Mock subprocess module Popen
