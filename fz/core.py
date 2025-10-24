@@ -79,7 +79,6 @@ from .config import get_config
 from .helpers import (
     fz_temporary_directory,
     get_windows_bash_executable,
-    run_command,
     _get_result_directory,
     _get_case_directories,
     _cleanup_fzr_resources,
@@ -92,6 +91,7 @@ from .helpers import (
     prepare_temp_directories,
     prepare_case_directories,
 )
+from .shell import run_command, replace_commands_in_string
 from .io import (
     ensure_unique_directory,
     create_hash_file,
@@ -551,9 +551,12 @@ def fzo(
 
             for key, command in output_spec.items():
                 try:
+                    # Apply shell path resolution to command if FZ_SHELL_PATH is set
+                    resolved_command = replace_commands_in_string(command)
+
                     # Execute shell command in subdirectory (use absolute path for cwd)
                     result = run_command(
-                        command,
+                        resolved_command,
                         shell=True,
                         capture_output=True,
                         text=True,
@@ -584,9 +587,12 @@ def fzo(
 
         for key, command in output_spec.items():
             try:
+                # Apply shell path resolution to command if FZ_SHELL_PATH is set
+                resolved_command = replace_commands_in_string(command)
+
                 # Execute shell command in work_dir (use absolute path for cwd)
                 result = run_command(
-                    command,
+                    resolved_command,
                     shell=True,
                     capture_output=True,
                     text=True,

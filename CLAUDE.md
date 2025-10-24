@@ -228,7 +228,61 @@ FZ_MAX_RETRIES=N                          # Retry attempts per case
 FZ_SSH_KEEPALIVE=seconds                  # SSH keepalive interval
 FZ_SSH_AUTO_ACCEPT_HOSTKEYS=0|1           # Auto-accept SSH keys (use with caution)
 FZ_INTERPRETER=python|R                   # Default formula interpreter
+FZ_SHELL_PATH=path1:path2:...             # Custom shell binary search path (overrides system PATH)
 ```
+
+### Shell Path Configuration (FZ_SHELL_PATH)
+
+The `FZ_SHELL_PATH` environment variable allows you to override the system `PATH` for binary resolution in FZ operations. This is particularly useful on Windows where:
+
+1. **Binary resolution in model output expressions** - Commands like `grep`, `awk`, `sed` in model output definitions are resolved using `FZ_SHELL_PATH`
+2. **Binary resolution in shell calculators** - Commands in `sh://` calculator scripts are resolved using `FZ_SHELL_PATH`
+3. **Windows .exe handling** - Automatically handles .exe extensions on Windows (e.g., `grep` resolves to `C:\msys64\usr\bin\grep.exe`)
+
+#### Usage Examples
+
+**On Windows with MSYS2:**
+```bash
+# Use semicolon separator on Windows
+SET FZ_SHELL_PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin
+
+# Now model output expressions will use MSYS2 binaries:
+# Model: {"output": {"pressure": "grep 'pressure' output.txt | awk '{print $3}'"}}
+# Will execute: C:\msys64\usr\bin\grep.exe 'pressure' output.txt | C:\msys64\usr\bin\awk.exe '{print $3}'
+```
+
+**On Windows with Git Bash:**
+```bash
+SET FZ_SHELL_PATH=C:\Program Files\Git\usr\bin;C:\Program Files\Git\bin
+```
+
+**On Unix/Linux (use colon separator):**
+```bash
+export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
+```
+
+#### How It Works
+
+1. **Configuration Loading**: `FZ_SHELL_PATH` is read from environment variables in `config.py`
+2. **Binary Discovery**: The `ShellPathResolver` class in `shell_path.py` manages binary resolution with caching
+3. **Command Resolution**: Commands in model output dicts and `sh://` calculators are automatically resolved to absolute paths
+4. **Fallback Behavior**: If `FZ_SHELL_PATH` is not set, uses system `PATH` environment variable
+
+#### Implementation Details
+
+- **Module**: `fz/shell_path.py` - Provides `ShellPathResolver` class and global functions
+- **Config Integration**: `config.py` loads `FZ_SHELL_PATH` environment variable
+- **Core Integration**:
+  - `core.py` (fzo function): Applies shell path resolution to model output commands
+  - `runners.py` (run_local_calculation): Applies shell path resolution to sh:// commands
+- **Caching**: Binary paths are cached after first resolution for performance
+- **Windows Support**: Automatically tries both `command` and `command.exe` on Windows
+
+#### Performance Considerations
+
+- Binary paths are cached after first resolution
+- Cache is cleared when config is reloaded with `reinitialize_resolver()`
+- Use `FZ_SHELL_PATH` to prioritize specific tool versions or custom installations
 
 ## Code Style & Standards
 

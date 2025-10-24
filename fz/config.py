@@ -78,6 +78,9 @@ class Config:
         self.ssh_auto_accept_hostkeys = self._parse_bool_env('FZ_SSH_AUTO_ACCEPT_HOSTKEYS', False)
         self.ssh_keepalive = self._parse_int_env('FZ_SSH_KEEPALIVE', 300)  # 5 minutes default
 
+        # Shell path configuration (overrides system PATH for binary resolution)
+        self.shell_path = os.getenv('FZ_SHELL_PATH', None)
+
     def _parse_int_env(self, key: str, default: Optional[int]) -> Optional[int]:
         """Parse integer environment variable"""
         value = os.getenv(key)
@@ -121,7 +124,8 @@ class Config:
             'interpreter': self.interpreter.value,
             'max_workers': self.max_workers,
             'ssh_auto_accept_hostkeys': self.ssh_auto_accept_hostkeys,
-            'ssh_keepalive': self.ssh_keepalive
+            'ssh_keepalive': self.ssh_keepalive,
+            'shell_path': self.shell_path
         }
 
 
@@ -203,6 +207,9 @@ def print_config():
     print("\n🌐 SSH:")
     print(f"  FZ_SSH_AUTO_ACCEPT_HOSTKEYS = {summary['ssh_auto_accept_hostkeys']}")
     print(f"  FZ_SSH_KEEPALIVE = {summary['ssh_keepalive']}s")
+
+    print("\n🔍 SHELL PATH:")
+    print(f"  FZ_SHELL_PATH = {summary['shell_path'] or '(not set, use system PATH)'}")
 
     print("\n" + "=" * 60)
     print("Set environment variables to customize these defaults")
