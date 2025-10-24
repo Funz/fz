@@ -57,59 +57,65 @@ def fz_temporary_directory(session_cwd=None):
         pass
 
 
-def _get_result_directory(var_combo: Dict, case_index: int, resultsdir: Path, total_cases: int) -> Tuple[Path, str]:
+def _get_result_directory(var_combo: Dict, case_index: int, resultsdir: Path, total_cases: int, has_input_variables: bool = True) -> Tuple[Path, str]:
     """
     Get result directory path and case name for a given variable combination
-    
+
     Args:
         var_combo: Variable combination dict
         case_index: Index of this case
         resultsdir: Base results directory
         total_cases: Total number of cases
-        
+        has_input_variables: Whether input_variables dict is non-empty. If False, output files go directly in resultsdir.
+
     Returns:
         Tuple of (result_dir_path, case_name)
     """
-    if total_cases > 1:
-        # Multiple cases: create subdirectory based on variable values
+    # Create subdirectory if input_variables is not empty
+    # (even if there's only one case, or if var_combo is empty due to grid expansion with no variables)
+    if has_input_variables:
+        # Always create subdirectory based on variable values when input_variables is not empty
         case_subdir = ",".join(f"{k}={v}" for k, v in var_combo.items())
         result_dir = resultsdir / case_subdir
-        case_name = case_subdir
+        case_name = case_subdir if case_subdir else "case_0"
     else:
-        # Single case: use base results directory
+        # Only when input_variables is empty: use base results directory directly
         result_dir = resultsdir
-        case_name = "single case"
-    
+        case_name = "no_variables"
+
     return result_dir, case_name
 
 
-def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, resultsdir: Path, total_cases: int) -> Tuple[Path, Path, str]:
+def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, resultsdir: Path, total_cases: int, has_input_variables: bool = True) -> Tuple[Path, Path, str]:
     """
     Determine temp and result directory paths for a case
-    
+
     This centralized function ensures consistent directory naming and prevents mixing
     of temp/result directories across the codebase.
-    
+
     Args:
         var_combo: Variable combination dict
         case_index: Index of this case
         temp_path: Base temporary path
         resultsdir: Base results directory
         total_cases: Total number of cases
-        
+        has_input_variables: Whether input_variables dict is non-empty
+
     Returns:
         Tuple of (tmp_dir, result_dir, case_name)
     """
     # Get result directory path and case name
-    result_dir, case_name = _get_result_directory(var_combo, case_index, resultsdir, total_cases)
-    
+    result_dir, case_name = _get_result_directory(var_combo, case_index, resultsdir, total_cases, has_input_variables)
+
     # Temp directory: mirror the result directory structure under temp_path
-    if total_cases > 1:
+    if has_input_variables:
+        # Always create subdirectory in temp when input_variables is not empty
         case_subdir = ",".join(f"{k}={v}" for k, v in var_combo.items())
-        tmp_dir = temp_path / case_subdir
+        tmp_dir = temp_path / case_subdir if case_subdir else temp_path / "case_0"
     else:
-        tmp_dir = temp_path / "single_case"
-    
+        # When input_variables is empty, use base temp directory
+        tmp_dir = temp_path
+
     return tmp_dir, result_dir, case_name
 
 
@@ -404,13 +410,14 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     output_keys = case_info["output_keys"]
     original_cwd = case_info.get("original_cwd")
     spinner = case_info.get("spinner")  # Optional spinner instance
+    has_input_variables = case_info.get("has_input_variables", True)  # Directory structure flag
 
     # Get thread ID for debugging
     thread_id = threading.get_ident()
 
     # Determine case directories using centralized function to prevent mixing
     tmp_dir, result_dir, case_name = _get_case_directories(
-        var_combo, case_index, temp_path, resultsdir, len(case_info["total_cases"])
+        var_combo, case_index, temp_path, resultsdir, len(case_info["total_cases"]), has_input_variables
     )
 
     log_debug(f"🔄 [Thread {thread_id}] Starting {case_name}")
@@ -832,7 +839,8 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
 def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir: Path,
                       calculators: List[str], model: Dict, original_input_was_dir: bool,
-                      var_names: List[str], output_keys: List[str], original_cwd: str = None) -> List[Dict[str, Any]]:
+                      var_names: List[str], output_keys: List[str], original_cwd: str = None,
+                      has_input_variables: bool = True) -> List[Dict[str, Any]]:
     """
     Run multiple cases in parallel across available calculators
 
@@ -845,6 +853,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         original_input_was_dir: Whether original input was a directory
         var_names: List of variable names
         output_keys: List of output keys
+        has_input_variables: Whether input_variables dict is non-empty
 
     Returns:
         List of case results in the same order as var_combinations
@@ -885,7 +894,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
             "output_keys": output_keys,
             "total_cases": var_combinations,
             "original_cwd": original_cwd,
-            "spinner": spinner  # Add spinner instance
+            "spinner": spinner,  # Add spinner instance
+            "has_input_variables": has_input_variables  # Add flag for directory structure
         }
         case_infos.append(case_info)
         case_name = ",".join(f"{k}={v}" for k, v in var_combo.items()) if len(var_combinations) > 1 else "single case"
@@ -1093,7 +1103,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     Args:
         input_path: Path to input file or directory
         model: Model definition dict
-        input_variables: Dict of variable values
+        input_variables: Dict of variable values. If non-empty, subdirectories are created for each case.
         var_combinations: List of variable combinations (cases)
         resultsdir: Results directory
     """
@@ -1108,13 +1118,16 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     delim = model.get("delim", "{}")
     input_path = Path(input_path)
 
+    # Determine if input_variables is non-empty
+    has_input_variables = bool(input_variables)
+
     # Ensure main results directory exists
     resultsdir.mkdir(parents=True, exist_ok=True)
 
     for case_index, var_combo in enumerate(var_combinations):
         # Use dedicated result directory function to avoid any temp_path contamination
         result_dir, case_name = _get_result_directory(
-            var_combo, case_index, resultsdir, len(var_combinations)
+            var_combo, case_index, resultsdir, len(var_combinations), has_input_variables
         )
 
         # Create result directory
@@ -1165,7 +1178,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
 
 
 
-def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path) -> None:
+def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path, has_input_variables: bool = True) -> None:
     """
     Create temporary directories and copy files from result directories (excluding .fz_hash)
 
@@ -1173,11 +1186,12 @@ def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resu
         var_combinations: List of variable combinations (cases)
         temp_path: Temporary path for calculations
         resultsdir: Results directory with compiled files and hashes
+        has_input_variables: Whether input_variables dict is non-empty
     """
     for case_index, var_combo in enumerate(var_combinations):
         # Use centralized directory determination
         tmp_dir, result_dir, case_name = _get_case_directories(
-            var_combo, case_index, temp_path, resultsdir, len(var_combinations)
+            var_combo, case_index, temp_path, resultsdir, len(var_combinations), has_input_variables
         )
 
         # Create temp directory for this case, cleaning up any existing files first
@@ -1206,7 +1220,7 @@ def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resu
 
 
 
-def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path) -> None:
+def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path, has_input_variables: bool = True) -> None:
     """
     Create result directories and compute hashes for all cases upfront
 
@@ -1214,6 +1228,7 @@ def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resu
         var_combinations: List of variable combinations (cases)
         temp_path: Temporary path with compiled inputs
         resultsdir: Results directory
+        has_input_variables: Whether input_variables dict is non-empty
     """
     from .io import create_hash_file
 
@@ -1223,7 +1238,7 @@ def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resu
     for case_index, var_combo in enumerate(var_combinations):
         # Use centralized directory determination to ensure consistency
         tmp_dir, result_dir, case_name = _get_case_directories(
-            var_combo, case_index, temp_path, resultsdir, len(var_combinations)
+            var_combo, case_index, temp_path, resultsdir, len(var_combinations), has_input_variables
         )
 
         # Create result directory (parent already exists, so this should be safe)

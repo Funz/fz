@@ -140,7 +140,7 @@ def test_modelica_fzo(modelica_setup):
     }, calculators="sh://bash ./Modelica.sh", results_dir="results")
 
     # Test fzo
-    result = fz.fzo("results", {"output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}})
+    result = fz.fzo("results/*", {"output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'}"}})
 
     assert len(result) == 3
 

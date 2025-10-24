@@ -162,7 +162,7 @@ def test_perfectgaz_fzo(perfectgaz_setup):
     }, calculators="sh://bash ./PerfectGazPressure.sh", results_dir="results")
 
     # Now test fzo
-    result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}})
+    result = fz.fzo("results/*", {"output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}})
 
     assert len(result) == 6
 

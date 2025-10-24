@@ -474,12 +474,17 @@ def fzo(
     Read and parse output file(s) according to model
 
     Args:
-        output_path: Path to output file or directory
-        model: Model definition dict or alias string
+        output_path: Path or glob pattern matching one or more output directories.
+                    The model output commands are applied directly to each matched directory.
+                    Can be a simple path, glob pattern (with * ? []), or regex pattern.
+                    Subdirectories within matched directories are NOT processed.
+        model: Model definition dict or alias string. Output commands are executed from
+               each matched directory and reference files relative to that directory.
 
     Returns:
-        DataFrame with rows for each subdirectory (if any) with 'path' column (relative to output_dir)
-        and columns for each parsed output. If no subdirectories, returns single row with '.' as path.
+        DataFrame with one row per matched directory.
+        Variable names are extracted from directory names (key1=val1,key2=val2,...)
+        and added as columns. Also includes 'path' column with relative paths.
         If pandas not available, returns dict for backward compatibility.
     """
 
@@ -489,113 +494,46 @@ def fzo(
     model = _resolve_model(model)
     output_spec = model.get("output", {})
 
-    output_path = Path(output_path).resolve()
-    rows = []  # List of dicts, one per subdirectory (or single row if no subdirs)
-
-    # Compute output_path relative to original launch directory for path column
-    try:
-        if output_path.is_absolute():
-            output_path_rel = output_path.relative_to(working_dir)
+    # Resolve output_path as glob pattern (may match multiple directories)
+    output_paths = resolve_cache_paths(output_path)
+    if not output_paths:
+        # If no glob matches, try as a simple path
+        output_path_single = Path(output_path).resolve()
+        if output_path_single.exists():
+            output_paths = [output_path_single]
         else:
-            output_path_rel = output_path
-    except ValueError:
-        # output_path is outside original launch directory, use as-is
-        output_path_rel = output_path
+            raise FileNotFoundError(f"Output path '{output_path}' not found")
 
-    # Determine the working directory for commands and find subdirectories
-    if output_path.is_file():
-        work_dir = output_path.parent
-        subdirs = []
-        # For single file case, path should be the file itself
-        path_for_no_subdirs = str(output_path_rel)
-    elif output_path.is_dir():
-        work_dir = output_path
-        # For directory with no subdirs, path should be the directory itself
-        path_for_no_subdirs = str(output_path_rel)
-        # Find all subdirectories and sort them to match fzr() creation order
-        # fzr() creates directories in the order of itertools.product()
-        # Directory names follow pattern: key1=val1,key2=val2,...
-        # We need to sort by parsing the key=value pairs and sorting by tuple of values
-        def parse_dir_name(dirname: str):
-            """Parse 'key1=val1,key2=val2' into list of values in original order"""
-            parts = dirname.split(',')
-            values = []
-            for part in parts:
-                if '=' in part:
-                    key, val = part.split('=', 1)
-                    # Try to convert to numeric for proper sorting
-                    try:
-                        if '.' in val:
-                            val_sorted = float(val)
-                        else:
-                            val_sorted = int(val)
-                    except ValueError:
-                        val_sorted = val
-                    values.append(val_sorted)
-            # Return values in their original order (matches the order in directory name)
-            return tuple(values)
+    rows = []  # List of dicts, one per matched output directory
 
-        all_dirs = [d for d in output_path.iterdir() if d.is_dir()]
-        subdirs = sorted(all_dirs, key=lambda d: parse_dir_name(d.name))
-    else:
-        raise FileNotFoundError(f"Output path '{output_path}' not found")
+    # Process each matched output directory (apply model output parsing at first level only)
+    for output_path_single in output_paths:
+        # Compute relative path for the 'path' column
+        try:
+            if output_path_single.is_absolute():
+                output_path_rel = output_path_single.relative_to(working_dir)
+            else:
+                output_path_rel = output_path_single
+        except ValueError:
+            # output_path is outside original launch directory, use as-is
+            output_path_rel = output_path_single
 
-    # If there are subdirectories, create one row per subdirectory
-    if subdirs:
-        for subdir in subdirs:
-            subdir_name = subdir.name
-            # Build full relative path from original launch directory
-            full_rel_path = output_path_rel / subdir_name
-            row = {"path": str(full_rel_path)}  # Full relative path to subdirectory
+        # Create one row per matched directory (apply model output parsing at this level)
+        row = {"path": str(output_path_rel)}
 
-            for key, command in output_spec.items():
-                try:
-                    # Apply shell path resolution to command if FZ_SHELL_PATH is set
-                    resolved_command = replace_commands_in_string(command)
-
-                    # Execute shell command in subdirectory (use absolute path for cwd)
-                    result = run_command(
-                        resolved_command,
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                        cwd=str(subdir.absolute()),
-                    )
-
-                    if result.returncode == 0:
-                        raw_output = result.stdout.strip()
-                        # Try to cast to appropriate Python type
-                        parsed_value = cast_output(raw_output)
-                        row[key] = parsed_value
-                    else:
-                        log_warning(
-                            f"Warning: Command for '{subdir_name}/{key}' failed: {result.stderr}"
-                        )
-                        row[key] = None
-
-                except Exception as e:
-                    log_warning(
-                        f"Warning: Error executing command for '{subdir_name}/{key}': {e}"
-                    )
-                    row[key] = None
-
-            rows.append(row)
-    else:
-        # No subdirectories, create single row with output path
-        row = {"path": path_for_no_subdirs}
-
+        # Execute model output commands from this directory
         for key, command in output_spec.items():
             try:
                 # Apply shell path resolution to command if FZ_SHELL_PATH is set
                 resolved_command = replace_commands_in_string(command)
 
-                # Execute shell command in work_dir (use absolute path for cwd)
+                # Execute shell command from the matched output directory
                 result = run_command(
                     resolved_command,
                     shell=True,
                     capture_output=True,
                     text=True,
-                    cwd=str(work_dir.absolute()),
+                    cwd=str(output_path_single.absolute()),
                 )
 
                 if result.returncode == 0:
@@ -605,12 +543,14 @@ def fzo(
                     row[key] = parsed_value
                 else:
                     log_warning(
-                        f"Warning: Command for '{key}' failed: {result.stderr}"
+                        f"Warning: Command for '{output_path_rel}/{key}' failed: {result.stderr}"
                     )
                     row[key] = None
 
             except Exception as e:
-                log_warning(f"Warning: Error executing command for '{key}': {e}")
+                log_warning(
+                    f"Warning: Error executing command for '{output_path_rel}/{key}': {e}"
+                )
                 row[key] = None
 
         rows.append(row)
@@ -846,13 +786,16 @@ def fzr(
     with fz_temporary_directory(original_cwd) as temp_dir:
         temp_path = Path(temp_dir)
 
+        # Determine if input_variables is non-empty for directory structure decisions
+        has_input_variables = bool(input_variables)
+
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
             input_path, model, input_variables, var_combinations, results_dir
         )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)
-        prepare_temp_directories(var_combinations, temp_path, results_dir)
+        prepare_temp_directories(var_combinations, temp_path, results_dir, has_input_variables)
 
         # Run calculations in parallel across cases
         try:
@@ -866,6 +809,7 @@ def fzr(
                 var_names,
                 output_keys,
                 original_cwd,
+                has_input_variables,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)

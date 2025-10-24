@@ -74,7 +74,7 @@ results = fz.fzr(
 )
 
 # Parse results
-output = fz.fzo("results", model)
+output = fz.fzo("results/*", model)
 print(output)
 ```
 
