@@ -748,7 +748,7 @@ output = fz.fzo("results/case1", model)
 # Returns: DataFrame with 1 row
 
 # Read from directory with subdirectories
-output = fz.fzo("results", model)
+output = fz.fzo("results/*", model)
 # Returns: DataFrame with 1 row per subdirectory
 ```
 
@@ -761,7 +761,7 @@ output = fz.fzo("results", model)
 #   ├── T_celsius=20,V_L=2/output.txt
 #   └── T_celsius=30,V_L=1/output.txt
 
-output = fz.fzo("results", model)
+output = fz.fzo("results/*", model)
 print(output)
 #                          path  pressure  T_celsius  V_L
 # 0  T_celsius=20,V_L=1  2437.30       20.0  1.0
