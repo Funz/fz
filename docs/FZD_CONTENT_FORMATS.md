@@ -181,12 +181,6 @@ result = {
         'txt_file': 'analysis_N.txt',        # Key=value file reference
         'md_file': 'analysis_N.md',          # If markdown detected
         'text': '...',                        # Plain text (no format detected)
-
-        '_raw': {                             # Original algorithm output (for debug)
-            'text': '...',
-            'html': '...',
-            'data': {...}
-        }
     },
 
     'algorithm': 'path/to/algorithm.py',
@@ -225,12 +219,6 @@ with open(json_file) as f:
     data = json.load(f)
 ```
 
-### Access raw algorithm output:
-```python
-# Get original text before processing
-original_text = result['display']['_raw']['text']
-original_html = result['display']['_raw']['html']
-```
 
 ## Iteration Files
 
@@ -303,8 +291,10 @@ python demo_fzd_content_formats.py
    return {'text': 'mean=42.5\nstd=3.2\nsamples=100'}
    ```
 
-## Backward Compatibility
+## Notes
 
-- Original raw content is preserved in `display['_raw']`
-- If algorithms don't return structured formats, content remains in `display['text']`
-- All existing code continues to work unchanged
+- Raw HTML, markdown, and large content are saved to files and replaced with file references
+- Parsed data (JSON, key=value) is available as Python objects in the display dict
+- Plain text content remains in `display['text']` if no format is detected
+- Algorithm text output is logged to console before being processed
+- All file references are relative to the analysis_dir
