@@ -1381,7 +1381,11 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     input_path = Path(input_path)
 
     # Determine if input_variables is non-empty
-    has_input_variables = bool(input_variables)
+    # Handle both dict and DataFrame input types
+    if HAS_PANDAS and isinstance(input_variables, pd.DataFrame):
+        has_input_variables = not input_variables.empty
+    else:
+        has_input_variables = bool(input_variables)
 
     # Ensure main results directory exists
     resultsdir.mkdir(parents=True, exist_ok=True)
