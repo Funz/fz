@@ -3,22 +3,14 @@ Core functions for fz package: fzi, fzc, fzo, fzr
 """
 
 import os
-import re
-import subprocess
-import tempfile
-import json
-import ast
 import logging
 import time
 import uuid
 import signal
 import sys
-import io
 import platform
 from pathlib import Path
-from typing import Dict, List, Union, Any, Optional, Tuple, TYPE_CHECKING
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
+from typing import Dict, List, Union, Any, Optional, TYPE_CHECKING
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
@@ -74,39 +66,26 @@ import threading
 from collections import defaultdict
 import shutil
 
-from .logging import log_error, log_warning, log_info, log_debug, log_progress
-from .config import get_config
+from .logging import log_error, log_warning, log_info, log_debug
 from .helpers import (
     fz_temporary_directory,
-    get_windows_bash_executable,
-    _get_result_directory,
-    _get_case_directories,
     _cleanup_fzr_resources,
     _resolve_model,
-    get_calculator_manager,
-    try_calculators_with_retry,
-    run_single_case,
     run_cases_parallel,
     compile_to_result_directories,
     prepare_temp_directories,
-    prepare_case_directories,
 )
 from .shell import run_command, replace_commands_in_string
 from .io import (
     ensure_unique_directory,
-    create_hash_file,
     resolve_cache_paths,
-    find_cache_match,
-    load_aliases,
-    detect_content_type,
-    parse_keyvalue_text,
     process_display_content,
 )
 from .interpreter import (
     parse_variables_from_path,
     cast_output,
 )
-from .runners import resolve_calculators, run_calculation
+from .runners import resolve_calculators
 from .algorithms import (
     parse_input_vars,
     parse_fixed_vars,
