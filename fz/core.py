@@ -930,7 +930,7 @@ def fzo(
 @with_helpful_errors
 def fzr(
     input_path: str,
-    input_variables: Dict,
+    input_variables: Union[Dict, "pandas.DataFrame"],
     model: Union[str, Dict],
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
@@ -940,7 +940,8 @@ def fzr(
 
     Args:
         input_path: Path to input file or directory
-        input_variables: Dict of variable values or lists of values for grid
+        input_variables: Dict of variable values or lists of values for factorial grid,
+                        or pandas DataFrame for non-factorial designs (each row is one case)
         model: Model definition dict or alias string
         results_dir: Results directory
         calculators: Calculator specifications
@@ -1048,7 +1049,11 @@ def fzr(
         temp_path = Path(temp_dir)
 
         # Determine if input_variables is non-empty for directory structure decisions
-        has_input_variables = bool(input_variables)
+        # Handle both dict and DataFrame input types
+        if PANDAS_AVAILABLE and isinstance(input_variables, pd.DataFrame):
+            has_input_variables = not input_variables.empty
+        else:
+            has_input_variables = bool(input_variables)
 
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
