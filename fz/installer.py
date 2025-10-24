@@ -137,7 +137,6 @@ def extract_model_files(zip_path: Path, extract_dir: Path) -> Dict[str, Path]:
 
     # Second try: look for .fz/models/*.json
     if not model_json_paths:
-        fz_models_dir = extract_dir / '*' / '.fz' / 'models'
         model_json_paths = list(extract_dir.glob('*/.fz/models/*.json'))
         log_debug(f"Looking in .fz/models/: found {len(model_json_paths)} files")
 

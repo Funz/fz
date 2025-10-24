@@ -19,7 +19,7 @@ try:
 except ImportError:
     HAS_PANDAS = False
 
-from .logging import log_debug, log_info, log_warning, log_error, log_progress, get_log_level, LogLevel
+from .logging import log_debug, log_info, log_warning, log_error, log_progress
 from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
 
@@ -149,7 +149,6 @@ def fz_temporary_directory(session_cwd=None):
     fz_tmp_base.mkdir(parents=True, exist_ok=True)
     
     # Create unique temp directory name
-    pid = os.getpid()
     unique_id = uuid.uuid4().hex[:12]
     timestamp = int(time.time())
     temp_name = f"fz_temp_{unique_id}_{timestamp}"
@@ -634,7 +633,6 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         "calculator_uri": "multiple_failed"
     }
 
-    used_calculator_uri = final_error.get("calculator_uri", "unknown")
     log_error(f"❌ [Thread {thread_id}] Case {case_index}: All {len(attempted_calculator_ids)} calculator attempts failed")
     # Convert calculator IDs back to URIs for logging
     attempted_uris = [calc_mgr.get_original_uri(calc_id) for calc_id in attempted_calculator_ids]
@@ -656,7 +654,6 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     Returns:
         Dict with case results
     """
-    from .runners import select_calculator_for_case, run_single_case_calculation
     from .io import resolve_cache_paths, find_cache_match
     from .core import fzo
 
@@ -1205,7 +1202,6 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                 # Progress tracking for multiple cases (only if spinner is disabled)
                 if len(var_combinations) > 1 and not spinner.enabled:
                     completed_count = i + 1
-                    case_elapsed = time.time() - case_start_time
                     total_elapsed = time.time() - start_time
 
                     # Estimate remaining time based on average time per case
