@@ -1158,10 +1158,12 @@ def _get_and_process_analysis(
         display_dict = display_method(all_input_vars, all_output_values)
 
         if display_dict:
+            # Log text content before processing (for console output)
+            if 'text' in display_dict:
+                log_info(display_dict['text'])
+
             # Process and save content intelligently
             processed = process_display_content(display_dict, iteration, results_dir)
-            # Also keep the original text/html for backward compatibility
-            processed['_raw'] = display_dict
             return processed
         return None
 
@@ -1199,15 +1201,11 @@ def _get_analysis(
     log_info("📈 Final Results")
     log_info("="*60)
 
-    # Get and process final display results
+    # Get and process final display results (logging is done inside)
     processed_final_display = _get_and_process_analysis(
         algo_instance, all_input_vars, all_output_values,
         iteration, results_dir, 'get_analysis'
     )
-
-    if processed_final_display and '_raw' in processed_final_display:
-        if 'text' in processed_final_display['_raw']:
-            log_info(processed_final_display['_raw']['text'])
 
     # If processed_final_display is None, create empty dict for backward compatibility
     if processed_final_display is None:
@@ -1424,8 +1422,7 @@ def fzd(
             )
             if tmp_display_processed:
                 log_info(f"\n📊 Iteration {iteration} intermediate results:")
-                if '_raw' in tmp_display_processed and 'text' in tmp_display_processed['_raw']:
-                    log_info(tmp_display_processed['_raw']['text'])
+                # Text logging is done inside _get_and_process_analysis
 
             # Save iteration results to files
             try:
@@ -1474,16 +1471,27 @@ def fzd(
     </div>
 """
                 # Add intermediate results from get_analysis_tmp
-                if tmp_display_processed and '_raw' in tmp_display_processed:
-                    tmp_display = tmp_display_processed['_raw']
+                if tmp_display_processed:
                     html_content += """
     <div class="section">
         <h2>Intermediate Progress</h2>
 """
-                    if 'text' in tmp_display:
-                        html_content += f"<pre>{tmp_display['text']}</pre>\n"
-                    if 'html' in tmp_display:
-                        html_content += tmp_display['html'] + '\n'
+                    # Link to analysis files if they were created
+                    if 'html_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in tmp_display_processed:
+                        html_content += f"<pre>{tmp_display_processed['text']}</pre>\n"
+                    if 'data' in tmp_display_processed and tmp_display_processed['data']:
+                        html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
+                        for key, value in tmp_display_processed['data'].items():
+                            html_content += f"{key}: {value}\n"
+                        html_content += "</pre>\n"
                     html_content += "    </div>\n"
 
                 # Always call get_analysis for this iteration and process content
@@ -1491,17 +1499,27 @@ def fzd(
                     algo_instance, all_input_vars, all_output_values,
                     iteration, results_dir, 'get_analysis'
                 )
-                if iter_display_processed and '_raw' in iter_display_processed:
-                    iter_display = iter_display_processed['_raw']
-                    # Also save traditional HTML results file for compatibility
+                if iter_display_processed:
                     html_content += """
     <div class="section">
         <h2>Current Results</h2>
 """
-                    if 'text' in iter_display:
-                        html_content += f"<pre>{iter_display['text']}</pre>\n"
-                    if 'html' in iter_display:
-                        html_content += iter_display['html'] + '\n'
+                    # Link to analysis files if they were created
+                    if 'html_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in iter_display_processed:
+                        html_content += f"<pre>{iter_display_processed['text']}</pre>\n"
+                    if 'data' in iter_display_processed and iter_display_processed['data']:
+                        html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
+                        for key, value in iter_display_processed['data'].items():
+                            html_content += f"{key}: {value}\n"
+                        html_content += "</pre>\n"
                     html_content += "    </div>\n"
 
                 html_content += """
