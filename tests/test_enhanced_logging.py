@@ -29,8 +29,8 @@ def test_local_enhanced_logging():
         # Run calculation that creates result file
         results = fz.fzr(
             temp_input,
-            test_model,
             {"param": 1},
+            test_model,
             results_dir="test_enhanced_logs",
             calculators=["sh://echo 'test result' > result.txt && sleep 0.1"]
         )
@@ -42,7 +42,7 @@ def test_local_enhanced_logging():
         assert results_dir.exists(), "Results directory should exist"
 
         # Check for enhanced log file
-        log_file = results_dir / "log.txt"
+        log_file = results_dir / "param=1" / "log.txt"
         assert log_file.exists(), "Log file should exist"
 
         # Read and verify log content

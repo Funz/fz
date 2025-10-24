@@ -164,7 +164,7 @@ def test_parallel_fzo_result(advanced_setup):
     }, calculators=["sh://bash ./PerfectGazPressure.sh"] * 6, results_dir="results")
 
     # Test fzo
-    result = fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}})
+    result = fz.fzo("results/*", {"output": {"pressure": "grep 'pressure = ' output.txt | cut -d '=' -f2"}})
 
     assert len(result) == 6
 

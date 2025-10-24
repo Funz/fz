@@ -1,6 +1,6 @@
 .claude
 claude
-fz.egg-info
+*fz.egg-info
 venv
 build
 .vscode
@@ -18,3 +18,4 @@ build
 *.txt
 !tests/test_data/**/*.txt
 *.sh
+.coverage

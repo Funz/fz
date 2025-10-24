@@ -19,7 +19,7 @@ import uuid
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
-from .helpers import get_windows_bash_executable, run_command
+from .shell import run_command, replace_commands_in_string
 import getpass
 from datetime import datetime
 from pathlib import Path
@@ -659,6 +659,10 @@ def run_local_calculation(
             resolved_command, was_changed = resolve_all_paths_in_command(
                 command, original_cwd
             )
+
+            # Apply shell path resolution to command if FZ_SHELL_PATH is set
+            resolved_command = replace_commands_in_string(resolved_command)
+
             command_for_result = resolved_command
             full_command = resolved_command + f" {input_argument}"
 

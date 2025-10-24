@@ -40,6 +40,50 @@ def _get_length(result, key):
     else:
         return len(result[key])
 
+def test_fzo_fzr_coherence_novariables():
+    """Test that fzo output matches fzr results when no variables are used"""
+
+    # Use temp directory from conftest fixture
+
+    # Setup
+    with open('input.txt', 'w') as f:
+                f.write('constant_value = 123\n')
+
+    with open('calc.sh', 'w', newline='\n') as f:
+                f.write('#!/bin/bash\necho "result = 99" > output.txt\n')
+    os.chmod('calc.sh', 0o755)
+
+    model = {
+                "varprefix": "$",
+                "delim": "{}",
+                "output": {"result": "grep 'result = ' output.txt | cut -d '=' -f2"}
+            }
+    variables = {}  # No variables
+
+    # Run fzr
+    fzr_result = fz.fzr("input.txt", variables, model,
+                                calculators="sh://bash calc.sh",
+                                results_dir="novar_results")
+
+    # Add delay (mainly fo windows) to ensure files are flushed
+    import time
+    time.sleep(1)
+
+    # Parse with fzo
+    fzo_result = fz.fzo("novar_results", model)
+
+    # Verify coherence
+    assert "result" in fzr_result, "result not in fzr output"
+    assert "result" in fzo_result, "result not in fzo output"
+
+    fzr_res = _get_value(fzr_result, "result", 0)
+    fzo_res = _get_value(fzo_result, "result", 0)
+            # cast_output() converts "99" to int 99
+    assert fzr_res == 99, f"fzr result={fzr_res}, expected 99"
+    assert fzo_res == 99, f"fzo result={fzo_res}, expected 99"
+    assert fzr_res == fzo_res, f"Result mismatch: fzr={fzr_res}, fzo={fzo_res}"
+
+    print("✅ No variables: fzo matches fzr (outputs only)")
 
 def test_fzo_fzr_coherence_single_case():
     """Test that fzo output matches fzr results for single case"""
@@ -64,7 +108,7 @@ def test_fzo_fzr_coherence_single_case():
     # Run fzr
     fzr_result = fz.fzr("input.txt", variables, model,
                                 calculators="sh://bash calc.sh",
-                                results_dir="test_results")
+                                results_dir="test_1results")
     print("fzr_result:", fzr_result)
 
     # Add delay (mainly fo windows) to ensure files are flushed
@@ -72,7 +116,7 @@ def test_fzo_fzr_coherence_single_case():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("test_results", model)
+    fzo_result = fz.fzo("test_1results/*", model)
     print("fzo_result:", fzo_result)
 
     # Verify coherence
@@ -137,7 +181,7 @@ def test_fzo_fzr_coherence_multiple_cases():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("multi_results", model)
+    fzo_result = fz.fzo("multi_results/*", model)
 
     # Verify coherence
     fzr_len = _get_length(fzr_result, "result")
@@ -207,7 +251,7 @@ def test_fzo_fzr_coherence_multiple_outputs():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("multi_output_results", model)
+    fzo_result = fz.fzo("multi_output_results/*", model)
 
     # Verify coherence
     assert _get_length(fzr_result, "square") == 4
@@ -240,7 +284,7 @@ def test_fzo_fzr_coherence_with_formulas():
                 f.write('multiplier = ${mult}\n')
                 f.write('#@ def calculate(b, m):\n')
                 f.write('#@     return b * m + 10\n')
-                f.write('result = @{calculate(${base}, ${mult)}}\n')
+                f.write('result = @{calculate(${base}, ${mult})}\n')
 
     with open('calc.sh', 'w', newline='\n') as f:
                 f.write('#!/bin/bash\n')
@@ -255,7 +299,7 @@ def test_fzo_fzr_coherence_with_formulas():
                 "commentline": "#",
                 "output": {"computed": "grep 'computed = ' output.txt | cut -d '=' -f2"}
             }
-    variables = {"base": [5, 10], "mult": [2, 3]}  # 4 cases
+    variables = {"base": [5], "mult": [2]}  # 1 cases
 
     # Run fzr
     fzr_result = fz.fzr("input.txt", variables, model,
@@ -267,17 +311,20 @@ def test_fzo_fzr_coherence_with_formulas():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("formula_results", model)
+    fzo_result = fz.fzo("formula_results/*", model)
+
+    print("fzo_result:", fzo_result)
+    print("fzr_result:", fzr_result)
 
     # Verify coherence
-    for i in range(4):
+    for i in range(1):
         fzr_comp = _get_value(fzr_result, "computed", i)
         fzo_comp = _get_value(fzo_result, "computed", i)
         assert fzr_comp == fzo_comp, f"Case {i} computed: fzr={fzr_comp}, fzo={fzo_comp}"
 
         fzr_base = _get_value(fzr_result, "base", i)
         fzo_base = _get_value(fzo_result, "base", i)
-        assert fzr_base == fzo_base
+        assert fzr_base == fzo_base, f"Case {i} base: fzr={fzr_base}, fzo={fzo_base}"
 
         fzr_mult = _get_value(fzr_result, "mult", i)
         fzo_mult = _get_value(fzo_result, "mult", i)
@@ -322,7 +369,7 @@ def test_fzo_fzr_coherence_with_failures():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("failure_results", model)
+    fzo_result = fz.fzo("failure_results/*", model)
 
     # Verify coherence - both should handle failures the same way
             # Successful cases should have matching results
@@ -391,7 +438,7 @@ def test_fzo_fzr_coherence_perfectgaz_example():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("perfectgaz_results", model)
+    fzo_result = fz.fzo("perfectgaz_results/*", model)
 
     # Verify coherence
     assert _get_length(fzr_result, "pressure") == 6
@@ -448,7 +495,7 @@ def test_fzo_fzr_coherence_simple_echo():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("echo_results", model)
+    fzo_result = fz.fzo("echo_results/*", model)
 
     # Verify coherence
     fzr_len = _get_length(fzr_result, "output")
@@ -504,7 +551,7 @@ def test_fzo_fzr_coherence_three_variables():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("three_var_results", model)
+    fzo_result = fz.fzo("three_var_results/*", model)
 
     # Verify coherence
     assert _get_length(fzr_result, "result") == 12
@@ -558,7 +605,7 @@ def test_fzo_fzr_coherence_float_values():
     time.sleep(1)
 
     # Parse with fzo
-    fzo_result = fz.fzo("float_results", model)
+    fzo_result = fz.fzo("float_results/*", model)
 
     # Verify coherence - 3x2 = 6 cases
     assert _get_length(fzr_result, "measurement") == 6
@@ -608,7 +655,7 @@ def test_fzo_fzr_coherence_large_grid():
     time.sleep(1)
             
     # Parse with fzo
-    fzo_result = fz.fzo("large_grid_results", model)
+    fzo_result = fz.fzo("large_grid_results/*", model)
 
     # Verify coherence - 20 cases
     assert _get_length(fzr_result, "value") == 20

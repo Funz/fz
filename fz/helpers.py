@@ -17,220 +17,6 @@ from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
 
 
-def _get_windows_short_path(path: str) -> str:
-    r"""
-    Convert a Windows path with spaces to its short (8.3) name format.
-
-    This is necessary because Python's subprocess module on Windows doesn't
-    properly handle spaces in the executable parameter when using shell=True.
-
-    Args:
-        path: Windows file path
-
-    Returns:
-        Short format path (e.g., C:\PROGRA~1\...) or original path if conversion fails
-    """
-    if not path or ' ' not in path:
-        return path
-
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        GetShortPathName = ctypes.windll.kernel32.GetShortPathNameW
-        GetShortPathName.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
-        GetShortPathName.restype = wintypes.DWORD
-
-        buffer = ctypes.create_unicode_buffer(260)
-        GetShortPathName(path, buffer, 260)
-        short_path = buffer.value
-
-        if short_path:
-            log_debug(f"Converted path with spaces: {path} -> {short_path}")
-            return short_path
-    except Exception as e:
-        log_debug(f"Failed to get short path for {path}: {e}")
-
-    return path
-
-
-def get_windows_bash_executable() -> Optional[str]:
-    """
-    Get the bash executable path on Windows.
-
-    This function determines the appropriate bash executable to use on Windows
-    by checking both the system PATH and common installation locations.
-
-    Priority order:
-    1. Bash in system/user PATH (from MSYS2, Git Bash, WSL, Cygwin, etc.)
-    2. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred)
-    3. Git for Windows bash
-    4. Cygwin bash
-    5. WSL bash
-    6. win-bash
-
-    Returns:
-        Optional[str]: Path to bash executable if found on Windows, None otherwise.
-                      Returns None if not on Windows or if bash is not found.
-    """
-    if platform.system() != "Windows":
-        return None
-
-    # Try system/user PATH first
-    bash_in_path = shutil.which("bash")
-    if bash_in_path:
-        log_debug(f"Using bash from PATH: {bash_in_path}")
-        # Convert to short name if path contains spaces
-        return _get_windows_short_path(bash_in_path)
-
-    # Check common bash installation paths, prioritizing MSYS2
-    # Include both short names (8.3) and long names to handle various Git installations
-    bash_paths = [
-        # MSYS2 bash (preferred - provides complete Unix environment)
-        r"C:\msys64\usr\bin\bash.exe",
-        # Git for Windows with short names (always works)
-        r"C:\Progra~1\Git\bin\bash.exe",
-        r"C:\Progra~2\Git\bin\bash.exe",
-        # Git for Windows with long names (may have spaces issue, will be converted)
-        r"C:\Program Files\Git\bin\bash.exe",
-        r"C:\Program Files (x86)\Git\bin\bash.exe",
-        # Also check usr/bin for newer Git for Windows
-        r"C:\Program Files\Git\usr\bin\bash.exe",
-        r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
-        # Cygwin bash (alternative Unix environment)
-        r"C:\cygwin64\bin\bash.exe",
-        r"C:\cygwin\bin\bash.exe",
-        # WSL bash (almost always available on modern Windows)
-        r"C:\Windows\System32\bash.exe",
-        # win-bash
-        r"C:\win-bash\bin\bash.exe",
-    ]
-
-    for bash_path in bash_paths:
-        if os.path.exists(bash_path):
-            log_debug(f"Using bash at: {bash_path}")
-            # Convert to short name if path contains spaces
-            return _get_windows_short_path(bash_path)
-
-    # No bash found
-    log_warning(
-        "Bash not found on Windows. Commands may fail if they use bash-specific syntax."
-    )
-    return None
-
-
-def run_command(
-    command: str,
-    shell: bool = True,
-    capture_output: bool = False,
-    text: bool = True,
-    cwd: Optional[str] = None,
-    stdout=None,
-    stderr=None,
-    timeout: Optional[float] = None,
-    use_popen: bool = False,
-    **kwargs
-):
-    """
-    Centralized function to run shell commands with proper bash handling for Windows.
-
-    This function handles both subprocess.run and subprocess.Popen calls, automatically
-    using bash on Windows when needed for shell commands.
-
-    Args:
-        command: Command string or list of command arguments
-        shell: Whether to execute command through shell (default: True)
-        capture_output: Whether to capture stdout/stderr (for run mode, default: False)
-        text: Whether to decode output as text (default: True)
-        cwd: Working directory for command execution
-        stdout: File object or constant for stdout (for Popen mode)
-        stderr: File object or constant for stderr (for Popen mode)
-        timeout: Timeout in seconds for command execution
-        use_popen: If True, returns Popen object; if False, uses run and returns CompletedProcess
-        **kwargs: Additional keyword arguments to pass to subprocess
-
-    Returns:
-        subprocess.CompletedProcess if use_popen=False
-        subprocess.Popen if use_popen=True
-
-    Examples:
-        # Using subprocess.run (default)
-        result = run_command("echo hello", capture_output=True)
-        print(result.stdout)
-
-        # Using subprocess.Popen
-        process = run_command("long_running_task", use_popen=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-    """
-    import subprocess
-
-    # Get bash executable for Windows if needed
-    executable = get_windows_bash_executable() if platform.system() == "Windows" else None
-
-    # Prepare common arguments
-    common_args = {
-        "shell": shell,
-        "cwd": cwd,
-    }
-
-    # Handle Windows-specific setup for Popen
-    if platform.system() == "Windows" and use_popen:
-        # Set up Windows process creation flags for proper interrupt handling
-        creationflags = 0
-        if hasattr(subprocess, 'CREATE_NEW_PROCESS_GROUP'):
-            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
-        elif hasattr(subprocess, 'CREATE_NO_WINDOW'):
-            # Fallback for older Python versions
-            creationflags = subprocess.CREATE_NO_WINDOW
-
-        common_args["creationflags"] = creationflags
-
-        # Handle bash executable and command modification
-        if executable and isinstance(command, str):
-            # Split command and replace 'bash' with executable path
-            command_parts = command.split()
-            command = [s.replace('bash', executable) for s in command_parts]
-            common_args["shell"] = False  # Use direct execution with bash
-            common_args["executable"] = None
-        else:
-            # Use default shell behavior
-            common_args["executable"] = executable if not executable else None
-    else:
-        # Non-Windows or non-Popen: use executable directly
-        # On Windows with shell=True, don't set executable because bash is already in PATH
-        # and passing it causes subprocess issues with spaces in paths
-        # Only set executable for non-shell or non-Windows cases
-        if platform.system() == "Windows" and shell:
-            # On Windows with shell=True, rely on PATH instead of executable parameter
-            # This avoids subprocess issues with spaces in bash path
-            common_args["executable"] = None
-        else:
-            # For non-Windows systems or non-shell execution, use the executable
-            common_args["executable"] = executable
-
-    # Merge with user-provided kwargs (allows override)
-    common_args.update(kwargs)
-
-    if use_popen:
-        # Popen mode - return process object
-        return subprocess.Popen(
-            command,
-            stdout=stdout,
-            stderr=stderr,
-            **common_args
-        )
-    else:
-        # Run mode - execute and return completed process
-        return subprocess.run(
-            command,
-            capture_output=capture_output,
-            text=text,
-            timeout=timeout,
-            **common_args
-        )
-
-
 @contextmanager
 def fz_temporary_directory(session_cwd=None):
     """
@@ -271,59 +57,65 @@ def fz_temporary_directory(session_cwd=None):
         pass
 
 
-def _get_result_directory(var_combo: Dict, case_index: int, resultsdir: Path, total_cases: int) -> Tuple[Path, str]:
+def _get_result_directory(var_combo: Dict, case_index: int, resultsdir: Path, total_cases: int, has_input_variables: bool = True) -> Tuple[Path, str]:
     """
     Get result directory path and case name for a given variable combination
-    
+
     Args:
         var_combo: Variable combination dict
         case_index: Index of this case
         resultsdir: Base results directory
         total_cases: Total number of cases
-        
+        has_input_variables: Whether input_variables dict is non-empty. If False, output files go directly in resultsdir.
+
     Returns:
         Tuple of (result_dir_path, case_name)
     """
-    if total_cases > 1:
-        # Multiple cases: create subdirectory based on variable values
+    # Create subdirectory if input_variables is not empty
+    # (even if there's only one case, or if var_combo is empty due to grid expansion with no variables)
+    if has_input_variables:
+        # Always create subdirectory based on variable values when input_variables is not empty
         case_subdir = ",".join(f"{k}={v}" for k, v in var_combo.items())
         result_dir = resultsdir / case_subdir
-        case_name = case_subdir
+        case_name = case_subdir if case_subdir else "case_0"
     else:
-        # Single case: use base results directory
+        # Only when input_variables is empty: use base results directory directly
         result_dir = resultsdir
-        case_name = "single case"
-    
+        case_name = "no_variables"
+
     return result_dir, case_name
 
 
-def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, resultsdir: Path, total_cases: int) -> Tuple[Path, Path, str]:
+def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, resultsdir: Path, total_cases: int, has_input_variables: bool = True) -> Tuple[Path, Path, str]:
     """
     Determine temp and result directory paths for a case
-    
+
     This centralized function ensures consistent directory naming and prevents mixing
     of temp/result directories across the codebase.
-    
+
     Args:
         var_combo: Variable combination dict
         case_index: Index of this case
         temp_path: Base temporary path
         resultsdir: Base results directory
         total_cases: Total number of cases
-        
+        has_input_variables: Whether input_variables dict is non-empty
+
     Returns:
         Tuple of (tmp_dir, result_dir, case_name)
     """
     # Get result directory path and case name
-    result_dir, case_name = _get_result_directory(var_combo, case_index, resultsdir, total_cases)
-    
+    result_dir, case_name = _get_result_directory(var_combo, case_index, resultsdir, total_cases, has_input_variables)
+
     # Temp directory: mirror the result directory structure under temp_path
-    if total_cases > 1:
+    if has_input_variables:
+        # Always create subdirectory in temp when input_variables is not empty
         case_subdir = ",".join(f"{k}={v}" for k, v in var_combo.items())
-        tmp_dir = temp_path / case_subdir
+        tmp_dir = temp_path / case_subdir if case_subdir else temp_path / "case_0"
     else:
-        tmp_dir = temp_path / "single_case"
-    
+        # When input_variables is empty, use base temp directory
+        tmp_dir = temp_path
+
     return tmp_dir, result_dir, case_name
 
 
@@ -618,13 +410,14 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     output_keys = case_info["output_keys"]
     original_cwd = case_info.get("original_cwd")
     spinner = case_info.get("spinner")  # Optional spinner instance
+    has_input_variables = case_info.get("has_input_variables", True)  # Directory structure flag
 
     # Get thread ID for debugging
     thread_id = threading.get_ident()
 
     # Determine case directories using centralized function to prevent mixing
     tmp_dir, result_dir, case_name = _get_case_directories(
-        var_combo, case_index, temp_path, resultsdir, len(case_info["total_cases"])
+        var_combo, case_index, temp_path, resultsdir, len(case_info["total_cases"]), has_input_variables
     )
 
     log_debug(f"🔄 [Thread {thread_id}] Starting {case_name}")
@@ -1046,7 +839,8 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
 def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir: Path,
                       calculators: List[str], model: Dict, original_input_was_dir: bool,
-                      var_names: List[str], output_keys: List[str], original_cwd: str = None) -> List[Dict[str, Any]]:
+                      var_names: List[str], output_keys: List[str], original_cwd: str = None,
+                      has_input_variables: bool = True) -> List[Dict[str, Any]]:
     """
     Run multiple cases in parallel across available calculators
 
@@ -1059,6 +853,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         original_input_was_dir: Whether original input was a directory
         var_names: List of variable names
         output_keys: List of output keys
+        has_input_variables: Whether input_variables dict is non-empty
 
     Returns:
         List of case results in the same order as var_combinations
@@ -1099,7 +894,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
             "output_keys": output_keys,
             "total_cases": var_combinations,
             "original_cwd": original_cwd,
-            "spinner": spinner  # Add spinner instance
+            "spinner": spinner,  # Add spinner instance
+            "has_input_variables": has_input_variables  # Add flag for directory structure
         }
         case_infos.append(case_info)
         case_name = ",".join(f"{k}={v}" for k, v in var_combo.items()) if len(var_combinations) > 1 else "single case"
@@ -1307,7 +1103,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     Args:
         input_path: Path to input file or directory
         model: Model definition dict
-        input_variables: Dict of variable values
+        input_variables: Dict of variable values. If non-empty, subdirectories are created for each case.
         var_combinations: List of variable combinations (cases)
         resultsdir: Results directory
     """
@@ -1322,13 +1118,16 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     delim = model.get("delim", "{}")
     input_path = Path(input_path)
 
+    # Determine if input_variables is non-empty
+    has_input_variables = bool(input_variables)
+
     # Ensure main results directory exists
     resultsdir.mkdir(parents=True, exist_ok=True)
 
     for case_index, var_combo in enumerate(var_combinations):
         # Use dedicated result directory function to avoid any temp_path contamination
         result_dir, case_name = _get_result_directory(
-            var_combo, case_index, resultsdir, len(var_combinations)
+            var_combo, case_index, resultsdir, len(var_combinations), has_input_variables
         )
 
         # Create result directory
@@ -1379,7 +1178,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
 
 
 
-def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path) -> None:
+def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path, has_input_variables: bool = True) -> None:
     """
     Create temporary directories and copy files from result directories (excluding .fz_hash)
 
@@ -1387,11 +1186,12 @@ def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resu
         var_combinations: List of variable combinations (cases)
         temp_path: Temporary path for calculations
         resultsdir: Results directory with compiled files and hashes
+        has_input_variables: Whether input_variables dict is non-empty
     """
     for case_index, var_combo in enumerate(var_combinations):
         # Use centralized directory determination
         tmp_dir, result_dir, case_name = _get_case_directories(
-            var_combo, case_index, temp_path, resultsdir, len(var_combinations)
+            var_combo, case_index, temp_path, resultsdir, len(var_combinations), has_input_variables
         )
 
         # Create temp directory for this case, cleaning up any existing files first
@@ -1420,7 +1220,7 @@ def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resu
 
 
 
-def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path) -> None:
+def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resultsdir: Path, has_input_variables: bool = True) -> None:
     """
     Create result directories and compute hashes for all cases upfront
 
@@ -1428,6 +1228,7 @@ def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resu
         var_combinations: List of variable combinations (cases)
         temp_path: Temporary path with compiled inputs
         resultsdir: Results directory
+        has_input_variables: Whether input_variables dict is non-empty
     """
     from .io import create_hash_file
 
@@ -1437,7 +1238,7 @@ def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resu
     for case_index, var_combo in enumerate(var_combinations):
         # Use centralized directory determination to ensure consistency
         tmp_dir, result_dir, case_name = _get_case_directories(
-            var_combo, case_index, temp_path, resultsdir, len(var_combinations)
+            var_combo, case_index, temp_path, resultsdir, len(var_combinations), has_input_variables
         )
 
         # Create result directory (parent already exists, so this should be safe)

@@ -22,7 +22,7 @@ import os
 
 def test_run_command_basic_run_mode():
     """Test run_command in default run mode (subprocess.run)"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Simple echo command should work on all platforms
     result = run_command("echo hello", capture_output=True, text=True)
@@ -34,7 +34,7 @@ def test_run_command_basic_run_mode():
 @pytest.mark.skipif(platform.system() == "Windows", reason="Uses Unix-specific pwd command")
 def test_run_command_with_cwd_unix():
     """Test run_command with custom working directory on Unix"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Create a temp directory
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -49,7 +49,7 @@ def test_run_command_with_cwd_unix():
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
 def test_run_command_with_cwd_windows():
     """Test run_command with custom working directory on Windows"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Create a temp directory
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -61,7 +61,7 @@ def test_run_command_with_cwd_windows():
 
 def test_run_command_popen_mode():
     """Test run_command in Popen mode"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Use Popen mode to get process object
     process = run_command(
@@ -80,7 +80,7 @@ def test_run_command_popen_mode():
 
 def test_run_command_with_output_files():
     """Test run_command with output redirected to files"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     with tempfile.TemporaryDirectory() as tmpdir:
         out_file = Path(tmpdir) / "out.txt"
@@ -104,7 +104,7 @@ def test_run_command_with_output_files():
 
 def test_run_command_windows_bash_detection_unix():
     """Test that run_command doesn't use bash detection on Unix"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # On non-Windows, bash executable should be None
     result = run_command("echo test", capture_output=True, text=True)
@@ -115,11 +115,11 @@ def test_run_command_windows_bash_detection_unix():
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
 def test_run_command_windows_bash_detection():
     """Test that run_command uses bash on Windows when available"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
     import subprocess as sp
 
-    with patch('fz.helpers.platform.system', return_value='Windows'):
-        with patch('fz.helpers.get_windows_bash_executable') as mock_get_bash:
+    with patch('fz.shell.platform.system', return_value='Windows'):
+        with patch('fz.shell.get_windows_bash_executable') as mock_get_bash:
             mock_get_bash.return_value = 'C:\\msys64\\usr\\bin\\bash.exe'
 
             # Mock subprocess module run function
@@ -140,11 +140,11 @@ def test_run_command_windows_bash_detection():
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
 def test_run_command_windows_popen_creationflags():
     """Test that run_command sets proper creationflags on Windows for Popen"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
     import subprocess as sp
 
-    with patch('fz.helpers.platform.system', return_value='Windows'):
-        with patch('fz.helpers.get_windows_bash_executable') as mock_get_bash:
+    with patch('fz.shell.platform.system', return_value='Windows'):
+        with patch('fz.shell.get_windows_bash_executable') as mock_get_bash:
             mock_get_bash.return_value = None
 
             # Mock subprocess module Popen
@@ -171,7 +171,7 @@ def test_run_command_windows_popen_creationflags():
 
 def test_run_command_command_from_model():
     """Test run_command with a command that would come from model output dict"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Simulate a command from model output specification
     # Use a simpler command that works reliably across platforms
@@ -199,7 +199,7 @@ def test_run_command_command_from_model():
 @pytest.mark.skipif(platform.system() == "Windows", reason="Uses Unix shell script")
 def test_run_command_calculator_script_unix():
     """Test run_command with a Unix shell calculator script"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a simple calculator script
@@ -225,7 +225,7 @@ def test_run_command_calculator_script_unix():
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
 def test_run_command_calculator_script_windows():
     """Test run_command with a Windows batch calculator script"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a simple batch calculator script
@@ -248,7 +248,7 @@ def test_run_command_calculator_script_windows():
 
 def test_run_command_error_handling():
     """Test run_command handles errors properly"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Command that should fail
     result = run_command(
@@ -264,7 +264,7 @@ def test_run_command_error_handling():
 @pytest.mark.skipif(platform.system() == "Windows", reason="Unix-specific timeout test")
 def test_run_command_timeout_unix():
     """Test run_command respects timeout parameter on Unix"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # This should timeout (sleep for 10 seconds with 1 second timeout)
     with pytest.raises(subprocess.TimeoutExpired):
@@ -274,7 +274,7 @@ def test_run_command_timeout_unix():
 #@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific timeout test")
 #def test_run_command_timeout_windows():
 #    """Test run_command respects timeout parameter on Windows"""
-#    from fz.helpers import run_command
+#    from fz.shell import run_command
 #
 #    # This should timeout (sleep for 10 seconds with 1 second timeout)
 #    with pytest.raises(subprocess.TimeoutExpired):
@@ -284,7 +284,7 @@ def test_run_command_timeout_unix():
 @pytest.mark.skipif(platform.system() == "Windows", reason="Unix-specific environment variable syntax")
 def test_run_command_preserves_kwargs_unix():
     """Test that run_command preserves additional kwargs on Unix"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Pass custom environment
     custom_env = os.environ.copy()
@@ -306,7 +306,7 @@ def test_run_command_preserves_kwargs_unix():
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific environment variable syntax")
 def test_run_command_preserves_kwargs_windows():
     """Test that run_command preserves additional kwargs on Windows"""
-    from fz.helpers import run_command
+    from fz.shell import run_command
 
     # Pass custom environment
     custom_env = os.environ.copy()

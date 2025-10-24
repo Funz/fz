@@ -225,7 +225,7 @@ fz.fzr("input.txt",
 
 use fzo to get same results from previous fzr
 ```python
-fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
+fz.fzo("results/*", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
 ```
 
 test cache (all cases should be in cache, so no more calculation should be done)
@@ -345,7 +345,7 @@ plt.show()
 
 use fzo to get same results from previous fzr
 ```python
-fz.fzo("results", {"output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}})
+fz.fzo("results/*", {"output": {"res": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_res.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_res.csv\")}))'"}})
 ```
 
 use cache of previous results
@@ -446,7 +446,7 @@ fz.fzr("input.txt",
 
 fzo to get same results from previous fzr
 ```python
-fz.fzo("results", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
+fz.fzo("results/*", {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}})
 ```
 
 # failure support
