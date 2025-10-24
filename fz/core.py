@@ -1319,6 +1319,21 @@ def fzd(
         # Ensure analysis directory is unique (rename existing with timestamp)
         results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
 
+        # Update cache paths in calculators to point to renamed directory if it exists
+        # "cache://_" means "use the previous run" (the renamed directory)
+        if renamed_results_dir is not None:
+            updated_calculators = []
+            for calc in calculators:
+                if calc == "cache://_":
+                    # Expand to all iteration directories from the renamed previous run
+                    # Check up to 99 iterations
+                    for j in range(1, 100):
+                        iter_cache_path = f"cache://{renamed_results_dir / f'iter{j:03d}'}"
+                        updated_calculators.append(iter_cache_path)
+                else:
+                    updated_calculators.append(calc)
+            calculators = updated_calculators
+
         # Parse input variable ranges and fixed values
         parsed_input_vars = parse_input_vars(input_variables)  # Only variables with ranges
         fixed_input_vars = parse_fixed_vars(input_variables)   # Fixed (unique) values
@@ -1373,18 +1388,26 @@ def fzd(
                 log_info(f"  Running {len(current_design)} cases in parallel...")
                 # Create DataFrame with all variables (both variable and fixed)
                 all_var_names = list(parsed_input_vars.keys()) + list(fixed_input_vars.keys())
-                # Build cache paths: include current iterations and renamed directory if it exists
-                cache_paths = [f"cache://{results_dir / f'iter{j:03d}'}" for j in range(1, iteration)]
-                if renamed_results_dir is not None:
-                    # Also check renamed directory for cached results from previous runs
-                    cache_paths.extend([f"cache://{renamed_results_dir / f'iter{j:03d}'}" for j in range(1, 100)])  # Check up to 99 iterations
+                # Build calculators list for this iteration
+                # If user requested cache (any calculator starts with "cache://"),
+                # add previous iterations from current run for efficiency
+                iteration_calculators = []
+                has_cache = any(calc.startswith("cache://") for calc in calculators)
+
+                if has_cache and iteration > 1:
+                    # Add previous iterations from current run
+                    for j in range(1, iteration):
+                        iteration_calculators.append(f"cache://{results_dir / f'iter{j:03d}'}")
+
+                # Add user's calculators
+                iteration_calculators.extend(calculators)
 
                 result_df = fzr(
                     str(input_dir),
                     pd.DataFrame(current_design, columns=all_var_names),# All points in batch
                     model,
                     results_dir=str(iteration_result_dir),
-                    calculators=[*cache_paths, *calculators]  # Cache paths first, then actual calculators
+                    calculators=iteration_calculators
                 )
 
                 # Extract output values for each point
