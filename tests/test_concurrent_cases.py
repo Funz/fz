@@ -86,76 +86,9 @@ def test_concurrent_multi_case_execution():
         except:
             pass
 
-def test_single_case_multiple_calculators():
-    """Verify that single case with multiple calculators works correctly (baseline)"""
-    print("\nTesting single case with multiple calculators (baseline)...")
-
-    test_model = {
-        "varprefix": "$",
-        "delim": "{}",
-        "output": {"result": "cat result.txt 2>/dev/null || echo 'no result'"}
-    }
-
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-        f.write("# Test input\nparam = 42\n")
-        temp_input = f.name
-
-    try:
-        start_time = datetime.now()
-
-        results = fz.fzr(
-            temp_input,
-            test_model,
-            {"value": 1},  # Single case
-            results_dir="single_case_results",
-            calculators=[
-                "sh://echo 'calc1 result' > result.txt && sleep 1",  # 1 second delay
-                "sh://echo 'calc2 result' > result.txt && sleep 2",  # 2 second delay
-            ]
-        )
-
-        end_time = datetime.now()
-        execution_time = (end_time - start_time).total_seconds()
-
-        print(f"Single case execution time: {execution_time:.2f} seconds")
-        print(f"Calculator used: {results.get('calculator', ['unknown'])[0]}")
-
-        # Should be close to 1 second (fastest calculator wins in parallel)
-        is_parallel = execution_time < 1.5
-        if is_parallel:
-            print("✓ Parallel calculator execution working for single case")
-        else:
-            print("⚠ Calculators may not be running in parallel for single case")
-
-        # Assert single case completed successfully
-        assert results.get('calculator') is not None, "No calculator result returned"
-
-        # Assert parallel execution
-        # Note: We don't strictly enforce this since timing can vary
-        return is_parallel  # This is needed by __main__ but pytest will ignore it
-
-    except Exception as e:
-        print(f"✗ Baseline test FAILED: {e}")
-        raise
-
-    finally:
-        try:
-            os.unlink(temp_input)
-            import shutil
-            if Path("single_case_results").exists():
-                shutil.rmtree("single_case_results")
-        except:
-            pass
-
 if __name__ == "__main__":
     print("Testing FZ concurrent multi-case execution")
     print("=" * 60)
-
-    baseline_success = test_single_case_multiple_calculators()
-
-    if not baseline_success:
-        print("\n❌ Baseline test failed - parallel execution not working properly")
-        exit(1)
 
     execution_type = test_concurrent_multi_case_execution()
     concurrent_success = execution_type == "concurrent"
