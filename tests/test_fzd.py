@@ -408,11 +408,11 @@ class TestAlgo:
             load_algorithm("nonexistent_algo.py")
 
     def test_load_algorithm_non_python_file(self, temp_dir):
-        """Test loading from non-.py file"""
+        """Test loading from non-.py/.R file"""
         txt_file = Path(temp_dir) / "not_python.txt"
         txt_file.write_text("Not a Python file")
 
-        with pytest.raises(ValueError, match="must be a Python file"):
+        with pytest.raises(ValueError, match="must be a Python \\(\\.py\\) or R \\(\\.R\\) file"):
             load_algorithm(str(txt_file))
 
     def test_load_algorithm_no_class(self, temp_dir):

@@ -705,3 +705,36 @@ analysis = fz.fzd(
 from IPython.core.display import display, HTML
 display(HTML(analysis))
 ```
+
+with R algorithm:
+```python
+analysis = fz.fzd(
+    input_file='input.txt',
+    input_variables={
+        "n_mol": "[0;10]",
+        "T_celsius": "[0;100]",
+        "V_L": "[1;5]"
+    },
+    model={
+        "varprefix": "$",
+        "formulaprefix": "@",
+        "delim": "{}",
+        "commentline": "#",
+        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+    },
+    calculators=["sh://bash ./PerfectGazPressure.sh"]*10,
+    output_expression="pressure+1",
+    algorithm="./examples/algorithms/montecarlo_uniform.R",
+    algorithm_options={
+        "batch_sample_size": 20,
+        "max_iterations": 50,
+        "confidence": 0.90,
+        "target_confidence_range": 1000000,
+        "seed": 123
+    },
+    analysis_dir="fzd_analysis"
+)
+
+from IPython.core.display import display, HTML
+display(HTML(analysis))
+```
