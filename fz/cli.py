@@ -420,8 +420,8 @@ def fzd_main():
         print(result['summary'])
         print("="*60)
 
-        if 'display' in result and 'text' in result['display']:
-            print(result['display']['text'])
+        if 'analysis' in result and 'text' in result['analysis']:
+            print(result['analysis']['text'])
 
         return 0
     except Exception as e:
@@ -569,8 +569,8 @@ def main():
             print(result['summary'])
             print("="*60)
 
-            if 'display' in result and 'text' in result['display']:
-                print(result['display']['text'])
+            if 'analysis' in result and 'text' in result['analysis']:
+                print(result['analysis']['text'])
 
         elif args.command == "install":
             from .installer import install_model
