@@ -809,14 +809,20 @@ def resolve_algorithm_path(algorithm: str) -> Optional[Path]:
         >>> resolve_algorithm_path("path/to/algo.py")  # Returns as-is (it's a path)
         None  # Caller should handle as direct path
     """
+    import os
+
     # If algorithm looks like a path (contains / or \ or has extension), don't resolve
     if '/' in algorithm or '\\' in algorithm or algorithm.endswith(('.py', '.R')):
         return None
 
     # Search in plugin directories
+    # Respect environment variables for home directory (for test mocking)
+    # Try HOME first (Unix), then USERPROFILE (Windows), then fall back to expanduser
+    home_dir = os.environ.get('HOME') or os.environ.get('USERPROFILE') or os.path.expanduser('~')
+
     search_dirs = [
         Path.cwd() / ".fz" / "algorithms",  # Project-level (priority)
-        Path.home() / ".fz" / "algorithms"  # Global
+        Path(home_dir) / ".fz" / "algorithms"  # Global
     ]
 
     # Try both .py and .R extensions
