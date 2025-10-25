@@ -403,24 +403,406 @@ def _load_algorithm_from_file(file_path: Path, **options):
     return algorithm_class(**options)
 
 
-def load_algorithm(algorithm_path: str, **options):
+class RAlgorithmWrapper:
     """
-    Load an algorithm from a Python file and create an instance with options
+    Python wrapper for R algorithms loaded via rpy2
+
+    This class wraps an R algorithm instance and exposes its methods as Python methods,
+    handling data conversion between Python and R.
+    """
+
+    def __init__(self, r_instance, r_globals):
+        """
+        Initialize wrapper with R instance
+
+        Args:
+            r_instance: R algorithm instance from rpy2
+            r_globals: R global environment containing generic functions
+        """
+        self.r_instance = r_instance
+        self.r_globals = r_globals
+
+    def get_initial_design(self, input_vars: Dict[str, Tuple[float, float]], output_vars: List[str]) -> List[Dict[str, float]]:
+        """
+        Call R's get_initial_design method and convert result to Python
+
+        Args:
+            input_vars: Dict of {var_name: (min, max)}
+            output_vars: List of output variable names
+
+        Returns:
+            List of input variable combinations (Python dicts)
+        """
+        try:
+            from rpy2 import robjects
+            from rpy2.robjects import vectors
+        except ImportError:
+            raise ImportError("rpy2 is required to use R algorithms. Install with: pip install rpy2")
+
+        # Convert input_vars to R format: named list with c(min, max) vectors
+        r_input_vars = robjects.ListVector({
+            var: vectors.FloatVector([bounds[0], bounds[1]])
+            for var, bounds in input_vars.items()
+        })
+
+        # Convert output_vars to R character vector
+        r_output_vars = vectors.StrVector(output_vars)
+
+        # Call R method
+        r_result = self.r_globals['get_initial_design'](self.r_instance, r_input_vars, r_output_vars)
+
+        # Convert R list of lists to Python list of dicts
+        return self._r_design_to_python(r_result)
+
+    def get_next_design(self, X: List[Dict[str, float]], Y: List[float]) -> List[Dict[str, float]]:
+        """
+        Call R's get_next_design method and convert result to Python
+
+        Args:
+            X: Previous input combinations (list of dicts)
+            Y: Previous output values (list of floats, may contain None)
+
+        Returns:
+            Next input variable combinations (Python dicts), or empty list if finished
+        """
+        try:
+            from rpy2 import robjects
+        except ImportError:
+            raise ImportError("rpy2 is required to use R algorithms. Install with: pip install rpy2")
+
+        # Convert X and Y to R format
+        r_X = self._python_design_to_r(X)
+        r_Y = self._python_outputs_to_r(Y)
+
+        # Call R method
+        r_result = self.r_globals['get_next_design'](self.r_instance, r_X, r_Y)
+
+        # Convert result to Python
+        return self._r_design_to_python(r_result)
+
+    def get_analysis(self, X: List[Dict[str, float]], Y: List[float]) -> Dict[str, Any]:
+        """
+        Call R's get_analysis method and convert result to Python
+
+        Args:
+            X: All evaluated input combinations
+            Y: All output values (may contain None)
+
+        Returns:
+            Dict with analysis information ('text', 'data', etc.)
+        """
+        try:
+            from rpy2 import robjects
+        except ImportError:
+            raise ImportError("rpy2 is required to use R algorithms. Install with: pip install rpy2")
+
+        # Convert X and Y to R format
+        r_X = self._python_design_to_r(X)
+        r_Y = self._python_outputs_to_r(Y)
+
+        # Call R method
+        r_result = self.r_globals['get_analysis'](self.r_instance, r_X, r_Y)
+
+        # Convert R list to Python dict
+        return self._r_dict_to_python(r_result)
+
+    def get_analysis_tmp(self, X: List[Dict[str, float]], Y: List[float]) -> Dict[str, Any]:
+        """
+        Call R's get_analysis_tmp method if it exists
+
+        Args:
+            X: Evaluated input combinations so far
+            Y: Output values so far (may contain None)
+
+        Returns:
+            Dict with intermediate analysis information, or None if method doesn't exist
+        """
+        try:
+            from rpy2 import robjects
+        except ImportError:
+            raise ImportError("rpy2 is required to use R algorithms. Install with: pip install rpy2")
+
+        # Check if method exists in R
+        try:
+            # Convert X and Y to R format
+            r_X = self._python_design_to_r(X)
+            r_Y = self._python_outputs_to_r(Y)
+
+            # Call R method
+            r_result = self.r_globals['get_analysis_tmp'](self.r_instance, r_X, r_Y)
+
+            # Convert R list to Python dict
+            return self._r_dict_to_python(r_result)
+        except Exception:
+            # Method doesn't exist or failed - return None
+            return None
+
+    def _python_design_to_r(self, design: List[Dict[str, float]]):
+        """Convert Python design (list of dicts) to R list of lists"""
+        from rpy2 import robjects
+        from rpy2.robjects import vectors
+
+        if not design:
+            # Empty list
+            return robjects.r('list()')
+
+        # Convert to R list of lists
+        r_list = robjects.r('list()')
+        for point in design:
+            r_point = robjects.ListVector(point)
+            r_list = robjects.r.c(r_list, robjects.r.list(r_point))
+
+        return r_list
+
+    def _python_outputs_to_r(self, outputs: List[float]):
+        """Convert Python outputs (list of floats/None) to R list"""
+        from rpy2 import robjects
+
+        # Convert Python list to R list, preserving None as NULL
+        # Use R's list() function directly
+        r_list = robjects.r('list()')
+
+        for val in outputs:
+            if val is None:
+                # Append R NULL
+                r_list = robjects.r.c(r_list, robjects.r('list(NULL)'))
+            else:
+                # Append numeric value
+                r_list = robjects.r.c(r_list, robjects.r.list(val))
+
+        return r_list
+
+    def _r_design_to_python(self, r_design) -> List[Dict[str, float]]:
+        """Convert R design (list of lists) to Python list of dicts"""
+        if r_design is None or len(r_design) == 0:
+            return []
+
+        result = []
+        for r_point in r_design:
+            # Convert R list to Python dict
+            point = {}
+            for name in r_point.names:
+                point[name] = float(r_point.rx2(name)[0])
+            result.append(point)
+
+        return result
+
+    def _r_dict_to_python(self, r_list) -> Dict[str, Any]:
+        """Convert R list to Python dict, handling nested structures"""
+        from rpy2 import robjects
+        from rpy2.robjects import vectors
+
+        result = {}
+
+        if r_list is None:
+            return result
+
+        for name in r_list.names:
+            r_value = r_list.rx2(name)
+
+            # Convert based on R type
+            if isinstance(r_value, vectors.StrVector):
+                # String or character vector
+                if len(r_value) == 1:
+                    result[name] = str(r_value[0])
+                else:
+                    result[name] = [str(v) for v in r_value]
+            elif isinstance(r_value, (vectors.FloatVector, vectors.IntVector)):
+                # Numeric vector
+                if len(r_value) == 1:
+                    result[name] = float(r_value[0])
+                else:
+                    result[name] = [float(v) for v in r_value]
+            elif isinstance(r_value, vectors.ListVector):
+                # Nested list - recursively convert
+                result[name] = self._r_dict_to_python(r_value)
+            else:
+                # Try to convert to Python directly
+                try:
+                    result[name] = r_value
+                except Exception:
+                    # If conversion fails, store as string
+                    result[name] = str(r_value)
+
+        return result
+
+
+def _load_r_algorithm_from_file(file_path: Path, **options):
+    """
+    Load algorithm from an R file using rpy2
 
     Args:
-        algorithm_path: Path to a Python file containing an algorithm class
-                       Can be absolute or relative path (e.g., "my_algorithm.py", "algorithms/monte_carlo.py")
+        file_path: Path to R file containing algorithm S3 class
+        **options: Options to pass to algorithm constructor
+
+    Returns:
+        RAlgorithmWrapper instance wrapping the R algorithm
+
+    Raises:
+        ImportError: If rpy2 is not installed
+        ValueError: If R algorithm cannot be loaded
+    """
+    try:
+        from rpy2 import robjects
+        from rpy2.robjects import vectors
+    except ImportError:
+        raise ImportError(
+            "rpy2 is required to use R algorithms.\n"
+            "Install with: pip install rpy2\n"
+            "Note: R must also be installed on your system."
+        )
+
+    # Parse metadata from R file
+    metadata = _parse_algorithm_metadata(file_path)
+
+    # Check and install required R packages if specified
+    if 'require' in metadata:
+        for package in metadata['require']:
+            # Check if R package is available
+            r_check = robjects.r(f'''
+                if (!requireNamespace("{package}", quietly = TRUE)) {{
+                    FALSE
+                }} else {{
+                    TRUE
+                }}
+            ''')
+
+            if not r_check[0]:
+                logging.warning(
+                    f"⚠️  R package '{package}' not found.\n"
+                    f"    Install in R with: install.packages('{package}')"
+                )
+
+    # Merge metadata options with passed options
+    if 'options' in metadata:
+        merged_options = metadata['options'].copy()
+        merged_options.update(options)
+        options = merged_options
+
+    # Source the R file
+    logging.info(f"Loading R algorithm from {file_path}")
+    try:
+        robjects.r.source(str(file_path))
+    except Exception as e:
+        raise ValueError(f"Failed to source R file {file_path}: {e}") from e
+
+    # Get R global environment
+    r_globals = robjects.globalenv
+
+    # Find the algorithm constructor function
+    # Search for functions in R global environment that could be constructors
+    # Priority: try matching the file stem first, then search all functions
+
+    # Try different naming conventions for the file stem
+    possible_names = [
+        file_path.stem,  # montecarlo_uniform
+        file_path.stem.replace('_', '').title(),  # Montecarlouniform
+        ''.join(word.capitalize() for word in file_path.stem.split('_')),  # MontecarloUniform
+        '_'.join(word.capitalize() for word in file_path.stem.split('_')),  # Montecarlo_Uniform
+        file_path.stem.title(),  # Montecarlo_Uniform
+    ]
+
+    constructor = None
+    constructor_name = None
+
+    # First, try the expected naming conventions
+    for name in possible_names:
+        if name in r_globals:
+            constructor = r_globals[name]
+            constructor_name = name
+            logging.info(f"Found constructor by name matching: {name}")
+            break
+
+    # If not found, search all objects for likely constructors
+    # Look for functions that match pattern: PascalCase or Mixed_Case
+    if constructor is None:
+        logging.info(f"Constructor not found in expected names: {possible_names}")
+        logging.info("Searching all R objects for potential constructors...")
+
+        for name in sorted(list(r_globals.keys()), reverse=True):  # Reverse sort to prefer longer/specific names
+            # Skip generic functions (they have dots for S3 dispatch)
+            if '.' in name:
+                continue
+
+            # Skip all-lowercase names (likely helper functions, not constructors)
+            if name.islower():
+                continue
+
+            # Skip names starting with lowercase (not constructors)
+            if name[0].islower():
+                continue
+
+            # Check if it's a function
+            try:
+                obj = r_globals[name]
+                # Check if it's callable (function)
+                if robjects.r['is.function'](obj)[0]:
+                    constructor = obj
+                    constructor_name = name
+                    logging.info(f"Found potential constructor: {name}")
+                    break
+            except Exception:
+                continue
+
+    if constructor is None:
+        available_objects = [name for name in r_globals.keys() if not name.startswith('.')]
+        raise ValueError(
+            f"No algorithm constructor found in {file_path}.\n"
+            f"Tried names: {possible_names}\n"
+            f"Available objects in R file: {available_objects}\n"
+            f"The R file should define a constructor function matching the filename."
+        )
+
+    logging.info(f"Found R algorithm constructor: {constructor_name}")
+
+    # Call constructor with options
+    # R constructors use ... syntax, so we need to pass as named arguments
+    # rpy2 requires explicit conversion for some types
+    if options:
+        # Convert Python options to R-compatible types and pass as kwargs
+        r_kwargs = {}
+        for k, v in options.items():
+            if isinstance(v, bool):
+                r_kwargs[k] = robjects.vectors.BoolVector([v])
+            elif isinstance(v, int):
+                r_kwargs[k] = robjects.vectors.IntVector([v])
+            elif isinstance(v, float):
+                r_kwargs[k] = robjects.vectors.FloatVector([v])
+            elif isinstance(v, str):
+                r_kwargs[k] = robjects.vectors.StrVector([v])
+            else:
+                r_kwargs[k] = v
+
+        # Call with **kwargs - rpy2 will handle the ... properly
+        r_instance = constructor(**r_kwargs)
+    else:
+        r_instance = constructor()
+
+    logging.info(f"Created R algorithm instance of class: {robjects.r['class'](r_instance)[0]}")
+
+    # Create and return wrapper
+    return RAlgorithmWrapper(r_instance, r_globals)
+
+
+def load_algorithm(algorithm_path: str, **options):
+    """
+    Load an algorithm from a Python or R file and create an instance with options
+
+    Args:
+        algorithm_path: Path to a Python (.py) or R (.R) file containing an algorithm class
+                       Can be absolute or relative path (e.g., "my_algorithm.py", "algorithms/monte_carlo.R")
         **options: Algorithm-specific options passed to the algorithm's __init__ method
 
     Returns:
-        Algorithm instance
+        Algorithm instance (Python object or R wrapper)
 
     Raises:
         ValueError: If the file doesn't exist, contains no valid algorithm class, or cannot be loaded
+        ImportError: If rpy2 is not installed for .R files
 
     Example:
         >>> algo = load_algorithm("algorithms/monte_carlo.py", batch_size=10, max_iter=100)
-        >>> algo = load_algorithm("/absolute/path/to/algorithm.py", seed=42)
+        >>> algo = load_algorithm("algorithms/monte_carlo.R", batch_size=10, max_iter=100)  # requires rpy2
     """
     # Convert to Path object
     algo_path = Path(algorithm_path)
@@ -433,20 +815,24 @@ def load_algorithm(algorithm_path: str, **options):
     if not algo_path.exists():
         raise ValueError(
             f"Algorithm file not found: {algo_path}\n"
-            f"Please provide a valid path to a Python file containing an algorithm class."
+            f"Please provide a valid path to a Python (.py) or R (.R) file containing an algorithm class."
         )
 
     if not algo_path.is_file():
         raise ValueError(f"Algorithm path is not a file: {algo_path}")
 
-    if not str(algo_path).endswith('.py'):
+    # Check file extension and load appropriately
+    if str(algo_path).endswith('.py'):
+        # Load Python algorithm
+        return _load_algorithm_from_file(algo_path, **options)
+    elif str(algo_path).endswith('.R'):
+        # Load R algorithm
+        return _load_r_algorithm_from_file(algo_path, **options)
+    else:
         raise ValueError(
-            f"Algorithm file must be a Python file (.py): {algo_path}\n"
+            f"Algorithm file must be a Python (.py) or R (.R) file: {algo_path}\n"
             f"Got: {algo_path.suffix}"
         )
-
-    # Load algorithm from file
-    return _load_algorithm_from_file(algo_path, **options)
 
 
 class BaseAlgorithm:
