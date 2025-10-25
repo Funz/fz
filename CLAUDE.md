@@ -130,7 +130,12 @@ The codebase is organized into functional modules (~7300 lines total):
 ### Supporting Modules
 
 - **`fz/spinner.py`** (225 lines) - Progress indication for long-running operations
-- **`fz/installer.py`** (354 lines) - Model installation from GitHub/URL/zip
+- **`fz/installer.py`** (598 lines) - Model and algorithm installation from GitHub/URL/zip
+  - Install models: `fz install model <source>` or `fz.install(model)`
+  - Install algorithms: `fz install algorithm <source>` or `fz.install_algo(algorithm)`
+  - Supports GitHub repositories (`fz-<name>` convention), full URLs, and local zip files
+  - Project-level (`.fz/models/`, `.fz/algorithms/`) and global (`~/.fz/models/`, `~/.fz/algorithms/`) installation
+  - Priority system: project-level overrides global
 
 ## Key Design Patterns
 

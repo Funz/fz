@@ -784,13 +784,71 @@ def _load_r_algorithm_from_file(file_path: Path, **options):
     return RAlgorithmWrapper(r_instance, r_globals)
 
 
-def load_algorithm(algorithm_path: str, **options):
+def resolve_algorithm_path(algorithm: str) -> Optional[Path]:
+    """
+    Resolve algorithm name to file path, searching in plugin directories
+
+    This function implements the algorithm plugin system, similar to model aliases.
+    When given a simple name (e.g., "myalgorithm"), it searches for the algorithm
+    file in:
+    1. .fz/algorithms/ (project-level, priority)
+    2. ~/.fz/algorithms/ (global)
+
+    Supports both .py and .R extensions.
+
+    Args:
+        algorithm: Algorithm name (e.g., "myalgorithm") or path (e.g., "path/to/algo.py")
+
+    Returns:
+        Path to algorithm file if found, None otherwise
+
+    Examples:
+        >>> resolve_algorithm_path("myalgorithm")  # Looks for .fz/algorithms/myalgorithm.py
+        Path('/path/to/project/.fz/algorithms/myalgorithm.py')
+
+        >>> resolve_algorithm_path("path/to/algo.py")  # Returns as-is (it's a path)
+        None  # Caller should handle as direct path
+    """
+    # If algorithm looks like a path (contains / or \ or has extension), don't resolve
+    if '/' in algorithm or '\\' in algorithm or algorithm.endswith(('.py', '.R')):
+        return None
+
+    # Search in plugin directories
+    search_dirs = [
+        Path.cwd() / ".fz" / "algorithms",  # Project-level (priority)
+        Path.home() / ".fz" / "algorithms"  # Global
+    ]
+
+    # Try both .py and .R extensions
+    extensions = ['.py', '.R']
+
+    for base_dir in search_dirs:
+        if not base_dir.exists():
+            continue
+
+        for ext in extensions:
+            algo_path = base_dir / f"{algorithm}{ext}"
+            if algo_path.exists() and algo_path.is_file():
+                logging.info(f"Found algorithm plugin: {algo_path}")
+                return algo_path
+
+    return None
+
+
+def load_algorithm(algorithm: str, **options):
     """
     Load an algorithm from a Python or R file and create an instance with options
 
+    This function supports two modes:
+    1. Plugin mode: Simple name (e.g., "myalgorithm") - searches in .fz/algorithms/
+    2. Direct path: File path (e.g., "path/to/algo.py" or "algorithms/monte_carlo.R")
+
+    Plugin directories (searched in order):
+    - .fz/algorithms/ (project-level, priority)
+    - ~/.fz/algorithms/ (global)
+
     Args:
-        algorithm_path: Path to a Python (.py) or R (.R) file containing an algorithm class
-                       Can be absolute or relative path (e.g., "my_algorithm.py", "algorithms/monte_carlo.R")
+        algorithm: Algorithm name (plugin) or path to Python (.py) or R (.R) file
         **options: Algorithm-specific options passed to the algorithm's __init__ method
 
     Returns:
@@ -800,10 +858,25 @@ def load_algorithm(algorithm_path: str, **options):
         ValueError: If the file doesn't exist, contains no valid algorithm class, or cannot be loaded
         ImportError: If rpy2 is not installed for .R files
 
-    Example:
+    Examples:
+        # Plugin mode - searches in .fz/algorithms/
+        >>> algo = load_algorithm("myalgorithm", batch_size=10)
+
+        # Direct path mode
         >>> algo = load_algorithm("algorithms/monte_carlo.py", batch_size=10, max_iter=100)
-        >>> algo = load_algorithm("algorithms/monte_carlo.R", batch_size=10, max_iter=100)  # requires rpy2
+        >>> algo = load_algorithm("algorithms/monte_carlo.R", batch_size=10)  # requires rpy2
     """
+    # Try to resolve as plugin first
+    resolved_path = resolve_algorithm_path(algorithm)
+
+    if resolved_path is not None:
+        # Found as plugin
+        algorithm_path = str(resolved_path)
+        logging.info(f"Loading algorithm from plugin: {algorithm_path}")
+    else:
+        # Treat as direct path
+        algorithm_path = algorithm
+
     # Convert to Path object
     algo_path = Path(algorithm_path)
 
@@ -813,10 +886,21 @@ def load_algorithm(algorithm_path: str, **options):
 
     # Validate path
     if not algo_path.exists():
-        raise ValueError(
-            f"Algorithm file not found: {algo_path}\n"
-            f"Please provide a valid path to a Python (.py) or R (.R) file containing an algorithm class."
-        )
+        # Provide helpful error message
+        error_msg = f"Algorithm file not found: {algo_path}\n"
+
+        # If it looks like a plugin name, suggest where to place it
+        if '/' not in algorithm and '\\' not in algorithm and not algorithm.endswith(('.py', '.R')):
+            error_msg += (
+                f"Plugin '{algorithm}' not found. To use as plugin, place algorithm file at:\n"
+                f"  - .fz/algorithms/{algorithm}.py (project-level), or\n"
+                f"  - ~/.fz/algorithms/{algorithm}.py (global)\n"
+                f"Supported extensions: .py, .R"
+            )
+        else:
+            error_msg += "Please provide a valid path to a Python (.py) or R (.R) file containing an algorithm class."
+
+        raise ValueError(error_msg)
 
     if not algo_path.is_file():
         raise ValueError(f"Algorithm path is not a file: {algo_path}")
