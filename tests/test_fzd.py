@@ -545,64 +545,64 @@ city = Paris"""
         result = parse_keyvalue_text(kv_text)
         assert result == {'name': 'John Doe', 'age': '30', 'city': 'Paris'}
 
-    def test_process_display_content_with_json(self, temp_dir):
-        """Test processing display content with JSON"""
-        from fz.io import process_display_content
+    def test_process_analysis_content_with_json(self, temp_dir):
+        """Test processing analysis content with JSON"""
+        from fz.io import process_analysis_content
 
         results_dir = Path(temp_dir)
-        display_dict = {
+        analysis_dict = {
             'text': '{"mean": 1.5, "std": 0.3}',
             'data': {'samples': 10}
         }
 
-        processed = process_display_content(display_dict, 1, results_dir)
+        processed = process_analysis_content(analysis_dict, 1, results_dir)
 
         assert 'json_data' in processed
         assert processed['json_data']['mean'] == 1.5
         assert 'json_file' in processed
         assert (results_dir / processed['json_file']).exists()
 
-    def test_process_display_content_with_html(self, temp_dir):
-        """Test processing display content with HTML"""
-        from fz.io import process_display_content
+    def test_process_analysis_content_with_html(self, temp_dir):
+        """Test processing analysis content with HTML"""
+        from fz.io import process_analysis_content
 
         results_dir = Path(temp_dir)
-        display_dict = {
+        analysis_dict = {
             'html': '<div><h1>Results</h1><p>Test</p></div>',
             'data': {}
         }
 
-        processed = process_display_content(display_dict, 1, results_dir)
+        processed = process_analysis_content(analysis_dict, 1, results_dir)
 
         assert 'html_file' in processed
         assert (results_dir / processed['html_file']).exists()
 
-    def test_process_display_content_with_markdown(self, temp_dir):
-        """Test processing display content with markdown"""
-        from fz.io import process_display_content
+    def test_process_analysis_content_with_markdown(self, temp_dir):
+        """Test processing analysis content with markdown"""
+        from fz.io import process_analysis_content
 
         results_dir = Path(temp_dir)
-        display_dict = {
+        analysis_dict = {
             'text': '# Results\n\n* Item 1\n* Item 2',
             'data': {}
         }
 
-        processed = process_display_content(display_dict, 1, results_dir)
+        processed = process_analysis_content(analysis_dict, 1, results_dir)
 
         assert 'md_file' in processed
         assert (results_dir / processed['md_file']).exists()
 
-    def test_process_display_content_with_keyvalue(self, temp_dir):
-        """Test processing display content with key=value"""
-        from fz.io import process_display_content
+    def test_process_analysis_content_with_keyvalue(self, temp_dir):
+        """Test processing analysis content with key=value"""
+        from fz.io import process_analysis_content
 
         results_dir = Path(temp_dir)
-        display_dict = {
+        analysis_dict = {
             'text': 'mean = 1.5\nstd = 0.3\nsamples = 100',
             'data': {}
         }
 
-        processed = process_display_content(display_dict, 1, results_dir)
+        processed = process_analysis_content(analysis_dict, 1, results_dir)
 
         assert 'keyvalue_data' in processed
         assert processed['keyvalue_data']['mean'] == '1.5'

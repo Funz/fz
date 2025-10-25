@@ -105,15 +105,15 @@ class MonteCarlo_Uniform:
         import numpy as np
         from scipy import stats
 
-        display_dict = {"text": "", "data": {}}
+        analysis_dict = {"text": "", "data": {}}
 
         # Filter out None values
         Y_valid = [y for y in Y if y is not None]
 
         if len(Y_valid) < 2:
-            display_dict["text"] = "Not enough valid results to display statistics"
-            display_dict["data"] = {"valid_samples": len(Y_valid)}
-            return display_dict
+            analysis_dict["text"] = "Not enough valid results to analysis statistics"
+            analysis_dict["data"] = {"valid_samples": len(Y_valid)}
+            return analysis_dict
 
         Y_array = np.array(Y_valid)
         mean = np.mean(Y_array)
@@ -126,7 +126,7 @@ class MonteCarlo_Uniform:
         )
 
         # Store data
-        display_dict["data"] = {
+        analysis_dict["data"] = {
             "mean": float(mean),
             "std": float(std),
             "confidence_interval": [float(conf_int[0]), float(conf_int[1])],
@@ -136,7 +136,7 @@ class MonteCarlo_Uniform:
         }
 
         # Create text summary
-        display_dict["text"] = f"""Monte Carlo Sampling Results:
+        analysis_dict["text"] = f"""Monte Carlo Sampling Results:
   Valid samples: {len(Y_valid)}
   Mean: {mean:.6f}
   Std: {std:.6f}
@@ -174,12 +174,12 @@ class MonteCarlo_Uniform:
   <p><strong>{self.options['confidence']*100:.0f}% confidence interval:</strong> [{conf_int[0]:.6f}, {conf_int[1]:.6f}]</p>
   <img src="data:image/png;base64,{img_str}" alt="Histogram" style="max-width:800px;"/>
 </div>"""
-            display_dict["html"] = html_output
+            analysis_dict["html"] = html_output
         except Exception as e:
             # If plotting fails, just skip it
             pass
 
-        return display_dict
+        return analysis_dict
 
     def get_analysis_tmp(self, X, Y):
         """

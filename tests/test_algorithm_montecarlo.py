@@ -68,26 +68,26 @@ class MonteCarlo_Uniform:
         return samples
 
     def get_analysis(self, X, Y):
-        display_dict = {"text": "", "data": {}}
+        analysis_dict = {"text": "", "data": {}}
         html_output = ""
         import numpy as np
         from scipy import stats
         Y_array = np.array([y for y in Y if y is not None])
         if len(Y_array) < 2:
-            display_dict["text"] = "Not enough valid results to display statistics"
-            return display_dict
+            analysis_dict["text"] = "Not enough valid results to analysis statistics"
+            return analysis_dict
         mean = np.mean(Y_array)
         conf_int = stats.t.interval(self.options["confidence"], len(Y_array)-1, loc=mean, scale=stats.sem(Y_array))
         html_output += f"<p>Estimated mean: {mean}</p>"
         html_output += f"<p>{self.options['confidence']*100}% confidence interval: [{conf_int[0]}, {conf_int[1]}]</p>"
 
         # Store data
-        display_dict["data"]["mean"] = mean
-        display_dict["data"]["confidence_interval"] = conf_int
-        display_dict["data"]["n_samples"] = len(Y_array)
+        analysis_dict["data"]["mean"] = mean
+        analysis_dict["data"]["confidence_interval"] = conf_int
+        analysis_dict["data"]["n_samples"] = len(Y_array)
 
         # Text output
-        display_dict["text"] = (
+        analysis_dict["text"] = (
             f"Estimated mean: {mean:.6f}\n"
             f"{self.options['confidence']*100}% confidence interval: [{conf_int[0]:.6f}, {conf_int[1]:.6f}]\n"
             f"Number of valid samples: {len(Y_array)}"
@@ -112,9 +112,9 @@ class MonteCarlo_Uniform:
             plt.close()
             img_str = base64.b64encode(buffered.getvalue()).decode()
             html_output += f'<img src="data:image/png;base64,{img_str}" alt="Histogram"/>'
-            display_dict["html"] = html_output
+            analysis_dict["html"] = html_output
         except Exception as e:
             # If plotting fails, just skip it
             pass
 
-        return display_dict
+        return analysis_dict

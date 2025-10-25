@@ -36,12 +36,12 @@ Each algorithm must be a class with the following methods:
          evaluations, so filter these out before numerical operations.
 
 4. get_analysis(self, input_vars, output_values):
-   Returns results to display
+   Returns results to analysis
    Args:
        input_vars: List[Dict[str, float]] - All evaluated input combinations
        output_values: List[float] - All corresponding output values (may contain None)
    Returns:
-       Dict with display information (can include 'text', 'data', 'plot', etc.)
+       Dict with analysis information (can include 'text', 'data', 'plot', etc.)
 
    Note: Should handle None values in output_values (failed evaluations)
 
@@ -51,7 +51,7 @@ Each algorithm must be a class with the following methods:
        input_vars: List[Dict[str, float]] - All evaluated inputs so far
        output_values: List[float] - All outputs so far (may contain None)
    Returns:
-       Dict with display information (typically 'text' and 'data' keys)
+       Dict with analysis information (typically 'text' and 'data' keys)
 
    Note: This method is optional. If present, it will be called after each iteration
          to show progress. If not present, no intermediate results are displayed.
@@ -501,13 +501,13 @@ class BaseAlgorithm:
         output_values: List[float]
     ) -> Dict[str, Any]:
         """
-        Format results for display
+        Format results for analysis
 
         Args:
             input_vars: All evaluated input combinations
             output_values: All corresponding output values
 
         Returns:
-            Dict with display information
+            Dict with analysis information
         """
         raise NotImplementedError()

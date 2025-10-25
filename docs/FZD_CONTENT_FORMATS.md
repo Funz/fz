@@ -24,7 +24,7 @@ def get_analysis(self, X, Y):
 
 **Result**:
 - File created: `results_fzd/analysis_1.html`
-- Python return: `result['display']['html_file'] == 'analysis_1.html'`
+- Python return: `result['analysis']['html_file'] == 'analysis_1.html'`
 - Raw content NOT included in return (replaced with file reference)
 
 ### 2. JSON Content
@@ -50,8 +50,8 @@ def get_analysis(self, X, Y):
 - File created: `results_fzd/analysis_1.json`
 - Python return:
   ```python
-  result['display']['json_data'] == {'mean': 42.5, 'std': 3.2, 'samples': 100}
-  result['display']['json_file'] == 'analysis_1.json'
+  result['analysis']['json_data'] == {'mean': 42.5, 'std': 3.2, 'samples': 100}
+  result['analysis']['json_file'] == 'analysis_1.json'
   ```
 
 ### 3. Key=Value Format
@@ -80,13 +80,13 @@ confidence_interval=[40.1, 44.9]''',
 - File created: `results_fzd/analysis_1.txt`
 - Python return:
   ```python
-  result['display']['keyvalue_data'] == {
+  result['analysis']['keyvalue_data'] == {
       'mean': '42.5',
       'std': '3.2',
       'samples': '100',
       'confidence_interval': '[40.1, 44.9]'
   }
-  result['display']['txt_file'] == 'analysis_1.txt'
+  result['analysis']['txt_file'] == 'analysis_1.txt'
   ```
 
 ### 4. Markdown Content
@@ -117,7 +117,7 @@ samples = 100
 
 **Result**:
 - File created: `results_fzd/analysis_1.md`
-- Python return: `result['display']['md_file'] == 'analysis_1.md'`
+- Python return: `result['analysis']['md_file'] == 'analysis_1.md'`
 - Raw markdown NOT included in return (replaced with file reference)
 
 ### 5. Plain Text
@@ -138,7 +138,7 @@ def get_analysis(self, X, Y):
 
 **Result**:
 - No file created
-- Python return: `result['display']['text'] == 'Mean: 42.5, Std: 3.2, Samples: 100'`
+- Python return: `result['analysis']['text'] == 'Mean: 42.5, Std: 3.2, Samples: 100'`
 
 ## Multiple Content Types
 
@@ -157,9 +157,9 @@ def get_analysis(self, X, Y):
 - File created: `results_fzd/analysis_1.html` (from 'html' field)
 - Python return:
   ```python
-  result['display']['text'] == 'Summary: Mean is 42.5 with 100 samples'
-  result['display']['html_file'] == 'analysis_1.html'
-  result['display']['data'] == {'mean': 42.5, 'samples': 100}
+  result['analysis']['text'] == 'Summary: Mean is 42.5 with 100 samples'
+  result['analysis']['html_file'] == 'analysis_1.html'
+  result['analysis']['data'] == {'mean': 42.5, 'samples': 100}
   ```
 
 ## FZD Return Structure
@@ -170,7 +170,7 @@ The complete structure returned by `fzd()`:
 result = {
     'XY': pd.DataFrame,           # All input variables and output values
 
-    'display': {                  # Processed analysis from get_analysis()
+    'analysis': {                  # Processed analysis from get_analysis()
         'data': {...},            # Numeric/structured data from algorithm
 
         # Content-specific fields (depending on format detected):
@@ -195,13 +195,13 @@ result = {
 ### Access parsed data:
 ```python
 # For JSON format
-mean = result['display']['json_data']['mean']
+mean = result['analysis']['json_data']['mean']
 
 # For key=value format
-mean = float(result['display']['keyvalue_data']['mean'])
+mean = float(result['analysis']['keyvalue_data']['mean'])
 
 # For data dict (always available)
-mean = result['display']['data']['mean']
+mean = result['analysis']['data']['mean']
 ```
 
 ### Access file paths:
@@ -209,12 +209,12 @@ mean = result['display']['data']['mean']
 from pathlib import Path
 
 # HTML file
-html_file = Path('results_fzd') / result['display']['html_file']
+html_file = Path('results_fzd') / result['analysis']['html_file']
 with open(html_file) as f:
     html_content = f.read()
 
 # JSON file
-json_file = Path('results_fzd') / result['display']['json_file']
+json_file = Path('results_fzd') / result['analysis']['json_file']
 with open(json_file) as f:
     data = json.load(f)
 ```
@@ -239,8 +239,8 @@ def detect_content_type(text: str) -> str:
 
 ### Content Processing (fz/io.py)
 ```python
-def process_display_content(
-    display_dict: Dict[str, Any],
+def process_analysis_content(
+    analysis_dict: Dict[str, Any],
     iteration: int,
     results_dir: Path
 ) -> Dict[str, Any]:
@@ -248,7 +248,7 @@ def process_display_content(
 ```
 
 ### Integration (fz/core.py)
-- `_get_and_process_analysis()` - Calls process_display_content for each iteration
+- `_get_and_process_analysis()` - Calls process_analysis_content for each iteration
 - Called for both `get_analysis()` (final) and `get_analysis_tmp()` (intermediate)
 
 ## Testing
@@ -294,7 +294,7 @@ python demo_fzd_content_formats.py
 ## Notes
 
 - Raw HTML, markdown, and large content are saved to files and replaced with file references
-- Parsed data (JSON, key=value) is available as Python objects in the display dict
-- Plain text content remains in `display['text']` if no format is detected
+- Parsed data (JSON, key=value) is available as Python objects in the analysis dict
+- Plain text content remains in `analysis['text']` if no format is detected
 - Algorithm text output is logged to console before being processed
 - All file references are relative to the analysis_dir

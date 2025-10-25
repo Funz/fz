@@ -300,8 +300,8 @@ def parse_keyvalue_text(text: str) -> Dict[str, str]:
     return result
 
 
-def process_display_content(
-    display_dict: Dict[str, Any],
+def process_analysis_content(
+    analysis_dict: Dict[str, Any],
     iteration: int,
     results_dir: Path
 ) -> Dict[str, Any]:
@@ -309,18 +309,18 @@ def process_display_content(
     Process get_analysis() output, detecting content types and saving to files.
 
     Args:
-        display_dict: The dict returned by get_analysis()
+        analysis_dict: The dict returned by get_analysis()
         iteration: Current iteration number
         results_dir: Directory to save files
 
     Returns:
         Processed dict with file references instead of raw content
     """
-    processed = {'data': display_dict.get('data', {})}
+    processed = {'data': analysis_dict.get('data', {})}
 
     # Process 'html' field if present
-    if 'html' in display_dict:
-        html_content = display_dict['html']
+    if 'html' in analysis_dict:
+        html_content = analysis_dict['html']
         html_file = results_dir / f"analysis_{iteration}.html"
         with open(html_file, 'w') as f:
             f.write(html_content)
@@ -328,8 +328,8 @@ def process_display_content(
         log_info(f"  💾 Saved HTML to {html_file.name}")
 
     # Process 'text' field if present
-    if 'text' in display_dict:
-        text_content = display_dict['text']
+    if 'text' in analysis_dict:
+        text_content = analysis_dict['text']
         content_type = detect_content_type(text_content)
 
         if content_type == 'html':
