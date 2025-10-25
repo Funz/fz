@@ -20,6 +20,7 @@ A powerful Python package for parametric simulations and computational experimen
 - [Calculator Types](#calculator-types)
 - [Advanced Features](#advanced-features)
 - [Complete Examples](#complete-examples)
+- [Writing Custom Algorithms for fzd](#writing-custom-algorithms-for-fzd)
 - [Configuration](#configuration)
 - [Interrupt Handling](#interrupt-handling)
 - [Development](#development)
@@ -37,13 +38,15 @@ A powerful Python package for parametric simulations and computational experimen
 - **🛑 Interrupt Handling**: Gracefully stop long-running calculations with Ctrl+C while preserving partial results
 - **🔍 Formula Evaluation**: Support for calculated parameters using Python or R expressions
 - **📁 Directory Management**: Automatic organization of inputs, outputs, and logs for each case
+- **🎯 Adaptive Algorithms**: Iterative design of experiments with intelligent sampling strategies (fzd)
 
-### Four Core Functions
+### Five Core Functions
 
 1. **`fzi`** - Parse **I**nput files to identify variables
 2. **`fzc`** - **C**ompile input files by substituting variable values
 3. **`fzo`** - Parse **O**utput files from calculations
 4. **`fzr`** - **R**un complete parametric calculations end-to-end
+5. **`fzd`** - Run iterative **D**esign of experiments with adaptive algorithms
 
 ## Installation
 
@@ -83,7 +86,10 @@ pip install -e git+https://github.com/Funz/fz.git
 # for SSH support
 pip install paramiko
 
-# for DataFrame support
+# for DataFrame support (recommended)
+pip install pandas
+
+# for fzd (design of experiments) - REQUIRED
 pip install pandas
 
 # for R interpreter support
@@ -91,6 +97,9 @@ pip install funz-fz[r]
 # OR
 pip install rpy2
 # Note: Requires R installed with system libraries - see examples/r_interpreter_example.md
+
+# for optimization algorithms (scipy-based algorithms in examples/)
+pip install scipy numpy
 ```
 
 ## Quick Start
@@ -214,6 +223,7 @@ Available commands:
 - `fzc` - Compile input files
 - `fzo` - Read output files
 - `fzr` - Run parametric calculations
+- `fzd` - Run design of experiments with adaptive algorithms
 
 ### fzi - Parse Input Variables
 
@@ -599,6 +609,47 @@ fzr input.txt \
 # Only runs the remaining cases
 ```
 
+### fzd - Run Design of Experiments
+
+Run iterative design of experiments with adaptive algorithms:
+
+```bash
+# Basic usage with Monte Carlo algorithm
+fzd input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": 1}' \
+  --calculator "sh://bash PerfectGazPressure.sh" \
+  --output-expression "pressure" \
+  --algorithm examples/algorithms/montecarlo_uniform.py \
+  --algorithm-options '{"batch_sample_size": 20, "max_iterations": 10}' \
+  --analysis-dir fzd_results/
+
+# With optimization algorithm (BFGS)
+fzd input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": 1}' \
+  --calculator "sh://bash calc.sh" \
+  --output-expression "pressure" \
+  --algorithm examples/algorithms/bfgs.py \
+  --algorithm-options '{"minimize": true, "max_iterations": 50}' \
+  --analysis-dir optimization_results/
+
+# Fixed and variable inputs
+fzd input.txt \
+  --model perfectgas \
+  --variables '{"T_celsius": "[10;50]", "V_L": "5.0", "n_mol": 1}' \
+  --calculator "sh://bash calc.sh" \
+  --output-expression "pressure" \
+  --algorithm examples/algorithms/brent.py \
+  --analysis-dir brent_results/
+```
+
+**Key Differences from fzr**:
+- Variables use `"[min;max]"` for ranges (algorithm decides values) or `"value"` for fixed
+- Requires `--algorithm` parameter with path to algorithm file
+- Optionally accepts `--algorithm-options` as JSON dict
+- Returns DataFrame with all sampled points and analysis results
+
 ### Environment Variables for CLI
 
 ```bash
@@ -618,6 +669,10 @@ fzr input.txt --model perfectgas ...
 export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1  # Use with caution
 export FZ_SSH_KEEPALIVE=300
 fzr input.txt --calculator "ssh://user@host/bash calc.sh" ...
+
+# Shell path for binary resolution (Windows)
+export FZ_SHELL_PATH="C:\msys64\usr\bin;C:\msys64\mingw64\bin"
+fzr input.txt --model perfectgas ...
 ```
 
 ## Core Functions
@@ -773,6 +828,70 @@ print(results)
 - `results_dir`: Results directory path
 
 **Returns**: pandas DataFrame with all results
+
+### fzd - Run Design of Experiments
+
+Execute iterative design of experiments with adaptive algorithms:
+
+```python
+import fz
+
+model = {
+    "varprefix": "$",
+    "output": {
+        "result": "grep 'Result:' output.txt | awk '{print $2}'"
+    }
+}
+
+# Run Monte Carlo sampling
+results = fz.fzd(
+    input_file="input.txt",
+    input_variables={
+        "x": "[0;10]",      # Range: algorithm decides values
+        "y": "[-5;5]",      # Range: algorithm decides values
+        "z": "2.5"          # Fixed value
+    },
+    model=model,
+    output_expression="result",
+    algorithm="examples/algorithms/montecarlo_uniform.py",
+    calculators=["sh://bash calculate.sh"],
+    algorithm_options={"batch_sample_size": 10, "max_iterations": 20},
+    analysis_dir="results_fzd"
+)
+
+# Results include:
+# - results['XY']: DataFrame with all input/output values
+# - results['analysis']: Processed analysis (HTML, plots, metrics, etc.)
+# - results['iterations']: Number of iterations completed
+# - results['total_evaluations']: Total function evaluations
+# - results['summary']: Summary text
+print(results['XY'])  # All sampled points and outputs
+print(results['summary'])  # Algorithm completion summary
+```
+
+**Algorithm Examples**:
+- `examples/algorithms/montecarlo_uniform.py` - Uniform random sampling
+- `examples/algorithms/randomsampling.py` - Simple random sampling
+- `examples/algorithms/bfgs.py` - BFGS optimization (requires scipy)
+- `examples/algorithms/brent.py` - Brent's 1D optimization (requires scipy)
+
+**Parameters**:
+- `input_file`: Input file or directory path
+- `input_variables`: Dict with `"[min;max]"` for ranges or `"value"` for fixed
+- `model`: Model definition (dict or alias)
+- `output_expression`: Expression to evaluate from outputs (e.g., `"pressure"` or `"out1 + out2 * 2"`)
+- `algorithm`: Path to algorithm Python file
+- `calculators`: Calculator URI(s) - string or list
+- `algorithm_options`: Dict of algorithm-specific options
+- `analysis_dir`: Analysis results directory
+
+**Returns**: Dict with:
+- `XY`: pandas DataFrame with all input and output values
+- `analysis`: Processed analysis results (HTML files, plots, metrics)
+- `algorithm`: Algorithm path
+- `iterations`: Number of iterations completed
+- `total_evaluations`: Total number of function evaluations
+- `summary`: Human-readable summary text
 
 ### Input Variables: Factorial vs Non-Factorial Designs
 
@@ -1368,6 +1487,351 @@ results = fz.fzr(
 print(results[['param', 'calculator', 'status']].head(10))
 ```
 
+### Example 4: Design of Experiments with Adaptive Sampling
+
+```python
+import fz
+import matplotlib.pyplot as plt
+
+# Input template with perfect gas law
+# (same as Example 1, but using fzd for adaptive design)
+
+model = {
+    "varprefix": "$",
+    "formulaprefix": "@",
+    "delim": "{}",
+    "commentline": "#",
+    "output": {
+        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
+    }
+}
+
+# Run Monte Carlo sampling to explore pressure distribution
+results = fz.fzd(
+    input_file="input.txt",
+    input_variables={
+        "T_celsius": "[10;50]",  # Range: 10 to 50°C
+        "V_L": "[1;10]",         # Range: 1 to 10 L
+        "n_mol": "1.0"           # Fixed: 1 mole
+    },
+    model=model,
+    output_expression="pressure",
+    algorithm="examples/algorithms/montecarlo_uniform.py",
+    calculators=["sh://bash PerfectGazPressure.sh"],
+    algorithm_options={
+        "batch_sample_size": 20,  # 20 samples per iteration
+        "max_iterations": 10       # 10 iterations
+    },
+    analysis_dir="monte_carlo_results"
+)
+
+# Results DataFrame has all sampled points
+print(f"Total evaluations: {results['total_evaluations']}")
+print(f"Iterations: {results['iterations']}")
+print(results['summary'])
+
+# Access the data
+df = results['XY']
+print(df.head())
+
+# Plot the sampled points
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+# Scatter plot: Temperature vs Volume colored by Pressure
+scatter = ax1.scatter(df['T_celsius'], df['V_L'], c=df['pressure'],
+                      cmap='viridis', s=50, alpha=0.6)
+ax1.set_xlabel('Temperature (°C)')
+ax1.set_ylabel('Volume (L)')
+ax1.set_title('Sampled Design Space')
+plt.colorbar(scatter, ax=ax1, label='Pressure (Pa)')
+
+# Histogram of pressure values
+ax2.hist(df['pressure'], bins=20, edgecolor='black')
+ax2.set_xlabel('Pressure (Pa)')
+ax2.set_ylabel('Frequency')
+ax2.set_title('Pressure Distribution')
+
+plt.tight_layout()
+plt.savefig('monte_carlo_analysis.png')
+print("Analysis plot saved to monte_carlo_analysis.png")
+```
+
+### Example 5: Optimization with BFGS
+
+```python
+import fz
+
+# Find temperature and volume that minimize pressure
+
+model = {
+    "varprefix": "$",
+    "formulaprefix": "@",
+    "delim": "{}",
+    "commentline": "#",
+    "output": {
+        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
+    }
+}
+
+results = fz.fzd(
+    input_file="input.txt",
+    input_variables={
+        "T_celsius": "[10;50]",  # Search range
+        "V_L": "[1;10]",         # Search range
+        "n_mol": "1.0"           # Fixed
+    },
+    model=model,
+    output_expression="pressure",
+    algorithm="examples/algorithms/bfgs.py",
+    calculators=["sh://bash PerfectGazPressure.sh"],
+    algorithm_options={
+        "minimize": True,        # Minimize pressure
+        "max_iterations": 50
+    },
+    analysis_dir="optimization_results"
+)
+
+# Get optimal point
+df = results['XY']
+optimal_idx = df['pressure'].idxmin()
+optimal = df.loc[optimal_idx]
+
+print(f"Optimal temperature: {optimal['T_celsius']:.2f}°C")
+print(f"Optimal volume: {optimal['V_L']:.2f} L")
+print(f"Minimum pressure: {optimal['pressure']:.2f} Pa")
+print(f"Total evaluations: {results['total_evaluations']}")
+
+# Plot optimization path
+import matplotlib.pyplot as plt
+plt.figure(figsize=(10, 6))
+plt.scatter(df['T_celsius'], df['V_L'], c=df['pressure'],
+            cmap='coolwarm', s=100, edgecolor='black')
+plt.plot(df['T_celsius'], df['V_L'], 'k--', alpha=0.3, label='Optimization path')
+plt.scatter(optimal['T_celsius'], optimal['V_L'],
+            color='red', s=300, marker='*',
+            edgecolor='black', label='Optimum')
+plt.xlabel('Temperature (°C)')
+plt.ylabel('Volume (L)')
+plt.title('BFGS Optimization Path')
+plt.colorbar(label='Pressure (Pa)')
+plt.legend()
+plt.savefig('optimization_path.png')
+print("Optimization path saved to optimization_path.png")
+```
+
+## Writing Custom Algorithms for fzd
+
+FZ provides an extensible framework for implementing adaptive algorithms. Each algorithm is a Python class with specific methods.
+
+### Algorithm Interface
+
+Create a Python file with a class implementing these methods:
+
+```python
+class MyAlgorithm:
+    """Custom algorithm for design of experiments"""
+
+    def __init__(self, **options):
+        """
+        Initialize algorithm with options passed from algorithm_options.
+
+        Args:
+            **options: Algorithm-specific parameters (e.g., batch_size, max_iter)
+        """
+        self.batch_size = options.get('batch_size', 10)
+        self.max_iterations = options.get('max_iterations', 100)
+        self.iteration = 0
+
+    def get_initial_design(self, input_vars, output_vars):
+        """
+        Return initial design points to evaluate.
+
+        Args:
+            input_vars: Dict[str, tuple] - {var_name: (min, max)}
+                       e.g., {"x": (0.0, 10.0), "y": (-5.0, 5.0)}
+            output_vars: List[str] - Output variable names
+
+        Returns:
+            List[Dict[str, float]] - Initial points to evaluate
+                                    e.g., [{"x": 0.5, "y": 0.0}, {"x": 7.5, "y": 2.3}]
+        """
+        # Generate initial sample points
+        import random
+        points = []
+        for _ in range(self.batch_size):
+            point = {
+                var: random.uniform(bounds[0], bounds[1])
+                for var, bounds in input_vars.items()
+            }
+            points.append(point)
+        return points
+
+    def get_next_design(self, previous_input_vars, previous_output_values):
+        """
+        Return next design points based on previous results.
+
+        Args:
+            previous_input_vars: List[Dict[str, float]] - All previous input combinations
+            previous_output_values: List[float] - Corresponding outputs (may contain None)
+
+        Returns:
+            List[Dict[str, float]] - Next points to evaluate
+                                    Empty list [] signals algorithm is finished
+        """
+        self.iteration += 1
+
+        # Stop if max iterations reached
+        if self.iteration >= self.max_iterations:
+            return []  # Empty list = finished
+
+        # Generate next batch based on results
+        # ... your adaptive logic here ...
+
+        return next_points
+
+    def get_analysis(self, input_vars, output_values):
+        """
+        Return final analysis results.
+
+        Args:
+            input_vars: List[Dict[str, float]] - All evaluated inputs
+            output_values: List[float] - All outputs (may contain None)
+
+        Returns:
+            Dict with analysis information (can include 'text', 'data', etc.)
+        """
+        # Filter out failed evaluations (None values)
+        valid_results = [(x, y) for x, y in zip(input_vars, output_values) if y is not None]
+
+        return {
+            'text': f"Algorithm completed: {len(valid_results)} successful evaluations",
+            'data': {'mean': sum(y for _, y in valid_results) / len(valid_results)}
+        }
+
+    def get_analysis_tmp(self, input_vars, output_values):
+        """
+        [OPTIONAL] Return intermediate results at each iteration.
+
+        Args:
+            input_vars: List[Dict[str, float]] - All inputs so far
+            output_values: List[float] - All outputs so far
+
+        Returns:
+            Dict with intermediate analysis information
+        """
+        valid_count = sum(1 for y in output_values if y is not None)
+        return {
+            'text': f"Iteration {self.iteration}: {valid_count} valid samples"
+        }
+```
+
+### Algorithm Examples
+
+#### 1. Monte Carlo Sampling
+
+See `examples/algorithms/montecarlo_uniform.py`:
+
+```python
+import fz
+
+results = fz.fzd(
+    input_file="input.txt",
+    input_variables={"x": "[0;10]", "y": "[0;5]"},
+    model="mymodel",
+    output_expression="result",
+    algorithm="examples/algorithms/montecarlo_uniform.py",
+    calculators=["sh://bash calc.sh"],
+    algorithm_options={"batch_sample_size": 20, "max_iterations": 10}
+)
+```
+
+#### 2. BFGS Optimization
+
+See `examples/algorithms/bfgs.py` (requires scipy):
+
+```python
+results = fz.fzd(
+    input_file="input.txt",
+    input_variables={"x": "[0;10]", "y": "[0;5]"},
+    model="mymodel",
+    output_expression="energy",
+    algorithm="examples/algorithms/bfgs.py",
+    calculators=["sh://bash calc.sh"],
+    algorithm_options={"minimize": True, "max_iterations": 50}
+)
+```
+
+#### 3. Brent's Method (1D Optimization)
+
+See `examples/algorithms/brent.py` (requires scipy):
+
+```python
+results = fz.fzd(
+    input_file="input.txt",
+    input_variables={"temperature": "[0;100]"},  # Single variable
+    model="mymodel",
+    output_expression="efficiency",
+    algorithm="examples/algorithms/brent.py",
+    calculators=["sh://bash calc.sh"],
+    algorithm_options={"minimize": False}  # Maximize efficiency
+)
+```
+
+### Algorithm Features
+
+#### Content Format Detection
+
+Algorithms can return analysis results in multiple formats:
+
+```python
+def get_analysis(self, input_vars, output_values):
+    # Return HTML
+    return {
+        'text': '<html><body><h1>Results</h1><p>Mean: 42.5</p></body></html>',
+        'data': {'mean': 42.5}
+    }
+    # Saved to: analysis_<iteration>.html
+
+    # Return JSON
+    return {
+        'text': '{"mean": 42.5, "std": 3.2}',
+        'data': {}
+    }
+    # Saved to: analysis_<iteration>.json
+
+    # Return Markdown
+    return {
+        'text': '# Results\n\n**Mean**: 42.5\n**Std**: 3.2',
+        'data': {}
+    }
+    # Saved to: analysis_<iteration>.md
+
+    # Return key-value format
+    return {
+        'text': 'mean=42.5\nstd=3.2\nsamples=100',
+        'data': {}
+    }
+    # Saved to: analysis_<iteration>.txt
+```
+
+See `docs/FZD_CONTENT_FORMATS.md` for detailed format documentation.
+
+#### Dependency Management
+
+Specify required packages using `__require__`:
+
+```python
+__require__ = ["numpy", "scipy", "matplotlib"]
+
+class MyAlgorithm:
+    def __init__(self, **options):
+        import numpy as np
+        import scipy.optimize
+        # ...
+```
+
+FZ will check dependencies at load time and warn if packages are missing.
+
 ## Configuration
 
 ### Environment Variables
@@ -1390,6 +1854,11 @@ export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=0
 
 # Default formula interpreter (python or R)
 export FZ_INTERPRETER=python
+
+# Custom shell binary search path (for Windows, overrides system PATH)
+# Use semicolon separator on Windows, colon on Unix/Linux
+export FZ_SHELL_PATH="C:\msys64\usr\bin;C:\msys64\mingw64\bin"  # Windows
+export FZ_SHELL_PATH="/opt/custom/bin:/usr/local/bin"           # Unix/Linux
 ```
 
 ### Python Configuration
@@ -1588,18 +2057,30 @@ python example_interrupt.py  # Interactive interrupt demo
 fz/
 ├── fz/                          # Main package
 │   ├── __init__.py              # Public API exports
-│   ├── core.py                  # Core functions (fzi, fzc, fzo, fzr)
-│   ├── interpreter.py                # Variable parsing, formula evaluation
-│   ├── runners.py               # Calculation execution (sh, ssh)
+│   ├── core.py                  # Core functions (fzi, fzc, fzo, fzr, fzd)
+│   ├── interpreter.py           # Variable parsing, formula evaluation
+│   ├── runners.py               # Calculation execution (sh, ssh, cache)
 │   ├── helpers.py               # Parallel execution, retry logic
 │   ├── io.py                    # File I/O, caching, hashing
+│   ├── algorithms.py            # Algorithm framework for fzd
+│   ├── shell.py                 # Shell utilities, binary path resolution
 │   ├── logging.py               # Logging configuration
+│   ├── cli.py                   # Command-line interface
 │   └── config.py                # Configuration management
+├── examples/                    # Example files
+│   └── algorithms/              # Example algorithms for fzd
+│       ├── montecarlo_uniform.py  # Monte Carlo sampling
+│       ├── randomsampling.py      # Simple random sampling
+│       ├── bfgs.py                # BFGS optimization
+│       └── brent.py               # Brent's 1D optimization
 ├── tests/                       # Test suite
 │   ├── test_parallel.py         # Parallel execution tests
 │   ├── test_interrupt_handling.py  # Interrupt handling tests
+│   ├── test_fzd.py              # Design of experiments tests
 │   ├── test_examples_*.py       # Example-based tests
 │   └── ...
+├── docs/                        # Documentation
+│   └── FZD_CONTENT_FORMATS.md  # fzd content format documentation
 ├── README.md                    # This file
 └── setup.py                     # Package configuration
 ```
