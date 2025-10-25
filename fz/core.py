@@ -1187,6 +1187,8 @@ def _get_analysis(
     if processed_final_analysis and '_raw' in processed_final_analysis:
         if 'text' in processed_final_analysis['_raw']:
             log_info(processed_final_analysis['_raw']['text'])
+        # Remove _raw from returned dict - it's only for internal use
+        del processed_final_analysis['_raw']
 
     # If processed_final_analysis is None, create empty dict for backward compatibility
     if processed_final_analysis is None:
