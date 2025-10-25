@@ -79,7 +79,7 @@ from .shell import run_command, replace_commands_in_string
 from .io import (
     ensure_unique_directory,
     resolve_cache_paths,
-    process_display_content,
+    process_analysis_content,
 )
 from .interpreter import (
     parse_variables_from_path,
@@ -1116,7 +1116,7 @@ def _get_and_process_analysis(
     method_name: str = 'get_analysis'
 ) -> Optional[Dict[str, Any]]:
     """
-    Helper to call algorithm's display method and process the results.
+    Helper to call algorithm's analysis method and process the results.
 
     Args:
         algo_instance: Algorithm instance
@@ -1127,20 +1127,20 @@ def _get_and_process_analysis(
         method_name: Name of the display method ('get_analysis' or 'get_analysis_tmp')
 
     Returns:
-        Processed display dict or None if method doesn't exist or fails
+        Processed analysis dict or None if method doesn't exist or fails
     """
     if not hasattr(algo_instance, method_name):
         return None
 
     try:
-        display_method = getattr(algo_instance, method_name)
-        display_dict = display_method(all_input_vars, all_output_values)
+        analysis_method = getattr(algo_instance, method_name)
+        analysis_dict = analysis_method(all_input_vars, all_output_values)
 
-        if display_dict:
+        if analysis_dict:
             # Process and save content intelligently
-            processed = process_display_content(display_dict, iteration, results_dir)
+            processed = process_analysis_content(analysis_dict, iteration, results_dir)
             # Also keep the original text/html for backward compatibility
-            processed['_raw'] = display_dict
+            processed['_raw'] = analysis_dict
             return processed
         return None
 
@@ -1159,7 +1159,7 @@ def _get_analysis(
     results_dir: Path
 ) -> Dict[str, Any]:
     """
-    Create final analysis results with display information and DataFrame.
+    Create final analysis results with analysis information and DataFrame.
 
     Args:
         algo_instance: Algorithm instance
@@ -1171,26 +1171,26 @@ def _get_analysis(
         results_dir: Directory for saving results
 
     Returns:
-        Dict with analysis results including XY DataFrame and display info
+        Dict with analysis results including XY DataFrame and analysis info
     """
     # Display final results
     log_info("\n" + "="*60)
     log_info("📈 Final Results")
     log_info("="*60)
 
-    # Get and process final display results
-    processed_final_display = _get_and_process_analysis(
+    # Get and process final analysis results
+    processed_final_analysis = _get_and_process_analysis(
         algo_instance, all_input_vars, all_output_values,
         iteration, results_dir, 'get_analysis'
     )
 
-    if processed_final_display and '_raw' in processed_final_display:
-        if 'text' in processed_final_display['_raw']:
-            log_info(processed_final_display['_raw']['text'])
+    if processed_final_analysis and '_raw' in processed_final_analysis:
+        if 'text' in processed_final_analysis['_raw']:
+            log_info(processed_final_analysis['_raw']['text'])
 
-    # If processed_final_display is None, create empty dict for backward compatibility
-    if processed_final_display is None:
-        processed_final_display = {}
+    # If processed_final_analysis is None, create empty dict for backward compatibility
+    if processed_final_analysis is None:
+        processed_final_analysis = {}
 
     # Create DataFrame with all input and output values
     df_data = []
@@ -1204,7 +1204,7 @@ def _get_analysis(
     # Prepare return value
     result = {
         'XY': data_df,  # DataFrame with all X and Y values
-        'display': processed_final_display,  # Use processed display instead of raw
+        'analysis': processed_final_analysis,  # Use processed analysis instead of raw
         'algorithm': algorithm,
         'iterations': iteration,
         'total_evaluations': len(all_input_vars),
@@ -1247,7 +1247,7 @@ def fzd(
         Dict with algorithm results including:
             - 'input_vars': List of evaluated input combinations
             - 'output_values': List of corresponding output values
-            - 'display': Display information from algorithm.get_analysis()
+            - 'analysis': Display information from algorithm.get_analysis()
             - 'summary': Summary text
 
     Raises:
@@ -1397,14 +1397,14 @@ def fzd(
             all_output_values.extend(iteration_outputs)
 
             # Display intermediate results if the method exists
-            tmp_display_processed = _get_and_process_analysis(
+            tmp_analysis_processed = _get_and_process_analysis(
                 algo_instance, all_input_vars, all_output_values,
                 iteration, results_dir, 'get_analysis_tmp'
             )
-            if tmp_display_processed:
+            if tmp_analysis_processed:
                 log_info(f"\n📊 Iteration {iteration} intermediate results:")
-                if '_raw' in tmp_display_processed and 'text' in tmp_display_processed['_raw']:
-                    log_info(tmp_display_processed['_raw']['text'])
+                if '_raw' in tmp_analysis_processed and 'text' in tmp_analysis_processed['_raw']:
+                    log_info(tmp_analysis_processed['_raw']['text'])
 
             # Save iteration results to files
             try:
@@ -1453,34 +1453,34 @@ def fzd(
     </div>
 """
                 # Add intermediate results from get_analysis_tmp
-                if tmp_display_processed and '_raw' in tmp_display_processed:
-                    tmp_display = tmp_display_processed['_raw']
+                if tmp_analysis_processed and '_raw' in tmp_analysis_processed:
+                    tmp_analysis = tmp_analysis_processed['_raw']
                     html_content += """
     <div class="section">
         <h2>Intermediate Progress</h2>
 """
-                    if 'text' in tmp_display:
-                        html_content += f"<pre>{tmp_display['text']}</pre>\n"
-                    if 'html' in tmp_display:
-                        html_content += tmp_display['html'] + '\n'
+                    if 'text' in tmp_analysis:
+                        html_content += f"<pre>{tmp_analysis['text']}</pre>\n"
+                    if 'html' in tmp_analysis:
+                        html_content += tmp_analysis['html'] + '\n'
                     html_content += "    </div>\n"
 
                 # Always call get_analysis for this iteration and process content
-                iter_display_processed = _get_and_process_analysis(
+                iter_analysis_processed = _get_and_process_analysis(
                     algo_instance, all_input_vars, all_output_values,
                     iteration, results_dir, 'get_analysis'
                 )
-                if iter_display_processed and '_raw' in iter_display_processed:
-                    iter_display = iter_display_processed['_raw']
+                if iter_analysis_processed and '_raw' in iter_analysis_processed:
+                    iter_analysis = iter_analysis_processed['_raw']
                     # Also save traditional HTML results file for compatibility
                     html_content += """
     <div class="section">
         <h2>Current Results</h2>
 """
-                    if 'text' in iter_display:
-                        html_content += f"<pre>{iter_display['text']}</pre>\n"
-                    if 'html' in iter_display:
-                        html_content += iter_display['html'] + '\n'
+                    if 'text' in iter_analysis:
+                        html_content += f"<pre>{iter_analysis['text']}</pre>\n"
+                    if 'html' in iter_analysis:
+                        html_content += iter_analysis['html'] + '\n'
                     html_content += "    </div>\n"
 
                 html_content += """

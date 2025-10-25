@@ -112,7 +112,7 @@ class TestDisplayResultsTmp:
 
             # Verify result structure
             assert 'XY' in result
-            assert 'display' in result
+            assert 'analysis' in result
             assert 'iterations' in result
             assert result['iterations'] > 0
 
@@ -199,7 +199,7 @@ class TestContentAlgorithm:
 
             # Verify result structure
             assert 'XY' in result
-            assert 'display' in result
+            assert 'analysis' in result
 
         finally:
             # Cleanup
