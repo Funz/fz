@@ -5,19 +5,13 @@ Calculation runners for fz package: calculator resolution and execution
 import os
 import subprocess
 import time
-import re
-import tarfile
-import tempfile
 import hashlib
 import base64
-import threading
-import queue
 import socket
 import platform
-import shutil
 import uuid
 
-from .logging import log_error, log_warning, log_info, log_debug
+from .logging import log_warning, log_info, log_debug
 from .config import get_config
 from .shell import run_command, replace_commands_in_string
 import getpass
@@ -657,7 +651,7 @@ def run_local_calculation(
         # Construct command - resolve ALL file paths to absolute for reliable parallel execution
         if command:
             resolved_command, was_changed = resolve_all_paths_in_command(
-                command, original_cwd
+                command.replace("\\","/"), original_cwd
             )
 
             # Apply shell path resolution to command if FZ_SHELL_PATH is set
