@@ -361,3 +361,247 @@ def list_installed_models(global_list: bool = False) -> Dict[str, Dict]:
                     log_warning(f"Failed to load model {model_file}: {e}")
 
     return models
+
+
+# ============================================================================
+# Algorithm Installation Functions
+# ============================================================================
+
+
+def extract_algorithm_files(zip_path: Path, extract_dir: Path) -> Dict[str, Path]:
+    """
+    Extract algorithm files from a zip archive
+
+    The expected structure of an algorithm zip is:
+    - fz-algorithm-name-main/
+      - algorithm.py or algorithm.R (algorithm implementation)
+      - README.md (optional)
+      - examples/ (optional)
+
+    Args:
+        zip_path: Path to the zip file
+        extract_dir: Directory to extract to
+
+    Returns:
+        Dict with 'algorithm_files' key pointing to list of algorithm files (.py or .R),
+        and 'algorithm_name' key with the algorithm name
+
+    Raises:
+        Exception: If extraction fails or no algorithm files found
+    """
+    log_info(f"Extracting: {zip_path}")
+
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
+            log_debug(f"Extracted files: {zip_ref.namelist()[:10]}")  # Show first 10 files
+    except Exception as e:
+        raise Exception(f"Failed to extract {zip_path}: {e}")
+
+    # Find algorithm files (.py or .R)
+    # Look in two places:
+    # 1. Algorithm files in the root (simple case)
+    # 2. .fz/algorithms/*.py or *.R (fz repository structure)
+
+    log_debug(f"Searching for algorithm files in: {extract_dir}")
+
+    # First try: look for .py/.R files in root
+    py_files = list(extract_dir.rglob('*.py'))
+    r_files = list(extract_dir.rglob('*.R'))
+
+    # Filter out test files, setup files, etc.
+    def is_algorithm_file(path: Path) -> bool:
+        """Check if file is likely an algorithm implementation"""
+        name_lower = path.name.lower()
+        # Exclude common non-algorithm files
+        exclude_patterns = ['setup.py', 'test_', '_test.', 'conftest.py', '__init__.py']
+        return not any(pattern in name_lower for pattern in exclude_patterns)
+
+    py_files = [f for f in py_files if is_algorithm_file(f)]
+    r_files = [f for f in r_files if is_algorithm_file(f)]
+
+    # Second try: specifically look for .fz/algorithms/*.py or *.R
+    fz_algo_py = list(extract_dir.glob('*/.fz/algorithms/*.py'))
+    fz_algo_r = list(extract_dir.glob('*/.fz/algorithms/*.R'))
+
+    # Combine and prioritize .fz/algorithms/ files if they exist
+    if fz_algo_py or fz_algo_r:
+        algorithm_files = fz_algo_py + fz_algo_r
+        log_debug(f"Found {len(algorithm_files)} algorithm files in .fz/algorithms/")
+    else:
+        algorithm_files = py_files + r_files
+        log_debug(f"Found {len(algorithm_files)} algorithm files in root")
+
+    if not algorithm_files:
+        # List what we did find to help debugging
+        all_files = list(extract_dir.rglob('*'))
+        log_debug(f"Files found in extraction: {[str(f.relative_to(extract_dir)) for f in all_files[:20]]}")
+        raise Exception(f"No algorithm files (.py or .R) found in extracted archive. Extracted to: {extract_dir}")
+
+    # Extract algorithm name from first file
+    # For fz-algorithm repositories, the file is typically named after the algorithm
+    algorithm_file = algorithm_files[0]
+    algorithm_name = algorithm_file.stem
+    log_info(f"Found algorithm file: {algorithm_file}")
+
+    return {
+        'algorithm_files': algorithm_files,
+        'algorithm_name': algorithm_name,
+        'extract_dir': algorithm_file.parent
+    }
+
+
+def install_algorithm(source: str, global_install: bool = False) -> Dict[str, str]:
+    """
+    Install an algorithm from a source (GitHub name, URL, or local zip file)
+
+    Args:
+        source: Algorithm source to install from
+                - GitHub name: "montecarlo" → "https://github.com/Funz/fz-montecarlo"
+                - Full URL: "https://github.com/user/fz-myalgo"
+                - Local zip: "fz-myalgo.zip"
+        global_install: If True, install to ~/.fz/algorithms/, else to ./.fz/algorithms/
+
+    Returns:
+        Dict with 'algorithm_name' and 'install_path' keys
+
+    Raises:
+        Exception: If installation fails
+    """
+    # Determine installation directory
+    if global_install:
+        install_base = Path.home() / '.fz' / 'algorithms'
+    else:
+        install_base = Path.cwd() / '.fz' / 'algorithms'
+
+    install_base.mkdir(parents=True, exist_ok=True)
+
+    # Create a temporary directory for download and extraction
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        try:
+            # Download the algorithm (reuse download_model function)
+            zip_path = download_model(source, temp_path)
+
+            # Extract the algorithm files
+            extract_path = temp_path / 'extract'
+            extract_path.mkdir(exist_ok=True)
+            algo_info = extract_algorithm_files(zip_path, extract_path)
+
+            algorithm_name = algo_info['algorithm_name']
+            algorithm_files = algo_info['algorithm_files']
+
+            # Install the algorithm file(s)
+            installed_files = []
+            for algo_file in algorithm_files:
+                # Use the original filename for installation
+                dest_file = install_base / algo_file.name
+                shutil.copy2(algo_file, dest_file)
+                installed_files.append(str(dest_file))
+                log_info(f"Installed algorithm '{algo_file.name}' to: {dest_file}")
+
+            return {
+                'algorithm_name': algorithm_name,
+                'install_path': str(installed_files[0]),
+                'all_files': installed_files
+            }
+
+        except Exception as e:
+            log_error(f"Algorithm installation failed: {e}")
+            raise
+
+
+def uninstall_algorithm(algorithm_name: str, global_uninstall: bool = False) -> bool:
+    """
+    Uninstall an algorithm
+
+    Args:
+        algorithm_name: Name of the algorithm to uninstall (without extension)
+        global_uninstall: If True, uninstall from ~/.fz/algorithms/, else from ./.fz/algorithms/
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if global_uninstall:
+        install_base = Path.home() / '.fz' / 'algorithms'
+    else:
+        install_base = Path.cwd() / '.fz' / 'algorithms'
+
+    # Try both .py and .R extensions
+    removed_any = False
+    for ext in ['.py', '.R']:
+        algo_path = install_base / f"{algorithm_name}{ext}"
+        if algo_path.exists():
+            try:
+                algo_path.unlink()
+                log_info(f"Uninstalled algorithm '{algorithm_name}{ext}'")
+                removed_any = True
+            except Exception as e:
+                log_error(f"Failed to uninstall algorithm '{algorithm_name}{ext}': {e}")
+                return False
+
+    if not removed_any:
+        log_warning(f"Algorithm '{algorithm_name}' not found at: {install_base}")
+        return False
+
+    return True
+
+
+def list_installed_algorithms(global_list: bool = False) -> Dict[str, Dict]:
+    """
+    List installed algorithms
+
+    Args:
+        global_list: If True, list from ~/.fz/algorithms/, else from ./.fz/algorithms/
+                     If False, lists from both locations and marks each with 'global' property
+
+    Returns:
+        Dict mapping algorithm names to their info (with 'global' property added)
+    """
+    algorithms = {}
+
+    if global_list:
+        # Only list global algorithms
+        install_base = Path.home() / '.fz' / 'algorithms'
+        if install_base.exists():
+            for algo_file in install_base.glob('*'):
+                if algo_file.suffix in ['.py', '.R'] and algo_file.is_file():
+                    algo_name = algo_file.stem
+                    algorithms[algo_name] = {
+                        'name': algo_name,
+                        'file': str(algo_file),
+                        'type': 'Python' if algo_file.suffix == '.py' else 'R',
+                        'global': True
+                    }
+    else:
+        # List from both local and global, marking each
+        # First, check local algorithms
+        local_base = Path.cwd() / '.fz' / 'algorithms'
+        if local_base.exists():
+            for algo_file in local_base.glob('*'):
+                if algo_file.suffix in ['.py', '.R'] and algo_file.is_file():
+                    algo_name = algo_file.stem
+                    algorithms[algo_name] = {
+                        'name': algo_name,
+                        'file': str(algo_file),
+                        'type': 'Python' if algo_file.suffix == '.py' else 'R',
+                        'global': False
+                    }
+
+        # Then check global algorithms (but don't override local ones)
+        global_base = Path.home() / '.fz' / 'algorithms'
+        if global_base.exists():
+            for algo_file in global_base.glob('*'):
+                if algo_file.suffix in ['.py', '.R'] and algo_file.is_file():
+                    algo_name = algo_file.stem
+                    # Only add if not already present (local takes precedence)
+                    if algo_name not in algorithms:
+                        algorithms[algo_name] = {
+                            'name': algo_name,
+                            'file': str(algo_file),
+                            'type': 'Python' if algo_file.suffix == '.py' else 'R',
+                            'global': True
+                        }
+
+    return algorithms

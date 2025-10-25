@@ -482,22 +482,51 @@ def main():
     parser_design.add_argument("--calculators", "-c", help="Calculator specifications (JSON file or inline JSON)")
     parser_design.add_argument("--options", "-o", help="Algorithm options (JSON file or inline JSON)")
 
-    # install command
-    parser_install = subparsers.add_parser("install", help="Install a model from GitHub or local zip file")
-    parser_install.add_argument("source", help="Model source (GitHub name, URL, or local zip file)")
-    parser_install.add_argument("--global", dest="global_install", action="store_true",
-                                help="Install to ~/.fz/models/ (default: ./.fz/models/)")
+    # install command (supports both models and algorithms)
+    parser_install = subparsers.add_parser("install", help="Install a model or algorithm from GitHub or local zip file")
+    install_subparsers = parser_install.add_subparsers(dest="install_type", help="Type of resource to install")
 
-    # list command
-    parser_list = subparsers.add_parser("list", help="List installed models")
-    parser_list.add_argument("--global", dest="global_list", action="store_true",
-                             help="List models from ~/.fz/models/ (default: ./.fz/models/)")
+    # install model subcommand
+    parser_install_model = install_subparsers.add_parser("model", help="Install a model")
+    parser_install_model.add_argument("source", help="Model source (GitHub name, URL, or local zip file)")
+    parser_install_model.add_argument("--global", dest="global_install", action="store_true",
+                                      help="Install to ~/.fz/models/ (default: ./.fz/models/)")
 
-    # uninstall command
-    parser_uninstall = subparsers.add_parser("uninstall", help="Uninstall a model")
-    parser_uninstall.add_argument("model", help="Model name to uninstall")
-    parser_uninstall.add_argument("--global", dest="global_uninstall", action="store_true",
-                                  help="Uninstall from ~/.fz/models/ (default: ./.fz/models/)")
+    # install algorithm subcommand
+    parser_install_algorithm = install_subparsers.add_parser("algorithm", help="Install an algorithm")
+    parser_install_algorithm.add_argument("source", help="Algorithm source (GitHub name, URL, or local zip file)")
+    parser_install_algorithm.add_argument("--global", dest="global_install", action="store_true",
+                                          help="Install to ~/.fz/algorithms/ (default: ./.fz/algorithms/)")
+
+    # list command (supports both models and algorithms)
+    parser_list = subparsers.add_parser("list", help="List installed models or algorithms")
+    list_subparsers = parser_list.add_subparsers(dest="list_type", help="Type of resource to list")
+
+    # list models subcommand
+    parser_list_models = list_subparsers.add_parser("models", help="List installed models")
+    parser_list_models.add_argument("--global", dest="global_list", action="store_true",
+                                    help="List models from ~/.fz/models/ (default: ./.fz/models/)")
+
+    # list algorithms subcommand
+    parser_list_algorithms = list_subparsers.add_parser("algorithms", help="List installed algorithms")
+    parser_list_algorithms.add_argument("--global", dest="global_list", action="store_true",
+                                        help="List algorithms from ~/.fz/algorithms/ (default: ./.fz/algorithms/)")
+
+    # uninstall command (supports both models and algorithms)
+    parser_uninstall = subparsers.add_parser("uninstall", help="Uninstall a model or algorithm")
+    uninstall_subparsers = parser_uninstall.add_subparsers(dest="uninstall_type", help="Type of resource to uninstall")
+
+    # uninstall model subcommand
+    parser_uninstall_model = uninstall_subparsers.add_parser("model", help="Uninstall a model")
+    parser_uninstall_model.add_argument("name", help="Model name to uninstall")
+    parser_uninstall_model.add_argument("--global", dest="global_uninstall", action="store_true",
+                                        help="Uninstall from ~/.fz/models/ (default: ./.fz/models/)")
+
+    # uninstall algorithm subcommand
+    parser_uninstall_algorithm = uninstall_subparsers.add_parser("algorithm", help="Uninstall an algorithm")
+    parser_uninstall_algorithm.add_argument("name", help="Algorithm name to uninstall")
+    parser_uninstall_algorithm.add_argument("--global", dest="global_uninstall", action="store_true",
+                                            help="Uninstall from ~/.fz/algorithms/ (default: ./.fz/algorithms/)")
 
     args = parser.parse_args()
 
@@ -573,35 +602,82 @@ def main():
                 print(result['analysis']['text'])
 
         elif args.command == "install":
-            from .installer import install_model
-            result = install_model(args.source, global_install=args.global_install)
-            print(f"Successfully installed model '{result['model_name']}'")
-            if result.get('installed_files'):
-                print(f"  Installed {len(result['installed_files'])} additional files from .fz subdirectories")
+            if args.install_type == "model":
+                from .installer import install_model
+                result = install_model(args.source, global_install=args.global_install)
+                print(f"Successfully installed model '{result['model_name']}'")
+                if result.get('installed_files'):
+                    print(f"  Installed {len(result['installed_files'])} additional files from .fz subdirectories")
+            elif args.install_type == "algorithm":
+                from .installer import install_algorithm
+                result = install_algorithm(args.source, global_install=args.global_install)
+                print(f"Successfully installed algorithm '{result['algorithm_name']}'")
+                if len(result.get('all_files', [])) > 1:
+                    print(f"  Installed {len(result['all_files'])} files")
+            else:
+                print("Error: Please specify 'model' or 'algorithm' to install")
+                print("Usage: fz install model <source>")
+                print("       fz install algorithm <source>")
+                return 1
 
         elif args.command == "list":
-            from .installer import list_installed_models
-            models = list_installed_models(global_list=args.global_list)
-            if not models:
-                location = "~/.fz/models/" if args.global_list else "./.fz/models/"
-                print(f"No models installed in {location}")
+            if args.list_type == "models":
+                from .installer import list_installed_models
+                models = list_installed_models(global_list=args.global_list)
+                if not models:
+                    location = "~/.fz/models/" if args.global_list else "./.fz/models/"
+                    print(f"No models installed in {location}")
+                else:
+                    print(f"Installed models:")
+                    for model_name, model_info in models.items():
+                        model_id = model_info.get('id', 'N/A')
+                        is_global = model_info.get('global', False)
+                        location = "[global]" if is_global else "[local]"
+                        print(f"  - {model_name} (id: {model_id}) {location}")
+            elif args.list_type == "algorithms":
+                from .installer import list_installed_algorithms
+                algorithms = list_installed_algorithms(global_list=args.global_list)
+                if not algorithms:
+                    location = "~/.fz/algorithms/" if args.global_list else "./.fz/algorithms/"
+                    print(f"No algorithms installed in {location}")
+                else:
+                    print(f"Installed algorithms:")
+                    for algo_name, algo_info in algorithms.items():
+                        algo_type = algo_info.get('type', 'N/A')
+                        is_global = algo_info.get('global', False)
+                        location = "[global]" if is_global else "[local]"
+                        print(f"  - {algo_name} ({algo_type}) {location}")
             else:
-                print(f"Installed models:")
-                for model_name, model_info in models.items():
-                    model_id = model_info.get('id', 'N/A')
-                    is_global = model_info.get('global', False)
-                    location = "[global]" if is_global else "[local]"
-                    print(f"  - {model_name} (id: {model_id}) {location}")
+                print("Error: Please specify 'models' or 'algorithms' to list")
+                print("Usage: fz list models")
+                print("       fz list algorithms")
+                return 1
 
         elif args.command == "uninstall":
-            from .installer import uninstall_model
-            success = uninstall_model(args.model, global_uninstall=args.global_uninstall)
-            if success:
-                location = "~/.fz/models/" if args.global_uninstall else "./.fz/models/"
-                print(f"Successfully uninstalled model '{args.model}' from {location}")
+            if args.uninstall_type == "model":
+                from .installer import uninstall_model
+                success = uninstall_model(args.name, global_uninstall=args.global_uninstall)
+                if success:
+                    location = "~/.fz/models/" if args.global_uninstall else "./.fz/models/"
+                    print(f"Successfully uninstalled model '{args.name}' from {location}")
+                else:
+                    location = "~/.fz/models/" if args.global_uninstall else "./.fz/models/"
+                    print(f"Model '{args.name}' not found in {location}")
+                    return 1
+            elif args.uninstall_type == "algorithm":
+                from .installer import uninstall_algorithm
+                success = uninstall_algorithm(args.name, global_uninstall=args.global_uninstall)
+                if success:
+                    location = "~/.fz/algorithms/" if args.global_uninstall else "./.fz/algorithms/"
+                    print(f"Successfully uninstalled algorithm '{args.name}' from {location}")
+                else:
+                    location = "~/.fz/algorithms/" if args.global_uninstall else "./.fz/algorithms/"
+                    print(f"Algorithm '{args.name}' not found in {location}")
+                    return 1
             else:
-                location = "~/.fz/models/" if args.global_uninstall else "./.fz/models/"
-                print(f"Model '{args.model}' not found in {location}")
+                print("Error: Please specify 'model' or 'algorithm' to uninstall")
+                print("Usage: fz uninstall model <name>")
+                print("       fz uninstall algorithm <name>")
                 return 1
 
     except Exception as e:
