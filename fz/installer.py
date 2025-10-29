@@ -245,10 +245,15 @@ def install_model(source: str, global_install: bool = False) -> Dict[str, str]:
                         # Make shell scripts executable
                         if calc_file.suffix in ['.sh', '.bash', '.zsh']:
                             dest_calc.chmod(0o755)
-                        installed_calculators.append(str(dest_calc))
-                        log_info(f"Installed calculator: {calc_file.name} to: {dest_calc}")
+                            log_info(f"Installed calculator script: {calc_file.name} to: {dest_calc}")
+                        # Only add JSON calculator definitions to the return list
+                        elif calc_file.suffix == '.json':
+                            installed_calculators.append(str(dest_calc))
+                            log_info(f"Installed calculator definition: {calc_file.name} to: {dest_calc}")
+                        else:
+                            log_info(f"Installed calculator file: {calc_file.name} to: {dest_calc}")
 
-                log_info(f"Installed {len(installed_calculators)} calculator files")
+                log_info(f"Installed {len(installed_calculators)} calculator definition(s)")
             else:
                 log_debug(f"No calculators directory found for model '{model_name}'")
 
