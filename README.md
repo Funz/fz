@@ -1929,10 +1929,10 @@ fz install algorithm montecarlo
 import fz
 
 # Install locally (.fz/algorithms/)
-fz.install_algo("montecarlo")
+fz.install_algorithm("montecarlo")
 
 # Install globally (~/.fz/algorithms/)
-fz.install_algo("montecarlo", global_install=True)
+fz.install_algorithm("montecarlo", global_install=True)
 ```
 
 #### From GitHub URL
@@ -1943,7 +1943,7 @@ fz install algorithm https://github.com/YourOrg/fz-custom-algo
 ```
 
 ```python
-fz.install_algo("https://github.com/YourOrg/fz-custom-algo")
+fz.install_algorithm("https://github.com/YourOrg/fz-custom-algo")
 ```
 
 #### From Local Zip File
@@ -1954,7 +1954,7 @@ fz install algorithm ./fz-myalgo.zip
 ```
 
 ```python
-fz.install_algo("./fz-myalgo.zip")
+fz.install_algorithm("./fz-myalgo.zip")
 ```
 
 #### Using Installed Algorithms
@@ -2056,7 +2056,7 @@ fz uninstall model moret
 import fz
 
 # Uninstall algorithm
-fz.uninstall_algo("montecarlo")
+fz.uninstall_algorithm("montecarlo")
 
 # Uninstall model
 fz.uninstall("moret")
