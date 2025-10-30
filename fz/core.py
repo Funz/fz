@@ -1221,14 +1221,14 @@ def _get_analysis(
 
 
 def fzd(
-    input_file: str,
+    input_path: str,
     input_variables: Dict[str, str],
     model: Union[str, Dict],
     output_expression: str,
     algorithm: str,
     calculators: Union[str, List[str]] = None,
     algorithm_options: Dict[str, Any] = None,
-    analysis_dir: str = "results_fzd"
+    analysis_dir: str = "analysis"
 ) -> Dict[str, Any]:
     """
     Run iterative design of experiments with algorithms
@@ -1236,7 +1236,7 @@ def fzd(
     Requires pandas to be installed.
 
     Args:
-        input_file: Path to input file or directory
+        input_path: Path to input file or directory
         input_variables: Input variables to vary, as dict of strings {"var1": "[min;max]", ...}
         model: Model definition dict or alias string
         output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2"
@@ -1257,7 +1257,7 @@ def fzd(
 
     Example:
         >>> analysis = fz.fzd(
-        ...     input_file='input.txt',
+        ...     input_path='input.txt',
         ...     input_variables={"x1": "[0;10]", "x2": "[0;5]"},
         ...     model="mymodel",
         ...     output_expression="pressure",
@@ -1296,7 +1296,7 @@ def fzd(
         calculators = resolve_calculators(calculators, model_id)
 
         # Convert to absolute paths
-        input_dir = Path(input_file).resolve()
+        input_dir = Path(input_path).resolve()
         results_dir = Path(analysis_dir).resolve()
 
         # Parse input variable ranges and fixed values
