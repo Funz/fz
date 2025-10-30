@@ -80,6 +80,7 @@ from .io import (
     ensure_unique_directory,
     resolve_cache_paths,
     process_analysis_content,
+    flatten_dict_columns,
 )
 from .interpreter import (
     parse_variables_from_path,
@@ -830,6 +831,9 @@ def fzo(
                             cast_values.append(v)
                     df[key] = cast_values
 
+        # Flatten any dict-valued columns into separate columns
+        df = flatten_dict_columns(df)
+
         # Always restore the original working directory
         os.chdir(working_dir)
 
@@ -1058,15 +1062,35 @@ def fzr(
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
+            # First pass: collect all output columns from all cases to support dict flattening
+            all_output_cols = set()
+            valid_case_results = []
+
             for case_result in case_results:
                 # Skip None results (incomplete cases from interrupts)
                 if case_result is None:
                     continue
 
+                valid_case_results.append(case_result)
+
+                # Collect all output columns (including flattened dict columns)
+                metadata_keys = {"var_combo", "path", "calculator", "status", "error", "command"}
+                for key in case_result.keys():
+                    if key not in var_names and key not in metadata_keys:
+                        all_output_cols.add(key)
+
+            # Initialize all output columns in results dict
+            for key in all_output_cols:
+                if key not in results:
+                    results[key] = []
+
+            # Second pass: populate results
+            for case_result in valid_case_results:
                 for var in var_names:
                     results[var].append(case_result["var_combo"][var])
 
-                for key in output_keys:
+                # Append values for all output columns
+                for key in all_output_cols:
                     results[key].append(case_result.get(key))
 
                 results["path"].append(case_result.get("path", "."))
@@ -1102,7 +1126,15 @@ def fzr(
 
     # Return DataFrame if pandas is available, otherwise return list of dicts
     if PANDAS_AVAILABLE:
-        return pd.DataFrame(results)
+        # Remove any columns that are empty (e.g., original dict columns that were flattened)
+        # This happens when dict flattening creates new columns (min, max, diff) and the
+        # original column (stats) is no longer populated
+        non_empty_results = {k: v for k, v in results.items() if len(v) > 0}
+
+        df = pd.DataFrame(non_empty_results)
+        # Flatten any dict-valued columns into separate columns
+        df = flatten_dict_columns(df)
+        return df
     else:
         return results
 

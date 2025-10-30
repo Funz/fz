@@ -738,12 +738,19 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                     # Validate that cached outputs don't contain None values
                     try:
                         cached_output = fzo(result_dir, model)
-                        output_keys = list(model.get("output", {}).keys())
+
+                        # Get all output columns (including flattened dict columns)
+                        # We use all keys from cached_output to capture flattened dict columns
+                        all_output_keys = list(cached_output.keys()) if hasattr(cached_output, 'keys') else cached_output.columns.tolist()
+
+                        # Filter out metadata columns
+                        metadata_cols = ['path']
+                        output_columns = [k for k in all_output_keys if k not in metadata_cols]
 
                         # Check if any expected output is None
                         # Extract scalar values properly from DataFrame/dict returned by fzo
                         none_keys = []
-                        for key in output_keys:
+                        for key in output_columns:
                             value = cached_output.get(key)
                             # Extract scalar from pandas Series or list
                             if hasattr(value, 'iloc'):
@@ -947,7 +954,17 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
             result_output = fzo(result_dir, model)
             log_debug(f"🔄 [Thread {thread_id}] {case_name}: Parsed output: {list(result_output.keys())}")
-            for key in output_keys:
+
+            # Extract all columns from fzo result (includes flattened dict columns)
+            # We use all keys from result_output instead of just output_keys to capture
+            # flattened dict columns (e.g., if "stats" was a dict, we now have "min", "max", etc.)
+            all_output_keys = list(result_output.keys()) if hasattr(result_output, 'keys') else result_output.columns.tolist()
+
+            # Filter out metadata columns (path, etc.) to only get output values
+            metadata_cols = ['path']
+            output_columns = [k for k in all_output_keys if k not in metadata_cols]
+
+            for key in output_columns:
                 value = result_output.get(key)
                 # Extract scalar from pandas Series if applicable
                 if hasattr(value, 'iloc'):
