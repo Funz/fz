@@ -7,10 +7,21 @@ import glob
 import json
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 
 from .logging import log_info, log_warning
 from datetime import datetime
+
+if TYPE_CHECKING:
+    import pandas
+
+# Check if pandas is available for dict flattening
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    pd = None
 
 
 def ensure_unique_directory(directory_path: Path) -> tuple[Path, Optional[Path]]:
@@ -381,3 +392,105 @@ def process_analysis_content(
             processed['text'] = text_content
 
     return processed
+
+
+def flatten_dict_recursive(d: dict, parent_key: str = '', sep: str = '_') -> dict:
+    """
+    Recursively flatten a nested dictionary.
+
+    Args:
+        d: Dictionary to flatten
+        parent_key: Parent key prefix for nested keys
+        sep: Separator to use between nested keys
+
+    Returns:
+        Flattened dictionary with keys joined by separator
+    """
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            # Recursively flatten nested dict
+            items.extend(flatten_dict_recursive(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def flatten_dict_columns(df: "pandas.DataFrame") -> "pandas.DataFrame":
+    """
+    Recursively flatten dictionary-valued columns into separate columns.
+
+    For each column containing dict values, creates new columns with the dict keys.
+    Nested dicts are flattened recursively with keys joined by '_'.
+    For example, {"stats": {"basic": {"min": 1, "max": 4}}} becomes:
+    - stats_basic_min: 1
+    - stats_basic_max: 4
+
+    The original dict column is removed.
+
+    Args:
+        df: DataFrame potentially containing dict-valued columns
+
+    Returns:
+        DataFrame with dict columns recursively flattened
+    """
+    if not PANDAS_AVAILABLE:
+        return df
+
+    if df.empty:
+        return df
+
+    # Keep flattening until no more dict columns remain
+    max_iterations = 10  # Prevent infinite loops
+    iteration = 0
+
+    while iteration < max_iterations:
+        iteration += 1
+
+        # Track which columns contain dicts and need to be flattened
+        dict_columns = []
+
+        for col in df.columns:
+            # Check if this column contains dict values
+            # Sample first non-None value to check type
+            sample_value = None
+            for val in df[col]:
+                if val is not None:
+                    sample_value = val
+                    break
+
+            if isinstance(sample_value, dict):
+                dict_columns.append(col)
+
+        if not dict_columns:
+            break  # No more dict columns to flatten
+
+        # Flatten each dict column
+        new_columns = {}
+
+        for col in dict_columns:
+            # Process each row in this column
+            for row_idx, val in enumerate(df[col]):
+                if isinstance(val, dict):
+                    # Recursively flatten this dict
+                    flattened = flatten_dict_recursive(val, parent_key=col, sep='_')
+
+                    # Add flattened keys to new_columns
+                    for flat_key, flat_val in flattened.items():
+                        if flat_key not in new_columns:
+                            # Initialize column with None for all rows
+                            new_columns[flat_key] = [None] * len(df)
+                        new_columns[flat_key][row_idx] = flat_val
+
+        # Create new DataFrame with original columns plus flattened dict columns
+        df = df.copy()
+
+        # Add new columns
+        for col_name, values in new_columns.items():
+            df[col_name] = values
+
+        # Drop original dict columns
+        df = df.drop(columns=dict_columns)
+
+    return df
