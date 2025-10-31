@@ -530,14 +530,14 @@ class TestAlgorithmPythonAPI:
     """Test Python API for algorithm installation"""
 
     def test_install_algo_function(self, test_algorithm_zip_py, install_workspace):
-        """Test fz.install_algo() function"""
+        """Test fz.install_algorithm() function"""
         import fz
 
         original_cwd = os.getcwd()
         try:
             os.chdir(install_workspace)
 
-            result = fz.install_algo(str(test_algorithm_zip_py), global_install=False)
+            result = fz.install_algorithm(str(test_algorithm_zip_py), global_install=False)
 
             assert result['algorithm_name'] == 'testalgo'
 
@@ -556,10 +556,10 @@ class TestAlgorithmPythonAPI:
             os.chdir(install_workspace)
 
             # Install first
-            fz.install_algo(str(test_algorithm_zip_py), global_install=False)
+            fz.install_algorithm(str(test_algorithm_zip_py), global_install=False)
 
             # Uninstall
-            success = fz.uninstall_algo('testalgo', global_uninstall=False)
+            success = fz.uninstall_algorithm('testalgo', global_uninstall=False)
 
             assert success is True
 
@@ -578,10 +578,10 @@ class TestAlgorithmPythonAPI:
             os.chdir(install_workspace)
 
             # Install an algorithm
-            fz.install_algo(str(test_algorithm_zip_py), global_install=False)
+            fz.install_algorithm(str(test_algorithm_zip_py), global_install=False)
 
             # List algorithms
-            algorithms = fz.list_algorithms(global_list=False)
+            algorithms = fz.list_installed_algorithms(global_list=False)
 
             assert 'testalgo' in algorithms
             assert algorithms['testalgo']['type'] == 'Python'
