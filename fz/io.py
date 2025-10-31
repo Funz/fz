@@ -494,3 +494,116 @@ def flatten_dict_columns(df: "pandas.DataFrame") -> "pandas.DataFrame":
         df = df.drop(columns=dict_columns)
 
     return df
+
+
+def get_and_process_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    iteration: int,
+    results_dir: Path,
+    method_name: str = 'get_analysis'
+) -> Optional[Dict[str, Any]]:
+    """
+    Helper to call algorithm's analysis method and process the results.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        iteration: Current iteration number
+        results_dir: Directory to save processed results
+        method_name: Name of the display method ('get_analysis' or 'get_analysis_tmp')
+
+    Returns:
+        Processed analysis dict or None if method doesn't exist or fails
+    """
+    if not hasattr(algo_instance, method_name):
+        return None
+
+    try:
+        analysis_method = getattr(algo_instance, method_name)
+        analysis_dict = analysis_method(all_input_vars, all_output_values)
+
+        if analysis_dict:
+            # Process and save content intelligently
+            processed = process_analysis_content(analysis_dict, iteration, results_dir)
+            # Also keep the original text/html for backward compatibility
+            processed['_raw'] = analysis_dict
+            return processed
+        return None
+
+    except Exception as e:
+        log_warning(f"⚠️  {method_name} failed: {e}")
+        return None
+
+
+def get_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    output_expression: str,
+    algorithm: str,
+    iteration: int,
+    results_dir: Path
+) -> Dict[str, Any]:
+    """
+    Create final analysis results with analysis information and DataFrame.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        output_expression: Expression for output column name
+        algorithm: Algorithm path/name
+        iteration: Final iteration number
+        results_dir: Directory for saving results
+
+    Returns:
+        Dict with analysis results including XY DataFrame and analysis info
+    """
+    # Display final results
+    log_info("\n" + "="*60)
+    log_info("📈 Final Results")
+    log_info("="*60)
+
+    # Get and process final analysis results
+    processed_final_analysis = get_and_process_analysis(
+        algo_instance, all_input_vars, all_output_values,
+        iteration, results_dir, 'get_analysis'
+    )
+
+    if processed_final_analysis and '_raw' in processed_final_analysis:
+        if 'text' in processed_final_analysis['_raw']:
+            log_info(processed_final_analysis['_raw']['text'])
+        # Remove _raw from returned dict - it's only for internal use
+        del processed_final_analysis['_raw']
+
+    # If processed_final_analysis is None, create empty dict for backward compatibility
+    if processed_final_analysis is None:
+        processed_final_analysis = {}
+
+    # Create DataFrame with all input and output values
+    df_data = []
+    for inp_dict, out_val in zip(all_input_vars, all_output_values):
+        row = inp_dict.copy()
+        row[output_expression] = out_val  # Use output_expression as column name
+        df_data.append(row)
+
+    data_df = pd.DataFrame(df_data)
+
+    # Prepare return value
+    result = {
+        'XY': data_df,  # DataFrame with all X and Y values
+        'analysis': processed_final_analysis,  # Use processed analysis instead of raw
+        'algorithm': algorithm,
+        'iterations': iteration,
+        'total_evaluations': len(all_input_vars),
+    }
+
+    # Add summary
+    valid_count = sum(1 for v in all_output_values if v is not None)
+    summary = f"{algorithm} completed: {iteration} iterations, {len(all_input_vars)} evaluations ({valid_count} valid)"
+    result['summary'] = summary
+
+    return result

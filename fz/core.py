@@ -62,8 +62,6 @@ except ImportError:
     pd = None
     logging.warning("pandas not available, fzo() and fzr() will return dicts instead of DataFrames")
 
-import threading
-from collections import defaultdict
 import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug
@@ -81,6 +79,8 @@ from .io import (
     resolve_cache_paths,
     process_analysis_content,
     flatten_dict_columns,
+    get_and_process_analysis,
+    get_analysis,
 )
 from .interpreter import (
     parse_variables_from_path,
@@ -392,174 +392,6 @@ def _restore_signal_handler():
 def is_interrupted():
     """Check if user requested interrupt"""
     return _interrupt_requested
-
-
-# Global calculator manager for thread-safe calculator allocation
-class CalculatorManager:
-    """Thread-safe calculator management for parallel execution"""
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._calculator_locks = defaultdict(threading.Lock)
-        self._calculator_owners = {}  # calculator_id -> thread_id mapping
-        self._calculator_registry = {}  # calculator_id -> original_uri mapping
-
-    def register_calculator_instances(self, calculator_uris: List[str]) -> List[str]:
-        """
-        Register calculator instances with unique IDs for each occurrence
-
-        Args:
-            calculator_uris: List of calculator URIs (may contain duplicates)
-
-        Returns:
-            List of unique calculator IDs
-        """
-        calculator_ids = []
-        with self._lock:
-            for uri in calculator_uris:
-                # Generate unique alphanumeric ID for tmux compatibility
-                unique_id = uuid.uuid4().hex[:8]
-                calc_id = f"{uri}#{unique_id}"
-                self._calculator_registry[calc_id] = uri
-                calculator_ids.append(calc_id)
-        return calculator_ids
-
-    def get_original_uri(self, calculator_id: str) -> str:
-        """Get the original URI for a calculator ID"""
-        return self._calculator_registry.get(calculator_id, calculator_id)
-
-    def acquire_calculator(self, calculator_id: str, thread_id: int) -> bool:
-        """
-        Try to acquire exclusive access to a calculator
-
-        Args:
-            calculator_id: Calculator ID to acquire
-            thread_id: Thread ID requesting the calculator
-
-        Returns:
-            True if calculator was acquired, False if already in use
-        """
-        calc_lock = self._calculator_locks[calculator_id]
-
-        # Try to acquire the calculator lock (non-blocking)
-        acquired = calc_lock.acquire(blocking=False)
-
-        if acquired:
-            with self._lock:
-                self._calculator_owners[calculator_id] = thread_id
-            original_uri = self.get_original_uri(calculator_id)
-            log_debug(
-                f"🔒 [Thread {thread_id}] Acquired calculator: {original_uri} (ID: {calculator_id})"
-            )
-            return True
-        else:
-            current_owner = self._calculator_owners.get(calculator_id, "unknown")
-            original_uri = self.get_original_uri(calculator_id)
-            log_debug(
-                f"⏳ [Thread {thread_id}] Calculator {original_uri} (ID: {calculator_id}) is busy (owned by thread {current_owner})"
-            )
-            return False
-
-    def release_calculator(self, calculator_id: str, thread_id: int):
-        """
-        Release exclusive access to a calculator
-
-        Args:
-            calculator_id: Calculator ID to release
-            thread_id: Thread ID releasing the calculator
-        """
-        try:
-            with self._lock:
-                if calculator_id in self._calculator_owners:
-                    del self._calculator_owners[calculator_id]
-
-            calc_lock = self._calculator_locks[calculator_id]
-            calc_lock.release()
-            original_uri = self.get_original_uri(calculator_id)
-            log_debug(
-                f"🔓 [Thread {thread_id}] Released calculator: {original_uri} (ID: {calculator_id})"
-            )
-        except Exception as e:
-            original_uri = self.get_original_uri(calculator_id)
-            log_warning(
-                f"⚠️ [Thread {thread_id}] Error releasing calculator {original_uri} (ID: {calculator_id}): {e}"
-            )
-
-    def get_available_calculator(
-        self, calculator_ids: List[str], thread_id: int, case_index: int
-    ) -> Optional[str]:
-        """
-        Get an available calculator from the list, preferring round-robin distribution
-
-        Args:
-            calculator_ids: List of calculator IDs to choose from
-            thread_id: Thread ID requesting a calculator
-            case_index: Case index for round-robin distribution
-
-        Returns:
-            Available calculator ID or None if all are busy
-        """
-        if not calculator_ids:
-            return None
-
-        # Try round-robin selection first
-        preferred_index = case_index % len(calculator_ids)
-        preferred_calc = calculator_ids[preferred_index]
-
-        if self.acquire_calculator(preferred_calc, thread_id):
-            return preferred_calc
-
-        # If preferred calculator is busy, try others
-        for calc in calculator_ids:
-            if calc != preferred_calc and self.acquire_calculator(calc, thread_id):
-                return calc
-
-        # All calculators are busy
-        return None
-
-    def cleanup_all_calculators(self):
-        """
-        Release all calculator locks and clear internal state
-
-        This should be called when fzr execution is complete to ensure
-        proper cleanup of resources.
-        """
-        with self._lock:
-            # Force release all calculator locks
-            for calc_id, calc_lock in self._calculator_locks.items():
-                try:
-                    # Try to release the lock (may fail if not held)
-                    if calc_id in self._calculator_owners:
-                        thread_id = self._calculator_owners[calc_id]
-                        log_debug(
-                            f"🧹 Cleanup: Force-releasing calculator {calc_id} from thread {thread_id}"
-                        )
-                        calc_lock.release()
-                except Exception as e:
-                    # Lock might not be held, which is fine
-                    pass
-
-            # Clear all state
-            self._calculator_locks.clear()
-            self._calculator_owners.clear()
-            self._calculator_registry.clear()
-            self._next_id = 1
-
-        log_debug("🧹 CalculatorManager cleanup completed")
-
-    def get_active_calculators(self) -> Dict[str, int]:
-        """
-        Get currently active calculators and their owners
-
-        Returns:
-            Dict mapping calculator ID to thread ID for active calculators
-        """
-        with self._lock:
-            return dict(self._calculator_owners)
-
-
-# Global instance
-_calculator_manager = CalculatorManager()
 
 
 @with_helpful_errors
@@ -1139,119 +971,6 @@ def fzr(
         return results
 
 
-def _get_and_process_analysis(
-    algo_instance,
-    all_input_vars: List[Dict[str, float]],
-    all_output_values: List[float],
-    iteration: int,
-    results_dir: Path,
-    method_name: str = 'get_analysis'
-) -> Optional[Dict[str, Any]]:
-    """
-    Helper to call algorithm's analysis method and process the results.
-
-    Args:
-        algo_instance: Algorithm instance
-        all_input_vars: All evaluated input combinations
-        all_output_values: All corresponding output values
-        iteration: Current iteration number
-        results_dir: Directory to save processed results
-        method_name: Name of the display method ('get_analysis' or 'get_analysis_tmp')
-
-    Returns:
-        Processed analysis dict or None if method doesn't exist or fails
-    """
-    if not hasattr(algo_instance, method_name):
-        return None
-
-    try:
-        analysis_method = getattr(algo_instance, method_name)
-        analysis_dict = analysis_method(all_input_vars, all_output_values)
-
-        if analysis_dict:
-            # Process and save content intelligently
-            processed = process_analysis_content(analysis_dict, iteration, results_dir)
-            # Also keep the original text/html for backward compatibility
-            processed['_raw'] = analysis_dict
-            return processed
-        return None
-
-    except Exception as e:
-        log_warning(f"⚠️  {method_name} failed: {e}")
-        return None
-
-
-def _get_analysis(
-    algo_instance,
-    all_input_vars: List[Dict[str, float]],
-    all_output_values: List[float],
-    output_expression: str,
-    algorithm: str,
-    iteration: int,
-    results_dir: Path
-) -> Dict[str, Any]:
-    """
-    Create final analysis results with analysis information and DataFrame.
-
-    Args:
-        algo_instance: Algorithm instance
-        all_input_vars: All evaluated input combinations
-        all_output_values: All corresponding output values
-        output_expression: Expression for output column name
-        algorithm: Algorithm path/name
-        iteration: Final iteration number
-        results_dir: Directory for saving results
-
-    Returns:
-        Dict with analysis results including XY DataFrame and analysis info
-    """
-    # Display final results
-    log_info("\n" + "="*60)
-    log_info("📈 Final Results")
-    log_info("="*60)
-
-    # Get and process final analysis results
-    processed_final_analysis = _get_and_process_analysis(
-        algo_instance, all_input_vars, all_output_values,
-        iteration, results_dir, 'get_analysis'
-    )
-
-    if processed_final_analysis and '_raw' in processed_final_analysis:
-        if 'text' in processed_final_analysis['_raw']:
-            log_info(processed_final_analysis['_raw']['text'])
-        # Remove _raw from returned dict - it's only for internal use
-        del processed_final_analysis['_raw']
-
-    # If processed_final_analysis is None, create empty dict for backward compatibility
-    if processed_final_analysis is None:
-        processed_final_analysis = {}
-
-    # Create DataFrame with all input and output values
-    df_data = []
-    for inp_dict, out_val in zip(all_input_vars, all_output_values):
-        row = inp_dict.copy()
-        row[output_expression] = out_val  # Use output_expression as column name
-        df_data.append(row)
-
-    data_df = pd.DataFrame(df_data)
-
-    # Prepare return value
-    result = {
-        'XY': data_df,  # DataFrame with all X and Y values
-        'analysis': processed_final_analysis,  # Use processed analysis instead of raw
-        'algorithm': algorithm,
-        'iterations': iteration,
-        'total_evaluations': len(all_input_vars),
-    }
-
-    # Add summary
-    valid_count = sum(1 for v in all_output_values if v is not None)
-    summary = f"{algorithm} completed: {iteration} iterations, {len(all_input_vars)} evaluations ({valid_count} valid)"
-    result['summary'] = summary
-
-    return result
-
-
 def fzd(
     input_path: str,
     input_variables: Dict[str, str],
@@ -1355,7 +1074,7 @@ def fzd(
 
         # Get initial design from algorithm (only for variable inputs)
         log_info(f"🎯 Starting {algorithm} algorithm...")
-        initial_design_vars = algo_instance.get_initial_design(parsed_input_vars, output_var_names)
+        initial_design_vars = algo_instance.get_initial_design(parsed_input_vars, output_expression)
 
         # Merge fixed values with algorithm-generated design
         initial_design = []
@@ -1403,7 +1122,7 @@ def fzd(
 
                     if i < len(result_df):
                         row = result_df.iloc[i]
-                        output_data = {key: row.get(key, None) for key in output_var_names}
+                        output_data = row #{key: row.get(key, None) for key in output_var_names}
 
                         # Evaluate output expression
                         try:
@@ -1414,7 +1133,11 @@ def fzd(
                             log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
                             iteration_outputs.append(output_value)
                         except Exception as e:
-                            log_warning(f"  Point {i+1}: Failed to evaluate expression: {e}")
+                            available_vars = ', '.join(f"'{k}'" for k in output_data.keys())
+                            log_warning(
+                                f"  Point {i+1}: Failed to evaluate expression '{output_expression}': {e}\n"
+                                f"    Available output variables: {available_vars}"
+                            )
                             iteration_outputs.append(None)
                     else:
                         log_warning(f"  Point {i+1}: No results")
@@ -1431,7 +1154,7 @@ def fzd(
             all_output_values.extend(iteration_outputs)
 
             # Display intermediate results if the method exists
-            tmp_analysis_processed = _get_and_process_analysis(
+            tmp_analysis_processed = get_and_process_analysis(
                 algo_instance, all_input_vars, all_output_values,
                 iteration, results_dir, 'get_analysis_tmp'
             )
@@ -1500,7 +1223,7 @@ def fzd(
                     html_content += "    </div>\n"
 
                 # Always call get_analysis for this iteration and process content
-                iter_analysis_processed = _get_and_process_analysis(
+                iter_analysis_processed = get_and_process_analysis(
                     algo_instance, all_input_vars, all_output_values,
                     iteration, results_dir, 'get_analysis'
                 )
@@ -1546,7 +1269,7 @@ def fzd(
                 current_design.append(full_point)
 
         # Get final analysis results
-        result = _get_analysis(
+        result = get_analysis(
             algo_instance, all_input_vars, all_output_values,
             output_expression, algorithm, iteration, results_dir
         )

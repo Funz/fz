@@ -463,14 +463,14 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
 def get_calculator_manager():
     """
     Get or create the global calculator manager instance
-    
+
     Returns:
         CalculatorManager instance
     """
     global _calculator_manager
     if _calculator_manager is None:
-        from .core import CalculatorManager
-        _calculator_manager = CalculatorManager()
+        from .runners import _calculator_manager as calc_mgr
+        _calculator_manager = calc_mgr
     return _calculator_manager
 
 
