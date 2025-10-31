@@ -12,11 +12,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Reading and parsing output results
 - Smart caching and retry mechanisms
 
-The four core functions are:
+The five core functions are:
 1. **`fzi`** - Parse input files to identify variables
 2. **`fzc`** - Compile input files by substituting variables
 3. **`fzo`** - Parse output files from calculations
 4. **`fzr`** - Run complete parametric calculations end-to-end
+5. **`fzd`** - Run iterative design of experiments with adaptive algorithms
 
 ## Development Setup
 
@@ -63,13 +64,14 @@ python -m pytest tests/test_cli_commands.py::test_fzi_parse_variables -v
 
 ## Architecture
 
-The codebase is organized into functional modules (~5700 lines total):
+The codebase is organized into functional modules (~7300 lines total):
 
 ### Core Modules
 
-- **`fz/core.py`** (913 lines) - Public API functions (`fzi`, `fzc`, `fzo`, `fzr`)
+- **`fz/core.py`** (1277 lines) - Public API functions (`fzi`, `fzc`, `fzo`, `fzr`, `fzd`)
   - Entry points for all parametric computing operations
   - Orchestrates input compilation, calculation execution, and result parsing
+  - Implements iterative design of experiments (`fzd`) with algorithm integration
   - Handles signal interruption and graceful shutdown
 
 - **`fz/interpreter.py`** (387 lines) - Variable parsing and formula evaluation
@@ -106,15 +108,34 @@ The codebase is organized into functional modules (~5700 lines total):
   - Structured logging with levels (DEBUG, INFO, WARNING, ERROR)
   - UTF-8 encoding handling for Windows
 
-- **`fz/cli.py`** (395 lines) - Command-line interface
-  - Entry points: `fz`, `fzi`, `fzc`, `fzo`, `fzr`
+- **`fz/cli.py`** (509 lines) - Command-line interface
+  - Entry points: `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzd`
   - Argument parsing for all commands
   - Output formatting (JSON, table, CSV, markdown, HTML)
+
+- **`fz/algorithms.py`** (513 lines) - Algorithm framework for design of experiments
+  - Base interface for iterative algorithms used by `fzd`
+  - Algorithm loading from Python files with dynamic import
+  - Support for initial design, adaptive sampling, and result analysis
+  - Automatic dependency checking (e.g., numpy, scipy)
+  - Content detection for analysis results (HTML, JSON, Markdown, key-value)
+
+- **`fz/shell.py`** (505 lines) - Shell utilities and binary path resolution
+  - Cross-platform shell command execution with Windows bash detection
+  - Binary path resolution with `FZ_SHELL_PATH` support
+  - Caching of binary locations for performance
+  - Windows .exe extension handling
+  - Short path conversion for Windows paths with spaces
 
 ### Supporting Modules
 
 - **`fz/spinner.py`** (225 lines) - Progress indication for long-running operations
-- **`fz/installer.py`** (354 lines) - Model installation from GitHub/URL/zip
+- **`fz/installer.py`** (598 lines) - Model and algorithm installation from GitHub/URL/zip
+  - Install models: `fz install model <source>` or `fz.install_model(model)`
+  - Install algorithms: `fz install algorithm <source>` or `fz.install_algorithm(algorithm)`
+  - Supports GitHub repositories (`fz-<name>` convention), full URLs, and local zip files
+  - Project-level (`.fz/models/`, `.fz/algorithms/`) and global (`~/.fz/models/`, `~/.fz/algorithms/`) installation
+  - Priority system: project-level overrides global
 
 ## Key Design Patterns
 
@@ -157,6 +178,18 @@ The codebase is organized into functional modules (~5700 lines total):
 - Prevents redundant computation when resuming interrupted runs
 - Glob patterns supported: `cache://archive/*/results`
 
+### 6. Algorithm-Based Design of Experiments (fzd)
+- **Iterative adaptive sampling**: Algorithms decide what points to evaluate next based on previous results
+- **Algorithm interface**: Each algorithm class implements:
+  - `get_initial_design()`: Returns initial design points
+  - `get_next_design()`: Returns next points to evaluate (empty list when done)
+  - `get_analysis()`: Returns final analysis results
+  - `get_analysis_tmp()`: [Optional] Returns intermediate progress at each iteration
+- **Flexible analysis output**: Algorithms can return text, HTML, JSON, Markdown, or key-value pairs
+- **Content detection**: Automatically processes analysis results based on content type
+- **Examples**: Monte Carlo sampling, BFGS optimization, Brent's method, random sampling
+- **Requires pandas**: fzd returns results as pandas DataFrames
+
 ## Windows-Specific Considerations
 
 ### Bash Availability
@@ -176,7 +209,7 @@ The codebase is organized into functional modules (~5700 lines total):
 - All tests in `tests/` directory following pytest conventions
 - Test files prefixed with `test_` (e.g., `test_cli_commands.py`)
 - Use pytest fixtures in `conftest.py` for common setup
-- Examples: `test_parallel.py`, `test_interrupt_handling.py`, `test_examples_*.py`
+- Examples: `test_parallel.py`, `test_interrupt_handling.py`, `test_fzd.py`, `test_examples_*.py`
 
 ### Test Patterns
 1. Create temporary directory with `tempfile.TemporaryDirectory()`
@@ -218,6 +251,16 @@ Each case creates a directory with:
 - `out.txt` - Standard output
 - `err.txt` - Standard error
 - `.fz_hash` - Input file MD5 hashes (for cache matching)
+
+### Example Algorithms
+- Location: `examples/algorithms/` directory
+- Available algorithms:
+  - **`montecarlo_uniform.py`** - Uniform random sampling for Monte Carlo integration
+  - **`randomsampling.py`** - Simple random sampling with configurable iterations
+  - **`bfgs.py`** - BFGS optimization algorithm (requires scipy)
+  - **`brent.py`** - Brent's method for 1D optimization (requires scipy)
+- Each algorithm demonstrates the standard interface and can serve as a template
+- Algorithms can be referenced by file path: `algorithm="examples/algorithms/montecarlo_uniform.py"`
 
 ## Environment Variables
 
@@ -327,7 +370,40 @@ All public functions and methods must have docstrings with:
 - Host key validation with interactive fingerprint checking
 - Timeout and keepalive configurable via environment
 
+### Algorithm Loading and Execution (fzd)
+- **Dynamic import**: Algorithms loaded from Python files using `importlib.machinery`
+- **Dependency checking**: `__require__` list checked at load time; warns if missing
+- **Fixed vs variable inputs**: Separates fixed values from ranges for optimization
+  - Fixed: `{"x": "5.0"}` → always x=5.0
+  - Variable: `{"y": "[0;10]"}` → y varies between 0 and 10
+  - Algorithm only controls variable inputs; fixed values merged automatically
+- **Analysis content processing**: Detects and processes multiple content types:
+  - HTML: Saved to `analysis.html` and `iteration_N.html`
+  - JSON: Parsed and made available as structured data
+  - Markdown: Saved to `analysis.md` files
+  - Key-value pairs: Parsed into dictionaries
+- **Progress tracking**: Progress bar shows iteration count, evaluations, and ETA
+- **Result structure**: Returns dict with:
+  - `XY`: pandas DataFrame with all input and output values
+  - `analysis`: Processed analysis results (HTML, plots, metrics, etc.) - excludes internal `_raw` data
+  - `algorithm`: Algorithm path
+  - `iterations`: Number of iterations completed
+  - `total_evaluations`: Total number of function evaluations
+  - `summary`: Human-readable summary text
+
 ## Common Development Tasks
+
+### Adding a New Algorithm for fzd
+1. Create a new Python file in `examples/algorithms/` or any directory
+2. Implement a class with required methods:
+   - `__init__(self, **options)` - Accept algorithm-specific options
+   - `get_initial_design(self, input_vars, output_vars)` - Return initial design points
+   - `get_next_design(self, previous_input_vars, previous_output_values)` - Return next points (or empty list when done)
+   - `get_analysis(self, input_vars, output_values)` - Return final analysis results
+   - `get_analysis_tmp(self, input_vars, output_values)` [Optional] - Return intermediate results
+3. Add optional `__require__` list for dependencies (e.g., `["numpy", "scipy"]`)
+4. Test with `fzd()` function
+5. See `examples/algorithms/` for reference implementations
 
 ### Adding a New Calculator Type
 1. Add runner function to `runners.py` following `_run_*_calculator()` pattern

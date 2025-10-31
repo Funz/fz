@@ -5,7 +5,7 @@ Provides environment variable-based configuration for default settings.
 """
 
 import os
-from typing import Optional, Union
+from typing import Optional
 from enum import Enum
 
 

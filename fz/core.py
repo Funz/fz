@@ -3,22 +3,14 @@ Core functions for fz package: fzi, fzc, fzo, fzr
 """
 
 import os
-import re
-import subprocess
-import tempfile
-import json
-import ast
 import logging
 import time
 import uuid
 import signal
 import sys
-import io
 import platform
 from pathlib import Path
-from typing import Dict, List, Union, Any, Optional, Tuple, TYPE_CHECKING
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
+from typing import Dict, List, Union, Any, Optional, TYPE_CHECKING
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
@@ -70,39 +62,37 @@ except ImportError:
     pd = None
     logging.warning("pandas not available, fzo() and fzr() will return dicts instead of DataFrames")
 
-import threading
-from collections import defaultdict
 import shutil
 
-from .logging import log_error, log_warning, log_info, log_debug, log_progress
-from .config import get_config
+from .logging import log_error, log_warning, log_info, log_debug
 from .helpers import (
     fz_temporary_directory,
-    _get_result_directory,
-    _get_case_directories,
     _cleanup_fzr_resources,
     _resolve_model,
-    get_calculator_manager,
-    try_calculators_with_retry,
-    run_single_case,
     run_cases_parallel,
     compile_to_result_directories,
     prepare_temp_directories,
-    prepare_case_directories,
 )
 from .shell import run_command, replace_commands_in_string
 from .io import (
     ensure_unique_directory,
-    create_hash_file,
     resolve_cache_paths,
-    find_cache_match,
-    load_aliases,
+    process_analysis_content,
+    flatten_dict_columns,
+    get_and_process_analysis,
+    get_analysis,
 )
 from .interpreter import (
     parse_variables_from_path,
     cast_output,
 )
-from .runners import resolve_calculators, run_calculation
+from .runners import resolve_calculators
+from .algorithms import (
+    parse_input_vars,
+    parse_fixed_vars,
+    evaluate_output_expression,
+    load_algorithm,
+)
 
 
 def check_bash_availability_on_windows():
@@ -222,174 +212,6 @@ def _restore_signal_handler():
 def is_interrupted():
     """Check if user requested interrupt"""
     return _interrupt_requested
-
-
-# Global calculator manager for thread-safe calculator allocation
-class CalculatorManager:
-    """Thread-safe calculator management for parallel execution"""
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._calculator_locks = defaultdict(threading.Lock)
-        self._calculator_owners = {}  # calculator_id -> thread_id mapping
-        self._calculator_registry = {}  # calculator_id -> original_uri mapping
-
-    def register_calculator_instances(self, calculator_uris: List[str]) -> List[str]:
-        """
-        Register calculator instances with unique IDs for each occurrence
-
-        Args:
-            calculator_uris: List of calculator URIs (may contain duplicates)
-
-        Returns:
-            List of unique calculator IDs
-        """
-        calculator_ids = []
-        with self._lock:
-            for uri in calculator_uris:
-                # Generate unique alphanumeric ID for tmux compatibility
-                unique_id = uuid.uuid4().hex[:8]
-                calc_id = f"{uri}#{unique_id}"
-                self._calculator_registry[calc_id] = uri
-                calculator_ids.append(calc_id)
-        return calculator_ids
-
-    def get_original_uri(self, calculator_id: str) -> str:
-        """Get the original URI for a calculator ID"""
-        return self._calculator_registry.get(calculator_id, calculator_id)
-
-    def acquire_calculator(self, calculator_id: str, thread_id: int) -> bool:
-        """
-        Try to acquire exclusive access to a calculator
-
-        Args:
-            calculator_id: Calculator ID to acquire
-            thread_id: Thread ID requesting the calculator
-
-        Returns:
-            True if calculator was acquired, False if already in use
-        """
-        calc_lock = self._calculator_locks[calculator_id]
-
-        # Try to acquire the calculator lock (non-blocking)
-        acquired = calc_lock.acquire(blocking=False)
-
-        if acquired:
-            with self._lock:
-                self._calculator_owners[calculator_id] = thread_id
-            original_uri = self.get_original_uri(calculator_id)
-            log_debug(
-                f"🔒 [Thread {thread_id}] Acquired calculator: {original_uri} (ID: {calculator_id})"
-            )
-            return True
-        else:
-            current_owner = self._calculator_owners.get(calculator_id, "unknown")
-            original_uri = self.get_original_uri(calculator_id)
-            log_debug(
-                f"⏳ [Thread {thread_id}] Calculator {original_uri} (ID: {calculator_id}) is busy (owned by thread {current_owner})"
-            )
-            return False
-
-    def release_calculator(self, calculator_id: str, thread_id: int):
-        """
-        Release exclusive access to a calculator
-
-        Args:
-            calculator_id: Calculator ID to release
-            thread_id: Thread ID releasing the calculator
-        """
-        try:
-            with self._lock:
-                if calculator_id in self._calculator_owners:
-                    del self._calculator_owners[calculator_id]
-
-            calc_lock = self._calculator_locks[calculator_id]
-            calc_lock.release()
-            original_uri = self.get_original_uri(calculator_id)
-            log_debug(
-                f"🔓 [Thread {thread_id}] Released calculator: {original_uri} (ID: {calculator_id})"
-            )
-        except Exception as e:
-            original_uri = self.get_original_uri(calculator_id)
-            log_warning(
-                f"⚠️ [Thread {thread_id}] Error releasing calculator {original_uri} (ID: {calculator_id}): {e}"
-            )
-
-    def get_available_calculator(
-        self, calculator_ids: List[str], thread_id: int, case_index: int
-    ) -> Optional[str]:
-        """
-        Get an available calculator from the list, preferring round-robin distribution
-
-        Args:
-            calculator_ids: List of calculator IDs to choose from
-            thread_id: Thread ID requesting a calculator
-            case_index: Case index for round-robin distribution
-
-        Returns:
-            Available calculator ID or None if all are busy
-        """
-        if not calculator_ids:
-            return None
-
-        # Try round-robin selection first
-        preferred_index = case_index % len(calculator_ids)
-        preferred_calc = calculator_ids[preferred_index]
-
-        if self.acquire_calculator(preferred_calc, thread_id):
-            return preferred_calc
-
-        # If preferred calculator is busy, try others
-        for calc in calculator_ids:
-            if calc != preferred_calc and self.acquire_calculator(calc, thread_id):
-                return calc
-
-        # All calculators are busy
-        return None
-
-    def cleanup_all_calculators(self):
-        """
-        Release all calculator locks and clear internal state
-
-        This should be called when fzr execution is complete to ensure
-        proper cleanup of resources.
-        """
-        with self._lock:
-            # Force release all calculator locks
-            for calc_id, calc_lock in self._calculator_locks.items():
-                try:
-                    # Try to release the lock (may fail if not held)
-                    if calc_id in self._calculator_owners:
-                        thread_id = self._calculator_owners[calc_id]
-                        log_debug(
-                            f"🧹 Cleanup: Force-releasing calculator {calc_id} from thread {thread_id}"
-                        )
-                        calc_lock.release()
-                except Exception as e:
-                    # Lock might not be held, which is fine
-                    pass
-
-            # Clear all state
-            self._calculator_locks.clear()
-            self._calculator_owners.clear()
-            self._calculator_registry.clear()
-            self._next_id = 1
-
-        log_debug("🧹 CalculatorManager cleanup completed")
-
-    def get_active_calculators(self) -> Dict[str, int]:
-        """
-        Get currently active calculators and their owners
-
-        Returns:
-            Dict mapping calculator ID to thread ID for active calculators
-        """
-        with self._lock:
-            return dict(self._calculator_owners)
-
-
-# Global instance
-_calculator_manager = CalculatorManager()
 
 
 def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
@@ -618,6 +440,9 @@ def fzo(
                             cast_values.append(v)
                     df[key] = cast_values
 
+        # Flatten any dict-valued columns into separate columns
+        df = flatten_dict_columns(df)
+
         # Always restore the original working directory
         os.chdir(working_dir)
 
@@ -696,7 +521,7 @@ def fzo(
 
 def fzr(
     input_path: str,
-    input_variables: Dict,
+    input_variables: Union[Dict, "pandas.DataFrame"],
     model: Union[str, Dict],
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
@@ -706,7 +531,8 @@ def fzr(
 
     Args:
         input_path: Path to input file or directory
-        input_variables: Dict of variable values or lists of values for grid
+        input_variables: Dict of variable values or lists of values for factorial grid,
+                        or pandas DataFrame for non-factorial designs (each row is one case)
         model: Model definition dict or alias string
         results_dir: Results directory
         calculators: Calculator specifications
@@ -727,10 +553,6 @@ def fzr(
     original_cwd = os.getcwd()
 
     model = _resolve_model(model)
-
-    # Get the global formula interpreter
-    from .config import get_interpreter
-    interpreter = get_interpreter()
 
     if calculators is None:
         calculators = ["sh://"]
@@ -787,7 +609,11 @@ def fzr(
         temp_path = Path(temp_dir)
 
         # Determine if input_variables is non-empty for directory structure decisions
-        has_input_variables = bool(input_variables)
+        # Handle both dict and DataFrame input types
+        if PANDAS_AVAILABLE and isinstance(input_variables, pd.DataFrame):
+            has_input_variables = not input_variables.empty
+        else:
+            has_input_variables = bool(input_variables)
 
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
@@ -813,15 +639,35 @@ def fzr(
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
+            # First pass: collect all output columns from all cases to support dict flattening
+            all_output_cols = set()
+            valid_case_results = []
+
             for case_result in case_results:
                 # Skip None results (incomplete cases from interrupts)
                 if case_result is None:
                     continue
 
+                valid_case_results.append(case_result)
+
+                # Collect all output columns (including flattened dict columns)
+                metadata_keys = {"var_combo", "path", "calculator", "status", "error", "command"}
+                for key in case_result.keys():
+                    if key not in var_names and key not in metadata_keys:
+                        all_output_cols.add(key)
+
+            # Initialize all output columns in results dict
+            for key in all_output_cols:
+                if key not in results:
+                    results[key] = []
+
+            # Second pass: populate results
+            for case_result in valid_case_results:
                 for var in var_names:
                     results[var].append(case_result["var_combo"][var])
 
-                for key in output_keys:
+                # Append values for all output columns
+                for key in all_output_cols:
                     results[key].append(case_result.get(key))
 
                 results["path"].append(case_result.get("path", "."))
@@ -857,6 +703,330 @@ def fzr(
 
     # Return DataFrame if pandas is available, otherwise return list of dicts
     if PANDAS_AVAILABLE:
-        return pd.DataFrame(results)
+        # Remove any columns that are empty (e.g., original dict columns that were flattened)
+        # This happens when dict flattening creates new columns (min, max, diff) and the
+        # original column (stats) is no longer populated
+        non_empty_results = {k: v for k, v in results.items() if len(v) > 0}
+
+        df = pd.DataFrame(non_empty_results)
+        # Flatten any dict-valued columns into separate columns
+        df = flatten_dict_columns(df)
+        return df
     else:
         return results
+
+
+def fzd(
+    input_path: str,
+    input_variables: Dict[str, str],
+    model: Union[str, Dict],
+    output_expression: str,
+    algorithm: str,
+    calculators: Union[str, List[str]] = None,
+    algorithm_options: Dict[str, Any] = None,
+    analysis_dir: str = "analysis"
+) -> Dict[str, Any]:
+    """
+    Run iterative design of experiments with algorithms
+
+    Requires pandas to be installed.
+
+    Args:
+        input_path: Path to input file or directory
+        input_variables: Input variables to vary, as dict of strings {"var1": "[min;max]", ...}
+        model: Model definition dict or alias string
+        output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2"
+        algorithm: Path to algorithm Python file (e.g., "algorithms/montecarlo.py")
+        calculators: Calculator specifications (default: ["sh://"])
+        algorithm_options: Dict of algorithm-specific options (e.g., {"batch_size": 10, "max_iter": 100})
+        analysis_dir: Analysis results directory (default: "results_fzd")
+
+    Returns:
+        Dict with algorithm results including:
+            - 'input_vars': List of evaluated input combinations
+            - 'output_values': List of corresponding output values
+            - 'analysis': Display information from algorithm.get_analysis()
+            - 'summary': Summary text
+
+    Raises:
+        ImportError: If pandas is not installed
+
+    Example:
+        >>> analysis = fz.fzd(
+        ...     input_path='input.txt',
+        ...     input_variables={"x1": "[0;10]", "x2": "[0;5]"},
+        ...     model="mymodel",
+        ...     output_expression="pressure",
+        ...     algorithm="algorithms/montecarlo_uniform.py",
+        ...     calculators=["sh://bash ./calculator.sh"],
+        ...     algorithm_options={"batch_sample_size": 20, "max_iterations": 50},
+        ...     analysis_dir="fzd_analysis"
+        ... )
+    """
+    # This represents the directory from which the function was launched
+    working_dir = os.getcwd()
+
+    # Install signal handler for graceful interrupt handling
+    global _interrupt_requested
+    _interrupt_requested = False
+    _install_signal_handler()
+
+    # Require pandas for fzd
+    if not PANDAS_AVAILABLE:
+        raise ImportError(
+            "fzd requires pandas to be installed. "
+            "Install it with: pip install pandas"
+        )
+
+    try:
+        model = _resolve_model(model)
+
+        # Handle calculators parameter (can be string or list)
+        if calculators is None:
+            calculators = ["sh://"]
+        elif isinstance(calculators, str):
+            calculators = [calculators]
+
+        # Get model ID for calculator resolution
+        model_id = model.get("id") if isinstance(model, dict) else None
+        calculators = resolve_calculators(calculators, model_id)
+
+        # Convert to absolute paths
+        input_dir = Path(input_path).resolve()
+        results_dir = Path(analysis_dir).resolve()
+
+        # Parse input variable ranges and fixed values
+        parsed_input_vars = parse_input_vars(input_variables)  # Only variables with ranges
+        fixed_input_vars = parse_fixed_vars(input_variables)   # Fixed (unique) values
+
+        # Log what we're doing
+        if fixed_input_vars:
+            log_info(f"🔒 Fixed variables: {', '.join(f'{k}={v}' for k, v in fixed_input_vars.items())}")
+        if parsed_input_vars:
+            log_info(f"🔄 Variable ranges: {', '.join(f'{k}={v}' for k, v in parsed_input_vars.items())}")
+
+        # Extract output variable names from the model
+        output_spec = model.get("output", {})
+        output_var_names = list(output_spec.keys())
+
+        if not output_var_names:
+            raise ValueError("Model must specify output variables in 'output' field")
+
+        # Load algorithm with options
+        if algorithm_options is None:
+            algorithm_options = {}
+        algo_instance = load_algorithm(algorithm, **algorithm_options)
+
+        # Get initial design from algorithm (only for variable inputs)
+        log_info(f"🎯 Starting {algorithm} algorithm...")
+        initial_design_vars = algo_instance.get_initial_design(parsed_input_vars, output_expression)
+
+        # Merge fixed values with algorithm-generated design
+        initial_design = []
+        for design_point in initial_design_vars:
+            # Combine variable values (from algorithm) with fixed values
+            full_point = {**design_point, **fixed_input_vars}
+            initial_design.append(full_point)
+
+        # Track all evaluations
+        all_input_vars = []
+        all_output_values = []
+
+        # Iterative loop
+        iteration = 0
+        current_design = initial_design
+
+        while current_design and not _interrupt_requested:
+            iteration += 1
+            log_info(f"\n📊 Iteration {iteration}: Evaluating {len(current_design)} point(s)...")
+
+            # Create results subdirectory for this iteration
+            iteration_result_dir = results_dir / f"iter{iteration:03d}"
+            iteration_result_dir.mkdir(parents=True, exist_ok=True)
+
+            # Run fzr for all points in parallel using calculators
+            try:
+                log_info(f"  Running {len(current_design)} cases in parallel...")
+                # Create DataFrame with all variables (both variable and fixed)
+                all_var_names = list(parsed_input_vars.keys()) + list(fixed_input_vars.keys())
+                result_df = fzr(
+                    str(input_dir),
+                    pd.DataFrame(current_design, columns=all_var_names),# All points in batch
+                    model,
+                    results_dir=str(iteration_result_dir),
+                    calculators=[*["cache://"+str(results_dir / f"iter{j:03d}") for j in range(1,iteration)], *calculators] # add in cache all previous iterations
+                )
+
+                # Extract output values for each point
+                iteration_inputs = []
+                iteration_outputs = []
+
+                # result_df is a DataFrame (pandas is required for fzd)
+                for i, point in enumerate(current_design):
+                    iteration_inputs.append(point)
+
+                    if i < len(result_df):
+                        row = result_df.iloc[i]
+                        output_data = row #{key: row.get(key, None) for key in output_var_names}
+
+                        # Evaluate output expression
+                        try:
+                            output_value = evaluate_output_expression(
+                                output_expression,
+                                output_data
+                            )
+                            log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
+                            iteration_outputs.append(output_value)
+                        except Exception as e:
+                            available_vars = ', '.join(f"'{k}'" for k in output_data.keys())
+                            log_warning(
+                                f"  Point {i+1}: Failed to evaluate expression '{output_expression}': {e}\n"
+                                f"    Available output variables: {available_vars}"
+                            )
+                            iteration_outputs.append(None)
+                    else:
+                        log_warning(f"  Point {i+1}: No results")
+                        iteration_outputs.append(None)
+
+            except Exception as e:
+                log_error(f"  ❌ Error evaluating batch: {e}")
+                # Add all points with None outputs
+                iteration_inputs = current_design
+                iteration_outputs = [None] * len(current_design)
+
+            # Add iteration results to overall tracking
+            all_input_vars.extend(iteration_inputs)
+            all_output_values.extend(iteration_outputs)
+
+            # Display intermediate results if the method exists
+            tmp_analysis_processed = get_and_process_analysis(
+                algo_instance, all_input_vars, all_output_values,
+                iteration, results_dir, 'get_analysis_tmp'
+            )
+            if tmp_analysis_processed:
+                log_info(f"\n📊 Iteration {iteration} intermediate results:")
+                if '_raw' in tmp_analysis_processed and 'text' in tmp_analysis_processed['_raw']:
+                    log_info(tmp_analysis_processed['_raw']['text'])
+
+            # Save iteration results to files
+            try:
+                # Save X (input variables) to CSV
+                x_file = results_dir / f"X_{iteration}.csv"
+                with open(x_file, 'w') as f:
+                    if all_input_vars:
+                        # Get all variable names from the first entry
+                        var_names = list(all_input_vars[0].keys())
+                        f.write(','.join(var_names) + '\n')
+                        for inp in all_input_vars:
+                            f.write(','.join(str(inp[var]) for var in var_names) + '\n')
+
+                # Save Y (output values) to CSV
+                y_file = results_dir / f"Y_{iteration}.csv"
+                with open(y_file, 'w') as f:
+                    f.write('output\n')
+                    for val in all_output_values:
+                        f.write(f"{val if val is not None else 'NA'}\n")
+
+                # Save HTML results
+                html_file = results_dir / f"results_{iteration}.html"
+                html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Iteration {iteration} Results</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h1 {{ color: #333; }}
+        h2 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
+        .section {{ margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }}
+        pre {{ background: #f0f0f0; padding: 10px; border-radius: 3px; overflow-x: auto; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #4CAF50; color: white; }}
+    </style>
+</head>
+<body>
+    <h1>Algorithm Results - Iteration {iteration}</h1>
+    <div class="section">
+        <h2>Summary</h2>
+        <p><strong>Total samples:</strong> {len(all_input_vars)}</p>
+        <p><strong>Valid samples:</strong> {sum(1 for v in all_output_values if v is not None)}</p>
+        <p><strong>Iteration:</strong> {iteration}</p>
+    </div>
+"""
+                # Add intermediate results from get_analysis_tmp
+                if tmp_analysis_processed and '_raw' in tmp_analysis_processed:
+                    tmp_analysis = tmp_analysis_processed['_raw']
+                    html_content += """
+    <div class="section">
+        <h2>Intermediate Progress</h2>
+"""
+                    if 'text' in tmp_analysis:
+                        html_content += f"<pre>{tmp_analysis['text']}</pre>\n"
+                    if 'html' in tmp_analysis:
+                        html_content += tmp_analysis['html'] + '\n'
+                    html_content += "    </div>\n"
+
+                # Always call get_analysis for this iteration and process content
+                iter_analysis_processed = get_and_process_analysis(
+                    algo_instance, all_input_vars, all_output_values,
+                    iteration, results_dir, 'get_analysis'
+                )
+                if iter_analysis_processed and '_raw' in iter_analysis_processed:
+                    iter_analysis = iter_analysis_processed['_raw']
+                    # Also save traditional HTML results file for compatibility
+                    html_content += """
+    <div class="section">
+        <h2>Current Results</h2>
+"""
+                    if 'text' in iter_analysis:
+                        html_content += f"<pre>{iter_analysis['text']}</pre>\n"
+                    if 'html' in iter_analysis:
+                        html_content += iter_analysis['html'] + '\n'
+                    html_content += "    </div>\n"
+
+                html_content += """
+</body>
+</html>
+"""
+                with open(html_file, 'w') as f:
+                    f.write(html_content)
+
+                log_info(f"  💾 Saved iteration results: {x_file.name}, {y_file.name}, {html_file.name}")
+
+            except Exception as e:
+                log_warning(f"⚠️  Failed to save iteration files: {e}")
+
+            if _interrupt_requested:
+                break
+
+            # Get next design from algorithm (only for variable inputs)
+            next_design_vars = algo_instance.get_next_design(
+                all_input_vars,
+                all_output_values
+            )
+
+            # Merge fixed values with algorithm-generated design
+            current_design = []
+            for design_point in next_design_vars:
+                # Combine variable values (from algorithm) with fixed values
+                full_point = {**design_point, **fixed_input_vars}
+                current_design.append(full_point)
+
+        # Get final analysis results
+        result = get_analysis(
+            algo_instance, all_input_vars, all_output_values,
+            output_expression, algorithm, iteration, results_dir
+        )
+
+        return result
+
+    finally:
+        # Restore signal handler
+        _restore_signal_handler()
+
+        # Always restore the original working directory
+        os.chdir(working_dir)
+
+        if _interrupt_requested:
+            log_warning("⚠️  Execution was interrupted. Partial results may be available.")
