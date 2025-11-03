@@ -62,15 +62,16 @@ def get_windows_bash_executable() -> Optional[str]:
     Get the bash executable path on Windows.
 
     This function determines the appropriate bash executable to use on Windows
-    by checking both the system PATH and common installation locations.
+    by checking FZ_SHELL_PATH, system PATH, and common installation locations.
 
     Priority order:
-    1. Bash in system/user PATH (from MSYS2, Git Bash, WSL, Cygwin, etc.)
-    2. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred)
-    3. Git for Windows bash
-    4. Cygwin bash
-    5. WSL bash
-    6. win-bash
+    1. Bash in FZ_SHELL_PATH (custom shell path set via environment variable)
+    2. Bash in system/user PATH (from MSYS2, Git Bash, WSL, Cygwin, etc.)
+    3. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred)
+    4. Git for Windows bash
+    5. Cygwin bash
+    6. WSL bash
+    7. win-bash
 
     Returns:
         Optional[str]: Path to bash executable if found on Windows, None otherwise.
@@ -79,14 +80,14 @@ def get_windows_bash_executable() -> Optional[str]:
     if platform.system() != "Windows":
         return "/bin/bash"  # Not Windows, return standard bash path
 
-    # Try indexed binaries
+    # Try FZ_SHELL_PATH first (custom shell path takes precedence)
     resolver = get_resolver()
     bash_path = resolver.resolve_command("bash")
     if bash_path:
-        log_debug(f"Using bash from FZ SHELL: {bash_path}")
+        log_debug(f"Using bash from FZ_SHELL_PATH: {bash_path}")
         return bash_path
 
-    # Try system/user PATH first
+    # Try system/user PATH next
     bash_in_path = shutil.which("bash")
     if bash_in_path:
         log_debug(f"Using bash from PATH: {bash_in_path}")

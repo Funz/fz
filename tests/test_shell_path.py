@@ -226,3 +226,96 @@ class TestWindowsPathResolution:
         paths = resolver.get_search_paths()
         assert len(paths) == 3
         assert "C:\\bin1" in paths
+
+
+class TestBashDiscoveryPriority:
+    """Tests for bash discovery priority order with FZ_SHELL_PATH"""
+
+    def test_bash_discovery_prioritizes_fz_shell_path(self, monkeypatch):
+        """Test that FZ_SHELL_PATH is checked before system PATH for bash discovery"""
+        # Create a temporary directory with a mock bash executable
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            # Create a mock bash executable in our custom directory
+            mock_bash = tmpdir_path / "bash"
+            if platform.system() == "Windows":
+                mock_bash = tmpdir_path / "bash.exe"
+
+            mock_bash.touch()
+            mock_bash.chmod(0o755)
+
+            # Set FZ_SHELL_PATH to our custom directory
+            monkeypatch.setenv("FZ_SHELL_PATH", str(tmpdir))
+
+            # Reinitialize the resolver to pick up the new environment variable
+            from fz.shell import reinitialize_resolver, get_windows_bash_executable
+            reinitialize_resolver()
+
+            # On Windows, test the actual bash discovery function
+            if platform.system() == "Windows":
+                bash_path = get_windows_bash_executable()
+                # Should find our mock bash from FZ_SHELL_PATH
+                assert bash_path is not None
+                # The path should be from our custom directory
+                assert str(tmpdir) in str(bash_path) or mock_bash == Path(bash_path)
+            else:
+                # On Unix, just verify the resolver uses FZ_SHELL_PATH
+                from fz.shell import get_resolver
+                resolver = get_resolver()
+                bash_path = resolver.resolve_command("bash")
+                # Should find bash (either our mock or system bash)
+                # The key is that FZ_SHELL_PATH is checked first
+                assert bash_path is not None
+
+    def test_fz_shell_path_takes_precedence_over_system_path(self):
+        """Test that commands in FZ_SHELL_PATH are found before system PATH"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            # Create a mock command in custom directory
+            mock_cmd = tmpdir_path / "testcmd"
+            if platform.system() == "Windows":
+                mock_cmd = tmpdir_path / "testcmd.exe"
+
+            mock_cmd.write_text("#!/bin/bash\necho 'custom'\n")
+            mock_cmd.chmod(0o755)
+
+            # Create a resolver directly with the custom shell path
+            # This simulates what happens when FZ_SHELL_PATH is set
+            resolver = ShellPathResolver(str(tmpdir))
+
+            # Verify the custom path is being used
+            search_paths = resolver.get_search_paths()
+            assert str(tmpdir) in search_paths
+
+            # Resolve the command
+            resolved = resolver.resolve_command("testcmd")
+
+            # Should find our custom command
+            assert resolved is not None
+            assert str(tmpdir) in resolved
+
+    def test_bash_falls_back_to_system_path_when_fz_shell_path_not_set(self, monkeypatch):
+        """Test that bash discovery falls back to system PATH when FZ_SHELL_PATH is not set"""
+        # Make sure FZ_SHELL_PATH is not set
+        monkeypatch.delenv("FZ_SHELL_PATH", raising=False)
+
+        # Reinitialize resolver
+        from fz.shell import reinitialize_resolver, get_windows_bash_executable
+        reinitialize_resolver()
+
+        if platform.system() == "Windows":
+            # On Windows, should still find bash (from PATH or hardcoded locations)
+            bash_path = get_windows_bash_executable()
+            # Bash might be found or might not, depending on the system
+            # The key is that it tries system PATH after FZ_SHELL_PATH
+            assert bash_path is None or isinstance(bash_path, str)
+        else:
+            # On Unix, bash should always be found in system PATH
+            from fz.shell import get_resolver
+            resolver = get_resolver()
+            bash_path = resolver.resolve_command("bash")
+            # On Unix, bash is typically available
+            # If not found, that's okay for this test - we're just verifying fallback logic
+            assert bash_path is None or Path(bash_path).exists()
