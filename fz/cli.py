@@ -359,6 +359,8 @@ def main():
             from .installer import install_model
             result = install_model(args.source, global_install=args.global_install)
             print(f"Successfully installed model '{result['model_name']}'")
+            if result.get('installed_files'):
+                print(f"  Installed {len(result['installed_files'])} additional files from .fz subdirectories")
 
         elif args.command == "list":
             from .installer import list_installed_models

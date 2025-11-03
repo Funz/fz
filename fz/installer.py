@@ -163,23 +163,23 @@ def extract_model_files(zip_path: Path, extract_dir: Path) -> Dict[str, Path]:
     except Exception as e:
         raise Exception(f"Failed to read model definition: {e}")
 
-    # Look for calculators directory (.fz/calculators/)
+    # Find the .fz directory that contains the model
     # The model_json is at: extracted/fz-model-main/.fz/models/Model.json
-    # So calculators would be at: extracted/fz-model-main/.fz/calculators/
-    calculators_dir = model_json.parent.parent / 'calculators'
+    # So the .fz directory is at: extracted/fz-model-main/.fz/
+    fz_dir = model_json.parent.parent
 
-    if not calculators_dir.exists():
-        # Try alternative location: look for calculators in the root .fz directory
+    if not fz_dir.name == '.fz':
+        # Try alternative location: look for .fz in the root extract directory
         root_extract_dir = list(extract_dir.glob('*'))[0] if list(extract_dir.glob('*')) else extract_dir
-        calculators_dir = root_extract_dir / '.fz' / 'calculators'
+        fz_dir = root_extract_dir / '.fz'
 
-    log_debug(f"Looking for calculators at: {calculators_dir}")
+    log_debug(f"Looking for .fz directory at: {fz_dir}")
 
     return {
         'model_json': model_json,
         'model_name': model_name,
         'extract_dir': model_json.parent,
-        'calculators_dir': calculators_dir if calculators_dir.exists() else None
+        'fz_dir': fz_dir if fz_dir.exists() else None
     }
 
 
@@ -220,43 +220,53 @@ def install_model(source: str, global_install: bool = False) -> Dict[str, str]:
 
             model_name = model_info['model_name']
             model_json = model_info['model_json']
-            calculators_dir = model_info.get('calculators_dir')
+            fz_dir = model_info.get('fz_dir')
 
             # Install the model definition
             dest_json = install_base / f"{model_name}.json"
             shutil.copy2(model_json, dest_json)
             log_info(f"Installed model '{model_name}' to: {dest_json}")
 
-            # Install calculator files if they exist
-            installed_calculators = []
-            if calculators_dir and calculators_dir.exists():
-                # Determine calculator installation directory
+            # Install all other .fz subdirectories (calculators, algorithms, etc.)
+            installed_files = []
+            if fz_dir and fz_dir.exists():
+                # Determine base installation directory
                 if global_install:
-                    calc_install_base = Path.home() / '.fz' / 'calculators'
+                    install_root = Path.home() / '.fz'
                 else:
-                    calc_install_base = Path.cwd() / '.fz' / 'calculators'
+                    install_root = Path.cwd() / '.fz'
 
-                calc_install_base.mkdir(parents=True, exist_ok=True)
+                # Copy all subdirectories except 'models' (already handled)
+                for subdir in fz_dir.iterdir():
+                    if subdir.is_dir() and subdir.name != 'models':
+                        dest_subdir = install_root / subdir.name
 
-                # Copy all files from calculators directory
-                for calc_file in calculators_dir.iterdir():
-                    if calc_file.is_file():
-                        dest_calc = calc_install_base / calc_file.name
-                        shutil.copy2(calc_file, dest_calc)
-                        # Make shell scripts executable
-                        if calc_file.suffix in ['.sh', '.bash', '.zsh']:
-                            dest_calc.chmod(0o755)
-                        installed_calculators.append(str(dest_calc))
-                        log_info(f"Installed calculator: {calc_file.name} to: {dest_calc}")
+                        # Use copytree to recursively copy the entire directory structure
+                        # dirs_exist_ok=True allows merging with existing directories
+                        log_info(f"Installing {subdir.name}/ directory...")
+                        shutil.copytree(subdir, dest_subdir, dirs_exist_ok=True)
 
-                log_info(f"Installed {len(installed_calculators)} calculator files")
+                        # Make all shell scripts executable
+                        for script_file in dest_subdir.rglob('*'):
+                            if script_file.is_file():
+                                installed_files.append(str(script_file.relative_to(install_root)))
+                                if script_file.suffix in ['.sh', '.bash', '.zsh']:
+                                    script_file.chmod(0o755)
+                                    log_debug(f"Made executable: {script_file.name}")
+
+                        log_info(f"Installed {subdir.name}/ to: {dest_subdir}")
+
+                if installed_files:
+                    log_info(f"Installed {len(installed_files)} total files from .fz subdirectories")
+                else:
+                    log_debug(f"No additional .fz subdirectories found for model '{model_name}'")
             else:
-                log_debug(f"No calculators directory found for model '{model_name}'")
+                log_debug(f"No .fz directory found for model '{model_name}'")
 
             return {
                 'model_name': model_name,
                 'install_path': str(dest_json),
-                'calculators': installed_calculators
+                'installed_files': installed_files
             }
 
         except Exception as e:
