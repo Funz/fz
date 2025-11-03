@@ -434,7 +434,7 @@ echo "result=$x" > output.txt
 
         # Run fzd with plugin algorithm
         results = fz.fzd(
-            input_file=str(input_file),
+            input_path=str(input_file),
             input_variables={"x": "[0;10]"},
             model=model,
             output_expression="result",

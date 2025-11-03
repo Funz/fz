@@ -97,7 +97,7 @@ class TestDisplayResultsTmp:
 
             # Run fzd with small batch to see multiple iterations
             result = fz.fzd(
-                input_file=str(input_dir),
+                input_path=str(input_dir),
                 input_variables={"x": "[0;1]", "y": "[0;1]"},
                 model=model,
                 output_expression="result",
@@ -190,7 +190,7 @@ class TestContentAlgorithm:
 
             # Run fzd
             result = fz.fzd(
-                input_file=str(input_dir),
+                input_path=str(input_dir),
                 input_variables={"x": "[0;1]"},
                 model=model,
                 output_expression="result",
@@ -238,7 +238,7 @@ class TestDataFrame:
 
             # Run fzd
             result = fz.fzd(
-                input_file=str(input_dir),
+                input_path=str(input_dir),
                 input_variables={"x": "[0;1]", "y": "[0;1]"},
                 model=model,
                 output_expression="result",
@@ -300,7 +300,7 @@ class TestProgressBar:
 
             # Run fzd
             result = fz.fzd(
-                input_file=str(input_dir),
+                input_path=str(input_dir),
                 input_variables={"x": "[0;1]", "y": "[0;1]"},
                 model=model,
                 output_expression="result",
@@ -349,7 +349,7 @@ class TestParallelExecution:
 
             # Run fzd
             result = fz.fzd(
-                input_file=str(input_dir),
+                input_path=str(input_dir),
                 input_variables={"x": "[0;1]", "y": "[0;1]"},
                 model=model,
                 output_expression="result",
