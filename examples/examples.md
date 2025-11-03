@@ -676,7 +676,7 @@ class MonteCarlo_Uniform:
 
 ```python
 analysis = fz.fzd(
-    input_file='input.txt',
+    input_path='input.txt',
     input_variables={
         "n_mol": "[0;10]",
         "T_celsius": "[0;100]",
@@ -709,7 +709,7 @@ display(HTML(analysis))
 with R algorithm:
 ```python
 analysis = fz.fzd(
-    input_file='input.txt',
+    input_path='input.txt',
     input_variables={
         "n_mol": "[0;10]",
         "T_celsius": "[0;100]",

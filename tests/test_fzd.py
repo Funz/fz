@@ -132,7 +132,7 @@ class TestFzdIntegration:
 
         # Run fzd with randomsampling
         result = fz.fzd(
-            input_file=str(input_dir),
+            input_path=str(input_dir),
             input_variables={"x": "[0;1]", "y": "[0;1]"},
             model=model,
             output_expression="result",
@@ -160,7 +160,7 @@ class TestFzdIntegration:
         with patch.object(fz.core, 'PANDAS_AVAILABLE', False):
             with pytest.raises(ImportError, match="fzd requires pandas"):
                 fz.fzd(
-                    input_file=str(input_dir),
+                    input_path=str(input_dir),
                     input_variables={"x": "[0;1]"},
                     model=model,
                     output_expression="result",
@@ -180,7 +180,7 @@ class TestFzdIntegration:
 
         # Run fzd
         result = fz.fzd(
-            input_file=str(input_dir),
+            input_path=str(input_dir),
             input_variables={"x": "[0;1]", "y": "[0;1]"},
             model=model,
             output_expression="result",  # This becomes the column name
@@ -222,7 +222,7 @@ class TestFzdIntegration:
 
         # Run fzd with one variable range and one fixed value
         result = fz.fzd(
-            input_file=str(input_dir),
+            input_path=str(input_dir),
             input_variables={
                 "x": "[0;1]",  # Variable - will be varied by algorithm
                 "y": "0.5"     # Fixed - will NOT be varied
@@ -290,7 +290,7 @@ class TestAlgorithm:
         # Mock logging to capture calls
         with patch('fz.core.log_info') as mock_log:
             result = fz.fzd(
-                input_file=str(input_dir),
+                input_path=str(input_dir),
                 input_variables={"x": "[0;1]"},
                 model=model,
                 output_expression="result",

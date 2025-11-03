@@ -845,7 +845,7 @@ model = {
 
 # Run Monte Carlo sampling
 results = fz.fzd(
-    input_file="input.txt",
+    input_path="input.txt",
     input_variables={
         "x": "[0;10]",      # Range: algorithm decides values
         "y": "[-5;5]",      # Range: algorithm decides values
@@ -1508,7 +1508,7 @@ model = {
 
 # Run Monte Carlo sampling to explore pressure distribution
 results = fz.fzd(
-    input_file="input.txt",
+    input_path="input.txt",
     input_variables={
         "T_celsius": "[10;50]",  # Range: 10 to 50°C
         "V_L": "[1;10]",         # Range: 1 to 10 L
@@ -1574,7 +1574,7 @@ model = {
 }
 
 results = fz.fzd(
-    input_file="input.txt",
+    input_path="input.txt",
     input_variables={
         "T_celsius": "[10;50]",  # Search range
         "V_L": "[1;10]",         # Search range
@@ -1735,7 +1735,7 @@ See `examples/algorithms/montecarlo_uniform.py`:
 import fz
 
 results = fz.fzd(
-    input_file="input.txt",
+    input_path="input.txt",
     input_variables={"x": "[0;10]", "y": "[0;5]"},
     model="mymodel",
     output_expression="result",
@@ -1751,7 +1751,7 @@ See `examples/algorithms/bfgs.py` (requires scipy):
 
 ```python
 results = fz.fzd(
-    input_file="input.txt",
+    input_path="input.txt",
     input_variables={"x": "[0;10]", "y": "[0;5]"},
     model="mymodel",
     output_expression="energy",
@@ -1767,7 +1767,7 @@ See `examples/algorithms/brent.py` (requires scipy):
 
 ```python
 results = fz.fzd(
-    input_file="input.txt",
+    input_path="input.txt",
     input_variables={"temperature": "[0;100]"},  # Single variable
     model="mymodel",
     output_expression="efficiency",
@@ -1966,7 +1966,7 @@ import fz
 
 # Use installed algorithm plugin
 results = fz.fzd(
-    input_file="input.txt",
+    input_path="input.txt",
     input_variables={"x": "[0;10]", "y": "[-5;5]"},
     model="mymodel",
     output_expression="result",
