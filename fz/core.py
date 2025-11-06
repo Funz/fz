@@ -402,7 +402,16 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
 
     Returns:
         Dict of variable names with None values
+
+    Raises:
+        TypeError: If arguments have invalid types
+        ValueError: If model is invalid
+        FileNotFoundError: If input_path doesn't exist
     """
+    # Validate input arguments
+    if not isinstance(input_path, (str, Path)):
+        raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
+
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
 
@@ -413,6 +422,11 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
         delim = model.get("delim", "()")
 
         input_path = Path(input_path).resolve()
+
+        # Validate input path exists
+        if not input_path.exists():
+            raise FileNotFoundError(f"Input path '{input_path}' not found")
+
         variables = parse_variables_from_path(input_path, varprefix, delim)
 
         return {var: None for var in sorted(variables)}
@@ -435,7 +449,21 @@ def fzc(
         input_variables: Dict of variable values or lists of values for grid
         model: Model definition dict or alias string
         output_dir: Output directory for compiled files
+
+    Raises:
+        TypeError: If arguments have invalid types
+        ValueError: If model is invalid
+        FileNotFoundError: If input_path doesn't exist
     """
+    # Validate input arguments
+    if not isinstance(input_path, (str, Path)):
+        raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
+
+    if not isinstance(input_variables, dict):
+        raise TypeError(f"input_variables must be a dictionary, got {type(input_variables).__name__}")
+
+    if not isinstance(output_dir, (str, Path)):
+        raise TypeError(f"output_dir must be a string or Path, got {type(output_dir).__name__}")
 
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
@@ -444,6 +472,10 @@ def fzc(
 
     input_path = Path(input_path).resolve()
     output_dir = Path(output_dir).resolve()
+
+    # Validate input path exists (will be checked by fzi, but check early for clearer error)
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input path '{input_path}' not found")
 
     # Check if any input_variable keys are missing in input files
     found_variables = fzi(str(input_path), model)
@@ -486,7 +518,15 @@ def fzo(
         Variable names are extracted from directory names (key1=val1,key2=val2,...)
         and added as columns. Also includes 'path' column with relative paths.
         If pandas not available, returns dict for backward compatibility.
+
+    Raises:
+        TypeError: If arguments have invalid types
+        ValueError: If model is invalid
+        FileNotFoundError: If output_path doesn't exist
     """
+    # Validate input arguments
+    if not isinstance(output_path, (str, Path)):
+        raise TypeError(f"output_path must be a string or Path, got {type(output_path).__name__}")
 
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
@@ -713,7 +753,29 @@ def fzr(
 
     Returns:
         DataFrame with variable values and results (if pandas available), otherwise Dict with lists
+
+    Raises:
+        TypeError: If arguments have invalid types
+        ValueError: If model is invalid or calculators are invalid
+        FileNotFoundError: If input_path doesn't exist
     """
+    # Validate input arguments
+    if not isinstance(input_path, (str, Path)):
+        raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
+
+    if not isinstance(input_variables, dict):
+        raise TypeError(f"input_variables must be a dictionary, got {type(input_variables).__name__}")
+
+    if not isinstance(results_dir, (str, Path)):
+        raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
+
+    if calculators is not None:
+        if not isinstance(calculators, (str, list)):
+            raise TypeError(f"calculators must be a string or list, got {type(calculators).__name__}")
+        if isinstance(calculators, list):
+            for i, calc in enumerate(calculators):
+                if not isinstance(calc, str):
+                    raise TypeError(f"calculators[{i}] must be a string, got {type(calc).__name__}")
 
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
@@ -727,6 +789,11 @@ def fzr(
     original_cwd = os.getcwd()
 
     model = _resolve_model(model)
+
+    # Validate input path exists early
+    input_path_obj = Path(input_path).resolve()
+    if not input_path_obj.exists():
+        raise FileNotFoundError(f"Input path '{input_path}' not found")
 
     # Get the global formula interpreter
     from .config import get_interpreter

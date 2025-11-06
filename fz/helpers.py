@@ -177,25 +177,91 @@ def _cleanup_fzr_resources():
         _calculator_manager = None
 
 
+def _validate_model(model: Dict) -> None:
+    """
+    Validate model dictionary structure and required fields
+
+    Args:
+        model: Model definition dict to validate
+
+    Raises:
+        TypeError: If model is not a dict
+        ValueError: If model has invalid field values
+    """
+    if model is None:
+        raise TypeError("Model cannot be None. Please provide a model definition dictionary or alias string.")
+
+    if not isinstance(model, dict):
+        raise TypeError(f"Model must be a dictionary, got {type(model).__name__}")
+
+    # Validate delimiter if present
+    if "delim" in model and model["delim"] is not None:
+        delim = model["delim"]
+        if not isinstance(delim, str):
+            raise TypeError(f"Model 'delim' must be a string, got {type(delim).__name__}")
+        if len(delim) != 0 and len(delim) != 2:
+            raise ValueError(f"Model 'delim' must be empty or exactly 2 characters, got {len(delim)} characters: '{delim}'")
+
+    # Validate varprefix if present
+    if "varprefix" in model and model["varprefix"] is not None:
+        varprefix = model["varprefix"]
+        if not isinstance(varprefix, str):
+            raise TypeError(f"Model 'varprefix' must be a string, got {type(varprefix).__name__}")
+
+    # Validate formulaprefix if present
+    if "formulaprefix" in model and model["formulaprefix"] is not None:
+        formulaprefix = model["formulaprefix"]
+        if not isinstance(formulaprefix, str):
+            raise TypeError(f"Model 'formulaprefix' must be a string, got {type(formulaprefix).__name__}")
+
+    # Validate output dict if present
+    if "output" in model and model["output"] is not None:
+        output = model["output"]
+        if not isinstance(output, dict):
+            raise TypeError(f"Model 'output' must be a dictionary, got {type(output).__name__}")
+        for key, value in output.items():
+            if not isinstance(key, str):
+                raise TypeError(f"Model output keys must be strings, got {type(key).__name__}")
+            if not isinstance(value, str):
+                raise TypeError(f"Model output values must be strings, got {type(value).__name__} for key '{key}'")
+
+    # Validate interpreter if present
+    if "interpreter" in model and model["interpreter"] is not None:
+        interpreter = model["interpreter"]
+        if not isinstance(interpreter, str):
+            raise TypeError(f"Model 'interpreter' must be a string, got {type(interpreter).__name__}")
+        valid_interpreters = ["python", "r", "R"]
+        if interpreter.lower() not in [v.lower() for v in valid_interpreters]:
+            log_warning(f"⚠️  Model 'interpreter' is '{interpreter}'. Supported interpreters: {', '.join(valid_interpreters)}")
+
+
 def _resolve_model(model: Union[str, Dict]) -> Dict:
     """
-    Resolve model definition from alias or dict
-    
+    Resolve model definition from alias or dict and validate it
+
     Args:
         model: Model definition dict or alias string
-        
+
     Returns:
-        Model definition dict
-        
+        Validated model definition dict
+
     Raises:
-        ValueError: If model alias not found
+        TypeError: If model is invalid type
+        ValueError: If model alias not found or model has invalid values
     """
+    if model is None:
+        raise TypeError("Model cannot be None. Please provide a model definition dictionary or alias string.")
+
     if isinstance(model, str):
         from .io import load_aliases
         model_def = load_aliases(model, "models")
         if model_def is None:
             raise ValueError(f"Model alias '{model}' not found in .fz/models/")
-        return model_def
+        model = model_def
+
+    # Validate the resolved model
+    _validate_model(model)
+
     return model
 
 

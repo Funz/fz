@@ -265,18 +265,64 @@ def parse_ssh_uri(ssh_uri: str) -> Tuple[str, int, str, Optional[str], str]:
     return host, port, username, password, command
 
 
+def _validate_calculator_uri(calculator_uri: str) -> None:
+    """
+    Validate calculator URI format and scheme
+
+    Args:
+        calculator_uri: Calculator URI string to validate
+
+    Raises:
+        ValueError: If URI has invalid format or unsupported scheme
+    """
+    if not calculator_uri:
+        raise ValueError("Calculator URI cannot be empty")
+
+    if not isinstance(calculator_uri, str):
+        raise TypeError(f"Calculator URI must be a string, got {type(calculator_uri).__name__}")
+
+    # Check if it has a scheme
+    if "://" not in calculator_uri:
+        raise ValueError(
+            f"Invalid calculator URI format: '{calculator_uri}'. "
+            "URI must include a scheme (e.g., 'sh://', 'ssh://', 'cache://'). "
+            "If using a calculator alias, ensure it exists in .fz/calculators/"
+        )
+
+    # Extract and validate scheme
+    scheme = calculator_uri.split("://", 1)[0].lower()
+    supported_schemes = ["sh", "ssh", "cache"]
+
+    if scheme not in supported_schemes:
+        raise ValueError(
+            f"Unsupported calculator scheme: '{scheme}'. "
+            f"Supported schemes: {', '.join(supported_schemes)}"
+        )
+
+    # Validate SSH URI format if scheme is ssh
+    if scheme == "ssh":
+        try:
+            parse_ssh_uri(calculator_uri)
+        except ValueError as e:
+            raise ValueError(f"Invalid SSH calculator URI: {e}")
+
+
 def resolve_calculators(
     calculators: Union[str, List[str], List[Dict]], model_id: str = None
 ) -> List[str]:
     """
-    Resolve calculator aliases to URI strings
+    Resolve calculator aliases to URI strings and validate them
 
     Args:
         calculators: Calculator specifications (string, list of strings, or list of dicts)
         model_id: Optional model ID for model-specific calculator commands
 
     Returns:
-        List of calculator URI strings
+        List of validated calculator URI strings
+
+    Raises:
+        ValueError: If calculator URI is invalid or alias not found
+        TypeError: If calculators have invalid types
     """
     if isinstance(calculators, str):
         if calculators == "*":
@@ -302,12 +348,13 @@ def resolve_calculators(
             # Handle models field if present and model_id provided
             if model_id and "models" in calc and model_id in calc["models"]:
                 command = calc["models"][model_id]
-                result.append(f"{uri}{command}")
-            else:
-                result.append(uri)
+                uri = f"{uri}{command}"
+            _validate_calculator_uri(uri)
+            result.append(uri)
         elif isinstance(calc, str):
             if "://" in calc:
-                # Direct URI
+                # Direct URI - validate it
+                _validate_calculator_uri(calc)
                 result.append(calc)
             else:
                 # Alias - load from file
@@ -321,11 +368,17 @@ def resolve_calculators(
                         and model_id in calc_data["models"]
                     ):
                         command = calc_data["models"][model_id]
-                        result.append(f"{uri}{command}")
-                    else:
-                        result.append(uri)
+                        uri = f"{uri}{command}"
+                    _validate_calculator_uri(uri)
+                    result.append(uri)
                 else:
-                    result.append(calc)
+                    # Alias not found - raise error with helpful message
+                    raise ValueError(
+                        f"Calculator alias '{calc}' not found in .fz/calculators/. "
+                        f"If this is a URI, it must include a scheme (e.g., 'sh://', 'ssh://', 'cache://')"
+                    )
+        else:
+            raise TypeError(f"Calculator must be a string or dict, got {type(calc).__name__}")
     return result
 
 
