@@ -128,6 +128,16 @@ def parse_calculators(calc_str):
     return result
 
 
+def parse_algorithm(algo_str):
+    """Parse algorithm from JSON string, JSON file, or alias"""
+    return parse_argument(algo_str, alias_type='algorithms')
+
+
+def parse_algorithm_options(opts_str):
+    """Parse algorithm options from JSON string or JSON file"""
+    return parse_argument(opts_str, alias_type=None)
+
+
 def format_output(data, format_type='markdown'):
     """
     Format output data in various formats
@@ -386,23 +396,8 @@ def fzd_main():
     try:
         model = parse_model(args.model)
         variables = parse_variables(args.input_vars)
-
-        calculators = None
-        if args.calculators:
-            if args.calculators.endswith('.json'):
-                with open(args.calculators) as f:
-                    calculators = json.load(f)
-            else:
-                calculators = json.loads(args.calculators)
-
-        # Parse algorithm options
-        algo_options = {}
-        if args.options:
-            if args.options.endswith('.json'):
-                with open(args.options) as f:
-                    algo_options = json.load(f)
-            else:
-                algo_options = json.loads(args.options)
+        calculators = parse_calculators(args.calculators) if args.calculators else None
+        algo_options = parse_algorithm_options(args.options) if args.options else {}
 
         result = fzd_func(
             args.input_dir,
@@ -412,7 +407,7 @@ def fzd_main():
             args.algorithm,
             results_dir=args.results_dir,
             calculators=calculators,
-            **algo_options
+            **(algo_options if isinstance(algo_options, dict) else {})
         )
 
         # Print summary
