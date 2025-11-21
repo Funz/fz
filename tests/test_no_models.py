@@ -12,6 +12,17 @@ from fz import fzi, fzc, fzr
 from fz.config import get_config, set_interpreter
 
 
+def get_output_file_content(output_dir):
+    """
+    Get content from output directory, excluding .fz_hash files.
+    Returns content of first non-hash file found.
+    """
+    output_files = [f for f in output_dir.rglob("*") if f.is_file() and f.name != ".fz_hash"]
+    if output_files:
+        return output_files[0].read_text()
+    return ""
+
+
 def test_model_missing_varprefix():
     """Test model without varprefix field (should use default or fail)"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -123,7 +134,7 @@ def test_model_empty_delim():
         )
 
         # Should substitute $x with 1
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         assert "1" in output_content, "Variable substitution failed with empty delimiter: " + output_content
 
 
@@ -286,7 +297,7 @@ def test_model_with_invalid_interpreter():
         )
 
         # Formula likely stays unevaluated
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         assert "@{" in output_content
 
 

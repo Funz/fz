@@ -12,6 +12,17 @@ from fz import fzc
 from fz.interpreter import evaluate_formulas
 
 
+def get_output_file_content(output_dir):
+    """
+    Get content from output directory, excluding .fz_hash files.
+    Returns content of first non-hash file found.
+    """
+    output_files = [f for f in output_dir.rglob("*") if f.is_file() and f.name != ".fz_hash"]
+    if output_files:
+        return output_files[0].read_text()
+    return ""
+
+
 def test_formula_with_syntax_error():
     """Test formula with invalid Python syntax"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -39,11 +50,9 @@ def test_formula_with_syntax_error():
         )
 
         # Formula should fail to evaluate (stays as-is or shows error)
-        output_files = list(output_dir.glob("**/*"))
-        if output_files:
-            output_content = output_files[0].read_text()
-            # Either keeps original or shows some error indication
-            assert "@{1 + * 2}" in output_content or "Error" in output_content or "Warning" in output_content, "Formula with syntax error should not evaluate: " + output_content
+        output_content = get_output_file_content(output_dir)
+        # Either keeps original or shows some error indication
+        assert "@{1 + * 2}" in output_content or "Error" in output_content or "Warning" in output_content, "Formula with syntax error should not evaluate: " + output_content
 
 
 def test_formula_with_undefined_variable():
@@ -73,7 +82,7 @@ def test_formula_with_undefined_variable():
         )
 
         # Formula evaluation should fail or leave $z unreplaced
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # May contain original formula or error
         assert "@{" in output_content or "$z" in output_content or "NameError" in output_content
 
@@ -104,7 +113,7 @@ def test_formula_with_division_by_zero():
         )
 
         # Should handle error gracefully
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # Formula likely stays unevaluated or shows error
         assert "@{" in output_content or "Error" in output_content or "inf" in output_content
 
@@ -134,7 +143,7 @@ def test_formula_with_undefined_function():
         )
 
         # Should fail gracefully
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         assert "@{" in output_content or "NameError" in output_content
 
 
@@ -168,7 +177,7 @@ result = @{math.sqrt($x, $y)}
         )
 
         # Should fail gracefully
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         assert "@{" in output_content or "TypeError" in output_content
 
 
@@ -201,7 +210,7 @@ result = @{nonexistent_module_xyz.func($x)}
         )
 
         # Import should fail, formula stays unevaluated
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # Should preserve original since module import fails
         assert "@{" in output_content or "ImportError" in output_content or "ModuleNotFoundError" in output_content
 
@@ -237,7 +246,7 @@ result = @{math.sqrt($x)}
 
         # Without commentline, import line won't be recognized
         # Formula may fail due to missing math module
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # Either fails or works if math is in default env
 
 
@@ -272,7 +281,7 @@ result = @{my_func($x)}
         )
 
         # Malformed context should be handled gracefully
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # May show error or attempt line-by-line execution
 
 
@@ -306,7 +315,7 @@ result = @{recursive_func($x)}
             model=model
         )
 
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # Should preserve original or show recursion error
         assert "@{" in output_content or "RecursionError" in output_content or "maximum recursion depth" in output_content
 
@@ -336,7 +345,7 @@ def test_formula_without_interpreter():
         )
 
         # Should use default interpreter or skip evaluation
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # Might evaluate with default or stay as-is
 
 
@@ -365,7 +374,7 @@ def test_formula_with_unsupported_interpreter():
         )
 
         # Should show warning and skip evaluation
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         assert "@{" in output_content, "Formula should remain unevaluated with unsupported interpreter: " + output_content
 
 def test_formula_with_r_interpreter_not_installed():
@@ -400,7 +409,7 @@ def test_formula_with_r_interpreter_not_installed():
         )
 
         # Should show warning about missing rpy2
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # Formula should stay unevaluated
         assert "@{" in output_content
 
@@ -470,7 +479,7 @@ def test_formula_with_string_concatenation():
         )
 
         # Type error in concatenation should be handled
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         # Either stays as formula or shows error
 
 
@@ -499,7 +508,7 @@ def test_formula_with_missing_delimiters():
         )
 
         # Incomplete formula should not be matched
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         assert "@{1 + 2" in output_content, "Incomplete formula should remain unevaluated: " + output_content
 
 

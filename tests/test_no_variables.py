@@ -17,6 +17,17 @@ from fz.interpreter import (
 )
 
 
+def get_output_file_content(output_dir):
+    """
+    Get content from output directory, excluding .fz_hash files.
+    Returns content of first non-hash file found.
+    """
+    output_files = [f for f in output_dir.rglob("*") if f.is_file() and f.name != ".fz_hash"]
+    if output_files:
+        return output_files[0].read_text()
+    return ""
+
+
 def test_parse_variables_from_nonexistent_file():
     """Test parsing variables from a file that doesn't exist"""
     nonexistent = Path("/tmp/does_not_exist_fz_test_12345.txt")
@@ -68,7 +79,7 @@ def test_compile_with_missing_variable():
         )
 
         # Check output - z should still have placeholder
-        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        output_content = get_output_file_content(output_dir)
         assert "x = 1" in output_content
         assert "y = 2" in output_content
         assert "${z}" in output_content  # Unchanged
