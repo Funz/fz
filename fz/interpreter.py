@@ -172,10 +172,14 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
     delim = model.get("delim", "{}")
     commentline = model.get("commentline", "#")
 
-    if len(delim) != 2:
-        raise ValueError("delim must be exactly 2 characters")
+    # Only validate delim if it will be used (when we have delimiters)
+    if len(delim) != 2 and len(delim) != 0:
+        raise ValueError("delim must be exactly 2 characters or empty")
 
-    left_delim, right_delim = delim[0], delim[1]
+    if len(delim) == 2:
+        left_delim, right_delim = delim[0], delim[1]
+    else:
+        left_delim, right_delim = "", ""
 
     # Collect formula context lines (comment + formula prefix) and preserve indentation
     context_lines = []
@@ -186,6 +190,10 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
             # Extract the code part and preserve any indentation from original
             code_part = stripped[len(commentline + formulaprefix):]
             context_lines.append(code_part)
+
+    # If delimiters are empty, skip formula evaluation (no formulas possible)
+    if len(delim) == 0:
+        return content
 
     # Setup interpreter environment
     if interpreter.lower() == "python":

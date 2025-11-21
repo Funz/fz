@@ -1237,8 +1237,8 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     from .io import create_hash_file
     from .config import get_interpreter
 
-    # Get the global formula interpreter
-    interpreter = get_interpreter()
+    # Get the formula interpreter from model, or fall back to global setting
+    interpreter = model.get("interpreter", get_interpreter())
 
     varprefix = model.get("varprefix", "$")
     delim = model.get("delim", "{}")
