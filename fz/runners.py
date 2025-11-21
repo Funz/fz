@@ -620,7 +620,8 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
         should_resolve = False
 
         # Contains path separator - definitely a path
-        if "/" in part:
+        # Check for both Unix (/) and Windows (\) separators
+        if "/" in part or (os.name == 'nt' and "\\" in part):
             should_resolve = True
         # Has file extension - likely a file
         elif (
@@ -641,6 +642,13 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
         if should_resolve:
             # Convert to absolute path
             abs_path = os.path.abspath(os.path.join(original_cwd, part))
+
+            # On Windows, convert path to forward slashes for bash compatibility
+            # MSYS2/Git Bash/WSL all expect Unix-style paths
+            if os.name == 'nt':
+                # Convert backslashes to forward slashes
+                abs_path = abs_path.replace('\\', '/')
+
             # Preserve quoting if the path contains spaces or special characters
             if " " in abs_path or "'" in abs_path or '"' in abs_path:
                 resolved_parts.append(shlex.quote(abs_path))
@@ -878,6 +886,11 @@ def run_local_calculation(
         }
         interrupt_result["command"] = command_for_result
         return interrupt_result
+    except FileNotFoundError as e:
+        # Script file doesn't exist - treat as failed execution (consistent across platforms)
+        error_result = {"status": "failed", "error": f"Script not found: {str(e)}"}
+        error_result["command"] = command_for_result
+        return error_result
     except Exception as e:
         error_result = {"status": "error", "error": str(e)}
         error_result["command"] = command_for_result
