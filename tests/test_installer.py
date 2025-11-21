@@ -152,6 +152,9 @@ def test_install_model_with_nested_directories():
             ]
 
             for expected in expected_files:
+                # if window paths are used, convert to posix style for comparison:
+                if os.name == 'nt':
+                    expected = expected.replace('/', '\\')
                 assert any(expected in f for f in installed_files), \
                     f"{expected} not found in installed_files: {installed_files}"
 
