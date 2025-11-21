@@ -248,8 +248,10 @@ class TestBashDiscoveryPriority:
             # Set FZ_SHELL_PATH to our custom directory
             monkeypatch.setenv("FZ_SHELL_PATH", str(tmpdir))
 
-            # Reinitialize the resolver to pick up the new environment variable
+            # Reload config and reinitialize the resolver to pick up the new environment variable
+            from fz.config import reload_config
             from fz.shell import reinitialize_resolver, get_windows_bash_executable
+            reload_config()  # Must reload config first to pick up new FZ_SHELL_PATH
             reinitialize_resolver()
 
             # On Windows, test the actual bash discovery function
@@ -301,8 +303,10 @@ class TestBashDiscoveryPriority:
         # Make sure FZ_SHELL_PATH is not set
         monkeypatch.delenv("FZ_SHELL_PATH", raising=False)
 
-        # Reinitialize resolver
+        # Reload config and reinitialize resolver
+        from fz.config import reload_config
         from fz.shell import reinitialize_resolver, get_windows_bash_executable
+        reload_config()  # Must reload config first to pick up removed FZ_SHELL_PATH
         reinitialize_resolver()
 
         if platform.system() == "Windows":
