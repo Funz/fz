@@ -53,20 +53,24 @@ def test_current_dir_fix():
     resolved_cmd = result_dict.get('command', [''])[0]
     expected_path = str(script_file)
 
-    if resolved_cmd and expected_path in resolved_cmd:
+    # Normalize paths for cross-platform comparison (Windows uses backslashes, bash uses forward slashes)
+    expected_path_normalized = expected_path.replace('\\', '/')
+    resolved_cmd_normalized = resolved_cmd.replace('\\', '/') if resolved_cmd else ''
+
+    if resolved_cmd_normalized and expected_path_normalized in resolved_cmd_normalized:
         print(f"✅ Path resolution CORRECT: Uses current working directory")
-        print(f"   Expected: {expected_path}")
-        print(f"   Got:      {resolved_cmd}")
+        print(f"   Expected: {expected_path_normalized}")
+        print(f"   Got:      {resolved_cmd_normalized}")
     else:
         print(f"❌ Path resolution INCORRECT")
-        print(f"   Expected path: {expected_path}")
-        print(f"   Resolved command: {resolved_cmd}")
+        print(f"   Expected path: {expected_path_normalized}")
+        print(f"   Resolved command: {resolved_cmd_normalized}")
 
     # Assert path resolution is correct
     assert result_dict.get('status', ['unknown'])[0] == 'done', \
         f"Expected status 'done', got: {result_dict.get('status', ['unknown'])[0]}"
-    assert resolved_cmd and expected_path in resolved_cmd, \
-        f"Path resolution incorrect: expected '{expected_path}' in command '{resolved_cmd}'"
+    assert resolved_cmd_normalized and expected_path_normalized in resolved_cmd_normalized, \
+        f"Path resolution incorrect: expected '{expected_path_normalized}' in command '{resolved_cmd_normalized}'"
 
 if __name__ == "__main__":
     test_current_dir_fix()

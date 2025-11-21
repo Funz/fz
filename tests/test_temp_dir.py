@@ -10,8 +10,10 @@ def test_runs_in_temp_directory():
     cwd = os.getcwd()
     print(f"Current working directory: {cwd}")
 
-    # Check that we're in a temp directory
-    assert "/tmp" in cwd or "temp" in cwd.lower(), f"Not in temp directory: {cwd}"
+    # Check that we're in a temp directory (platform-agnostic)
+    # Unix uses /tmp, Windows uses \Temp or similar
+    cwd_normalized = cwd.replace('\\', '/')
+    assert "/tmp" in cwd_normalized or "temp" in cwd.lower(), f"Not in temp directory: {cwd}"
 
     # Verify we can create files
     test_file = Path("test_file.txt")
