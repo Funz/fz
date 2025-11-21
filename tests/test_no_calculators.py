@@ -33,15 +33,23 @@ def test_calculator_nonexistent_script():
         # Use non-existent calculator script
         nonexistent_calc = tmpdir / "does_not_exist.sh"
 
-        # Should fail gracefully
-        with pytest.raises((FileNotFoundError, RuntimeError, Exception)):
-            fzr(
-                input_path=str(input_file),
-                input_variables={"x": [1, 2]},
-                calculator=f"sh://{nonexistent_calc}",
-                output_path=str(result_dir),
-                model=model
-            )
+        # Should fail gracefully - returns results with None outputs
+        results = fzr(
+            input_path=str(input_file),
+            input_variables={"x": [1, 2]},
+            calculators=f"sh://{nonexistent_calc}",
+            results_dir=str(result_dir),
+            model=model
+        )
+
+        # Check that results have 'failed' status (calculator failed)
+        if hasattr(results, 'to_dict'):
+            # pandas DataFrame
+            results_dict = results.to_dict('list')
+            assert all(v == 'failed' for v in results_dict.get('status', [])), "Expected 'failed' status when calculator fails"
+        else:
+            # dict
+            assert all(v == 'failed' for v in results.get('status', [])), "Expected 'failed' status when calculator fails"
 
 
 def test_calculator_invalid_uri_format():
@@ -65,8 +73,8 @@ def test_calculator_invalid_uri_format():
             fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator="invalid_format_no_scheme",  # No :// scheme
-                output_path=str(result_dir),
+                calculators="invalid_format_no_scheme",  # No :// scheme
+                results_dir=str(result_dir),
                 model=model
             )
 
@@ -92,8 +100,8 @@ def test_calculator_unsupported_scheme():
             fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator="ftp://server/script.sh",  # FTP not supported
-                output_path=str(result_dir),
+                calculators="ftp://server/script.sh",  # FTP not supported
+                results_dir=str(result_dir),
                 model=model
             )
 
@@ -127,8 +135,8 @@ def test_calculator_script_without_execute_permission():
             results = fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator=f"sh://{calc_script}",
-                output_path=str(result_dir),
+                calculators=f"sh://{calc_script}",
+                results_dir=str(result_dir),
                 model=model
             )
             # May succeed on some platforms if bash can read it
@@ -168,8 +176,8 @@ fi
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -209,8 +217,8 @@ exit 1
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -247,8 +255,8 @@ exit 0
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -303,15 +311,21 @@ def test_ssh_calculator_invalid_host():
 
         result_dir = tmpdir / "results"
 
-        # Invalid hostname
-        with pytest.raises((Exception, RuntimeError)):
-            fzr(
-                input_path=str(input_file),
-                input_variables={"x": [1]},
-                calculator="ssh://nonexistent.invalid.host/calc.sh",
-                output_path=str(result_dir),
-                model=model
-            )
+        # Invalid hostname - should fail gracefully
+        results = fzr(
+            input_path=str(input_file),
+            input_variables={"x": [1]},
+            calculators="ssh://nonexistent.invalid.host/calc.sh",
+            results_dir=str(result_dir),
+            model=model
+        )
+
+        # Check for failed or error status
+        if hasattr(results, 'to_dict'):
+            results_dict = results.to_dict('list')
+            assert all(v in ('failed', 'error') for v in results_dict.get('status', [])), "Expected 'failed' or 'error' status for invalid SSH host"
+        else:
+            assert all(v in ('failed', 'error') for v in results.get('status', [])), "Expected 'failed' or 'error' status for invalid SSH host"
 
 
 def test_ssh_calculator_invalid_port():
@@ -330,15 +344,21 @@ def test_ssh_calculator_invalid_port():
 
         result_dir = tmpdir / "results"
 
-        # Invalid port number
-        with pytest.raises((ValueError, RuntimeError, Exception)):
-            fzr(
-                input_path=str(input_file),
-                input_variables={"x": [1]},
-                calculator="ssh://user@localhost:99999/calc.sh",  # Port out of range
-                output_path=str(result_dir),
-                model=model
-            )
+        # Invalid port number - should fail gracefully
+        results = fzr(
+            input_path=str(input_file),
+            input_variables={"x": [1]},
+            calculators="ssh://user@localhost:99999/calc.sh",  # Port out of range
+            results_dir=str(result_dir),
+            model=model
+        )
+
+        # Check for failed or error status
+        if hasattr(results, 'to_dict'):
+            results_dict = results.to_dict('list')
+            assert all(v in ('failed', 'error') for v in results_dict.get('status', [])), "Expected 'failed' or 'error' status for invalid SSH port"
+        else:
+            assert all(v in ('failed', 'error') for v in results.get('status', [])), "Expected 'failed' or 'error' status for invalid SSH port"
 
 
 def test_ssh_calculator_missing_paramiko():
@@ -369,8 +389,8 @@ def test_ssh_calculator_missing_paramiko():
             fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator="ssh://localhost/calc.sh",
-                output_path=str(result_dir),
+                calculators="ssh://localhost/calc.sh",
+                results_dir=str(result_dir),
                 model=model
             )
 
@@ -398,8 +418,8 @@ def test_cache_calculator_nonexistent_directory():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1, 2]},
-            calculator=f"cache://{nonexistent_cache}",
-            output_path=str(result_dir),
+            calculators=f"cache://{nonexistent_cache}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -427,8 +447,8 @@ def test_cache_calculator_with_invalid_glob_pattern():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator="cache://[invalid[pattern",
-            output_path=str(result_dir),
+            calculators="cache://[invalid[pattern",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -460,12 +480,12 @@ def test_multiple_calculators_all_fail():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=[
+            calculators=[
                 f"sh://{calc_script}",
                 "cache://nonexistent",
                 f"sh://{tmpdir / 'also_nonexistent.sh'}"
             ],
-            output_path=str(result_dir),
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -493,8 +513,8 @@ def test_calculator_alias_not_found():
             fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator="nonexistent_alias",  # Not a URI, treated as alias
-                output_path=str(result_dir),
+                calculators="nonexistent_alias",  # Not a URI, treated as alias
+                results_dir=str(result_dir),
                 model=model
             )
 
@@ -528,8 +548,8 @@ def test_calculator_with_special_characters_in_path():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
