@@ -372,6 +372,7 @@ def _validate_model(model: Dict) -> None:
 
 def _resolve_model(model: Union[str, Dict]) -> Dict:
     """
+    Resolve model definition from JSON string, JSON file, or alias
 
     Tries in order:
     1. JSON string (if starts with '{')
@@ -382,10 +383,24 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
         model: Model definition (dict, JSON string, JSON file path, or alias)
 
     Returns:
+        Model definition dict
+    """
+    # If already a dict, validate and return
+    if isinstance(model, dict):
+        _validate_model(model)
         return model
 
     if isinstance(model, str):
         import json
+
+        # Try 1: Parse as JSON string (if starts with '{')
+        if model.strip().startswith('{'):
+            try:
+                model_def = json.loads(model)
+                _validate_model(model_def)
+                return model_def
+            except json.JSONDecodeError:
+                pass  # Fall through to next option
 
         # Try 2: Load as JSON file path
         if model.endswith('.json'):
@@ -393,16 +408,25 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
                 path = Path(model)
                 if path.exists():
                     with open(path) as f:
+                        model_def = json.load(f)
+                    _validate_model(model_def)
+                    return model_def
+            except (IOError, json.JSONDecodeError):
+                pass  # Fall through to next option
 
         # Try 3: Load as model alias
         model_def = load_aliases(model, "models")
         if model_def is not None:
+            _validate_model(model_def)
+            return model_def
+
         raise ValueError(
             f"Model '{model}' not found. Could not parse as JSON string, JSON file, or alias. "
             f"Check if the file exists or the alias is defined in .fz/models/"
         )
 
-    return model
+    raise TypeError(f"Model must be a dict or string, got {type(model).__name__}")
+
 
 
 def get_calculator_manager():

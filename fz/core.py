@@ -81,6 +81,7 @@ from .io import (
     flatten_dict_columns,
     get_and_process_analysis,
     get_analysis,
+    load_aliases,
 )
 from .interpreter import (
     parse_variables_from_path,
@@ -848,8 +849,10 @@ def fzr(
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    if not isinstance(input_variables, dict):
-        raise TypeError(f"input_variables must be a dictionary, got {type(input_variables).__name__}")
+    # Check if input_variables is dict or DataFrame
+    is_dataframe = PANDAS_AVAILABLE and isinstance(input_variables, pd.DataFrame)
+    if not isinstance(input_variables, dict) and not is_dataframe:
+        raise TypeError(f"input_variables must be a dictionary or pandas DataFrame, got {type(input_variables).__name__}")
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
