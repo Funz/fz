@@ -46,10 +46,10 @@ def test_calculator_nonexistent_script():
         if hasattr(results, 'to_dict'):
             # pandas DataFrame
             results_dict = results.to_dict('list')
-            assert all(v == 'failed' for v in results_dict.get('status', [])), "Expected 'failed' status when calculator fails"
+            assert all(v == 'failed' for v in results_dict.get('status', [])), "Expected 'failed' status when calculator fails, but got: {}".format(results_dict.get('status', []))
         else:
             # dict
-            assert all(v == 'failed' for v in results.get('status', [])), "Expected 'failed' status when calculator fails"
+            assert all(v == 'failed' for v in results.get('status', [])), "Expected 'failed' status when calculator fails, but got: {}".format(results.get('status', []))
 
 
 def test_calculator_invalid_uri_format():
