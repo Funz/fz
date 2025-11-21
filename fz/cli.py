@@ -249,6 +249,12 @@ def fzi_main():
         result = fzi_func(args.input_path, model)
         print(format_output(result, args.format))
         return 0
+    except TypeError as e:
+        print(f"\n❌ Error: {e}", file=sys.stderr)
+        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
+        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        parser.print_help(sys.stderr)
+        return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -271,6 +277,12 @@ def fzc_main():
         fzc_func(args.input_path, variables, model, output_dir=args.output_dir)
         print(f"Compiled input saved to {args.output_dir}")
         return 0
+    except TypeError as e:
+        print(f"\n❌ Error: {e}", file=sys.stderr)
+        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
+        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        parser.print_help(sys.stderr)
+        return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -293,6 +305,12 @@ def fzo_main():
         result = fzo_func(args.output_path, model)
         print(format_output(result, args.format))
         return 0
+    except TypeError as e:
+        print(f"\n❌ Error: {e}", file=sys.stderr)
+        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
+        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        parser.print_help(sys.stderr)
+        return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -323,6 +341,12 @@ def fzr_main():
                     calculators=calculators)
         print(format_output(result, args.format))
         return 0
+    except TypeError as e:
+        print(f"\n❌ Error: {e}", file=sys.stderr)
+        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
+        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        parser.print_help(sys.stderr)
+        return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
