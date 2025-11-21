@@ -250,10 +250,14 @@ def fzi_main():
         print(format_output(result, args.format))
         return 0
     except TypeError as e:
-        print(f"\n❌ Error: {e}", file=sys.stderr)
-        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
-        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        # TypeError messages already printed by decorator
+        # Just show help and exit
+        print(file=sys.stderr)
         parser.print_help(sys.stderr)
+        return 1
+    except (ValueError, FileNotFoundError) as e:
+        # These error messages already printed by decorator
+        # Just exit with error code
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -278,10 +282,14 @@ def fzc_main():
         print(f"Compiled input saved to {args.output_dir}")
         return 0
     except TypeError as e:
-        print(f"\n❌ Error: {e}", file=sys.stderr)
-        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
-        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        # TypeError messages already printed by decorator
+        # Just show help and exit
+        print(file=sys.stderr)
         parser.print_help(sys.stderr)
+        return 1
+    except (ValueError, FileNotFoundError) as e:
+        # These error messages already printed by decorator
+        # Just exit with error code
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -306,10 +314,14 @@ def fzo_main():
         print(format_output(result, args.format))
         return 0
     except TypeError as e:
-        print(f"\n❌ Error: {e}", file=sys.stderr)
-        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
-        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        # TypeError messages already printed by decorator
+        # Just show help and exit
+        print(file=sys.stderr)
         parser.print_help(sys.stderr)
+        return 1
+    except (ValueError, FileNotFoundError) as e:
+        # These error messages already printed by decorator
+        # Just exit with error code
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -342,10 +354,14 @@ def fzr_main():
         print(format_output(result, args.format))
         return 0
     except TypeError as e:
-        print(f"\n❌ Error: {e}", file=sys.stderr)
-        print(f"\nThis error suggests improper argument names were used.", file=sys.stderr)
-        print(f"Please check the function signature and use correct parameter names.\n", file=sys.stderr)
+        # TypeError messages already printed by decorator
+        # Just show help and exit
+        print(file=sys.stderr)
         parser.print_help(sys.stderr)
+        return 1
+    except (ValueError, FileNotFoundError) as e:
+        # These error messages already printed by decorator
+        # Just exit with error code
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

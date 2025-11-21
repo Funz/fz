@@ -105,6 +105,85 @@ from .interpreter import (
 from .runners import resolve_calculators, run_calculation
 
 
+def _print_function_help(func_name: str, func_doc: str):
+    """Print function signature and docstring to help users"""
+    print(f"\n{'='*60}", file=sys.stderr)
+    print(f"Function: {func_name}()", file=sys.stderr)
+    print(f"{'='*60}", file=sys.stderr)
+    if func_doc:
+        # Extract just the function signature and Args section
+        lines = func_doc.split('\n')
+        in_args = False
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if 'Args:' in line:
+                in_args = True
+                print(file=sys.stderr)
+                print(line, file=sys.stderr)
+            elif in_args:
+                if stripped.startswith(('Returns:', 'Raises:', 'Example:', 'Note:')):
+                    break
+                print(line, file=sys.stderr)
+            elif not in_args and stripped and not stripped.startswith('>>>'):
+                # Print description
+                print(line, file=sys.stderr)
+    print(f"{'='*60}\n", file=sys.stderr)
+
+
+def with_helpful_errors(func):
+    """
+    Decorator that catches TypeError and ValueError, prints helpful messages,
+    and re-raises the exception.
+
+    For Python API functions (fzi, fzc, fzo, fzr).
+    """
+    import functools
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except TypeError as e:
+            error_msg = str(e)
+            print(f"\n❌ TypeError in {func.__name__}(): {error_msg}", file=sys.stderr)
+
+            # Check if it's an argument name error
+            if "got an unexpected keyword argument" in error_msg or \
+               "missing" in error_msg and "required positional argument" in error_msg:
+                print(f"\n⚠️  This error suggests improper argument names were used.", file=sys.stderr)
+                print(f"Please check the function signature below:\n", file=sys.stderr)
+                _print_function_help(func.__name__, func.__doc__)
+            else:
+                print(f"\n⚠️  This error suggests an argument has an invalid type.", file=sys.stderr)
+                print(f"Please check the expected types in the function signature:\n", file=sys.stderr)
+                _print_function_help(func.__name__, func.__doc__)
+
+            # Re-raise the exception
+            raise
+
+        except ValueError as e:
+            error_msg = str(e)
+            print(f"\n❌ ValueError in {func.__name__}(): {error_msg}", file=sys.stderr)
+            print(f"\n⚠️  This error suggests an argument has an improper value.", file=sys.stderr)
+            print(f"Please check the constraints in the function documentation:\n", file=sys.stderr)
+            _print_function_help(func.__name__, func.__doc__)
+
+            # Re-raise the exception
+            raise
+
+        except FileNotFoundError as e:
+            error_msg = str(e)
+            print(f"\n❌ FileNotFoundError in {func.__name__}(): {error_msg}", file=sys.stderr)
+            print(f"\n⚠️  Please check that the file or directory path is correct.\n", file=sys.stderr)
+
+            # Re-raise the exception
+            raise
+
+    return wrapper
+
+
 def _parse_argument(arg, alias_type=None):
     """
     Parse an argument that can be: JSON string, JSON file path, or alias.
@@ -493,6 +572,7 @@ class CalculatorManager:
 _calculator_manager = CalculatorManager()
 
 
+@with_helpful_errors
 def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
     """
     Parse input file(s) to find variables
@@ -536,6 +616,7 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
         os.chdir(working_dir)
 
 
+@with_helpful_errors
 def fzc(
     input_path: str,
     input_variables: Dict,
@@ -600,6 +681,7 @@ def fzc(
     os.chdir(working_dir)
 
 
+@with_helpful_errors
 def fzo(
     output_path: str, model: Union[str, Dict]
 ) -> Union[Dict[str, Any], "pandas.DataFrame"]:
@@ -835,6 +917,7 @@ def fzo(
         return result_dict
 
 
+@with_helpful_errors
 def fzr(
     input_path: str,
     input_variables: Dict,
