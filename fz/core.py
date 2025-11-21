@@ -105,6 +105,79 @@ from .interpreter import (
 from .runners import resolve_calculators, run_calculation
 
 
+def _parse_argument(arg, alias_type=None):
+    """
+    Parse an argument that can be: JSON string, JSON file path, or alias.
+
+    Tries in order:
+    1. JSON string (e.g., '{"key": "value"}')
+    2. JSON file path (e.g., 'path/to/file.json')
+    3. Alias (e.g., 'myalias' -> looks for .fz/<alias_type>/myalias.json)
+
+    Args:
+        arg: The argument to parse (str, dict, list, or other)
+        alias_type: Type of alias ('models', 'calculators', 'algorithms', etc.)
+
+    Returns:
+        Parsed data or the original argument if it's not a string
+    """
+    # If not a string, return as-is
+    if not isinstance(arg, str):
+        return arg
+
+    if not arg:
+        return None
+
+    # Try 1: Parse as JSON string (preferred)
+    if arg.strip().startswith(('{', '[')):
+        try:
+            return json.loads(arg)
+        except json.JSONDecodeError:
+            pass  # Fall through to next option
+
+    # Try 2: Load as JSON file path
+    if arg.endswith('.json'):
+        try:
+            path = Path(arg)
+            if path.exists():
+                with open(path) as f:
+                    return json.load(f)
+        except (IOError, json.JSONDecodeError):
+            pass  # Fall through to next option
+
+    # Try 3: Load as alias
+    if alias_type:
+        alias_data = load_aliases(arg, alias_type)
+        if alias_data is not None:
+            return alias_data
+
+    # If alias_type not provided or alias not found, return as-is
+    return arg
+
+
+def _resolve_calculators_arg(calculators):
+    """
+    Parse and resolve calculator argument.
+
+    Handles:
+    - None (defaults to ["sh://"])
+    - JSON string, JSON file, or alias string
+    - Single calculator dict (wraps in list)
+    - List of calculator specs
+    """
+    if calculators is None:
+        return ["sh://"]
+
+    # Parse the argument (could be JSON string, file, or alias)
+    calculators = _parse_argument(calculators, alias_type='calculators')
+
+    # Wrap dict in list if it's a single calculator definition
+    if isinstance(calculators, dict):
+        calculators = [calculators]
+
+    return calculators
+
+
 def check_bash_availability_on_windows():
     """
     Check if bash is available in PATH on Windows.
@@ -799,8 +872,8 @@ def fzr(
     from .config import get_interpreter
     interpreter = get_interpreter()
 
-    if calculators is None:
-        calculators = ["sh://"]
+    # Parse calculator argument (handles JSON string, file, or alias)
+    calculators = _resolve_calculators_arg(calculators)
 
     # Get model ID for calculator resolution
     model_id = model.get("id") if isinstance(model, dict) else None

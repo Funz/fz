@@ -30,25 +30,74 @@ def get_version():
 
 
 # Helper functions used by all CLI commands
+def parse_argument(arg_str, alias_type=None):
+    """
+    Parse an argument that can be: JSON string, JSON file path, or alias.
+
+    Tries in order:
+    1. JSON string (e.g., '{"key": "value"}')
+    2. JSON file path (e.g., 'path/to/file.json')
+    3. Alias (e.g., 'myalias' -> looks for .fz/<alias_type>/myalias.json)
+
+    Args:
+        arg_str: The argument string to parse
+        alias_type: Type of alias ('models', 'calculators', 'algorithms', etc.)
+                   If provided and string is not JSON/file, treats as alias
+
+    Returns:
+        Parsed data (dict/list/string)
+    """
+    if not arg_str:
+        return None
+
+    # Try 1: Parse as JSON string (preferred)
+    if arg_str.strip().startswith(('{', '[')):
+        try:
+            return json.loads(arg_str)
+        except json.JSONDecodeError:
+            pass  # Fall through to next option
+
+    # Try 2: Load as JSON file path
+    if arg_str.endswith('.json'):
+        try:
+            path = Path(arg_str)
+            if path.exists():
+                with open(path) as f:
+                    return json.load(f)
+        except (IOError, json.JSONDecodeError):
+            pass  # Fall through to next option
+
+    # Try 3: Load as alias
+    if alias_type:
+        from .io import load_aliases
+        alias_data = load_aliases(arg_str, alias_type)
+        if alias_data is not None:
+            return alias_data
+
+    # If alias_type not provided or alias not found, return as-is (might be an alias name)
+    # The calling code can decide what to do with it
+    return arg_str
+
+
 def parse_model(model_str):
-    """Parse model from JSON file, inline JSON, or alias"""
-    if model_str.endswith('.json'):
-        with open(model_str) as f:
-            return json.load(f)
-    elif model_str.startswith('{'):
-        return json.loads(model_str)
-    else:
-        # Assume it's a model alias
-        return model_str
+    """Parse model from JSON string, JSON file, or alias"""
+    return parse_argument(model_str, alias_type='models')
 
 
 def parse_variables(var_str):
-    """Parse variables from JSON file or inline JSON"""
-    if var_str.endswith('.json'):
-        with open(var_str) as f:
-            return json.load(f)
-    else:
-        return json.loads(var_str)
+    """Parse variables from JSON string or JSON file"""
+    return parse_argument(var_str, alias_type=None)
+
+
+def parse_calculators(calc_str):
+    """Parse calculators from JSON string, JSON file, or alias"""
+    result = parse_argument(calc_str, alias_type='calculators')
+
+    # Wrap dict in list if it's a single calculator definition
+    if isinstance(result, dict):
+        result = [result]
+
+    return result
 
 
 def format_output(data, format_type='markdown'):
@@ -239,14 +288,7 @@ def fzr_main():
     try:
         model = parse_model(args.model)
         variables = parse_variables(args.input_variables)
-
-        calculators = None
-        if args.calculators:
-            if args.calculators.endswith('.json'):
-                with open(args.calculators) as f:
-                    calculators = json.load(f)
-            else:
-                calculators = json.loads(args.calculators)
+        calculators = parse_calculators(args.calculators) if args.calculators else None
 
         result = fzr_func(args.input_path, variables, model,
                     results_dir=args.results_dir,
@@ -341,14 +383,7 @@ def main():
         elif args.command == "run":
             model = parse_model(args.model)
             variables = parse_variables(args.input_variables)
-
-            calculators = None
-            if args.calculators:
-                if args.calculators.endswith('.json'):
-                    with open(args.calculators) as f:
-                        calculators = json.load(f)
-                else:
-                    calculators = json.loads(args.calculators)
+            calculators = parse_calculators(args.calculators) if args.calculators else None
 
             result = fzr_func(args.input_path, variables, model,
                         results_dir=args.results_dir,

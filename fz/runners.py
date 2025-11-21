@@ -726,6 +726,7 @@ def run_local_calculation(
                 log_info(f"  Resolved: {resolved_command}")
         else:
             # Try to infer command from model or use generic approach
+            log_warning(f"Warning: No command specified for sh:// calculator, using default './{input_argument}'")
             full_command = f"./{input_argument}"
             command_for_result = None
 

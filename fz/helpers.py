@@ -237,31 +237,74 @@ def _validate_model(model: Dict) -> None:
 
 def _resolve_model(model: Union[str, Dict]) -> Dict:
     """
-    Resolve model definition from alias or dict and validate it
+    Resolve model definition from JSON string, JSON file, or alias and validate it
+
+    Tries in order:
+    1. JSON string (if starts with '{')
+    2. JSON file path (if ends with '.json')
+    3. Model alias
 
     Args:
-        model: Model definition dict or alias string
+        model: Model definition (dict, JSON string, JSON file path, or alias)
 
     Returns:
         Validated model definition dict
 
     Raises:
         TypeError: If model is invalid type
-        ValueError: If model alias not found or model has invalid values
+        ValueError: If model not found or invalid
     """
     if model is None:
         raise TypeError("Model cannot be None. Please provide a model definition dictionary or alias string.")
 
+    if isinstance(model, dict):
+        # Validate the resolved model
+        _validate_model(model)
+        return model
+
     if isinstance(model, str):
+        import json
+        from pathlib import Path
         from .io import load_aliases
+
+        # Try 1: Parse as JSON string
+        if model.strip().startswith('{'):
+            try:
+                model = json.loads(model)
+                # Validate the resolved model
+                _validate_model(model)
+                return model
+            except json.JSONDecodeError:
+                pass  # Fall through to next option
+
+        # Try 2: Load as JSON file path
+        if model.endswith('.json'):
+            try:
+                path = Path(model)
+                if path.exists():
+                    with open(path) as f:
+                        model = json.load(f)
+                    # Validate the resolved model
+                    _validate_model(model)
+                    return model
+            except (IOError, json.JSONDecodeError):
+                pass  # Fall through to next option
+
+        # Try 3: Load as model alias
         model_def = load_aliases(model, "models")
-        if model_def is None:
-            raise ValueError(f"Model alias '{model}' not found in .fz/models/")
-        model = model_def
+        if model_def is not None:
+            # Validate the resolved model
+            _validate_model(model_def)
+            return model_def
+
+        # If all failed, raise error
+        raise ValueError(
+            f"Model '{model}' not found. Could not parse as JSON string, JSON file, or alias. "
+            f"Check if the file exists or the alias is defined in .fz/models/"
+        )
 
     # Validate the resolved model
     _validate_model(model)
-
     return model
 
 
