@@ -50,16 +50,12 @@ def parse_argument(arg_str, alias_type=None):
     if not arg_str:
         return None
 
-    json_error = None
-    file_error = None
-
     # Try 1: Parse as JSON string (preferred)
     if arg_str.strip().startswith(('{', '[')):
         try:
             return json.loads(arg_str)
-        except json.JSONDecodeError as e:
-            json_error = str(e)
-            # Fall through to next option
+        except json.JSONDecodeError:
+            pass  # Fall through to next option
 
     # Try 2: Load as JSON file path
     if arg_str.endswith('.json'):
@@ -68,13 +64,8 @@ def parse_argument(arg_str, alias_type=None):
             if path.exists():
                 with open(path) as f:
                     return json.load(f)
-            else:
-                file_error = f"File not found: {arg_str}"
-        except IOError as e:
-            file_error = f"Cannot read file: {e}"
-        except json.JSONDecodeError as e:
-            file_error = f"Invalid JSON in file {arg_str}: {e}"
-        # Fall through to next option
+        except (IOError, json.JSONDecodeError):
+            pass  # Fall through to next option
 
     # Try 3: Load as alias
     if alias_type:
@@ -82,25 +73,6 @@ def parse_argument(arg_str, alias_type=None):
         alias_data = load_aliases(arg_str, alias_type)
         if alias_data is not None:
             return alias_data
-
-        # If alias not found, print a warning
-        if json_error or file_error:
-            # We tried multiple formats and all failed
-            print(f"⚠️  Warning: Could not parse argument '{arg_str}':", file=sys.stderr)
-            if json_error:
-                print(f"    - Invalid JSON: {json_error}", file=sys.stderr)
-            if file_error:
-                print(f"    - File issue: {file_error}", file=sys.stderr)
-            print(f"    - Alias '{arg_str}' not found in .fz/{alias_type}/", file=sys.stderr)
-            print(f"    Using raw value: '{arg_str}'", file=sys.stderr)
-    elif json_error or file_error:
-        # No alias_type, but we had errors parsing
-        print(f"⚠️  Warning: Could not parse argument '{arg_str}':", file=sys.stderr)
-        if json_error:
-            print(f"    - Invalid JSON: {json_error}", file=sys.stderr)
-        if file_error:
-            print(f"    - File issue: {file_error}", file=sys.stderr)
-        print(f"    Using raw value: '{arg_str}'", file=sys.stderr)
 
     # If alias_type not provided or alias not found, return as-is (might be an alias name)
     # The calling code can decide what to do with it
@@ -126,6 +98,16 @@ def parse_calculators(calc_str):
         result = [result]
 
     return result
+
+
+def parse_algorithm(algo_str):
+    """Parse algorithm from JSON string, JSON file, or alias"""
+    return parse_argument(algo_str, alias_type='algorithms')
+
+
+def parse_algorithm_options(opts_str):
+    """Parse algorithm options from JSON string or JSON file"""
+    return parse_argument(opts_str, alias_type=None)
 
 
 def format_output(data, format_type='markdown'):
@@ -386,23 +368,8 @@ def fzd_main():
     try:
         model = parse_model(args.model)
         variables = parse_variables(args.input_vars)
-
-        calculators = None
-        if args.calculators:
-            if args.calculators.endswith('.json'):
-                with open(args.calculators) as f:
-                    calculators = json.load(f)
-            else:
-                calculators = json.loads(args.calculators)
-
-        # Parse algorithm options
-        algo_options = {}
-        if args.options:
-            if args.options.endswith('.json'):
-                with open(args.options) as f:
-                    algo_options = json.load(f)
-            else:
-                algo_options = json.loads(args.options)
+        calculators = parse_calculators(args.calculators) if args.calculators else None
+        algo_options = parse_algorithm_options(args.options) if args.options else {}
 
         result = fzd_func(
             args.input_dir,
@@ -412,7 +379,7 @@ def fzd_main():
             args.algorithm,
             results_dir=args.results_dir,
             calculators=calculators,
-            **algo_options
+            **(algo_options if isinstance(algo_options, dict) else {})
         )
 
         # Print summary
