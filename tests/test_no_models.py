@@ -20,7 +20,7 @@ def test_model_missing_varprefix():
         input_file = tmpdir / "input.txt"
         input_file.write_text("x = ${x}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Model without varprefix
         model = {
@@ -33,7 +33,7 @@ def test_model_missing_varprefix():
             result = fzc(
                 input_path=str(input_file),
                 input_variables={"x": 1},
-                output_path=str(output_file),
+                output_dir=str(output_dir),
                 model=model
             )
             # May use default varprefix
@@ -50,7 +50,7 @@ def test_model_invalid_varprefix_type():
         input_file = tmpdir / "input.txt"
         input_file.write_text("x = ${x}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Invalid varprefix type
         model = {
@@ -63,7 +63,7 @@ def test_model_invalid_varprefix_type():
             result = fzc(
                 input_path=str(input_file),
                 input_variables={"x": 1},
-                output_path=str(output_file),
+                output_dir=str(output_dir),
                 model=model
             )
         except (TypeError, ValueError, AttributeError):
@@ -78,7 +78,7 @@ def test_model_invalid_delim_length():
         input_file = tmpdir / "input.txt"
         input_file.write_text("x = ${x}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Invalid delim length
         model = {
@@ -91,7 +91,7 @@ def test_model_invalid_delim_length():
             result = fzc(
                 input_path=str(input_file),
                 input_variables={"x": 1},
-                output_path=str(output_file),
+                output_dir=str(output_dir),
                 model=model
             )
         except ValueError:
@@ -106,7 +106,7 @@ def test_model_empty_delim():
         input_file = tmpdir / "input.txt"
         input_file.write_text("x = $x\n")  # No delimiters
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Empty delimiter
         model = {
@@ -118,13 +118,13 @@ def test_model_empty_delim():
         result = fzc(
             input_path=str(input_file),
             input_variables={"x": 1},
-            output_path=str(output_file),
+            output_dir=str(output_dir),
             model=model
         )
 
         # Should substitute $x with 1
-        output_content = output_file.read_text()
-        assert "1" in output_content
+        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
+        assert "1" in output_content, "Variable substitution failed with empty delimiter: " + output_content
 
 
 def test_model_with_invalid_output_dict():
@@ -153,8 +153,8 @@ def test_model_with_invalid_output_dict():
             results = fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator=f"sh://{calc_script}",
-                output_path=str(result_dir),
+                calculators=f"sh://{calc_script}",
+                results_dir=str(result_dir),
                 model=model
             )
         except (TypeError, ValueError, AttributeError):
@@ -187,8 +187,8 @@ def test_model_output_with_failing_command():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -222,8 +222,8 @@ def test_model_output_with_invalid_shell_command():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -238,7 +238,7 @@ def test_model_with_missing_interpreter_for_formula():
         input_file = tmpdir / "input.txt"
         input_file.write_text("result = @{$x + $y}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Model with formula but no interpreter
         model = {
@@ -252,7 +252,7 @@ def test_model_with_missing_interpreter_for_formula():
         result = fzc(
             input_path=str(input_file),
             input_variables={"x": 1, "y": 2},
-            output_path=str(output_file),
+            output_dir=str(output_dir),
             model=model
         )
 
@@ -267,7 +267,7 @@ def test_model_with_invalid_interpreter():
         input_file = tmpdir / "input.txt"
         input_file.write_text("result = @{$x + $y}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Invalid interpreter
         model = {
@@ -281,12 +281,12 @@ def test_model_with_invalid_interpreter():
         result = fzc(
             input_path=str(input_file),
             input_variables={"x": 1, "y": 2},
-            output_path=str(output_file),
+            output_dir=str(output_dir),
             model=model
         )
 
         # Formula likely stays unevaluated
-        output_content = output_file.read_text()
+        output_files = [f for f in output_dir.rglob("*") if f.is_file()]; output_content = output_files[0].read_text() if output_files else ""
         assert "@{" in output_content
 
 
@@ -298,14 +298,14 @@ def test_model_alias_not_found():
         input_file = tmpdir / "input.txt"
         input_file.write_text("x = ${x}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Try to use non-existent model alias
         with pytest.raises((ValueError, FileNotFoundError, Exception)):
             fzc(
                 input_path=str(input_file),
                 input_variables={"x": 1},
-                output_path=str(output_file),
+                output_dir=str(output_dir),
                 model="nonexistent_model_alias"  # String alias that doesn't exist
             )
 
@@ -329,8 +329,8 @@ def test_fzr_with_none_model():
             fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator=f"sh://{calc_script}",
-                output_path=str(result_dir),
+                calculators=f"sh://{calc_script}",
+                results_dir=str(result_dir),
                 model=None
             )
 
@@ -359,8 +359,8 @@ def test_model_with_empty_output_dict():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -393,8 +393,8 @@ def test_model_output_command_with_special_characters():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -409,14 +409,14 @@ def test_model_with_non_dict_type():
         input_file = tmpdir / "input.txt"
         input_file.write_text("x = ${x}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Model is a list instead of dict
         with pytest.raises((TypeError, ValueError, AttributeError)):
             fzc(
                 input_path=str(input_file),
                 input_variables={"x": 1},
-                output_path=str(output_file),
+                output_dir=str(output_dir),
                 model=["not", "a", "dict"]
             )
 
@@ -448,8 +448,8 @@ def test_model_with_circular_reference():
         results = fzr(
             input_path=str(input_file),
             input_variables={"x": [1]},
-            calculator=f"sh://{calc_script}",
-            output_path=str(result_dir),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(result_dir),
             model=model
         )
 
@@ -471,7 +471,7 @@ def test_model_with_null_values():
         input_file = tmpdir / "input.txt"
         input_file.write_text("x = ${x}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         # Model with None values
         model = {
@@ -484,7 +484,7 @@ def test_model_with_null_values():
             result = fzc(
                 input_path=str(input_file),
                 input_variables={"x": 1},
-                output_path=str(output_file),
+                output_dir=str(output_dir),
                 model=model
             )
         except (TypeError, ValueError, AttributeError):
@@ -521,8 +521,8 @@ def test_model_with_very_long_output_command():
             results = fzr(
                 input_path=str(input_file),
                 input_variables={"x": [1]},
-                calculator=f"sh://{calc_script}",
-                output_path=str(result_dir),
+                calculators=f"sh://{calc_script}",
+                results_dir=str(result_dir),
                 model=model
             )
         except (OSError, Exception):
@@ -539,7 +539,7 @@ def test_model_commentline_not_found_in_file():
         # File has no ##fz lines
         input_file.write_text("result = @{$x + $y}\n")
 
-        output_file = tmpdir / "output.txt"
+        output_dir = tmpdir / "output"
 
         model = {
             "varprefix": "$",
@@ -553,7 +553,7 @@ def test_model_commentline_not_found_in_file():
         result = fzc(
             input_path=str(input_file),
             input_variables={"x": 1, "y": 2},
-            output_path=str(output_file),
+            output_dir=str(output_dir),
             model=model
         )
 
