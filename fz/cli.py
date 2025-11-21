@@ -50,12 +50,16 @@ def parse_argument(arg_str, alias_type=None):
     if not arg_str:
         return None
 
+    json_error = None
+    file_error = None
+
     # Try 1: Parse as JSON string (preferred)
     if arg_str.strip().startswith(('{', '[')):
         try:
             return json.loads(arg_str)
-        except json.JSONDecodeError:
-            pass  # Fall through to next option
+        except json.JSONDecodeError as e:
+            json_error = str(e)
+            # Fall through to next option
 
     # Try 2: Load as JSON file path
     if arg_str.endswith('.json'):
@@ -64,8 +68,13 @@ def parse_argument(arg_str, alias_type=None):
             if path.exists():
                 with open(path) as f:
                     return json.load(f)
-        except (IOError, json.JSONDecodeError):
-            pass  # Fall through to next option
+            else:
+                file_error = f"File not found: {arg_str}"
+        except IOError as e:
+            file_error = f"Cannot read file: {e}"
+        except json.JSONDecodeError as e:
+            file_error = f"Invalid JSON in file {arg_str}: {e}"
+        # Fall through to next option
 
     # Try 3: Load as alias
     if alias_type:
@@ -73,6 +82,25 @@ def parse_argument(arg_str, alias_type=None):
         alias_data = load_aliases(arg_str, alias_type)
         if alias_data is not None:
             return alias_data
+
+        # If alias not found, print a warning
+        if json_error or file_error:
+            # We tried multiple formats and all failed
+            print(f"⚠️  Warning: Could not parse argument '{arg_str}':", file=sys.stderr)
+            if json_error:
+                print(f"    - Invalid JSON: {json_error}", file=sys.stderr)
+            if file_error:
+                print(f"    - File issue: {file_error}", file=sys.stderr)
+            print(f"    - Alias '{arg_str}' not found in .fz/{alias_type}/", file=sys.stderr)
+            print(f"    Using raw value: '{arg_str}'", file=sys.stderr)
+    elif json_error or file_error:
+        # No alias_type, but we had errors parsing
+        print(f"⚠️  Warning: Could not parse argument '{arg_str}':", file=sys.stderr)
+        if json_error:
+            print(f"    - Invalid JSON: {json_error}", file=sys.stderr)
+        if file_error:
+            print(f"    - File issue: {file_error}", file=sys.stderr)
+        print(f"    Using raw value: '{arg_str}'", file=sys.stderr)
 
     # If alias_type not provided or alias not found, return as-is (might be an alias name)
     # The calling code can decide what to do with it

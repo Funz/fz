@@ -264,18 +264,23 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
 
     if isinstance(model, str):
         import json
+        import sys
         from pathlib import Path
         from .io import load_aliases
+
+        json_error = None
+        file_error = None
 
         # Try 1: Parse as JSON string
         if model.strip().startswith('{'):
             try:
-                model = json.loads(model)
+                parsed_model = json.loads(model)
                 # Validate the resolved model
-                _validate_model(model)
-                return model
-            except json.JSONDecodeError:
-                pass  # Fall through to next option
+                _validate_model(parsed_model)
+                return parsed_model
+            except json.JSONDecodeError as e:
+                json_error = str(e)
+                # Fall through to next option
 
         # Try 2: Load as JSON file path
         if model.endswith('.json'):
@@ -283,12 +288,17 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
                 path = Path(model)
                 if path.exists():
                     with open(path) as f:
-                        model = json.load(f)
+                        parsed_model = json.load(f)
                     # Validate the resolved model
-                    _validate_model(model)
-                    return model
-            except (IOError, json.JSONDecodeError):
-                pass  # Fall through to next option
+                    _validate_model(parsed_model)
+                    return parsed_model
+                else:
+                    file_error = f"File not found: {model}"
+            except IOError as e:
+                file_error = f"Cannot read file: {e}"
+            except json.JSONDecodeError as e:
+                file_error = f"Invalid JSON in file {model}: {e}"
+            # Fall through to next option
 
         # Try 3: Load as model alias
         model_def = load_aliases(model, "models")
@@ -297,7 +307,14 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
             _validate_model(model_def)
             return model_def
 
-        # If all failed, raise error
+        # If all failed, print detailed warnings and raise error
+        print(f"❌ Error: Could not resolve model '{model}':", file=sys.stderr)
+        if json_error:
+            print(f"    - Invalid JSON: {json_error}", file=sys.stderr)
+        if file_error:
+            print(f"    - File issue: {file_error}", file=sys.stderr)
+        print(f"    - Alias '{model}' not found in .fz/models/", file=sys.stderr)
+
         raise ValueError(
             f"Model '{model}' not found. Could not parse as JSON string, JSON file, or alias. "
             f"Check if the file exists or the alias is defined in .fz/models/"
