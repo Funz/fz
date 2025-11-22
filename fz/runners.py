@@ -886,9 +886,12 @@ def run_local_calculation(
         }
         interrupt_result["command"] = command_for_result
         return interrupt_result
-    except FileNotFoundError as e:
-        # Script file doesn't exist - treat as failed execution (consistent across platforms)
-        error_result = {"status": "failed", "error": f"Script not found: {str(e)}"}
+    except OSError as e:
+        # Script file doesn't exist or cannot be executed - treat as failed execution (consistent across platforms)
+        # OSError includes FileNotFoundError, PermissionError, etc.
+        # On Windows, when trying to execute a non-existent or non-executable script via subprocess.Popen,
+        # various OSError subtypes may be raised depending on the execution mode (shell=True/False)
+        error_result = {"status": "failed", "error": f"Script execution failed: {str(e)}"}
         error_result["command"] = command_for_result
         return error_result
     except Exception as e:
