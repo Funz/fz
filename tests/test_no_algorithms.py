@@ -10,14 +10,11 @@ import pytest
 
 try:
     import pandas as pd
-    PANDAS_AVAILABLE = True
 except ImportError:
-    PANDAS_AVAILABLE = False
 
 from fz import fzd
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_nonexistent_file():
     """Test fzd with a non-existent algorithm file"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -58,7 +55,6 @@ def test_algorithm_nonexistent_file():
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_invalid_python_syntax():
     """Test algorithm file with invalid Python syntax"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -96,7 +92,6 @@ def test_algorithm_invalid_python_syntax():
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_missing_required_methods():
     """Test algorithm missing required methods"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -139,7 +134,6 @@ class IncompleteAlgorithm:
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_empty_file():
     """Test algorithm with empty file"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -177,7 +171,6 @@ def test_algorithm_empty_file():
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_with_none_value():
     """Test fzd when algorithm is None"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -211,7 +204,6 @@ def test_algorithm_with_none_value():
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_invalid_type():
     """Test fzd with non-string algorithm parameter"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -245,7 +237,6 @@ def test_algorithm_invalid_type():
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_options_invalid_type():
     """Test fzd with algorithm_options that's not a dict"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -294,7 +285,6 @@ class SimpleAlgorithm:
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_with_missing_dependencies():
     """Test algorithm that requires missing dependencies"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -349,7 +339,6 @@ class MyAlgorithm:
             pass
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_no_class_defined():
     """Test algorithm file with no class defined"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -393,7 +382,6 @@ def another_function(x):
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_with_runtime_error_in_init():
     """Test algorithm that raises error in __init__"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -441,7 +429,6 @@ class ErrorAlgorithm:
             )
 
 
-@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_algorithm_returns_invalid_initial_design():
     """Test algorithm that returns invalid initial design"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -489,57 +476,4 @@ class BadDesignAlgorithm:
             )
 
 
-def test_fzd_without_pandas():
-    """Test that fzd raises ImportError when pandas is not available"""
-    # This test only makes sense if pandas is NOT installed
-    # Skip if pandas is available
-    if PANDAS_AVAILABLE:
-        pytest.skip("pandas is installed, cannot test missing pandas scenario")
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-
-        input_file = tmpdir / "input.txt"
-        input_file.write_text("x = ${x}\n")
-
-        calc_script = tmpdir / "calc.sh"
-        calc_script.write_text("#!/bin/bash\necho 'result = 42' > output.txt\n")
-        calc_script.chmod(0o755)
-
-        algo_file = tmpdir / "simple.py"
-        algo_file.write_text("""
-class SimpleAlgorithm:
-    def __init__(self, **options):
-        pass
-    def get_initial_design(self, input_vars, output_vars):
-        return [{"x": 5.0}]
-    def get_next_design(self, input_vars, output_values):
-        return []
-    def get_analysis(self, input_vars, output_values):
-        return "Done"
-""")
-
-        model = {
-            "varprefix": "$",
-            "delim": "{}",
-            "output": {"result": "echo 42"}
-        }
-
-        analysis_dir = tmpdir / "analysis"
-
-        # Should raise ImportError about missing pandas
-        with pytest.raises(ImportError, match="pandas"):
-            fzd(
-                input_path=str(input_file),
-                input_variables={"x": "[0;10]"},
-                model=model,
-                output_expression="result",
-                algorithm=str(algo_file),
-                calculators=f"sh://bash {calc_script}",
-                analysis_dir=str(analysis_dir)
-            )
-
-
-if __name__ == "__main__":
-    # Run tests manually for debugging
-    pytest.main([__file__, "-v"])

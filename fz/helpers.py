@@ -15,9 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Optional pandas import for DataFrame support
 try:
     import pandas as pd
-    HAS_PANDAS = True
 except ImportError:
-    HAS_PANDAS = False
 
 from .logging import log_debug, log_info, log_warning, log_error, log_progress
 from .config import get_config
@@ -261,7 +259,7 @@ def generate_variable_combinations(input_variables: Union[Dict, Any]) -> List[Di
         [{"x": 1, "y": 10}, {"x": 2, "y": 10}, {"x": 3, "y": 20}]
     """
     # Check if input is a pandas DataFrame
-    if HAS_PANDAS and isinstance(input_variables, pd.DataFrame):
+    if isinstance(input_variables, pd.DataFrame):
         # Each row is one case (non-factorial design)
         var_combinations = []
         for _, row in input_variables.iterrows():
@@ -1395,7 +1393,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
 
     # Determine if input_variables is non-empty
     # Handle both dict and DataFrame input types
-    if HAS_PANDAS and isinstance(input_variables, pd.DataFrame):
+    if isinstance(input_variables, pd.DataFrame):
         has_input_variables = not input_variables.empty
     else:
         has_input_variables = bool(input_variables)

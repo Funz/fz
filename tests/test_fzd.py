@@ -156,17 +156,6 @@ class TestFzdIntegration:
         input_dir, model = simple_model
         algo_path = str(Path(__file__).parent.parent / "examples" / "algorithms" / "randomsampling.py")
 
-        # Mock PANDAS_AVAILABLE to be False
-        with patch.object(fz.core, 'PANDAS_AVAILABLE', False):
-            with pytest.raises(ImportError, match="fzd requires pandas"):
-                fz.fzd(
-                    input_path=str(input_dir),
-                    input_variables={"x": "[0;1]"},
-                    model=model,
-                    output_expression="result",
-                    algorithm=algo_path
-                )
-
     def test_fzd_returns_dataframe(self, simple_model):
         """Test that fzd returns XY DataFrame with all X and Y values"""
         input_dir, model = simple_model

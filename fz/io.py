@@ -18,9 +18,7 @@ if TYPE_CHECKING:
 # Check if pandas is available for dict flattening
 try:
     import pandas as pd
-    PANDAS_AVAILABLE = True
 except ImportError:
-    PANDAS_AVAILABLE = False
     pd = None
 
 
@@ -435,9 +433,7 @@ def flatten_dict_columns(df: "pandas.DataFrame") -> "pandas.DataFrame":
     Returns:
         DataFrame with dict columns recursively flattened
     """
-    if not PANDAS_AVAILABLE:
-        return df
-
+    
     if df.empty:
         return df
 

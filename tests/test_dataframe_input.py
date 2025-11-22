@@ -10,17 +10,10 @@ import shutil
 from pathlib import Path
 
 # Check if pandas is available
-try:
-    import pandas as pd
-    HAS_PANDAS = True
-except ImportError:
-    HAS_PANDAS = False
-
 from fz.helpers import generate_variable_combinations
 import fz
 
 
-@pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 class TestDataFrameInput:
     """Test DataFrame input for non-factorial designs"""
 
@@ -132,7 +125,6 @@ class TestDataFrameInput:
         assert var_combinations[4] == {"x": 2, "y": 30}
 
 
-@pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 class TestDataFrameWithFzr:
     """Integration tests using DataFrame with fzr()"""
 
@@ -311,9 +303,7 @@ if __name__ == "__main__":
     print("Testing DataFrame Input Support")
     print("=" * 70)
 
-    if not HAS_PANDAS:
-        print("⚠️  pandas not installed, skipping DataFrame tests")
-    else:
+        else:
         test_df = TestDataFrameInput()
 
         print("\n1. Testing basic DataFrame input...")

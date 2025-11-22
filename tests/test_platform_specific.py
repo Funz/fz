@@ -65,7 +65,6 @@ class TestPandasRequirement:
         """Test that importing fz.core checks for pandas"""
         # This should not raise an error if pandas is installed
         from fz import core
-        assert core.PANDAS_AVAILABLE is True
 
     def test_fzd_requires_pandas_error_message(self):
         """Test that fzd gives helpful error if pandas is missing
@@ -77,8 +76,5 @@ class TestPandasRequirement:
         # but we can verify the check exists
         from fz import core
 
-        # Verify PANDAS_AVAILABLE flag exists
-        assert hasattr(core, 'PANDAS_AVAILABLE')
 
         # Since pandas must be installed for tests to run, it should be True
-        assert core.PANDAS_AVAILABLE is True
