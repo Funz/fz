@@ -12,11 +12,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
-# Check if pandas is available
-try:
-    import pandas as pd
-except ImportError:
+import pandas as pd
 
 import fz
 from fz.io import flatten_dict_recursive, flatten_dict_columns

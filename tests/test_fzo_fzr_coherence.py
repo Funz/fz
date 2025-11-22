@@ -13,10 +13,7 @@ import pytest
 import platform
 
 import fz
-
-try:
-    import pandas as pd
-except ImportError:
+import pandas as pd
 
 
 def _get_value(result, key, index):

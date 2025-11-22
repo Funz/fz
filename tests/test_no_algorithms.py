@@ -7,10 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 import pytest
-
-try:
-    import pandas as pd
-except ImportError:
+import pandas as pd
 
 from fz import fzd
 

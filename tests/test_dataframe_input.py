@@ -8,8 +8,8 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
+import pandas as pd
 
-# Check if pandas is available
 from fz.helpers import generate_variable_combinations
 import fz
 
@@ -303,32 +303,31 @@ if __name__ == "__main__":
     print("Testing DataFrame Input Support")
     print("=" * 70)
 
-        else:
-        test_df = TestDataFrameInput()
+    test_df = TestDataFrameInput()
 
-        print("\n1. Testing basic DataFrame input...")
-        test_df.test_dataframe_basic()
-        print("✓ Passed")
+    print("\n1. Testing basic DataFrame input...")
+    test_df.test_dataframe_basic()
+    print("✓ Passed")
 
-        print("\n2. Testing non-factorial combinations...")
-        test_df.test_dataframe_non_factorial()
-        print("✓ Passed")
+    print("\n2. Testing non-factorial combinations...")
+    test_df.test_dataframe_non_factorial()
+    print("✓ Passed")
 
-        print("\n3. Testing DataFrame vs dict factorial...")
-        test_df.test_dataframe_vs_dict_factorial()
-        print("✓ Passed")
+    print("\n3. Testing DataFrame vs dict factorial...")
+    test_df.test_dataframe_vs_dict_factorial()
+    print("✓ Passed")
 
-        print("\n4. Testing single row DataFrame...")
-        test_df.test_dataframe_single_row()
-        print("✓ Passed")
+    print("\n4. Testing single row DataFrame...")
+    test_df.test_dataframe_single_row()
+    print("✓ Passed")
 
-        print("\n5. Testing mixed data types...")
-        test_df.test_dataframe_mixed_types()
-        print("✓ Passed")
+    print("\n5. Testing mixed data types...")
+    test_df.test_dataframe_mixed_types()
+    print("✓ Passed")
 
-        print("\n6. Testing repeated values...")
-        test_df.test_dataframe_with_repeated_values()
-        print("✓ Passed")
+    print("\n6. Testing repeated values...")
+    test_df.test_dataframe_with_repeated_values()
+    print("✓ Passed")
 
     # Test input validation (doesn't require pandas)
     test_validation = TestInputValidation()

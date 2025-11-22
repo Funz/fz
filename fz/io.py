@@ -15,11 +15,7 @@ from datetime import datetime
 if TYPE_CHECKING:
     import pandas
 
-# Check if pandas is available for dict flattening
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
+import pandas as pd
 
 
 def ensure_unique_directory(directory_path: Path) -> tuple[Path, Optional[Path]]:
