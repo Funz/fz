@@ -9,8 +9,10 @@ import uuid
 import signal
 import sys
 import platform
+import threading
 from pathlib import Path
 from typing import Dict, List, Union, Any, Optional, TYPE_CHECKING
+from collections import defaultdict
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
@@ -77,6 +79,7 @@ from .shell import run_command, replace_commands_in_string
 from .io import (
     ensure_unique_directory,
     resolve_cache_paths,
+    load_aliases,
     process_analysis_content,
     flatten_dict_columns,
     get_and_process_analysis,
@@ -1016,8 +1019,13 @@ def fzr(
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    if not isinstance(input_variables, dict):
-        raise TypeError(f"input_variables must be a dictionary, got {type(input_variables).__name__}")
+    # Accept both dict and DataFrame for input_variables
+    valid_types = (dict,)
+    if PANDAS_AVAILABLE:
+        valid_types = (dict, pd.DataFrame)
+    if not isinstance(input_variables, valid_types):
+        expected = "dictionary or pandas DataFrame" if PANDAS_AVAILABLE else "dictionary"
+        raise TypeError(f"input_variables must be a {expected}, got {type(input_variables).__name__}")
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
