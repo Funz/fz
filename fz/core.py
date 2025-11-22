@@ -55,15 +55,7 @@ if platform.system() == "Windows":
 if TYPE_CHECKING:
     import pandas
 
-try:
-    import pandas as pd
-
-    PANDAS_AVAILABLE = True
-except ImportError:
-    PANDAS_AVAILABLE = False
-    pd = None
-    logging.warning("pandas not available, fzo() and fzr() will return dicts instead of DataFrames")
-
+import pandas as pd
 import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug
@@ -846,146 +838,75 @@ def fzo(
 
         rows.append(row)
 
-    # Return DataFrame if pandas is available, otherwise return first row as dict for backward compatibility
-    if PANDAS_AVAILABLE:
-        df = pd.DataFrame(rows)
+    # Return DataFrame
+    df = pd.DataFrame(rows)
 
-        # Check if all 'path' values follow the "key1=val1,key2=val2,..." pattern
-        if len(df) > 0 and "path" in df.columns:
-            # Try to parse all path values
-            parsed_vars = {}
-            all_parseable = True
+    # Check if all 'path' values follow the "key1=val1,key2=val2,..." pattern
+    if len(df) > 0 and "path" in df.columns:
+        # Try to parse all path values
+        parsed_vars = {}
+        all_parseable = True
 
-            for path_val in df["path"]:
-                # Extract just the last component (subdirectory name) for parsing
-                path_obj = Path(path_val)
-                last_component = path_obj.name
+        for path_val in df["path"]:
+            # Extract just the last component (subdirectory name) for parsing
+            path_obj = Path(path_val)
+            last_component = path_obj.name
 
-                # If last component doesn't contain '=', it's not a key=value pattern
-                if '=' not in last_component:
-                    all_parseable = False
-                    break
+            # If last component doesn't contain '=', it's not a key=value pattern
+            if '=' not in last_component:
+                all_parseable = False
+                break
 
-                # Try to parse "key1=val1,key2=val2,..." pattern from last component
-                try:
-                    parts = last_component.split(",")
-                    row_vars = {}
-                    for part in parts:
-                        if "=" in part:
-                            key, val = part.split("=", 1)
-                            row_vars[key.strip()] = val.strip()
-                        else:
-                            # Not a key=value pattern
-                            all_parseable = False
-                            break
-
-                    if not all_parseable:
+            # Try to parse "key1=val1,key2=val2,..." pattern from last component
+            try:
+                parts = last_component.split(",")
+                row_vars = {}
+                for part in parts:
+                    if "=" in part:
+                        key, val = part.split("=", 1)
+                        row_vars[key.strip()] = val.strip()
+                    else:
+                        # Not a key=value pattern
+                        all_parseable = False
                         break
 
-                    # Add to parsed_vars for this row
-                    for key in row_vars:
-                        if key not in parsed_vars:
-                            parsed_vars[key] = []
-                        parsed_vars[key].append(row_vars[key])
-
-                except Exception:
-                    all_parseable = False
+                if not all_parseable:
                     break
 
-            # If all paths were parseable, add the extracted columns
-            if all_parseable and parsed_vars:
-                for key, values in parsed_vars.items():
-                    # Try to cast values to appropriate types
-                    cast_values = []
-                    for v in values:
-                        try:
-                            # Try int first
-                            if "." not in v:
-                                cast_values.append(int(v))
-                            else:
-                                cast_values.append(float(v))
-                        except ValueError:
-                            # Keep as string
-                            cast_values.append(v)
-                    df[key] = cast_values
+                # Add to parsed_vars for this row
+                for key in row_vars:
+                    if key not in parsed_vars:
+                        parsed_vars[key] = []
+                    parsed_vars[key].append(row_vars[key])
 
-        # Flatten any dict-valued columns into separate columns
-        df = flatten_dict_columns(df)
+            except Exception:
+                all_parseable = False
+                break
 
-        # Always restore the original working directory
-        os.chdir(working_dir)
-
-        return df
-    else:
-        # Return dict with lists for backward compatibility when no pandas
-        if not rows:
-            return {}
-
-        # Convert list of dicts to dict of lists
-        result_dict = {}
-        for row in rows:
-            for key, value in row.items():
-                if key not in result_dict:
-                    result_dict[key] = []
-                result_dict[key].append(value)
-
-        # Also parse variable values from path if applicable
-        if len(rows) > 0 and "path" in result_dict:
-            parsed_vars = {}
-            all_parseable = True
-
-            for path_val in result_dict["path"]:
-                # Extract just the last component (subdirectory name) for parsing
-                path_obj = Path(path_val)
-                last_component = path_obj.name
-
-                # If last component doesn't contain '=', it's not a key=value pattern
-                if '=' not in last_component:
-                    all_parseable = False
-                    break
-
-                try:
-                    parts = last_component.split(",")
-                    row_vars = {}
-                    for part in parts:
-                        if "=" in part:
-                            key, val = part.split("=", 1)
-                            row_vars[key.strip()] = val.strip()
+        # If all paths were parseable, add the extracted columns
+        if all_parseable and parsed_vars:
+            for key, values in parsed_vars.items():
+                # Try to cast values to appropriate types
+                cast_values = []
+                for v in values:
+                    try:
+                        # Try int first
+                        if "." not in v:
+                            cast_values.append(int(v))
                         else:
-                            all_parseable = False
-                            break
+                            cast_values.append(float(v))
+                    except ValueError:
+                        # Keep as string
+                        cast_values.append(v)
+                df[key] = cast_values
 
-                    if not all_parseable:
-                        break
+    # Flatten any dict-valued columns into separate columns
+    df = flatten_dict_columns(df)
 
-                    for key in row_vars:
-                        if key not in parsed_vars:
-                            parsed_vars[key] = []
-                        parsed_vars[key].append(row_vars[key])
+    # Always restore the original working directory
+    os.chdir(working_dir)
 
-                except Exception:
-                    all_parseable = False
-                    break
-
-            # If all paths were parseable, add the extracted columns
-            if all_parseable and parsed_vars:
-                for key, values in parsed_vars.items():
-                    # Try to cast values to appropriate types
-                    cast_values = []
-                    for v in values:
-                        try:
-                            if "." not in v:
-                                cast_values.append(int(v))
-                            else:
-                                cast_values.append(float(v))
-                        except ValueError:
-                            cast_values.append(v)
-                    result_dict[key] = cast_values
-        
-        # Always restore the original working directory
-        os.chdir(working_dir)
-
-        return result_dict
+    return df
 
 
 @with_helpful_errors
@@ -1020,12 +941,8 @@ def fzr(
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
     # Accept both dict and DataFrame for input_variables
-    valid_types = (dict,)
-    if PANDAS_AVAILABLE:
-        valid_types = (dict, pd.DataFrame)
-    if not isinstance(input_variables, valid_types):
-        expected = "dictionary or pandas DataFrame" if PANDAS_AVAILABLE else "dictionary"
-        raise TypeError(f"input_variables must be a {expected}, got {type(input_variables).__name__}")
+    if not isinstance(input_variables, (dict, pd.DataFrame)):
+        raise TypeError(f"input_variables must be a dictionary or pandas DataFrame, got {type(input_variables).__name__}")
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
@@ -1116,7 +1033,7 @@ def fzr(
 
         # Determine if input_variables is non-empty for directory structure decisions
         # Handle both dict and DataFrame input types
-        if PANDAS_AVAILABLE and isinstance(input_variables, pd.DataFrame):
+        if isinstance(input_variables, pd.DataFrame):
             has_input_variables = not input_variables.empty
         else:
             has_input_variables = bool(input_variables)
@@ -1207,19 +1124,16 @@ def fzr(
     # Always restore the original working directory
     os.chdir(working_dir)
 
-    # Return DataFrame if pandas is available, otherwise return list of dicts
-    if PANDAS_AVAILABLE:
-        # Remove any columns that are empty (e.g., original dict columns that were flattened)
-        # This happens when dict flattening creates new columns (min, max, diff) and the
-        # original column (stats) is no longer populated
-        non_empty_results = {k: v for k, v in results.items() if len(v) > 0}
+    # Return DataFrame
+    # Remove any columns that are empty (e.g., original dict columns that were flattened)
+    # This happens when dict flattening creates new columns (min, max, diff) and the
+    # original column (stats) is no longer populated
+    non_empty_results = {k: v for k, v in results.items() if len(v) > 0}
 
-        df = pd.DataFrame(non_empty_results)
-        # Flatten any dict-valued columns into separate columns
-        df = flatten_dict_columns(df)
-        return df
-    else:
-        return results
+    df = pd.DataFrame(non_empty_results)
+    # Flatten any dict-valued columns into separate columns
+    df = flatten_dict_columns(df)
+    return df
 
 
 def fzd(
@@ -1276,13 +1190,6 @@ def fzd(
     global _interrupt_requested
     _interrupt_requested = False
     _install_signal_handler()
-
-    # Require pandas for fzd
-    if not PANDAS_AVAILABLE:
-        raise ImportError(
-            "fzd requires pandas to be installed. "
-            "Install it with: pip install pandas"
-        )
 
     try:
         model = _resolve_model(model)

@@ -16,6 +16,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "paramiko>=2.7.0",
+        "pandas>=1.0.0",
     ],
     extras_require={
         "dev": [
@@ -23,9 +24,6 @@ setup(
             "pytest-cov",
             "black",
             "flake8",
-        ],
-        "pandas": [
-            "pandas>=1.0.0",
         ],
         "r": [
             "rpy2>=3.4.0",
