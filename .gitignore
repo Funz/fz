@@ -19,3 +19,5 @@ build
 !tests/test_data/**/*.txt
 *.sh
 .coverage
+results*/
+output/
