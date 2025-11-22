@@ -989,6 +989,60 @@ calculators = "ssh://user@server.com:2222/bash /absolutepath/to/calc.sh"
 - Warning for password-based auth
 - Environment variable for auto-accepting host keys: `FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1`
 
+### Funz Server Execution
+
+Execute calculations using the Funz server protocol (compatible with legacy Java Funz servers):
+
+```python
+# Connect to local Funz server
+calculators = "funz://:5555/R"
+
+# Connect to remote Funz server
+calculators = "funz://server.example.com:5555/Python"
+
+# Multiple Funz servers for parallel execution
+calculators = [
+    "funz://:5555/R",
+    "funz://:5556/R",
+    "funz://:5557/R"
+]
+```
+
+**Features**:
+- Compatible with legacy Java Funz calculator servers
+- Automatic file upload to server
+- Remote execution with the Funz protocol
+- Result download and extraction
+- Support for interrupt handling
+
+**Protocol**:
+- Text-based TCP socket communication
+- Calculator reservation with authentication
+- Automatic cleanup and unreservation
+
+**URI Format**: `funz://[host]:<port>/<code>`
+- `host`: Server hostname (default: localhost)
+- `port`: Server port (required)
+- `code`: Calculator code/model name (e.g., "R", "Python", "Modelica")
+
+**Example**:
+```python
+import fz
+
+model = {
+    "output": {
+        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
+    }
+}
+
+results = fz.fzr(
+    "input.txt",
+    {"temp": [100, 200, 300]},
+    model,
+    calculators="funz://:5555/R"
+)
+```
+
 ### Cache Calculator
 
 Reuse previous calculation results:

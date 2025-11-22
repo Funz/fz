@@ -291,7 +291,7 @@ def _validate_calculator_uri(calculator_uri: str) -> None:
 
     # Extract and validate scheme
     scheme = calculator_uri.split("://", 1)[0].lower()
-    supported_schemes = ["sh", "ssh", "cache"]
+    supported_schemes = ["sh", "ssh", "cache", "funz"]
 
     if scheme not in supported_schemes:
         raise ValueError(
@@ -428,6 +428,12 @@ def run_calculation(
     elif base_uri.startswith("ssh://"):
         # Remote SSH execution
         return run_ssh_calculation(
+            working_dir, base_uri, model, timeout, input_files_list
+        )
+
+    elif base_uri.startswith("funz://"):
+        # Funz server execution
+        return run_funz_calculation(
             working_dir, base_uri, model, timeout, input_files_list
         )
 
@@ -1106,6 +1112,352 @@ def run_ssh_calculation(
             ssh_client.close()
         except:
             pass
+
+
+def run_funz_calculation(
+    working_dir: Path,
+    funz_uri: str,
+    model: Dict,
+    timeout: int = 300,
+    input_files_list: List[str] = None,
+) -> Dict[str, Any]:
+    """
+    Run calculation via Funz server protocol
+
+    Args:
+        working_dir: Directory containing input files
+        funz_uri: Funz URI (e.g., "funz://:<port>/<code>")
+        model: Model definition dict
+        timeout: Timeout in seconds
+        input_files_list: List of input file names in order (from .fz_hash)
+
+    Returns:
+        Dict containing calculation results and status
+    """
+    # Import here to avoid circular imports
+    from .core import is_interrupted, fzo
+
+    # Check for interrupt before starting
+    if is_interrupted():
+        return {
+            "status": "interrupted",
+            "error": "Execution interrupted by user",
+            "command": funz_uri,
+        }
+
+    start_time = datetime.now()
+    env_info = get_environment_info()
+
+    # Funz protocol constants
+    METHOD_RESERVE = "RESERVE"
+    METHOD_UNRESERVE = "UNRESERVE"
+    METHOD_PUT_FILE = "PUTFILE"
+    METHOD_NEW_CASE = "NEWCASE"
+    METHOD_EXECUTE = "EXECUTE"
+    METHOD_GET_ARCH = "GETFILE"
+    METHOD_INTERRUPT = "INTERUPT"  # Note: typo preserved from original Java code
+
+    RET_YES = "Y"
+    RET_NO = "N"
+    RET_ERROR = "E"
+    RET_INFO = "I"
+    RET_HEARTBEAT = "H"
+    RET_SYNC = "S"
+
+    END_OF_REQ = "/"
+    ARCHIVE_FILE = "results.zip"
+
+    try:
+        # Parse Funz URI: funz://:<port>/<code>
+        # Format: funz://[host]:<port>/<code>
+        if not funz_uri.startswith("funz://"):
+            return {"status": "error", "error": "Invalid Funz URI format"}
+
+        uri_part = funz_uri[7:]  # Remove "funz://"
+
+        # Parse host:port/code
+        if "/" not in uri_part:
+            return {"status": "error", "error": "Funz URI must specify code: funz://:<port>/<code>"}
+
+        connection_part, code = uri_part.split("/", 1)
+
+        # Parse host and port
+        host = "localhost"  # Default to localhost
+        port = 0
+
+        if ":" in connection_part:
+            # host:port format
+            if connection_part.startswith(":"):
+                # :port format (no host)
+                port_str = connection_part[1:]
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    return {"status": "error", "error": f"Invalid port number: {port_str}"}
+            else:
+                # host:port format
+                host, port_str = connection_part.rsplit(":", 1)
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    return {"status": "error", "error": f"Invalid port number: {port_str}"}
+        else:
+            return {"status": "error", "error": "Funz URI must specify port: funz://:<port>/<code>"}
+
+        if not code:
+            return {"status": "error", "error": "Funz URI must specify code"}
+
+        log_info(f"Connecting to Funz server: {host}:{port}")
+        log_info(f"Code: {code}")
+
+        # Create socket connection
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(min(timeout, 30))  # Connection timeout
+
+        try:
+            sock.connect((host, port))
+            log_info(f"Connected to Funz server at {host}:{port}")
+
+            # Create buffered reader/writer
+            sock_file = sock.makefile('rw', buffering=1, encoding='utf-8', newline='\n')
+
+            def send_message(*lines):
+                """Send a protocol message"""
+                for line in lines:
+                    sock_file.write(str(line) + '\n')
+                sock_file.write(END_OF_REQ + '\n')
+                sock_file.flush()
+                log_debug(f"Sent: {lines}")
+
+            def read_response():
+                """Read a protocol response until END_OF_REQ"""
+                response = []
+                while True:
+                    line = sock_file.readline().strip()
+                    log_debug(f"Received: {line}")
+
+                    if not line:
+                        # Connection closed
+                        return None, []
+
+                    if line == END_OF_REQ:
+                        break
+
+                    # Handle special responses
+                    if line == RET_HEARTBEAT:
+                        continue  # Ignore heartbeats
+
+                    if line == RET_INFO:
+                        # Info message - read next line
+                        info_line = sock_file.readline().strip()
+                        log_info(f"Funz info: {info_line}")
+                        continue
+
+                    response.append(line)
+
+                if not response:
+                    return None, []
+
+                return response[0], response
+
+            # Step 1: Reserve calculator
+            log_info("Reserving calculator...")
+            send_message(METHOD_RESERVE)
+            ret, response = read_response()
+
+            if ret != RET_YES:
+                error_msg = response[1] if len(response) > 1 else "Unknown error"
+                return {"status": "error", "error": f"Failed to reserve calculator: {error_msg}"}
+
+            # Get secret code from response (for authentication)
+            secret_code = response[1] if len(response) > 1 else None
+            log_info(f"Calculator reserved, secret: {secret_code}")
+
+            try:
+                # Step 2: Upload input files
+                log_info("Uploading input files...")
+                for item in working_dir.iterdir():
+                    if item.is_file():
+                        # Send PUT_FILE request
+                        file_size = item.stat().st_size
+                        relative_path = item.name
+
+                        log_info(f"Uploading {relative_path} ({file_size} bytes)")
+                        send_message(METHOD_PUT_FILE, relative_path, file_size)
+
+                        # Wait for acknowledgment
+                        ret, _ = read_response()
+                        if ret != RET_YES:
+                            log_warning(f"Failed to upload {relative_path}")
+                            continue
+
+                        # Send file content
+                        with open(item, 'rb') as f:
+                            file_data = f.read()
+                            sock.sendall(file_data)
+
+                        log_debug(f"Uploaded {relative_path}")
+
+                # Step 3: Create new case (with variables if needed)
+                # For now, we'll use a simple case without variables
+                # In the future, this could be extended to support variable substitution
+                log_info("Creating new case...")
+                send_message(METHOD_NEW_CASE, "case_1")  # Simple case name
+                ret, _ = read_response()
+
+                if ret != RET_YES:
+                    return {"status": "error", "error": "Failed to create new case"}
+
+                # Step 4: Execute calculation
+                log_info(f"Executing code: {code}")
+                send_message(METHOD_EXECUTE, code)
+
+                # Read execution response (may include INFO messages)
+                execution_start = datetime.now()
+                ret, response = read_response()
+
+                # Check for interrupt during execution
+                if is_interrupted():
+                    log_warning("⚠️  Interrupt detected, sending interrupt to Funz server...")
+                    send_message(METHOD_INTERRUPT, secret_code if secret_code else "")
+                    raise KeyboardInterrupt("Execution interrupted by user")
+
+                if ret != RET_YES:
+                    error_msg = response[1] if len(response) > 1 else "Execution failed"
+                    return {"status": "failed", "error": error_msg}
+
+                execution_end = datetime.now()
+                execution_time = (execution_end - execution_start).total_seconds()
+
+                log_info(f"Execution completed in {execution_time:.2f}s")
+
+                # Step 5: Download results
+                log_info("Downloading results...")
+                send_message(METHOD_GET_ARCH)
+
+                # Read archive size
+                ret, response = read_response()
+
+                if ret != RET_YES:
+                    return {"status": "error", "error": "Failed to get results archive"}
+
+                # Get archive size from response
+                archive_size = int(response[1]) if len(response) > 1 else 0
+                log_info(f"Archive size: {archive_size} bytes")
+
+                # Send sync acknowledgment
+                send_message(RET_SYNC)
+
+                # Receive archive data
+                archive_data = b""
+                bytes_received = 0
+
+                while bytes_received < archive_size:
+                    chunk = sock.recv(min(4096, archive_size - bytes_received))
+                    if not chunk:
+                        break
+                    archive_data += chunk
+                    bytes_received += len(chunk)
+
+                log_info(f"Downloaded {bytes_received} bytes")
+
+                # Extract archive to working directory
+                if archive_data:
+                    import zipfile
+                    import io
+
+                    try:
+                        with zipfile.ZipFile(io.BytesIO(archive_data)) as zf:
+                            zf.extractall(working_dir)
+                            log_info(f"Extracted results to {working_dir}")
+                    except Exception as e:
+                        log_warning(f"Failed to extract archive: {e}")
+
+                # Create log file
+                end_time = datetime.now()
+                total_time = (end_time - start_time).total_seconds()
+
+                log_file_path = working_dir / "log.txt"
+                with open(log_file_path, "w") as log_file:
+                    log_file.write(f"Calculator: funz://{host}:{port}/{code}\n")
+                    log_file.write(f"Exit code: 0\n")
+                    log_file.write(f"Time start: {start_time.isoformat()}\n")
+                    log_file.write(f"Time end: {end_time.isoformat()}\n")
+                    log_file.write(f"Execution time: {execution_time:.3f} seconds\n")
+                    log_file.write(f"Total time: {total_time:.3f} seconds\n")
+                    log_file.write(f"User: {env_info['user']}\n")
+                    log_file.write(f"Hostname: {env_info['hostname']}\n")
+                    log_file.write(f"Funz server: {host}:{port}\n")
+                    log_file.write(f"Timestamp: {time.ctime()}\n")
+
+                # Parse output using fzo
+                try:
+                    output_results = fzo(working_dir, model)
+
+                    # Convert DataFrame to dict if needed
+                    if hasattr(output_results, "to_dict"):
+                        output_dict = output_results.iloc[0].to_dict()
+                    else:
+                        output_dict = output_results
+
+                    output_dict["status"] = "done"
+                    output_dict["calculator"] = f"funz://{host}:{port}"
+                    output_dict["command"] = code
+
+                    return output_dict
+
+                except Exception as e:
+                    log_warning(f"Could not parse output: {e}")
+                    return {
+                        "status": "done",
+                        "calculator": f"funz://{host}:{port}",
+                        "command": code,
+                        "error": f"Output parsing failed: {str(e)}"
+                    }
+
+            finally:
+                # Step 6: Unreserve calculator
+                log_info("Unreserving calculator...")
+                try:
+                    send_message(METHOD_UNRESERVE, secret_code if secret_code else "")
+                    read_response()  # Ignore response
+                except Exception as e:
+                    log_warning(f"Failed to unreserve: {e}")
+
+        finally:
+            try:
+                sock_file.close()
+            except:
+                pass
+
+            try:
+                sock.close()
+            except:
+                pass
+
+    except KeyboardInterrupt:
+        return {
+            "status": "interrupted",
+            "error": "Funz calculation interrupted by user",
+            "command": code if 'code' in locals() else funz_uri,
+        }
+
+    except socket.timeout:
+        return {
+            "status": "timeout",
+            "error": f"Connection timed out after {timeout} seconds",
+            "command": code if 'code' in locals() else funz_uri,
+        }
+
+    except Exception as e:
+        import traceback
+        log_error(f"Funz calculation failed: {e}")
+        log_debug(traceback.format_exc())
+        return {
+            "status": "error",
+            "error": f"Funz calculation failed: {str(e)}",
+            "command": code if 'code' in locals() else funz_uri,
+        }
 
 
 def _transfer_files_to_remote(sftp, local_dir: Path, remote_dir: str) -> None:
