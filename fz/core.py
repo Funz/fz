@@ -924,6 +924,7 @@ def fzr(
     model: Union[str, Dict],
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
+    callbacks: Optional[Dict[str, callable]] = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
     """
     Run full parametric calculations
@@ -934,6 +935,13 @@ def fzr(
         model: Model definition dict or alias string
         results_dir: Results directory
         calculators: Calculator specifications
+        callbacks: Optional dict of callback functions for progress monitoring.
+                  Supported callbacks:
+                  - 'on_start': Called when fzr starts. Args: (total_cases, calculators)
+                  - 'on_case_start': Called when a case starts. Args: (case_index, total_cases, var_combo)
+                  - 'on_case_complete': Called when a case completes. Args: (case_index, total_cases, var_combo, status, result)
+                  - 'on_progress': Called periodically. Args: (completed, total, eta_seconds)
+                  - 'on_complete': Called when all cases finish. Args: (total_cases, completed_cases, results)
 
     Returns:
         DataFrame with variable values and results (if pandas available), otherwise Dict with lists
@@ -960,6 +968,17 @@ def fzr(
             for i, calc in enumerate(calculators):
                 if not isinstance(calc, str):
                     raise TypeError(f"calculators[{i}] must be a string, got {type(calc).__name__}")
+
+    # Validate callbacks parameter
+    if callbacks is not None:
+        if not isinstance(callbacks, dict):
+            raise TypeError(f"callbacks must be a dictionary, got {type(callbacks).__name__}")
+        valid_callback_names = ['on_start', 'on_case_start', 'on_case_complete', 'on_progress', 'on_complete']
+        for name, func in callbacks.items():
+            if name not in valid_callback_names:
+                raise ValueError(f"Invalid callback name '{name}'. Valid callbacks are: {', '.join(valid_callback_names)}")
+            if not callable(func):
+                raise TypeError(f"Callback '{name}' must be callable, got {type(func).__name__}")
 
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
@@ -1022,6 +1041,13 @@ def fzr(
     var_combinations = generate_variable_combinations(input_variables)
     var_names = list(input_variables.keys())
 
+    # Call on_start callback
+    if callbacks and 'on_start' in callbacks:
+        try:
+            callbacks['on_start'](len(var_combinations), calculators)
+        except Exception as e:
+            log_warning(f"⚠️  Error in on_start callback: {e}")
+
     # Prepare results structure
     results = {var: [] for var in var_names}
     output_keys = list(model.get("output", {}).keys())
@@ -1061,6 +1087,7 @@ def fzr(
                 output_keys,
                 original_cwd,
                 has_input_variables,
+                callbacks,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
@@ -1106,8 +1133,19 @@ def fzr(
     # Always restore the original working directory
     os.chdir(working_dir)
 
-    # Return DataFrame if pandas is available, otherwise return list of dicts
+    # Prepare final results
     if PANDAS_AVAILABLE:
-        return pd.DataFrame(results)
+        final_results = pd.DataFrame(results)
     else:
-        return results
+        final_results = results
+
+    # Call on_complete callback
+    if callbacks and 'on_complete' in callbacks:
+        try:
+            completed_cases = len([r for r in results["status"] if r is not None])
+            callbacks['on_complete'](len(var_combinations), completed_cases, final_results)
+        except Exception as e:
+            log_warning(f"⚠️  Error in on_complete callback: {e}")
+
+    # Return final results
+    return final_results
