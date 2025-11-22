@@ -12,13 +12,20 @@ import tempfile
 from pathlib import Path
 
 import pytest
-import pandas as pd
+
+# Check if pandas is available
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
 
 import fz
 from fz.io import flatten_dict_recursive, flatten_dict_columns
 
 
 # Skip all tests if pandas is not available (dict flattening requires pandas)
+pytestmark = pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not available")
 
 
 class TestFlattenDictRecursive:
