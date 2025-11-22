@@ -377,7 +377,6 @@ def fzr_main():
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-
 def fzd_main():
     """Entry point for fzd command"""
     parser = argparse.ArgumentParser(description="fzd - Iterative design of experiments with algorithms")
@@ -419,6 +418,16 @@ def fzd_main():
             print(result['analysis']['text'])
 
         return 0
+    except TypeError as e:
+        # TypeError messages already printed by decorator
+        # Just show help and exit
+        print(file=sys.stderr)
+        parser.print_help(sys.stderr)
+        return 1
+    except (ValueError, FileNotFoundError) as e:
+        # These error messages already printed by decorator
+        # Just exit with error code
+        return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         import traceback
@@ -561,12 +570,7 @@ def main():
             variables = parse_variables(args.input_vars)
 
             calculators = None
-            if args.calculators:
-                if args.calculators.endswith('.json'):
-                    with open(args.calculators) as f:
-                        calculators = json.load(f)
-                else:
-                    calculators = json.loads(args.calculators)
+            calculators = parse_calculators(args.calculators) if args.calculators else None
 
             # Parse algorithm options
             algo_options = {}
