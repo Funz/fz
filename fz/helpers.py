@@ -537,6 +537,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     original_cwd = case_info.get("original_cwd")
     spinner = case_info.get("spinner")  # Optional spinner instance
     has_input_variables = case_info.get("has_input_variables", True)  # Directory structure flag
+    callbacks = case_info.get("callbacks")  # Optional callbacks for progress monitoring
 
     # Get thread ID for debugging
     thread_id = threading.get_ident()
@@ -548,6 +549,13 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
     log_debug(f"🔄 [Thread {thread_id}] Starting {case_name}")
     start_time = time.time()
+
+    # Call on_case_start callback
+    if callbacks and 'on_case_start' in callbacks:
+        try:
+            callbacks['on_case_start'](case_index, len(case_info["total_cases"]), var_combo)
+        except Exception as e:
+            log_warning(f"⚠️  Error in on_case_start callback: {e}")
 
     # Update spinner to show case is running
     if spinner:
@@ -959,6 +967,14 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     else:
         log_debug(f"🔍 [Thread {thread_id}] {case_name}: Temporary directory preserved for inspection: {tmp_dir}")
 
+    # Call on_case_complete callback
+    if callbacks and 'on_case_complete' in callbacks:
+        try:
+            status = result.get("status", "unknown")
+            callbacks['on_case_complete'](case_index, len(case_info["total_cases"]), var_combo, status, result)
+        except Exception as e:
+            log_warning(f"⚠️  Error in on_case_complete callback: {e}")
+
     return result
 
 
@@ -966,7 +982,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir: Path,
                       calculators: List[str], model: Dict, original_input_was_dir: bool,
                       var_names: List[str], output_keys: List[str], original_cwd: str = None,
-                      has_input_variables: bool = True) -> List[Dict[str, Any]]:
+                      has_input_variables: bool = True, callbacks: Optional[Dict[str, callable]] = None) -> List[Dict[str, Any]]:
     """
     Run multiple cases in parallel across available calculators
 
@@ -980,6 +996,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         var_names: List of variable names
         output_keys: List of output keys
         has_input_variables: Whether input_variables dict is non-empty
+        callbacks: Optional dict of callback functions for progress monitoring
 
     Returns:
         List of case results in the same order as var_combinations
@@ -1021,7 +1038,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
             "total_cases": var_combinations,
             "original_cwd": original_cwd,
             "spinner": spinner,  # Add spinner instance
-            "has_input_variables": has_input_variables  # Add flag for directory structure
+            "has_input_variables": has_input_variables,  # Add flag for directory structure
+            "callbacks": callbacks  # Add callbacks for progress monitoring
         }
         case_infos.append(case_info)
         case_name = ",".join(f"{k}={v}" for k, v in var_combo.items()) if len(var_combinations) > 1 else "single case"
@@ -1090,6 +1108,13 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                         log_progress(f"📊 Progress: {completed_count}/{len(var_combinations)} cases completed "
                                f"({completed_count/len(var_combinations)*100:.1f}%), "
                                f"ETA: {format_time(estimated_remaining)}")
+
+                        # Call on_progress callback
+                        if callbacks and 'on_progress' in callbacks:
+                            try:
+                                callbacks['on_progress'](completed_count, len(var_combinations), estimated_remaining)
+                            except Exception as e:
+                                log_warning(f"⚠️  Error in on_progress callback: {e}")
 
         elapsed = time.time() - start_time
         if is_interrupted():
@@ -1163,6 +1188,13 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                                            f"({progress_pct:.1f}%), ETA: {format_time(estimated_remaining)}")
                                 else:
                                     log_debug(f"🏁 Task {index} completed successfully ({completed_count}/{len(var_combinations)})")
+
+                                # Call on_progress callback
+                                if callbacks and 'on_progress' in callbacks:
+                                    try:
+                                        callbacks['on_progress'](completed_count, len(var_combinations), estimated_remaining)
+                                    except Exception as e:
+                                        log_warning(f"⚠️  Error in on_progress callback: {e}")
                             else:
                                 log_debug(f"🏁 Task {index} completed successfully ({completed_count}/{len(var_combinations)})")
                         else:
