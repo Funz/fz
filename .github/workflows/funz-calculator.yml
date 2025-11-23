@@ -78,24 +78,15 @@ jobs:
       run: |
         cd ${{ github.workspace }}/funz-calculator/dist
 
-        # Create simple wrapper scripts for execution
-        cat > run_shell.sh << 'EOF'
-        #!/bin/bash
-        # Simple shell script runner
-        bash "$@"
-        EOF
-        chmod +x run_shell.sh
-
         # Create configuration for port 5555
         # NOTE: Root element must be <CALCULATOR> (uppercase) per Calculator.java:ELEM_CALCULATOR
-        # Using simple script executables without plugin JARs
+        # Minimal configuration: just CODE elements, no HOST (for local execution)
         cat > calculator-5555.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <CALCULATOR name="calc-5555" port="5555" spool="spool-5555">
           <CODE>bash</CODE>
           <CODE>sh</CODE>
           <CODE>shell</CODE>
-          <HOST>127.0.0.1</HOST>
         </CALCULATOR>
         EOF
 
@@ -106,7 +97,6 @@ jobs:
           <CODE>bash</CODE>
           <CODE>sh</CODE>
           <CODE>shell</CODE>
-          <HOST>127.0.0.1</HOST>
         </CALCULATOR>
         EOF
 
@@ -117,7 +107,6 @@ jobs:
           <CODE>bash</CODE>
           <CODE>sh</CODE>
           <CODE>shell</CODE>
-          <HOST>127.0.0.1</HOST>
         </CALCULATOR>
         EOF
 
