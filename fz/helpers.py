@@ -12,9 +12,113 @@ from typing import Dict, List, Tuple, Union, Any, Optional
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .logging import log_debug, log_info, log_warning, log_error, log_progress, get_log_level, LogLevel
+import pandas as pd
+
+from .logging import log_debug, log_info, log_warning, log_error, log_progress
 from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
+
+
+def _get_windows_short_path(path: str) -> str:
+    r"""
+    Convert a Windows path with spaces to its short (8.3) name format.
+
+    This is necessary because Python's subprocess module on Windows doesn't
+    properly handle spaces in the executable parameter when using shell=True.
+
+    Args:
+        path: Windows file path
+
+    Returns:
+        Short format path (e.g., C:\PROGRA~1\...) or original path if conversion fails
+    """
+    if not path or ' ' not in path:
+        return path
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        GetShortPathName = ctypes.windll.kernel32.GetShortPathNameW
+        GetShortPathName.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        GetShortPathName.restype = wintypes.DWORD
+
+        buffer = ctypes.create_unicode_buffer(260)
+        GetShortPathName(path, buffer, 260)
+        short_path = buffer.value
+
+        if short_path:
+            log_debug(f"Converted path with spaces: {path} -> {short_path}")
+            return short_path
+    except Exception as e:
+        log_debug(f"Failed to get short path for {path}: {e}")
+
+    return path
+
+
+def get_windows_bash_executable() -> Optional[str]:
+    """
+    Get the bash executable path on Windows.
+
+    This function determines the appropriate bash executable to use on Windows
+    by checking both the system PATH and common installation locations.
+
+    Priority order:
+    1. Bash in system/user PATH (from MSYS2, Git Bash, WSL, Cygwin, etc.)
+    2. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred)
+    3. Git for Windows bash
+    4. Cygwin bash
+    5. WSL bash
+    6. win-bash
+
+    Returns:
+        Optional[str]: Path to bash executable if found on Windows, None otherwise.
+                      Returns None if not on Windows or if bash is not found.
+    """
+    if platform.system() != "Windows":
+        return None
+
+    # Try system/user PATH first
+    bash_in_path = shutil.which("bash")
+    if bash_in_path:
+        log_debug(f"Using bash from PATH: {bash_in_path}")
+        # Convert to short name if path contains spaces
+        return _get_windows_short_path(bash_in_path)
+
+    # Check common bash installation paths, prioritizing MSYS2
+    # Include both short names (8.3) and long names to handle various Git installations
+    bash_paths = [
+        # MSYS2 bash (preferred - provides complete Unix environment)
+        r"C:\msys64\usr\bin\bash.exe",
+        # Git for Windows with short names (always works)
+        r"C:\Progra~1\Git\bin\bash.exe",
+        r"C:\Progra~2\Git\bin\bash.exe",
+        # Git for Windows with long names (may have spaces issue, will be converted)
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\bin\bash.exe",
+        # Also check usr/bin for newer Git for Windows
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
+        # Cygwin bash (alternative Unix environment)
+        r"C:\cygwin64\bin\bash.exe",
+        r"C:\cygwin\bin\bash.exe",
+        # WSL bash (almost always available on modern Windows)
+        r"C:\Windows\System32\bash.exe",
+        # win-bash
+        r"C:\win-bash\bin\bash.exe",
+    ]
+
+    for bash_path in bash_paths:
+        if os.path.exists(bash_path):
+            log_debug(f"Using bash at: {bash_path}")
+            # Convert to short name if path contains spaces
+            return _get_windows_short_path(bash_path)
+
+    # No bash found
+    log_warning(
+        "Bash not found on Windows. Commands may fail if they use bash-specific syntax."
+    )
+    return None
 
 
 @contextmanager
@@ -40,7 +144,6 @@ def fz_temporary_directory(session_cwd=None):
     fz_tmp_base.mkdir(parents=True, exist_ok=True)
     
     # Create unique temp directory name
-    pid = os.getpid()
     unique_id = uuid.uuid4().hex[:12]
     timestamp = int(time.time())
     temp_name = f"fz_temp_{unique_id}_{timestamp}"
@@ -119,30 +222,57 @@ def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, res
     return tmp_dir, result_dir, case_name
 
 
-def generate_variable_combinations(input_variables: Dict) -> List[Dict]:
+def generate_variable_combinations(input_variables: Union[Dict, Any]) -> List[Dict]:
     """
     Generate variable combinations from input variables
-    
-    Converts input variables dict into a list of variable combinations.
-    If any value is a list, generates the cartesian product of all variables.
-    Single values are treated as single-element lists.
-    
+
+    Supports two input formats:
+    1. Dict: Creates Cartesian product (full factorial design)
+       - If any value is a list, generates the cartesian product of all variables
+       - Single values are treated as single-element lists
+
+    2. DataFrame: Non-factorial design
+       - Each row represents one case
+       - Column names become variable names
+       - Allows arbitrary combinations of values
+
     Args:
-        input_variables: Dict of variable values or lists of values
-        
+        input_variables: Dict of variable values/lists OR pandas DataFrame
+
     Returns:
         List of variable combination dicts
-        
-    Example:
-        >>> generate_variable_combinations({"x": [1, 2], "y": 3})
-        [{"x": 1, "y": 3}, {"x": 2, "y": 3}]
-        
+
+    Examples:
+        Dict (factorial design):
+        >>> generate_variable_combinations({"x": [1, 2], "y": [3, 4]})
+        [{"x": 1, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 3}, {"x": 2, "y": 4}]
+
         >>> generate_variable_combinations({"x": 1, "y": 2})
         [{"x": 1, "y": 2}]
+
+        DataFrame (non-factorial design):
+        >>> df = pd.DataFrame({"x": [1, 2, 3], "y": [10, 10, 20]})
+        >>> generate_variable_combinations(df)
+        [{"x": 1, "y": 10}, {"x": 2, "y": 10}, {"x": 3, "y": 20}]
     """
+    # Check if input is a pandas DataFrame
+    if isinstance(input_variables, pd.DataFrame):
+        # Each row is one case (non-factorial design)
+        var_combinations = []
+        for _, row in input_variables.iterrows():
+            var_combinations.append(row.to_dict())
+
+        log_info(f"📊 DataFrame input detected: {len(var_combinations)} cases (non-factorial design)")
+        return var_combinations
+
+    # Original dict behavior (factorial design)
+    if not isinstance(input_variables, dict):
+        # If not dict and not DataFrame, raise error
+        raise TypeError(f"input_variables must be a dict or pandas DataFrame, got {type(input_variables)}")
+
     var_names = list(input_variables.keys())
     has_lists = any(isinstance(v, list) for v in input_variables.values())
-    
+
     if has_lists:
         list_values = []
         for var in var_names:
@@ -151,13 +281,13 @@ def generate_variable_combinations(input_variables: Dict) -> List[Dict]:
                 list_values.append(val)
             else:
                 list_values.append([val])
-        
+
         var_combinations = [
             dict(zip(var_names, combo)) for combo in itertools.product(*list_values)
         ]
     else:
         var_combinations = [input_variables]
-    
+
     return var_combinations
 
 
@@ -328,14 +458,14 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
 def get_calculator_manager():
     """
     Get or create the global calculator manager instance
-    
+
     Returns:
         CalculatorManager instance
     """
     global _calculator_manager
     if _calculator_manager is None:
-        from .core import CalculatorManager
-        _calculator_manager = CalculatorManager()
+        from .runners import _calculator_manager as calc_mgr
+        _calculator_manager = calc_mgr
     return _calculator_manager
 
 
@@ -498,7 +628,6 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         "calculator_uri": "multiple_failed"
     }
 
-    used_calculator_uri = final_error.get("calculator_uri", "unknown")
     log_error(f"❌ [Thread {thread_id}] Case {case_index}: All {len(attempted_calculator_ids)} calculator attempts failed")
     # Convert calculator IDs back to URIs for logging
     attempted_uris = [calc_mgr.get_original_uri(calc_id) for calc_id in attempted_calculator_ids]
@@ -520,7 +649,6 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     Returns:
         Dict with case results
     """
-    from .runners import select_calculator_for_case, run_single_case_calculation
     from .io import resolve_cache_paths, find_cache_match
     from .core import fzo
 
@@ -605,12 +733,19 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                     # Validate that cached outputs don't contain None values
                     try:
                         cached_output = fzo(result_dir, model)
-                        output_keys = list(model.get("output", {}).keys())
+
+                        # Get all output columns (including flattened dict columns)
+                        # We use all keys from cached_output to capture flattened dict columns
+                        all_output_keys = list(cached_output.keys()) if hasattr(cached_output, 'keys') else cached_output.columns.tolist()
+
+                        # Filter out metadata columns
+                        metadata_cols = ['path']
+                        output_columns = [k for k in all_output_keys if k not in metadata_cols]
 
                         # Check if any expected output is None
                         # Extract scalar values properly from DataFrame/dict returned by fzo
                         none_keys = []
-                        for key in output_keys:
+                        for key in output_columns:
                             value = cached_output.get(key)
                             # Extract scalar from pandas Series or list
                             if hasattr(value, 'iloc'):
@@ -814,7 +949,17 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
             result_output = fzo(result_dir, model)
             log_debug(f"🔄 [Thread {thread_id}] {case_name}: Parsed output: {list(result_output.keys())}")
-            for key in output_keys:
+
+            # Extract all columns from fzo result (includes flattened dict columns)
+            # We use all keys from result_output instead of just output_keys to capture
+            # flattened dict columns (e.g., if "stats" was a dict, we now have "min", "max", etc.)
+            all_output_keys = list(result_output.keys()) if hasattr(result_output, 'keys') else result_output.columns.tolist()
+
+            # Filter out metadata columns (path, etc.) to only get output values
+            metadata_cols = ['path']
+            output_columns = [k for k in all_output_keys if k not in metadata_cols]
+
+            for key in output_columns:
                 value = result_output.get(key)
                 # Extract scalar from pandas Series if applicable
                 if hasattr(value, 'iloc'):
@@ -1069,7 +1214,6 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                 # Progress tracking for multiple cases (only if spinner is disabled)
                 if len(var_combinations) > 1 and not spinner.enabled:
                     completed_count = i + 1
-                    case_elapsed = time.time() - case_start_time
                     total_elapsed = time.time() - start_time
 
                     # Estimate remaining time based on average time per case
@@ -1245,7 +1389,11 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     input_path = Path(input_path)
 
     # Determine if input_variables is non-empty
-    has_input_variables = bool(input_variables)
+    # Handle both dict and DataFrame input types
+    if isinstance(input_variables, pd.DataFrame):
+        has_input_variables = not input_variables.empty
+    else:
+        has_input_variables = bool(input_variables)
 
     # Ensure main results directory exists
     resultsdir.mkdir(parents=True, exist_ok=True)

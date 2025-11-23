@@ -407,7 +407,6 @@ class ShellPathResolver:
                 pattern = r'\b' + re.escape(cmd) + r'\b'
                 # Use a lambda function to properly handle backslashes in the replacement
                 modified = re.sub(pattern, lambda m: resolved_path, modified)
-                #log_debug(f"Replaced '{cmd}' with '{resolved_path}' in command string")
 
         return modified
 
