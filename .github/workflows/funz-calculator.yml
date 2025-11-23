@@ -78,14 +78,23 @@ jobs:
       run: |
         cd ${{ github.workspace }}/funz-calculator/dist
 
+        # Create simple wrapper scripts for execution
+        cat > run_shell.sh << 'EOF'
+        #!/bin/bash
+        # Simple shell script runner
+        bash "$@"
+        EOF
+        chmod +x run_shell.sh
+
         # Create configuration for port 5555
         # NOTE: Root element must be <CALCULATOR> (uppercase) per Calculator.java:ELEM_CALCULATOR
+        # Using simple script executables without plugin JARs
         cat > calculator-5555.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <CALCULATOR name="calc-5555" port="5555" spool="spool-5555">
-          <CODE cplugin="shell">bash</CODE>
-          <CODE cplugin="R">Rscript</CODE>
-          <CODE cplugin="Python">python3</CODE>
+          <CODE>bash</CODE>
+          <CODE>sh</CODE>
+          <CODE>shell</CODE>
           <HOST>127.0.0.1</HOST>
         </CALCULATOR>
         EOF
@@ -94,9 +103,9 @@ jobs:
         cat > calculator-5556.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <CALCULATOR name="calc-5556" port="5556" spool="spool-5556">
-          <CODE cplugin="shell">bash</CODE>
-          <CODE cplugin="R">Rscript</CODE>
-          <CODE cplugin="Python">python3</CODE>
+          <CODE>bash</CODE>
+          <CODE>sh</CODE>
+          <CODE>shell</CODE>
           <HOST>127.0.0.1</HOST>
         </CALCULATOR>
         EOF
@@ -105,9 +114,9 @@ jobs:
         cat > calculator-5557.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <CALCULATOR name="calc-5557" port="5557" spool="spool-5557">
-          <CODE cplugin="shell">bash</CODE>
-          <CODE cplugin="R">Rscript</CODE>
-          <CODE cplugin="Python">python3</CODE>
+          <CODE>bash</CODE>
+          <CODE>sh</CODE>
+          <CODE>shell</CODE>
           <HOST>127.0.0.1</HOST>
         </CALCULATOR>
         EOF
