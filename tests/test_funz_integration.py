@@ -2,51 +2,16 @@
 Integration tests for Funz calculator
 
 Tests real Funz calculator servers running on localhost.
-This test requires Funz calculator servers to be running on ports 5555, 5556, 5557.
+This test requires Funz calculator servers to be running (they announce via UDP).
 """
 import pytest
 import tempfile
 import time
-import socket
 from pathlib import Path
 import fz
 
 
-def check_port_available(port, timeout=5):
-    """Check if a port is available for connection"""
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            result = sock.connect_ex(('localhost', port))
-            sock.close()
-            if result == 0:
-                return True
-        except Exception:
-            pass
-        time.sleep(0.5)
-    return False
-
-
-@pytest.fixture(scope="module")
-def check_funz_calculators():
-    """Check that Funz calculators are running on expected ports"""
-    ports = [5555, 5556, 5557]
-
-    print("\nChecking Funz calculator availability...")
-    for port in ports:
-        available = check_port_available(port, timeout=10)
-        if available:
-            print(f"✓ Funz calculator on port {port} is available")
-        else:
-            pytest.skip(f"Funz calculator not available on port {port}. "
-                       "This test requires running Funz calculator servers.")
-
-    return ports
-
-
-def test_funz_sequential_simple_calculation(check_funz_calculators):
+def test_funz_sequential_simple_calculation():
     """
     Test sequential execution with a single Funz calculator
 
@@ -127,7 +92,7 @@ echo "result = $result" > output.txt
         print("✓ Sequential Funz calculation test passed")
 
 
-def test_funz_parallel_calculation(check_funz_calculators):
+def test_funz_parallel_calculation():
     """
     Test parallel execution with multiple Funz calculators
 
@@ -227,7 +192,7 @@ echo "product = $result" > output.txt
         print(f"✓ Parallel Funz calculation test passed ({elapsed_time:.2f}s for 9 cases)")
 
 
-def test_funz_error_handling(check_funz_calculators):
+def test_funz_error_handling():
     """
     Test that Funz calculator handles errors gracefully
     """
