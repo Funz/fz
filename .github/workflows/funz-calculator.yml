@@ -80,10 +80,13 @@ jobs:
 
         # Create configuration for port 5555
         # NOTE: Root element must be <CALCULATOR> (uppercase) per Calculator.java:ELEM_CALCULATOR
-        # The 'port' attribute on CALCULATOR makes it listen for TCP connections
+        # - 'port' attribute: TCP listening port for calculations
+        # - HOST element: mandatory, defines where calculator runs (localhost for local)
+        # Calculator announces via UDP, clients discover and connect via TCP
         cat > calculator-5555.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <CALCULATOR name="calc-5555" port="5555" spool="spool-5555">
+          <HOST name="localhost" />
           <CODE name="bash" command="/bin/bash" />
           <CODE name="sh" command="/bin/sh" />
           <CODE name="shell" command="/bin/bash" />
@@ -94,6 +97,7 @@ jobs:
         cat > calculator-5556.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <CALCULATOR name="calc-5556" port="5556" spool="spool-5556">
+          <HOST name="localhost" />
           <CODE name="bash" command="/bin/bash" />
           <CODE name="sh" command="/bin/sh" />
           <CODE name="shell" command="/bin/bash" />
@@ -104,6 +108,7 @@ jobs:
         cat > calculator-5557.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <CALCULATOR name="calc-5557" port="5557" spool="spool-5557">
+          <HOST name="localhost" />
           <CODE name="bash" command="/bin/bash" />
           <CODE name="sh" command="/bin/sh" />
           <CODE name="shell" command="/bin/bash" />
