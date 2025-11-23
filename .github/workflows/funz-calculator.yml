@@ -80,33 +80,36 @@ jobs:
 
         # Create configuration for port 5555
         # NOTE: Root element must be <CALCULATOR> (uppercase) per Calculator.java:ELEM_CALCULATOR
-        # Minimal configuration: just CODE elements, no HOST (for local execution)
+        # HOST and CODE use attributes, not text content
         cat > calculator-5555.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
-        <CALCULATOR name="calc-5555" port="5555" spool="spool-5555">
-          <CODE>bash</CODE>
-          <CODE>sh</CODE>
-          <CODE>shell</CODE>
+        <CALCULATOR name="calc-5555" spool="spool-5555">
+          <HOST name="127.0.0.1" port="5555" />
+          <CODE name="bash" command="/bin/bash" />
+          <CODE name="sh" command="/bin/sh" />
+          <CODE name="shell" command="/bin/bash" />
         </CALCULATOR>
         EOF
 
         # Create configuration for port 5556
         cat > calculator-5556.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
-        <CALCULATOR name="calc-5556" port="5556" spool="spool-5556">
-          <CODE>bash</CODE>
-          <CODE>sh</CODE>
-          <CODE>shell</CODE>
+        <CALCULATOR name="calc-5556" spool="spool-5556">
+          <HOST name="127.0.0.1" port="5556" />
+          <CODE name="bash" command="/bin/bash" />
+          <CODE name="sh" command="/bin/sh" />
+          <CODE name="shell" command="/bin/bash" />
         </CALCULATOR>
         EOF
 
         # Create configuration for port 5557
         cat > calculator-5557.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
-        <CALCULATOR name="calc-5557" port="5557" spool="spool-5557">
-          <CODE>bash</CODE>
-          <CODE>sh</CODE>
-          <CODE>shell</CODE>
+        <CALCULATOR name="calc-5557" spool="spool-5557">
+          <HOST name="127.0.0.1" port="5557" />
+          <CODE name="bash" command="/bin/bash" />
+          <CODE name="sh" command="/bin/sh" />
+          <CODE name="shell" command="/bin/bash" />
         </CALCULATOR>
         EOF
 
