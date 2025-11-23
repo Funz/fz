@@ -268,7 +268,7 @@ jobs:
                 {"x": [3]},
                 model,
                 calculators=calculator_uri,
-                results=str(Path(tmpdir) / "results")
+                results_dir=str(Path(tmpdir) / "results")
             )
 
             print(f"\\nResults: {results}")
@@ -321,7 +321,7 @@ jobs:
                 {"x": [1, 2, 3, 4]},
                 model,
                 calculators=[calculator_uri, calculator_uri],
-                results=str(Path(tmpdir) / "results")
+                results_dir=str(Path(tmpdir) / "results")
             )
 
             print(f"\\nResults: {results}")
@@ -380,7 +380,7 @@ jobs:
                     f"slurm://debug/bash {script_path}",
                     f"slurm://compute/bash {script_path}"
                 ],
-                results=str(Path(tmpdir) / "results")
+                results_dir=str(Path(tmpdir) / "results")
             )
 
             print(f"\\nResults: {results}")
