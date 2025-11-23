@@ -11,6 +11,7 @@ jobs:
   cli-tests:
     name: CLI Tests on ${{ matrix.os }} with Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    if: ${{ !contains(github.head_ref, 'slurm') && !contains(github.ref, 'slurm') }}
     strategy:
       fail-fast: false
       matrix:

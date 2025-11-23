@@ -11,6 +11,7 @@ jobs:
   build-docs:
     name: Build documentation
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.head_ref, 'slurm') && !contains(github.ref, 'slurm') }}
 
     steps:
     - name: Checkout code

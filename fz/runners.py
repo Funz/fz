@@ -287,7 +287,7 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
     else:
         uri_part = slurm_uri
 
-    # Split to find the partition and script (everything after last /)
+    # Split to find the partition and script (everything after FIRST /)
     # Format: [user[:password]@host[:port]:]partition/script
     if "/" not in uri_part:
         raise ValueError(
@@ -295,10 +295,11 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
             "Expected format: slurm://[user@host:]partition/script"
         )
 
-    # Split on last / to separate partition/connection from script
-    last_slash_idx = uri_part.rfind("/")
-    partition_part = uri_part[:last_slash_idx]
-    script = uri_part[last_slash_idx + 1:]
+    # Split on FIRST / to separate partition/connection from script
+    # This is important because script may contain / characters in the path
+    first_slash_idx = uri_part.find("/")
+    partition_part = uri_part[:first_slash_idx]
+    script = uri_part[first_slash_idx + 1:]
 
     if not script:
         raise ValueError(

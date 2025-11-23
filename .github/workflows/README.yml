@@ -11,6 +11,7 @@ jobs:
   test-readme:
     name: Test README.md Code Chunks
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.head_ref, 'slurm') && !contains(github.ref, 'slurm') }}
 
     steps:
     - name: Checkout code

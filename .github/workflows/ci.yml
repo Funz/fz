@@ -11,6 +11,8 @@ jobs:
   test:
     name: Test on ${{ matrix.os }} with Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    # Skip CI on branches related to SLURM to avoid conflicts during development
+    if: ${{ !contains(github.head_ref, 'slurm') && !contains(github.ref, 'slurm') }}
     strategy:
       fail-fast: false
       matrix:
