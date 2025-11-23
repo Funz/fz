@@ -79,48 +79,37 @@ jobs:
         cd ${{ github.workspace }}/funz-calculator/dist
 
         # Create configuration for port 5555
+        # NOTE: Root element must be <CALCULATOR> (uppercase) per Calculator.java:ELEM_CALCULATOR
         cat > calculator-5555.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
-        <calculator>
-          <host>127.0.0.1</host>
-          <port>5555</port>
-          <spool>spool-5555</spool>
-          <codes>
-            <code name="R">Rscript</code>
-            <code name="Python">python3</code>
-            <code name="shell">bash</code>
-          </codes>
-        </calculator>
+        <CALCULATOR name="calc-5555" port="5555" spool="spool-5555">
+          <CODE cplugin="shell">bash</CODE>
+          <CODE cplugin="R">Rscript</CODE>
+          <CODE cplugin="Python">python3</CODE>
+          <HOST>127.0.0.1</HOST>
+        </CALCULATOR>
         EOF
 
         # Create configuration for port 5556
         cat > calculator-5556.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
-        <calculator>
-          <host>127.0.0.1</host>
-          <port>5556</port>
-          <spool>spool-5556</spool>
-          <codes>
-            <code name="R">Rscript</code>
-            <code name="Python">python3</code>
-            <code name="shell">bash</code>
-          </codes>
-        </calculator>
+        <CALCULATOR name="calc-5556" port="5556" spool="spool-5556">
+          <CODE cplugin="shell">bash</CODE>
+          <CODE cplugin="R">Rscript</CODE>
+          <CODE cplugin="Python">python3</CODE>
+          <HOST>127.0.0.1</HOST>
+        </CALCULATOR>
         EOF
 
         # Create configuration for port 5557
         cat > calculator-5557.xml << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
-        <calculator>
-          <host>127.0.0.1</host>
-          <port>5557</port>
-          <spool>spool-5557</spool>
-          <codes>
-            <code name="R">Rscript</code>
-            <code name="Python">python3</code>
-            <code name="shell">bash</code>
-          </codes>
-        </calculator>
+        <CALCULATOR name="calc-5557" port="5557" spool="spool-5557">
+          <CODE cplugin="shell">bash</CODE>
+          <CODE cplugin="R">Rscript</CODE>
+          <CODE cplugin="Python">python3</CODE>
+          <HOST>127.0.0.1</HOST>
+        </CALCULATOR>
         EOF
 
         # Create spool directories
@@ -129,14 +118,19 @@ jobs:
         echo "Calculator configurations created"
         ls -la calculator-*.xml
 
+        echo "=== Configuration content (port 5555) ==="
+        cat calculator-5555.xml
+
     - name: Start Funz calculators (3 instances)
       run: |
         cd ${{ github.workspace }}/funz-calculator/dist
 
         # Build classpath using the same pattern as FunzDaemon_start.sh
+        echo "Building classpath..."
         LIB=""
         for jar in lib/funz-core-*.jar lib/funz-calculator-*.jar lib/commons-*.jar lib/ftpserver-*.jar lib/ftplet-*.jar lib/mina-*.jar lib/sigar-*.jar lib/slf4j-*.jar; do
           if [ -f "$jar" ]; then
+            echo "  Adding to classpath: $jar"
             LIB="${LIB}:${jar}"
           fi
         done
@@ -146,30 +140,48 @@ jobs:
 
         MAIN="org.funz.calculator.Calculator"
 
-        echo "Starting calculator on port 5555..."
+        echo ""
+        echo "=== Starting calculator on port 5555 ==="
+        echo "Command: java -Dapp.home=. -classpath \$LIB $MAIN file:calculator-5555.xml"
         nohup java -Dapp.home=. -classpath "$LIB" $MAIN file:calculator-5555.xml > calculator_5555.log 2>&1 &
         PID1=$!
         echo $PID1 > calculator_5555.pid
         echo "Started calculator on port 5555 (PID: $PID1)"
         echo "CALC_PID_5555=$PID1" >> $GITHUB_ENV
 
-        echo "Starting calculator on port 5556..."
+        # Give it a moment to start and check log
+        sleep 2
+        echo "=== Initial log output (port 5555) ==="
+        head -20 calculator_5555.log || echo "No log yet"
+        echo ""
+
+        echo "=== Starting calculator on port 5556 ==="
         nohup java -Dapp.home=. -classpath "$LIB" $MAIN file:calculator-5556.xml > calculator_5556.log 2>&1 &
         PID2=$!
         echo $PID2 > calculator_5556.pid
         echo "Started calculator on port 5556 (PID: $PID2)"
         echo "CALC_PID_5556=$PID2" >> $GITHUB_ENV
 
-        echo "Starting calculator on port 5557..."
+        sleep 2
+        echo "=== Initial log output (port 5556) ==="
+        head -20 calculator_5556.log || echo "No log yet"
+        echo ""
+
+        echo "=== Starting calculator on port 5557 ==="
         nohup java -Dapp.home=. -classpath "$LIB" $MAIN file:calculator-5557.xml > calculator_5557.log 2>&1 &
         PID3=$!
         echo $PID3 > calculator_5557.pid
         echo "Started calculator on port 5557 (PID: $PID3)"
         echo "CALC_PID_5557=$PID3" >> $GITHUB_ENV
 
-        # Wait for calculators to start
-        echo "Waiting for calculators to start..."
-        sleep 10
+        sleep 2
+        echo "=== Initial log output (port 5557) ==="
+        head -20 calculator_5557.log || echo "No log yet"
+        echo ""
+
+        # Wait for calculators to fully initialize
+        echo "Waiting for calculators to fully initialize..."
+        sleep 5
 
         # Check if processes are running
         for pid in $PID1 $PID2 $PID3; do
