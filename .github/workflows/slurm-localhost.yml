@@ -259,13 +259,13 @@ jobs:
                 }
             }
 
-            # Run calculation with SLURM
+            # Run calculation with SLURM (single scalar value)
             calculator_uri = f"slurm://debug/bash {script_path}"
             print(f"Calculator URI: {calculator_uri}")
 
             results = fzr(
                 str(input_file),
-                {"x": [3]},
+                {"x": 3},  # Test with scalar value instead of list
                 model,
                 calculators=calculator_uri,
                 results_dir=str(Path(tmpdir) / "results")
@@ -273,10 +273,15 @@ jobs:
 
             print(f"\\nResults: {results}")
 
-            # Verify results
+            # Verify results (should return a single dict for scalar input)
             if hasattr(results, 'to_dict'):
+                # If pandas DataFrame, get first row
                 results_dict = results.to_dict('records')[0]
+            elif isinstance(results, list):
+                # If list, get first element
+                results_dict = results[0]
             else:
+                # Direct dict
                 results_dict = results
 
             assert results_dict['x'] == 3, f"Expected x=3, got {results_dict['x']}"
