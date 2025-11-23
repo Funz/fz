@@ -349,9 +349,10 @@ jobs:
 
             for r in results_list:
                 x_val = r['x']
-                expected_result = str(x_val * x_val)
+                expected_result = x_val * x_val
                 actual_result = r['result']
-                assert actual_result == expected_result, f"For x={x_val}, expected result={expected_result}, got {actual_result}"
+                # Convert both to same type for comparison (result may be int or string)
+                assert str(actual_result) == str(expected_result), f"For x={x_val}, expected result={expected_result}, got {actual_result}"
 
             print("\\n✓ Parallel SLURM test passed!")
         PYTHON
@@ -408,9 +409,10 @@ jobs:
 
             for r in results_list:
                 x_val = r['x']
-                expected_result = str(x_val * x_val)
+                expected_result = x_val * x_val
                 actual_result = r['result']
-                assert actual_result == expected_result, f"For x={x_val}, expected result={expected_result}, got {actual_result}"
+                # Convert both to same type for comparison (result may be int or string)
+                assert str(actual_result) == str(expected_result), f"For x={x_val}, expected result={expected_result}, got {actual_result}"
 
             print("\\n✓ Multiple partition test passed!")
         PYTHON
