@@ -16,6 +16,9 @@ jobs:
       matrix:
         python-version: ['3.11']
 
+    env:
+      FZ_LOG_LEVEL: DEBUG
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
