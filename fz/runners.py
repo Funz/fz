@@ -1170,16 +1170,20 @@ def run_funz_calculation(
     try:
         # Parse Funz URI: funz://:<port>/<code>
         # Format: funz://[host]:<port>/<code>
+        log_debug(f"Parsing Funz URI: {funz_uri}")
+
         if not funz_uri.startswith("funz://"):
             return {"status": "error", "error": "Invalid Funz URI format"}
 
         uri_part = funz_uri[7:]  # Remove "funz://"
+        log_debug(f"URI part after 'funz://': {uri_part}")
 
         # Parse host:port/code
         if "/" not in uri_part:
             return {"status": "error", "error": "Funz URI must specify code: funz://:<port>/<code>"}
 
         connection_part, code = uri_part.split("/", 1)
+        log_debug(f"Connection part: {connection_part}, Code: {code}")
 
         # Parse host and port
         host = "localhost"  # Default to localhost
@@ -1192,6 +1196,7 @@ def run_funz_calculation(
                 port_str = connection_part[1:]
                 try:
                     port = int(port_str)
+                    log_debug(f"Parsed port (localhost): {port}")
                 except ValueError:
                     return {"status": "error", "error": f"Invalid port number: {port_str}"}
             else:
@@ -1199,6 +1204,7 @@ def run_funz_calculation(
                 host, port_str = connection_part.rsplit(":", 1)
                 try:
                     port = int(port_str)
+                    log_debug(f"Parsed host:port: {host}:{port}")
                 except ValueError:
                     return {"status": "error", "error": f"Invalid port number: {port_str}"}
         else:
@@ -1207,113 +1213,151 @@ def run_funz_calculation(
         if not code:
             return {"status": "error", "error": "Funz URI must specify code"}
 
-        log_info(f"Connecting to Funz server: {host}:{port}")
-        log_info(f"Code: {code}")
+        log_info(f"📡 Connecting to Funz server: {host}:{port}")
+        log_info(f"🔧 Code: {code}")
+        log_debug(f"Working directory: {working_dir}")
+        log_debug(f"Timeout: {timeout}s")
 
         # Create socket connection
+        log_debug(f"Creating TCP socket connection to {host}:{port}")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(min(timeout, 30))  # Connection timeout
+        connection_timeout = min(timeout, 30)
+        sock.settimeout(connection_timeout)
+        log_debug(f"Socket timeout set to {connection_timeout}s")
 
         try:
+            log_debug(f"Attempting TCP connection to {host}:{port}...")
             sock.connect((host, port))
-            log_info(f"Connected to Funz server at {host}:{port}")
+            log_info(f"✅ Connected to Funz server at {host}:{port}")
+            log_debug(f"Socket state: connected, local={sock.getsockname()}, remote={sock.getpeername()}")
 
             # Create buffered reader/writer
             sock_file = sock.makefile('rw', buffering=1, encoding='utf-8', newline='\n')
+            log_debug("Socket file created with UTF-8 encoding and line buffering")
 
             def send_message(*lines):
                 """Send a protocol message"""
+                log_debug(f"→ Sending message: {lines}")
                 for line in lines:
                     sock_file.write(str(line) + '\n')
                 sock_file.write(END_OF_REQ + '\n')
                 sock_file.flush()
-                log_debug(f"Sent: {lines}")
+                log_debug(f"→ Message sent and flushed")
 
             def read_response():
                 """Read a protocol response until END_OF_REQ"""
                 response = []
+                line_count = 0
                 while True:
                     line = sock_file.readline().strip()
-                    log_debug(f"Received: {line}")
+                    line_count += 1
+                    log_debug(f"← Received line {line_count}: '{line}'")
 
                     if not line:
                         # Connection closed
+                        log_warning(f"⚠️  Connection closed by server (empty line received)")
                         return None, []
 
                     if line == END_OF_REQ:
+                        log_debug(f"← End of response marker received (total {line_count} lines)")
                         break
 
                     # Handle special responses
                     if line == RET_HEARTBEAT:
+                        log_debug("← Heartbeat received, ignoring")
                         continue  # Ignore heartbeats
 
                     if line == RET_INFO:
                         # Info message - read next line
                         info_line = sock_file.readline().strip()
-                        log_info(f"Funz info: {info_line}")
+                        log_info(f"ℹ️  Funz info: {info_line}")
                         continue
 
                     response.append(line)
 
                 if not response:
+                    log_debug("← Empty response received")
                     return None, []
 
+                log_debug(f"← Response parsed: status={response[0]}, lines={len(response)}")
                 return response[0], response
 
             # Step 1: Reserve calculator
-            log_info("Reserving calculator...")
+            log_info("🔒 Step 1: Reserving calculator...")
+            log_debug(f"Sending {METHOD_RESERVE} request")
             send_message(METHOD_RESERVE)
             ret, response = read_response()
 
             if ret != RET_YES:
                 error_msg = response[1] if len(response) > 1 else "Unknown error"
+                log_error(f"❌ Calculator reservation failed: {error_msg}")
+                log_debug(f"Full response: {response}")
                 return {"status": "error", "error": f"Failed to reserve calculator: {error_msg}"}
 
             # Get secret code from response (for authentication)
             secret_code = response[1] if len(response) > 1 else None
-            log_info(f"Calculator reserved, secret: {secret_code}")
+            log_info(f"✅ Calculator reserved successfully")
+            log_debug(f"Secret code: {secret_code}")
 
             try:
                 # Step 2: Upload input files
-                log_info("Uploading input files...")
-                for item in working_dir.iterdir():
-                    if item.is_file():
-                        # Send PUT_FILE request
-                        file_size = item.stat().st_size
-                        relative_path = item.name
+                log_info("📤 Step 2: Uploading input files...")
+                files_to_upload = [item for item in working_dir.iterdir() if item.is_file()]
+                log_debug(f"Found {len(files_to_upload)} files to upload")
 
-                        log_info(f"Uploading {relative_path} ({file_size} bytes)")
-                        send_message(METHOD_PUT_FILE, relative_path, file_size)
+                uploaded_count = 0
+                for item in files_to_upload:
+                    # Send PUT_FILE request
+                    file_size = item.stat().st_size
+                    relative_path = item.name
 
-                        # Wait for acknowledgment
-                        ret, _ = read_response()
-                        if ret != RET_YES:
-                            log_warning(f"Failed to upload {relative_path}")
-                            continue
+                    log_info(f"  📄 Uploading {relative_path} ({file_size} bytes)")
+                    log_debug(f"Sending {METHOD_PUT_FILE} request for {relative_path}")
+                    send_message(METHOD_PUT_FILE, relative_path, file_size)
 
-                        # Send file content
-                        with open(item, 'rb') as f:
-                            file_data = f.read()
-                            sock.sendall(file_data)
+                    # Wait for acknowledgment
+                    ret, ack_response = read_response()
+                    if ret != RET_YES:
+                        log_warning(f"❌ Failed to upload {relative_path}: {ack_response}")
+                        continue
 
-                        log_debug(f"Uploaded {relative_path}")
+                    log_debug(f"Server ready to receive {relative_path}")
+
+                    # Send file content
+                    with open(item, 'rb') as f:
+                        file_data = f.read()
+                        bytes_sent = sock.sendall(file_data)
+                        log_debug(f"Sent {len(file_data)} bytes of file data")
+
+                    uploaded_count += 1
+                    log_debug(f"✅ Successfully uploaded {relative_path}")
+
+                log_info(f"✅ Uploaded {uploaded_count}/{len(files_to_upload)} files")
 
                 # Step 3: Create new case (with variables if needed)
                 # For now, we'll use a simple case without variables
                 # In the future, this could be extended to support variable substitution
-                log_info("Creating new case...")
-                send_message(METHOD_NEW_CASE, "case_1")  # Simple case name
-                ret, _ = read_response()
+                log_info("📝 Step 3: Creating new case...")
+                case_name = "case_1"
+                log_debug(f"Sending {METHOD_NEW_CASE} request with case name: {case_name}")
+                send_message(METHOD_NEW_CASE, case_name)
+                ret, case_response = read_response()
 
                 if ret != RET_YES:
+                    log_error(f"❌ Failed to create new case: {case_response}")
                     return {"status": "error", "error": "Failed to create new case"}
 
+                log_info(f"✅ Case '{case_name}' created successfully")
+
                 # Step 4: Execute calculation
-                log_info(f"Executing code: {code}")
+                log_info(f"⚙️  Step 4: Executing calculation...")
+                log_info(f"  Code: {code}")
+                log_debug(f"Sending {METHOD_EXECUTE} request")
                 send_message(METHOD_EXECUTE, code)
 
                 # Read execution response (may include INFO messages)
                 execution_start = datetime.now()
+                log_debug(f"Execution started at {execution_start.isoformat()}")
                 ret, response = read_response()
 
                 # Check for interrupt during execution
@@ -1324,54 +1368,77 @@ def run_funz_calculation(
 
                 if ret != RET_YES:
                     error_msg = response[1] if len(response) > 1 else "Execution failed"
+                    log_error(f"❌ Execution failed: {error_msg}")
+                    log_debug(f"Full response: {response}")
                     return {"status": "failed", "error": error_msg}
 
                 execution_end = datetime.now()
                 execution_time = (execution_end - execution_start).total_seconds()
 
-                log_info(f"Execution completed in {execution_time:.2f}s")
+                log_info(f"✅ Execution completed in {execution_time:.2f}s")
+                log_debug(f"Execution ended at {execution_end.isoformat()}")
 
                 # Step 5: Download results
-                log_info("Downloading results...")
+                log_info("📥 Step 5: Downloading results...")
+                log_debug(f"Sending {METHOD_GET_ARCH} request")
                 send_message(METHOD_GET_ARCH)
 
                 # Read archive size
                 ret, response = read_response()
 
                 if ret != RET_YES:
+                    log_error(f"❌ Failed to get results archive: {response}")
                     return {"status": "error", "error": "Failed to get results archive"}
 
                 # Get archive size from response
                 archive_size = int(response[1]) if len(response) > 1 else 0
-                log_info(f"Archive size: {archive_size} bytes")
+                log_info(f"  Archive size: {archive_size} bytes ({archive_size/1024:.2f} KB)")
+                log_debug(f"Full response: {response}")
 
                 # Send sync acknowledgment
+                log_debug(f"Sending {RET_SYNC} acknowledgment")
                 send_message(RET_SYNC)
 
                 # Receive archive data
                 archive_data = b""
                 bytes_received = 0
+                chunk_count = 0
 
+                log_debug(f"Receiving archive data in chunks...")
                 while bytes_received < archive_size:
-                    chunk = sock.recv(min(4096, archive_size - bytes_received))
+                    chunk_size = min(4096, archive_size - bytes_received)
+                    chunk = sock.recv(chunk_size)
                     if not chunk:
+                        log_warning(f"⚠️  Connection closed before all data received ({bytes_received}/{archive_size} bytes)")
                         break
                     archive_data += chunk
                     bytes_received += len(chunk)
+                    chunk_count += 1
 
-                log_info(f"Downloaded {bytes_received} bytes")
+                    # Log progress every 100 chunks or at the end
+                    if chunk_count % 100 == 0 or bytes_received >= archive_size:
+                        progress = (bytes_received / archive_size * 100) if archive_size > 0 else 100
+                        log_debug(f"Download progress: {bytes_received}/{archive_size} bytes ({progress:.1f}%)")
+
+                log_info(f"✅ Downloaded {bytes_received} bytes in {chunk_count} chunks")
 
                 # Extract archive to working directory
                 if archive_data:
                     import zipfile
                     import io
 
+                    log_debug(f"Extracting ZIP archive ({len(archive_data)} bytes)")
                     try:
                         with zipfile.ZipFile(io.BytesIO(archive_data)) as zf:
+                            file_list = zf.namelist()
+                            log_debug(f"Archive contains {len(file_list)} files: {file_list}")
                             zf.extractall(working_dir)
-                            log_info(f"Extracted results to {working_dir}")
+                            log_info(f"✅ Extracted {len(file_list)} files to {working_dir}")
                     except Exception as e:
-                        log_warning(f"Failed to extract archive: {e}")
+                        log_error(f"❌ Failed to extract archive: {e}")
+                        log_debug(f"Archive data (first 100 bytes): {archive_data[:100]}")
+                else:
+                    log_warning("⚠️  No archive data received")
 
                 # Create log file
                 end_time = datetime.now()
@@ -1417,42 +1484,66 @@ def run_funz_calculation(
 
             finally:
                 # Step 6: Unreserve calculator
-                log_info("Unreserving calculator...")
+                log_info("🔓 Step 6: Unreserving calculator...")
                 try:
+                    log_debug(f"Sending {METHOD_UNRESERVE} request with secret: {secret_code}")
                     send_message(METHOD_UNRESERVE, secret_code if secret_code else "")
-                    read_response()  # Ignore response
+                    ret, unreserve_response = read_response()
+                    if ret == RET_YES:
+                        log_info("✅ Calculator unreserved successfully")
+                    else:
+                        log_warning(f"⚠️  Unreserve response: {unreserve_response}")
                 except Exception as e:
-                    log_warning(f"Failed to unreserve: {e}")
+                    log_warning(f"⚠️  Failed to unreserve calculator: {e}")
+                    log_debug(f"Unreserve error details: {type(e).__name__}: {str(e)}")
 
         finally:
+            log_debug("Closing socket connection...")
             try:
                 sock_file.close()
-            except:
-                pass
+                log_debug("Socket file closed")
+            except Exception as e:
+                log_debug(f"Error closing socket file: {e}")
 
             try:
                 sock.close()
-            except:
-                pass
+                log_debug("Socket closed")
+            except Exception as e:
+                log_debug(f"Error closing socket: {e}")
 
     except KeyboardInterrupt:
+        log_warning("⚠️  Calculation interrupted by user")
         return {
             "status": "interrupted",
             "error": "Funz calculation interrupted by user",
             "command": code if 'code' in locals() else funz_uri,
         }
 
-    except socket.timeout:
+    except socket.timeout as e:
+        log_error(f"❌ Connection timeout: {e}")
+        log_debug(f"Timeout details: host={host if 'host' in locals() else '?'}, port={port if 'port' in locals() else '?'}, timeout={timeout}s")
         return {
             "status": "timeout",
             "error": f"Connection timed out after {timeout} seconds",
             "command": code if 'code' in locals() else funz_uri,
         }
 
+    except socket.error as e:
+        log_error(f"❌ Socket error: {e}")
+        log_debug(f"Socket error details: {type(e).__name__}: {str(e)}")
+        log_debug(f"Connection info: host={host if 'host' in locals() else '?'}, port={port if 'port' in locals() else '?'}")
+        return {
+            "status": "error",
+            "error": f"Socket error: {str(e)}",
+            "command": code if 'code' in locals() else funz_uri,
+        }
+
     except Exception as e:
         import traceback
-        log_error(f"Funz calculation failed: {e}")
-        log_debug(traceback.format_exc())
+        log_error(f"❌ Funz calculation failed: {e}")
+        log_debug(f"Error type: {type(e).__name__}")
+        log_debug(f"Error details: {str(e)}")
+        log_debug(f"Full traceback:\n{traceback.format_exc()}")
         return {
             "status": "error",
             "error": f"Funz calculation failed: {str(e)}",
