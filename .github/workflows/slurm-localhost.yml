@@ -190,15 +190,20 @@ jobs:
     - name: Create test script
       run: |
         echo "Creating test calculation script..."
-        cat > /tmp/slurm_test_calc.sh <<'EOF'
+
+        # Create script in user home directory (accessible to SLURM jobs)
+        mkdir -p $HOME/fz_test
+        cat > $HOME/fz_test/slurm_calc.sh <<'EOF'
         #!/bin/bash
         # Simple test calculation script for SLURM
         set -e
 
-        # Read input file
-        if [ -f "input.txt" ]; then
-          echo "Processing input.txt"
-          cat input.txt
+        # Read input file (passed as argument or default to current dir)
+        INPUT_FILE="${1:-input.txt}"
+
+        echo "Processing input: $INPUT_FILE"
+        if [ -f "$INPUT_FILE" ]; then
+          cat "$INPUT_FILE"
         fi
 
         # Create output
@@ -206,12 +211,12 @@ jobs:
         echo "Hostname: $(hostname)" >> output.txt
         echo "Date: $(date)" >> output.txt
         echo "PWD: $(pwd)" >> output.txt
-        echo "Job ID: $SLURM_JOB_ID" >> output.txt
-        echo "Partition: $SLURM_JOB_PARTITION" >> output.txt
+        echo "Job ID: ${SLURM_JOB_ID:-none}" >> output.txt
+        echo "Partition: ${SLURM_JOB_PARTITION:-none}" >> output.txt
 
         # If input has variable x, square it
-        if grep -q "x = " input.txt 2>/dev/null; then
-          x=$(grep "x = " input.txt | awk '{print $3}')
+        if [ -f "$INPUT_FILE" ] && grep -q "x = " "$INPUT_FILE" 2>/dev/null; then
+          x=$(grep "x = " "$INPUT_FILE" | awk '{print $3}')
           result=$((x * x))
           echo "result = $result" >> output.txt
         fi
@@ -220,14 +225,16 @@ jobs:
         cat output.txt
         EOF
 
-        chmod +x /tmp/slurm_test_calc.sh
-        echo "✓ Test script created"
+        chmod +x $HOME/fz_test/slurm_calc.sh
+        echo "✓ Test script created at $HOME/fz_test/slurm_calc.sh"
 
     - name: Test SLURM calculator - Sequential execution
       run: |
         echo "Testing FZ with SLURM calculator (sequential)..."
+        SCRIPT_PATH="$HOME/fz_test/slurm_calc.sh"
+        echo "Using script: $SCRIPT_PATH"
 
-        python3 << 'PYTHON'
+        python3 << PYTHON
         import tempfile
         import os
         from pathlib import Path
@@ -237,28 +244,34 @@ jobs:
         print("Test 1: Sequential SLURM execution (single case)")
         print("=" * 60)
 
+        script_path = os.path.expanduser("~/fz_test/slurm_calc.sh")
+        print(f"Script path: {script_path}")
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create input template
             input_file = Path(tmpdir) / "input.txt"
-            input_file.write_text("x = ${x}\n")
+            input_file.write_text("x = \${x}\\n")
 
             # Define model
             model = {
                 "output": {
-                    "result": "grep 'result = ' output.txt | awk '{print $3}'"
+                    "result": "grep 'result = ' output.txt | awk '{print \$3}'"
                 }
             }
 
             # Run calculation with SLURM
+            calculator_uri = f"slurm://debug/bash {script_path}"
+            print(f"Calculator URI: {calculator_uri}")
+
             results = fzr(
                 str(input_file),
                 {"x": [3]},
                 model,
-                calculators="slurm://debug/bash /tmp/slurm_test_calc.sh",
+                calculators=calculator_uri,
                 results=str(Path(tmpdir) / "results")
             )
 
-            print(f"\nResults: {results}")
+            print(f"\\nResults: {results}")
 
             # Verify results
             if hasattr(results, 'to_dict'):
@@ -268,14 +281,14 @@ jobs:
 
             assert results_dict['x'] == 3, f"Expected x=3, got {results_dict['x']}"
             assert results_dict['result'] == '9', f"Expected result='9', got {results_dict['result']}"
-            print("\n✓ Sequential SLURM test passed!")
+            print("\\n✓ Sequential SLURM test passed!")
         PYTHON
 
     - name: Test SLURM calculator - Parallel execution
       run: |
         echo "Testing FZ with SLURM calculator (parallel)..."
 
-        python3 << 'PYTHON'
+        python3 << PYTHON
         import tempfile
         import os
         from pathlib import Path
@@ -285,32 +298,33 @@ jobs:
         print("Test 2: Parallel SLURM execution (multiple cases)")
         print("=" * 60)
 
+        script_path = os.path.expanduser("~/fz_test/slurm_calc.sh")
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create input template
             input_file = Path(tmpdir) / "input.txt"
-            input_file.write_text("x = ${x}\n")
+            input_file.write_text("x = \${x}\\n")
 
             # Define model
             model = {
                 "output": {
-                    "result": "grep 'result = ' output.txt | awk '{print $3}'"
+                    "result": "grep 'result = ' output.txt | awk '{print \$3}'"
                 }
             }
 
             # Run calculation with SLURM (multiple cases)
             # Use 2 parallel workers (2 SLURM calculators)
+            calculator_uri = f"slurm://debug/bash {script_path}"
+
             results = fzr(
                 str(input_file),
                 {"x": [1, 2, 3, 4]},
                 model,
-                calculators=[
-                    "slurm://debug/bash /tmp/slurm_test_calc.sh",
-                    "slurm://debug/bash /tmp/slurm_test_calc.sh"
-                ],
+                calculators=[calculator_uri, calculator_uri],
                 results=str(Path(tmpdir) / "results")
             )
 
-            print(f"\nResults: {results}")
+            print(f"\\nResults: {results}")
 
             # Verify results
             if hasattr(results, 'to_dict'):
@@ -326,14 +340,14 @@ jobs:
                 actual_result = r['result']
                 assert actual_result == expected_result, f"For x={x_val}, expected result={expected_result}, got {actual_result}"
 
-            print("\n✓ Parallel SLURM test passed!")
+            print("\\n✓ Parallel SLURM test passed!")
         PYTHON
 
     - name: Test SLURM calculator - Multiple partitions
       run: |
         echo "Testing FZ with SLURM calculator (multiple partitions)..."
 
-        python3 << 'PYTHON'
+        python3 << PYTHON
         import tempfile
         import os
         from pathlib import Path
@@ -343,15 +357,17 @@ jobs:
         print("Test 3: SLURM with multiple partitions")
         print("=" * 60)
 
+        script_path = os.path.expanduser("~/fz_test/slurm_calc.sh")
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create input template
             input_file = Path(tmpdir) / "input.txt"
-            input_file.write_text("x = ${x}\n")
+            input_file.write_text("x = \${x}\\n")
 
             # Define model
             model = {
                 "output": {
-                    "result": "grep 'result = ' output.txt | awk '{print $3}'"
+                    "result": "grep 'result = ' output.txt | awk '{print \$3}'"
                 }
             }
 
@@ -361,13 +377,13 @@ jobs:
                 {"x": [5, 6]},
                 model,
                 calculators=[
-                    "slurm://debug/bash /tmp/slurm_test_calc.sh",
-                    "slurm://compute/bash /tmp/slurm_test_calc.sh"
+                    f"slurm://debug/bash {script_path}",
+                    f"slurm://compute/bash {script_path}"
                 ],
                 results=str(Path(tmpdir) / "results")
             )
 
-            print(f"\nResults: {results}")
+            print(f"\\nResults: {results}")
 
             # Verify results
             if hasattr(results, 'to_dict'):
@@ -383,7 +399,7 @@ jobs:
                 actual_result = r['result']
                 assert actual_result == expected_result, f"For x={x_val}, expected result={expected_result}, got {actual_result}"
 
-            print("\n✓ Multiple partition test passed!")
+            print("\\n✓ Multiple partition test passed!")
         PYTHON
 
     - name: Show SLURM logs on failure
