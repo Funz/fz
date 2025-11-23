@@ -39,6 +39,12 @@ jobs:
         pip install pandas
         pip install pytest pytest-cov
 
+    - name: Clone funz-profile (required by funz-core)
+      run: |
+        cd ${{ github.workspace }}
+        git clone https://github.com/Funz/funz-profile.git
+        echo "FUNZ_PROFILE_HOME=${{ github.workspace }}/funz-profile" >> $GITHUB_ENV
+
     - name: Clone and build funz-core
       run: |
         cd ${{ github.workspace }}
