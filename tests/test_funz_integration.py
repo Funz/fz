@@ -64,8 +64,7 @@ echo "result = $result" > output.txt
             input_variables,
             model,
             calculators="funz://:5555/shell",  # Single calculator
-            results_dir=working_dir / "results_seq",
-            timeout=30
+            results_dir=working_dir / "results_seq"
         )
 
         print(f"\nResults: {results}")
@@ -154,8 +153,7 @@ echo "product = $result" > output.txt
                 "funz://:5556/shell",
                 "funz://:5557/shell"
             ],
-            results_dir=working_dir / "results_parallel",
-            timeout=60
+            results_dir=working_dir / "results_parallel"
         )
 
         elapsed_time = time.time() - start_time
@@ -233,8 +231,7 @@ exit 1
             input_variables,
             model,
             calculators="funz://:5555/shell",
-            results_dir=working_dir / "results_error",
-            timeout=15
+            results_dir=working_dir / "results_error"
         )
 
         print(f"\nResults: {results}")
