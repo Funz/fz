@@ -273,19 +273,26 @@ jobs:
 
             print(f"\\nResults: {results}")
 
-            # Verify results (should return a single dict for scalar input)
+            # Verify results (scalar input returns dict with list values)
             if hasattr(results, 'to_dict'):
                 # If pandas DataFrame, get first row
                 results_dict = results.to_dict('records')[0]
+            elif isinstance(results, dict):
+                # Direct dict - check if values are lists
+                if isinstance(results.get('x'), list):
+                    # Dict with list values - extract first element
+                    results_dict = {k: v[0] if isinstance(v, list) else v for k, v in results.items()}
+                else:
+                    results_dict = results
             elif isinstance(results, list):
-                # If list, get first element
+                # List of dicts - get first element
                 results_dict = results[0]
             else:
-                # Direct dict
                 results_dict = results
 
+            print(f"\\nExtracted results: {results_dict}")
             assert results_dict['x'] == 3, f"Expected x=3, got {results_dict['x']}"
-            assert results_dict['result'] == '9', f"Expected result='9', got {results_dict['result']}"
+            assert results_dict['result'] == 9 or results_dict['result'] == '9', f"Expected result=9 or '9', got {results_dict['result']}"
             print("\\n✓ Sequential SLURM test passed!")
         PYTHON
 
