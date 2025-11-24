@@ -1890,14 +1890,15 @@ def run_funz_calculation(
     start_time = datetime.now()
     env_info = get_environment_info()
 
-    # Funz protocol constants
+    # Funz protocol constants (per org.funz.Protocol in Java source)
     METHOD_RESERVE = "RESERVE"
     METHOD_UNRESERVE = "UNRESERVE"
     METHOD_PUT_FILE = "PUTFILE"
     METHOD_NEW_CASE = "NEWCASE"
     METHOD_EXECUTE = "EXECUTE"
+    METHOD_ARCH_RES = "ARCHIVE"
     METHOD_GET_ARCH = "GETFILE"
-    METHOD_INTERRUPT = "INTERUPT"  # Note: typo preserved from original Java code
+    METHOD_INTERRUPT = "INTERUPT"  # Note: typo in original Java code
 
     RET_YES = "Y"
     RET_NO = "N"
@@ -2042,8 +2043,22 @@ def run_funz_calculation(
             log_debug(f"Secret code: {secret_code}")
 
             try:
-                # Step 2: Upload input files
-                log_info("📤 Step 2: Uploading input files...")
+                # Step 2: Create new case (MUST come before uploading files!)
+                # The Funz protocol requires NEW_CASE before PUT_FILE
+                log_info("📝 Step 2: Creating new case...")
+                case_name = "case_1"
+                log_debug(f"Sending {METHOD_NEW_CASE} request with case name: {case_name}")
+                send_message(METHOD_NEW_CASE, case_name)
+                ret, case_response = read_response()
+
+                if ret != RET_YES:
+                    log_error(f"❌ Failed to create new case: {case_response}")
+                    return {"status": "error", "error": "Failed to create new case"}
+
+                log_info(f"✅ Case '{case_name}' created successfully")
+
+                # Step 3: Upload input files (after NEW_CASE)
+                log_info("📤 Step 3: Uploading input files...")
                 files_to_upload = [item for item in working_dir.iterdir() if item.is_file()]
                 log_debug(f"Found {len(files_to_upload)} files to upload")
 
@@ -2076,21 +2091,6 @@ def run_funz_calculation(
 
                 log_info(f"✅ Uploaded {uploaded_count}/{len(files_to_upload)} files")
 
-                # Step 3: Create new case (with variables if needed)
-                # For now, we'll use a simple case without variables
-                # In the future, this could be extended to support variable substitution
-                log_info("📝 Step 3: Creating new case...")
-                case_name = "case_1"
-                log_debug(f"Sending {METHOD_NEW_CASE} request with case name: {case_name}")
-                send_message(METHOD_NEW_CASE, case_name)
-                ret, case_response = read_response()
-
-                if ret != RET_YES:
-                    log_error(f"❌ Failed to create new case: {case_response}")
-                    return {"status": "error", "error": "Failed to create new case"}
-
-                log_info(f"✅ Case '{case_name}' created successfully")
-
                 # Step 4: Execute calculation
                 log_info(f"⚙️  Step 4: Executing calculation...")
                 log_info(f"  Code: {code}")
@@ -2120,8 +2120,20 @@ def run_funz_calculation(
                 log_info(f"✅ Execution completed in {execution_time:.2f}s")
                 log_debug(f"Execution ended at {execution_end.isoformat()}")
 
-                # Step 5: Download results
-                log_info("📥 Step 5: Downloading results...")
+                # Step 5: Archive results (required before GET_ARCH)
+                log_info("📦 Step 5: Archiving results...")
+                log_debug(f"Sending {METHOD_ARCH_RES} request")
+                send_message(METHOD_ARCH_RES)
+                ret, arch_response = read_response()
+
+                if ret != RET_YES:
+                    log_error(f"❌ Failed to archive results: {arch_response}")
+                    return {"status": "error", "error": "Failed to archive results"}
+
+                log_info(f"✅ Results archived successfully")
+
+                # Step 6: Download results archive
+                log_info("📥 Step 6: Downloading results...")
                 log_debug(f"Sending {METHOD_GET_ARCH} request")
                 send_message(METHOD_GET_ARCH)
 

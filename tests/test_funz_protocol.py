@@ -22,14 +22,15 @@ class FunzProtocolClient:
     Implements the same protocol as the Java Client class.
     """
 
-    # Protocol constants
+    # Protocol constants (per org.funz.Protocol in Java source)
     METHOD_RESERVE = "RESERVE"
     METHOD_UNRESERVE = "UNRESERVE"
     METHOD_PUT_FILE = "PUTFILE"
     METHOD_NEW_CASE = "NEWCASE"
     METHOD_EXECUTE = "EXECUTE"
+    METHOD_ARCH_RES = "ARCHIVE"
     METHOD_GET_ARCH = "GETFILE"
-    METHOD_INTERRUPT = "INTERUPT"  # Typo preserved from Java
+    METHOD_INTERRUPT = "INTERUPT"  # Typo in original Java code
     METHOD_GET_INFO = "GETINFO"
     METHOD_GET_ACTIVITY = "GETACTIVITY"
 
@@ -126,6 +127,8 @@ class FunzProtocolClient:
         self.send_message(self.METHOD_RESERVE)
         ret, response = self.read_response()
 
+        print(f"DEBUG reserve: ret={ret}, response={response}")
+
         if ret == self.RET_YES:
             self.reserved = True
             self.secret = response[1] if len(response) > 1 else None
@@ -188,24 +191,23 @@ class FunzProtocolClient:
         self.send_message(self.METHOD_NEW_CASE, case_name)
         ret, response = self.read_response()
 
+        print(f"DEBUG new_case: ret={ret}, response={response}")
+
         return ret == self.RET_YES
 
     def put_file(self, file_path: Path) -> bool:
         """Upload a file to the calculator."""
         if not self.is_reserved():
-            print(f"DEBUG put_file: not reserved")
             return False
 
         file_size = file_path.stat().st_size
         file_name = file_path.name
 
         # Send PUT_FILE request
-        print(f"DEBUG put_file: sending PUTFILE {file_name} {file_size}")
         self.send_message(self.METHOD_PUT_FILE, file_name, file_size)
 
         # Wait for acknowledgment
         ret, response = self.read_response()
-        print(f"DEBUG put_file ACK: ret={ret}, response={response}")
         if ret != self.RET_YES:
             return False
 
@@ -214,7 +216,6 @@ class FunzProtocolClient:
             file_data = f.read()
             self.socket.sendall(file_data)
 
-        print(f"DEBUG put_file: sent {len(file_data)} bytes")
         return True
 
     def execute(self, code: str) -> bool:
@@ -223,6 +224,16 @@ class FunzProtocolClient:
             return False
 
         self.send_message(self.METHOD_EXECUTE, code)
+        ret, response = self.read_response()
+
+        return ret == self.RET_YES
+
+    def arch_results(self) -> bool:
+        """Archive results after execution (required before get_results)."""
+        if not self.is_reserved():
+            return False
+
+        self.send_message(self.METHOD_ARCH_RES)
         ret, response = self.read_response()
 
         return ret == self.RET_YES
@@ -412,10 +423,16 @@ def test_full_protocol_cycle(protocol_client, tmp_path):
     """
     Test complete protocol cycle (like testCase).
 
-    Tests: reserve → new_case → put_file → execute → get_results → unreserve
+    Tests: reserve → new_case → put_file → execute → arch_results → get_results → unreserve
 
-    IMPORTANT: Based on actual testing, NEWCASE must come BEFORE PUTFILE!
-    The fz/runners.py implementation has this order wrong and needs to be fixed.
+    Protocol order per Session.java:
+    1. RESERVE - reserve calculator
+    2. NEWCASE - create case (MUST come before PUTFILE!)
+    3. PUTFILE - upload files (can be called multiple times)
+    4. EXECUTE - run calculation
+    5. ARCHRES - archive results (required before GETFILE)
+    6. GETFILE - download archived results
+    7. UNRESERVE - release calculator
     """
     # Create a simple test input file
     input_file = tmp_path / "test_input.sh"
@@ -435,7 +452,10 @@ def test_full_protocol_cycle(protocol_client, tmp_path):
         # Step 4: Execute
         assert protocol_client.execute("shell"), "Failed to execute"
 
-        # Step 5: Get results
+        # Step 5: Archive results (required before downloading)
+        assert protocol_client.arch_results(), "Failed to archive results"
+
+        # Step 6: Get results
         results_dir = tmp_path / "results"
         results_dir.mkdir()
         assert protocol_client.get_results(results_dir), "Failed to get results"
@@ -472,11 +492,12 @@ def test_multiple_sequential_cases(funz_host, funz_port, tmp_path):
             input_file = tmp_path / f"input_{i}.sh"
             input_file.write_text(f"#!/bin/bash\necho 'Case {i}'\necho 'result={i}' > output.txt\n")
 
-            # Full protocol cycle (correct order: reserve → put_file → new_case → execute)
+            # Full protocol cycle (correct order: reserve → new_case → put_file → execute → arch_results → get_results)
             assert client.reserve("shell"), f"Failed to reserve for case {i}"
-            assert client.put_file(input_file), f"Failed to upload file for case {i}"
             assert client.new_case(f"case_{i}"), f"Failed to create case {i}"
+            assert client.put_file(input_file), f"Failed to upload file for case {i}"
             assert client.execute("shell"), f"Failed to execute case {i}"
+            assert client.arch_results(), f"Failed to archive results for case {i}"
 
             # Get results
             results_dir = tmp_path / f"results_{i}"
@@ -579,10 +600,10 @@ def test_failed_execution(protocol_client, tmp_path):
     input_file = tmp_path / "test_input.sh"
     input_file.write_text("#!/bin/bash\necho 'test'\n")
 
-    # Reserve and upload (correct order: reserve → upload → new_case)
+    # Reserve and upload (correct order: reserve → new_case → upload)
     assert protocol_client.reserve("shell"), "Failed to reserve"
-    assert protocol_client.put_file(input_file), "Failed to upload"
     assert protocol_client.new_case("fail_test"), "Failed to create case"
+    assert protocol_client.put_file(input_file), "Failed to upload"
 
     # Try to execute with invalid code name
     # This might succeed or fail depending on calculator configuration
