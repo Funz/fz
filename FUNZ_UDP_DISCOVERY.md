@@ -132,7 +132,39 @@ results = fz.fzr(
 
 ## Running the Test Script
 
-The test script now **automatically downloads, builds, and starts** the Funz calculator infrastructure!
+### Two Approaches
+
+**Approach 1: Standalone Scripts (Recommended for Local Development)**
+
+Use dedicated shell scripts to manage Funz calculator separately from tests:
+
+```bash
+# One-time setup: Install Funz calculator
+./tools/setup_funz_calculator.sh
+
+# Start calculator daemon
+./tools/start_funz_calculator.sh
+
+# Run tests (reuses running calculator)
+python test_funz_udp_discovery.py --no-setup
+
+# Stop calculator when done
+./tools/stop_funz_calculator.sh
+```
+
+**Benefits:**
+- Faster iteration (no re-download/build between test runs)
+- Calculator persists across multiple test sessions
+- Easier debugging (inspect running calculator)
+- See `tools/README.md` for detailed documentation
+
+**Approach 2: Fully Automatic (Good for CI/One-off Testing)**
+
+The test script automatically downloads, builds, and starts everything:
+
+```bash
+python test_funz_udp_discovery.py
+```
 
 ### Prerequisites
 
