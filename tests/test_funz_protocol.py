@@ -193,16 +193,19 @@ class FunzProtocolClient:
     def put_file(self, file_path: Path) -> bool:
         """Upload a file to the calculator."""
         if not self.is_reserved():
+            print(f"DEBUG put_file: not reserved")
             return False
 
         file_size = file_path.stat().st_size
         file_name = file_path.name
 
         # Send PUT_FILE request
+        print(f"DEBUG put_file: sending PUTFILE {file_name} {file_size}")
         self.send_message(self.METHOD_PUT_FILE, file_name, file_size)
 
         # Wait for acknowledgment
         ret, response = self.read_response()
+        print(f"DEBUG put_file ACK: ret={ret}, response={response}")
         if ret != self.RET_YES:
             return False
 
@@ -211,6 +214,7 @@ class FunzProtocolClient:
             file_data = f.read()
             self.socket.sendall(file_data)
 
+        print(f"DEBUG put_file: sent {len(file_data)} bytes")
         return True
 
     def execute(self, code: str) -> bool:
@@ -409,6 +413,9 @@ def test_full_protocol_cycle(protocol_client, tmp_path):
     Test complete protocol cycle (like testCase).
 
     Tests: reserve → new_case → put_file → execute → get_results → unreserve
+
+    IMPORTANT: Based on actual testing, NEWCASE must come BEFORE PUTFILE!
+    The fz/runners.py implementation has this order wrong and needs to be fixed.
     """
     # Create a simple test input file
     input_file = tmp_path / "test_input.sh"
@@ -419,10 +426,10 @@ def test_full_protocol_cycle(protocol_client, tmp_path):
     assert protocol_client.is_reserved(), "Should be reserved"
 
     try:
-        # Step 2: New case
+        # Step 2: New case (must be done BEFORE uploading files!)
         assert protocol_client.new_case("test_case"), "Failed to create new case"
 
-        # Step 3: Upload file
+        # Step 3: Upload file (after new_case)
         assert protocol_client.put_file(input_file), "Failed to upload file"
 
         # Step 4: Execute
@@ -465,10 +472,10 @@ def test_multiple_sequential_cases(funz_host, funz_port, tmp_path):
             input_file = tmp_path / f"input_{i}.sh"
             input_file.write_text(f"#!/bin/bash\necho 'Case {i}'\necho 'result={i}' > output.txt\n")
 
-            # Full protocol cycle
+            # Full protocol cycle (correct order: reserve → put_file → new_case → execute)
             assert client.reserve("shell"), f"Failed to reserve for case {i}"
-            assert client.new_case(f"case_{i}"), f"Failed to create case {i}"
             assert client.put_file(input_file), f"Failed to upload file for case {i}"
+            assert client.new_case(f"case_{i}"), f"Failed to create case {i}"
             assert client.execute("shell"), f"Failed to execute case {i}"
 
             # Get results
@@ -572,10 +579,10 @@ def test_failed_execution(protocol_client, tmp_path):
     input_file = tmp_path / "test_input.sh"
     input_file.write_text("#!/bin/bash\necho 'test'\n")
 
-    # Reserve and upload
+    # Reserve and upload (correct order: reserve → upload → new_case)
     assert protocol_client.reserve("shell"), "Failed to reserve"
-    assert protocol_client.new_case("fail_test"), "Failed to create case"
     assert protocol_client.put_file(input_file), "Failed to upload"
+    assert protocol_client.new_case("fail_test"), "Failed to create case"
 
     # Try to execute with invalid code name
     # This might succeed or fail depending on calculator configuration
