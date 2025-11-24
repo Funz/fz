@@ -208,11 +208,12 @@ jobs:
 
     - name: Run Funz protocol tests (TCP/UDP)
       env:
-        FUNZ_PORT: 5555
+        FUNZ_UDP_PORT: 5555
         FZ_LOG_LEVEL: DEBUG
       run: |
         cd ${{ github.workspace }}
         echo "Running protocol-level tests..."
+        echo "Tests will discover TCP port via UDP broadcast on port 5555"
         pytest tests/test_funz_protocol.py -v --tb=long -s
 
     - name: Run Funz calculator integration tests

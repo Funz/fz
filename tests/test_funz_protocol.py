@@ -291,10 +291,55 @@ class FunzProtocolClient:
 # Pytest fixtures
 
 @pytest.fixture
-def funz_port():
-    """Return the Funz calculator port from environment or default."""
+def funz_udp_port():
+    """Return the Funz calculator UDP broadcast port from environment or default."""
     import os
-    return int(os.environ.get("FUNZ_PORT", "5555"))
+    return int(os.environ.get("FUNZ_UDP_PORT", "5555"))
+
+
+@pytest.fixture
+def funz_port(funz_udp_port):
+    """
+    Discover and return the Funz calculator TCP port via UDP broadcast.
+
+    The calculator broadcasts on UDP port (e.g., 5555) and the message
+    contains the actual TCP port for communication.
+    """
+    import os
+    import socket
+
+    # Allow override for testing with known TCP port
+    if "FUNZ_TCP_PORT" in os.environ:
+        return int(os.environ["FUNZ_TCP_PORT"])
+
+    # Otherwise, discover via UDP
+    print(f"\nDiscovering Funz calculator TCP port via UDP broadcast on port {funz_udp_port}...")
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    try:
+        sock.bind(('', funz_udp_port))
+        sock.settimeout(10)  # 10 second timeout
+
+        # Wait for UDP broadcast
+        data, addr = sock.recvfrom(4096)
+        message = data.decode('utf-8').strip()
+        lines = message.split('\n')
+
+        if len(lines) >= 2:
+            tcp_port = int(lines[1])
+            print(f"Discovered TCP port: {tcp_port}")
+            return tcp_port
+        else:
+            pytest.skip(f"Invalid UDP broadcast message from {addr}")
+
+    except socket.timeout:
+        pytest.skip(f"No Funz calculator discovered on UDP port {funz_udp_port} within 10 seconds")
+    except Exception as e:
+        pytest.skip(f"UDP discovery failed: {e}")
+    finally:
+        sock.close()
 
 
 @pytest.fixture
