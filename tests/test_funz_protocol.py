@@ -122,21 +122,46 @@ class FunzProtocolClient:
         return response[0], response
 
     def reserve(self, code: str = "shell") -> bool:
-        """Reserve the calculator."""
+        """Reserve the calculator with two-phase protocol."""
         if not self.is_connected():
             return False
 
+        # Phase 1: Send RESERVE command
         self.send_message(self.METHOD_RESERVE)
         ret, response = self.read_response()
 
-        print(f"DEBUG reserve: ret={ret}, response={response}")
+        print(f"DEBUG reserve phase 1: ret={ret}, response={response}")
 
-        if ret == self.RET_YES:
+        if ret != self.RET_YES:
+            return False
+
+        # Phase 2: Send project code and tagged values
+        # For now, send minimal information: just the code and 0 tagged values
+        import os
+        tagged_values = {
+            "USERNAME": os.environ.get("USER", "unknown")
+        }
+
+        print(f"DEBUG reserve phase 2: sending code={code}, tagged_values={tagged_values}")
+
+        # Send code
+        self.socket_file.write(code + '\n')
+        # Send number of tagged values
+        self.socket_file.write(str(len(tagged_values)) + '\n')
+        # Send each tagged value
+        for key, value in tagged_values.items():
+            self.socket_file.write(key + '\n')
+            self.socket_file.write(str(value) + '\n')
+        self.socket_file.flush()
+
+        # Read second response
+        ret2, response2 = self.read_response()
+        print(f"DEBUG reserve phase 2 response: ret={ret2}, response={response2}")
+
+        if ret2 == self.RET_YES:
             self.reserved = True
-            self.secret = response[1] if len(response) > 1 else None
-            # Add small delay after reserve before next command
-            import time
-            time.sleep(0.5)
+            # Response contains: [RET_YES, secret, ip, security]
+            self.secret = response2[1] if len(response2) > 1 else None
             return True
 
         return False
@@ -188,16 +213,42 @@ class FunzProtocolClient:
 
         return ""
 
-    def new_case(self, case_name: str = "case_1") -> bool:
-        """Create a new case."""
+    def new_case(self, case_name: str = "case_1", variables: dict = None) -> bool:
+        """Create a new case with variables."""
         if not self.is_reserved():
             return False
 
-        # Try sending NEWCASE with empty parameters (no case name)
-        self.send_message(self.METHOD_NEW_CASE)
-        ret, response = self.read_response()
+        if variables is None:
+            variables = {}
 
-        print(f"DEBUG new_case: ret={ret}, response={response}")
+        # Add USERNAME if not present
+        import os
+        if "USERNAME" not in variables:
+            variables["USERNAME"] = os.environ.get("USER", "unknown")
+
+        print(f"DEBUG new_case: sending variables={variables}")
+
+        # Send NEWCASE command
+        self.send_message(self.METHOD_NEW_CASE)
+
+        # Send variable count
+        self.socket_file.write(str(len(variables)) + '\n')
+
+        # Send each variable
+        for key, value in variables.items():
+            # Truncate multi-line values to first line
+            value_str = str(value).split('\n')[0]
+            if '\n' in str(value):
+                value_str += "..."
+
+            self.socket_file.write(key + '\n')
+            self.socket_file.write(value_str + '\n')
+
+        self.socket_file.flush()
+
+        # Read response
+        ret, response = self.read_response()
+        print(f"DEBUG new_case response: ret={ret}, response={response}")
 
         return ret == self.RET_YES
 
@@ -242,11 +293,14 @@ class FunzProtocolClient:
         self.send_message(self.METHOD_ARCH_RES)
         ret, response = self.read_response()
 
+        print(f"DEBUG arch_results: ret={ret}, response={response}")
+
         return ret == self.RET_YES
 
     def get_results(self, target_dir: Path) -> bool:
         """Download results archive."""
         if not self.is_reserved():
+            print(f"DEBUG get_results: not reserved")
             return False
 
         # Request archive
@@ -254,10 +308,26 @@ class FunzProtocolClient:
 
         # Read archive size
         ret, response = self.read_response()
+        print(f"DEBUG get_results: archive request response: ret={ret}, response={response}, len={len(response)}")
+
         if ret != self.RET_YES:
+            print(f"DEBUG get_results: failed to get archive (ret={ret})")
             return False
 
-        archive_size = int(response[1]) if len(response) > 1 else 0
+        # Check if size is in response (index 1) or needs to be read separately
+        if len(response) > 1:
+            archive_size = int(response[1])
+            print(f"DEBUG get_results: archive_size from response[1]={archive_size}")
+        else:
+            # Read archive size as a separate line
+            size_line = self.socket_file.readline().strip()
+            print(f"DEBUG get_results: size_line read separately={size_line}")
+            try:
+                archive_size = int(size_line)
+            except ValueError:
+                print(f"DEBUG get_results: size_line is not a number, assuming 0")
+                archive_size = 0
+            print(f"DEBUG get_results: archive_size={archive_size}")
 
         # Send sync acknowledgment
         self.send_message(self.RET_SYNC)
@@ -269,20 +339,25 @@ class FunzProtocolClient:
         while bytes_received < archive_size:
             chunk = self.socket.recv(min(4096, archive_size - bytes_received))
             if not chunk:
+                print(f"DEBUG get_results: connection closed at {bytes_received}/{archive_size} bytes")
                 break
             archive_data += chunk
             bytes_received += len(chunk)
+
+        print(f"DEBUG get_results: received {bytes_received} bytes")
 
         # Extract archive
         if archive_data:
             try:
                 with zipfile.ZipFile(io.BytesIO(archive_data)) as zf:
                     zf.extractall(target_dir)
+                print(f"DEBUG get_results: extracted archive successfully")
                 return True
             except Exception as e:
-                print(f"Failed to extract archive: {e}")
+                print(f"DEBUG get_results: Failed to extract archive: {e}")
                 return False
 
+        print(f"DEBUG get_results: no archive data received")
         return False
 
     def disconnect(self):
