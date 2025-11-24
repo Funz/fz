@@ -79,10 +79,12 @@ class FunzProtocolClient:
         if not self.socket_file:
             raise RuntimeError("Not connected")
 
+        print(f"DEBUG send_message: socket connected={self.socket is not None}, lines={lines}")
         for line in lines:
             self.socket_file.write(str(line) + '\n')
         self.socket_file.write(self.END_OF_REQ + '\n')
         self.socket_file.flush()
+        print(f"DEBUG send_message: message sent and flushed")
 
     def read_response(self) -> tuple:
         """Read a protocol response until END_OF_REQ."""
@@ -132,6 +134,9 @@ class FunzProtocolClient:
         if ret == self.RET_YES:
             self.reserved = True
             self.secret = response[1] if len(response) > 1 else None
+            # Add small delay after reserve before next command
+            import time
+            time.sleep(0.5)
             return True
 
         return False
@@ -188,7 +193,8 @@ class FunzProtocolClient:
         if not self.is_reserved():
             return False
 
-        self.send_message(self.METHOD_NEW_CASE, case_name)
+        # Try sending NEWCASE with empty parameters (no case name)
+        self.send_message(self.METHOD_NEW_CASE)
         ret, response = self.read_response()
 
         print(f"DEBUG new_case: ret={ret}, response={response}")
