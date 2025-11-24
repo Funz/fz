@@ -1,0 +1,442 @@
+name: SLURM Localhost Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  slurm-localhost-test:
+    name: SLURM localhost on Ubuntu with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11']
+
+    env:
+      FZ_LOG_LEVEL: DEBUG
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest
+        pip install pandas
+
+    - name: Install SLURM
+      run: |
+        echo "Installing SLURM packages..."
+        sudo apt-get update
+        sudo apt-get install -y slurm-wlm slurm-wlm-doc munge
+        echo "✓ SLURM packages installed"
+
+        # Verify installation
+        sinfo --version || true
+        srun --version || true
+
+    - name: Configure Munge (SLURM authentication)
+      run: |
+        echo "Configuring Munge authentication..."
+
+        # Create munge key
+        sudo mkdir -p /etc/munge
+        sudo dd if=/dev/urandom bs=1 count=1024 > /tmp/munge.key
+        sudo mv /tmp/munge.key /etc/munge/munge.key
+        sudo chown munge:munge /etc/munge/munge.key
+        sudo chmod 400 /etc/munge/munge.key
+
+        # Set up munge directories
+        sudo mkdir -p /var/run/munge
+        sudo chown munge:munge /var/run/munge
+        sudo mkdir -p /var/log/munge
+        sudo chown munge:munge /var/log/munge
+
+        # Start munge
+        sudo systemctl enable munge
+        sudo systemctl start munge
+
+        # Verify munge is running
+        sudo systemctl status munge --no-pager
+        echo "✓ Munge authentication configured"
+
+    - name: Configure SLURM
+      run: |
+        echo "Configuring SLURM..."
+
+        # Get hostname
+        HOSTNAME=$(hostname)
+        echo "Hostname: $HOSTNAME"
+
+        # Create SLURM configuration
+        sudo mkdir -p /etc/slurm
+        sudo tee /etc/slurm/slurm.conf > /dev/null <<EOF
+        # SLURM Configuration for CI Testing
+        ClusterName=fz-test-cluster
+        SlurmctldHost=$HOSTNAME
+        MpiDefault=none
+        ProctrackType=proctrack/linuxproc
+        ReturnToService=2
+        SlurmctldPidFile=/var/run/slurm/slurmctld.pid
+        SlurmdPidFile=/var/run/slurm/slurmd.pid
+        SlurmdSpoolDir=/var/spool/slurmd
+        SlurmUser=slurm
+        StateSaveLocation=/var/spool/slurmctld
+        SwitchType=switch/none
+        TaskPlugin=task/none
+
+        # TIMERS
+        InactiveLimit=0
+        KillWait=30
+        MinJobAge=300
+        SlurmctldTimeout=120
+        SlurmdTimeout=300
+        Waittime=0
+
+        # SCHEDULING
+        SchedulerType=sched/backfill
+        SelectType=select/cons_tres
+        SelectTypeParameters=CR_Core
+
+        # LOGGING
+        SlurmctldDebug=info
+        SlurmctldLogFile=/var/log/slurm/slurmctld.log
+        SlurmdDebug=info
+        SlurmdLogFile=/var/log/slurm/slurmd.log
+
+        # COMPUTE NODES
+        NodeName=$HOSTNAME CPUs=2 State=UNKNOWN
+        PartitionName=debug Nodes=$HOSTNAME Default=YES MaxTime=INFINITE State=UP
+        PartitionName=compute Nodes=$HOSTNAME MaxTime=INFINITE State=UP
+        EOF
+
+        echo "✓ SLURM configuration created"
+        cat /etc/slurm/slurm.conf
+
+    - name: Setup SLURM directories and permissions
+      run: |
+        echo "Setting up SLURM directories..."
+
+        # Create necessary directories
+        sudo mkdir -p /var/spool/slurmctld
+        sudo mkdir -p /var/spool/slurmd
+        sudo mkdir -p /var/log/slurm
+        sudo mkdir -p /var/run/slurm
+
+        # Set ownership
+        sudo chown -R slurm:slurm /var/spool/slurmctld
+        sudo chown -R slurm:slurm /var/spool/slurmd
+        sudo chown -R slurm:slurm /var/log/slurm
+        sudo chown -R slurm:slurm /var/run/slurm
+        sudo chown -R slurm:slurm /etc/slurm
+
+        echo "✓ SLURM directories configured"
+
+    - name: Start SLURM controller
+      run: |
+        echo "Starting SLURM controller (slurmctld)..."
+        sudo systemctl enable slurmctld
+        sudo systemctl start slurmctld
+        sleep 3
+        sudo systemctl status slurmctld --no-pager || true
+        echo "✓ SLURM controller started"
+
+    - name: Start SLURM compute daemon
+      run: |
+        echo "Starting SLURM compute daemon (slurmd)..."
+        sudo systemctl enable slurmd
+        sudo systemctl start slurmd
+        sleep 3
+        sudo systemctl status slurmd --no-pager || true
+        echo "✓ SLURM compute daemon started"
+
+    - name: Verify SLURM is operational
+      run: |
+        echo "Verifying SLURM cluster status..."
+
+        # Wait for node to become ready
+        for i in {1..30}; do
+          sinfo && break || sleep 2
+        done
+
+        # Show cluster info
+        echo "=== SLURM Info ==="
+        sinfo -Nel || true
+
+        echo "=== SLURM Partitions ==="
+        sinfo -s || true
+
+        echo "=== SLURM Configuration ==="
+        scontrol show config | head -20 || true
+
+        # Test basic srun
+        echo "=== Testing basic srun command ==="
+        srun --partition=debug echo "SLURM is working!" || {
+          echo "ERROR: srun failed"
+          sudo journalctl -u slurmctld -n 50 --no-pager
+          sudo journalctl -u slurmd -n 50 --no-pager
+          exit 1
+        }
+
+        echo "✓ SLURM is fully operational"
+
+    - name: Create test script
+      run: |
+        echo "Creating test calculation script..."
+
+        # Create script in user home directory (accessible to SLURM jobs)
+        mkdir -p $HOME/fz_test
+        cat > $HOME/fz_test/slurm_calc.sh <<'EOF'
+        #!/bin/bash
+        # Simple test calculation script for SLURM
+        set -e
+
+        # Read input file (passed as argument or default to current dir)
+        INPUT_FILE="${1:-input.txt}"
+
+        echo "Processing input: $INPUT_FILE"
+        if [ -f "$INPUT_FILE" ]; then
+          cat "$INPUT_FILE"
+        fi
+
+        # Create output
+        echo "SLURM calculation completed successfully" > output.txt
+        echo "Hostname: $(hostname)" >> output.txt
+        echo "Date: $(date)" >> output.txt
+        echo "PWD: $(pwd)" >> output.txt
+        echo "Job ID: ${SLURM_JOB_ID:-none}" >> output.txt
+        echo "Partition: ${SLURM_JOB_PARTITION:-none}" >> output.txt
+
+        # If input has variable x, square it
+        if [ -f "$INPUT_FILE" ] && grep -q "x = " "$INPUT_FILE" 2>/dev/null; then
+          x=$(grep "x = " "$INPUT_FILE" | awk '{print $3}')
+          result=$((x * x))
+          echo "result = $result" >> output.txt
+        fi
+
+        echo "Output created:"
+        cat output.txt
+        EOF
+
+        chmod +x $HOME/fz_test/slurm_calc.sh
+        echo "✓ Test script created at $HOME/fz_test/slurm_calc.sh"
+
+    - name: Test SLURM calculator - Sequential execution
+      run: |
+        echo "Testing FZ with SLURM calculator (sequential)..."
+        SCRIPT_PATH="$HOME/fz_test/slurm_calc.sh"
+        echo "Using script: $SCRIPT_PATH"
+
+        python3 << PYTHON
+        import tempfile
+        import os
+        from pathlib import Path
+        from fz import fzr
+
+        print("=" * 60)
+        print("Test 1: Sequential SLURM execution (single case)")
+        print("=" * 60)
+
+        script_path = os.path.expanduser("~/fz_test/slurm_calc.sh")
+        print(f"Script path: {script_path}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create input template
+            input_file = Path(tmpdir) / "input.txt"
+            input_file.write_text("x = \${x}\\n")
+
+            # Define model
+            model = {
+                "output": {
+                    "result": "grep 'result = ' output.txt | awk '{print \$3}'"
+                }
+            }
+
+            # Run calculation with SLURM (single scalar value)
+            calculator_uri = f"slurm://debug/bash {script_path}"
+            print(f"Calculator URI: {calculator_uri}")
+
+            results = fzr(
+                str(input_file),
+                {"x": 3},  # Test with scalar value instead of list
+                model,
+                calculators=calculator_uri,
+                results_dir=str(Path(tmpdir) / "results")
+            )
+
+            print(f"\\nResults: {results}")
+
+            # Verify results (scalar input returns dict with list values)
+            if hasattr(results, 'to_dict'):
+                # If pandas DataFrame, get first row
+                results_dict = results.to_dict('records')[0]
+            elif isinstance(results, dict):
+                # Direct dict - check if values are lists
+                if isinstance(results.get('x'), list):
+                    # Dict with list values - extract first element
+                    results_dict = {k: v[0] if isinstance(v, list) else v for k, v in results.items()}
+                else:
+                    results_dict = results
+            elif isinstance(results, list):
+                # List of dicts - get first element
+                results_dict = results[0]
+            else:
+                results_dict = results
+
+            print(f"\\nExtracted results: {results_dict}")
+            assert results_dict['x'] == 3, f"Expected x=3, got {results_dict['x']}"
+            assert results_dict['result'] == 9 or results_dict['result'] == '9', f"Expected result=9 or '9', got {results_dict['result']}"
+            print("\\n✓ Sequential SLURM test passed!")
+        PYTHON
+
+    - name: Test SLURM calculator - Parallel execution
+      run: |
+        echo "Testing FZ with SLURM calculator (parallel)..."
+
+        python3 << PYTHON
+        import tempfile
+        import os
+        from pathlib import Path
+        from fz import fzr
+
+        print("=" * 60)
+        print("Test 2: Parallel SLURM execution (multiple cases)")
+        print("=" * 60)
+
+        script_path = os.path.expanduser("~/fz_test/slurm_calc.sh")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create input template
+            input_file = Path(tmpdir) / "input.txt"
+            input_file.write_text("x = \${x}\\n")
+
+            # Define model
+            model = {
+                "output": {
+                    "result": "grep 'result = ' output.txt | awk '{print \$3}'"
+                }
+            }
+
+            # Run calculation with SLURM (multiple cases)
+            # Use 2 parallel workers (2 SLURM calculators)
+            calculator_uri = f"slurm://debug/bash {script_path}"
+
+            results = fzr(
+                str(input_file),
+                {"x": [1, 2, 3, 4]},
+                model,
+                calculators=[calculator_uri, calculator_uri],
+                results_dir=str(Path(tmpdir) / "results")
+            )
+
+            print(f"\\nResults: {results}")
+
+            # Verify results
+            if hasattr(results, 'to_dict'):
+                results_list = results.to_dict('records')
+            else:
+                results_list = [results] if isinstance(results, dict) else results
+
+            assert len(results_list) == 4, f"Expected 4 results, got {len(results_list)}"
+
+            for r in results_list:
+                x_val = r['x']
+                expected_result = x_val * x_val
+                actual_result = r['result']
+                # Convert both to same type for comparison (result may be int or string)
+                assert str(actual_result) == str(expected_result), f"For x={x_val}, expected result={expected_result}, got {actual_result}"
+
+            print("\\n✓ Parallel SLURM test passed!")
+        PYTHON
+
+    - name: Test SLURM calculator - Multiple partitions
+      run: |
+        echo "Testing FZ with SLURM calculator (multiple partitions)..."
+
+        python3 << PYTHON
+        import tempfile
+        import os
+        from pathlib import Path
+        from fz import fzr
+
+        print("=" * 60)
+        print("Test 3: SLURM with multiple partitions")
+        print("=" * 60)
+
+        script_path = os.path.expanduser("~/fz_test/slurm_calc.sh")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create input template
+            input_file = Path(tmpdir) / "input.txt"
+            input_file.write_text("x = \${x}\\n")
+
+            # Define model
+            model = {
+                "output": {
+                    "result": "grep 'result = ' output.txt | awk '{print \$3}'"
+                }
+            }
+
+            # Run calculation with different SLURM partitions
+            results = fzr(
+                str(input_file),
+                {"x": [5, 6]},
+                model,
+                calculators=[
+                    f"slurm://debug/bash {script_path}",
+                    f"slurm://compute/bash {script_path}"
+                ],
+                results_dir=str(Path(tmpdir) / "results")
+            )
+
+            print(f"\\nResults: {results}")
+
+            # Verify results
+            if hasattr(results, 'to_dict'):
+                results_list = results.to_dict('records')
+            else:
+                results_list = [results] if isinstance(results, dict) else results
+
+            assert len(results_list) == 2, f"Expected 2 results, got {len(results_list)}"
+
+            for r in results_list:
+                x_val = r['x']
+                expected_result = x_val * x_val
+                actual_result = r['result']
+                # Convert both to same type for comparison (result may be int or string)
+                assert str(actual_result) == str(expected_result), f"For x={x_val}, expected result={expected_result}, got {actual_result}"
+
+            print("\\n✓ Multiple partition test passed!")
+        PYTHON
+
+    - name: Show SLURM logs on failure
+      if: failure()
+      run: |
+        echo "=== SLURM Controller Logs ==="
+        sudo journalctl -u slurmctld -n 100 --no-pager || true
+
+        echo "=== SLURM Compute Logs ==="
+        sudo journalctl -u slurmd -n 100 --no-pager || true
+
+        echo "=== SLURM Log Files ==="
+        sudo cat /var/log/slurm/slurmctld.log || true
+        sudo cat /var/log/slurm/slurmd.log || true
+
+        echo "=== Munge Logs ==="
+        sudo journalctl -u munge -n 50 --no-pager || true
+
+    - name: Test summary
+      if: always()
+      run: |
+        echo "SLURM localhost connectivity and execution test completed"

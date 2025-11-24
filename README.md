@@ -989,6 +989,46 @@ calculators = "ssh://user@server.com:2222/bash /absolutepath/to/calc.sh"
 - Warning for password-based auth
 - Environment variable for auto-accepting host keys: `FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1`
 
+### SLURM Workload Manager
+
+Execute calculations on SLURM clusters (local or remote):
+
+```python
+# Local SLURM execution
+calculators = "slurm://compute/bash script.sh"
+
+# Remote SLURM execution via SSH
+calculators = "slurm://user@cluster.edu:gpu/bash script.sh"
+
+# With custom SSH port
+calculators = "slurm://user@cluster.edu:2222:gpu/bash script.sh"
+
+# Multiple partitions for parallel execution
+calculators = [
+    "slurm://user@hpc.edu:compute/bash calc.sh",
+    "slurm://user@hpc.edu:gpu/bash calc.sh"
+]
+```
+
+**URI Format**: `slurm://[user@host[:port]:]partition/script`
+
+**How it works**:
+1. Local execution: Uses `srun --partition=<partition> <script>` directly
+2. Remote execution: Connects via SSH, transfers files, runs `srun` on remote cluster
+3. Automatically handles SLURM partition scheduling
+4. Supports interrupt handling (Ctrl+C terminates SLURM jobs)
+
+**Features**:
+- Local or remote SLURM execution
+- Automatic file transfer for remote execution (via SFTP)
+- SLURM partition specification
+- Timeout and interrupt handling
+- Compatible with all SLURM schedulers
+
+**Requirements**:
+- Local: SLURM installed (`srun` command available)
+- Remote: SSH access to SLURM cluster + `paramiko` library
+
 ### Cache Calculator
 
 Reuse previous calculation results:
