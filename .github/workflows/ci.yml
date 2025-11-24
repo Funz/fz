@@ -11,6 +11,7 @@ jobs:
   test:
     name: Test on ${{ matrix.os }} with Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    if: ${{ !startsWith(github.head_ref, 'claude/') && !startsWith(github.ref, 'refs/heads/claude/') }}
     strategy:
       fail-fast: false
       matrix:

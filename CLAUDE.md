@@ -78,10 +78,11 @@ The codebase is organized into functional modules (~5700 lines total):
   - Support for default values: `${var~default}`
   - Multi-line function definitions in formulas
 
-- **`fz/runners.py`** (~1900 lines) - Calculator execution engines
+- **`fz/runners.py`** (~2000 lines) - Calculator execution engines
   - **Local shell execution** (`sh://`) - runs commands in temporary directories
   - **SSH remote execution** (`ssh://`) - remote HPC/cluster support with file transfer
   - **SLURM workload manager** (`slurm://`) - local or remote SLURM cluster execution with partition scheduling
+  - **Funz server execution** (`funz://`) - connects to legacy Java Funz calculator servers via TCP socket protocol
   - **Cache calculator** (`cache://`) - reuses previous results by input hash matching
   - Host key validation, authentication handling, timeout management
 

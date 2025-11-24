@@ -1,0 +1,255 @@
+name: Funz Calculator Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test-funz-calculator:
+    name: Test Funz Calculator Integration
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout fz code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Set up Java 11
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc ant
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pandas
+        pip install pytest pytest-cov
+
+    - name: Clone funz-profile (required by funz-core)
+      run: |
+        cd ${{ github.workspace }}
+        git clone https://github.com/Funz/funz-profile.git
+        echo "FUNZ_PROFILE_HOME=${{ github.workspace }}/funz-profile" >> $GITHUB_ENV
+
+    - name: Clone and build funz-core
+      run: |
+        cd ${{ github.workspace }}
+        git clone https://github.com/Funz/funz-core.git
+        cd funz-core
+        ant clean dist
+        echo "FUNZ_CORE_HOME=${{ github.workspace }}/funz-core" >> $GITHUB_ENV
+
+    - name: Clone and build funz-client
+      run: |
+        cd ${{ github.workspace }}
+        git clone https://github.com/Funz/funz-client.git
+        cd funz-client
+        ANT_OPTS="-Xmx6G -Xss1G" ant clean dist
+        echo "FUNZ_CLIENT_HOME=${{ github.workspace }}/funz-client" >> $GITHUB_ENV
+
+    - name: Clone and build funz-calculator
+      run: |
+        cd ${{ github.workspace }}
+        git clone https://github.com/Funz/funz-calculator.git
+        cd funz-calculator
+        ant clean dist
+
+        # Copy startup scripts to dist directory
+        cp src/main/scripts/FunzDaemon_start.sh dist/
+        chmod +x dist/FunzDaemon_start.sh
+
+        echo "FUNZ_CALCULATOR_HOME=${{ github.workspace }}/funz-calculator" >> $GITHUB_ENV
+
+    - name: Create calculator configurations for each port
+      run: |
+        cd ${{ github.workspace }}/funz-calculator/dist
+
+        # Create configuration for port 5555
+        # NOTE: Root element must be <CALCULATOR> (uppercase) per Calculator.java:ELEM_CALCULATOR
+        # Architecture:
+        # - HOST port="5555": UDP port where daemon broadcasts availability info every 5s
+        # - CALCULATOR has no port attribute: TCP port is communicated in UDP messages
+        # - Clients listen to UDP broadcasts and connect via TCP to port from UDP message
+        cat > calculator-5555.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <CALCULATOR name="calc-5555" spool="spool-5555">
+          <HOST name="localhost" port="5555" />
+          <CODE name="bash" command="/bin/bash" />
+          <CODE name="sh" command="/bin/sh" />
+          <CODE name="shell" command="/bin/bash" />
+        </CALCULATOR>
+        EOF
+
+        # Create configuration for port 5556
+        cat > calculator-5556.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <CALCULATOR name="calc-5556" spool="spool-5556">
+          <HOST name="localhost" port="5556" />
+          <CODE name="bash" command="/bin/bash" />
+          <CODE name="sh" command="/bin/sh" />
+          <CODE name="shell" command="/bin/bash" />
+        </CALCULATOR>
+        EOF
+
+        # Create configuration for port 5557
+        cat > calculator-5557.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <CALCULATOR name="calc-5557" spool="spool-5557">
+          <HOST name="localhost" port="5557" />
+          <CODE name="bash" command="/bin/bash" />
+          <CODE name="sh" command="/bin/sh" />
+          <CODE name="shell" command="/bin/bash" />
+        </CALCULATOR>
+        EOF
+
+        # Create spool directories
+        mkdir -p spool-5555 spool-5556 spool-5557
+
+        echo "Calculator configurations created"
+        ls -la calculator-*.xml
+
+        echo "=== Configuration content (port 5555) ==="
+        cat calculator-5555.xml
+
+    - name: Start Funz calculators (3 instances)
+      run: |
+        cd ${{ github.workspace }}/funz-calculator/dist
+
+        # Build classpath using the same pattern as FunzDaemon_start.sh
+        echo "Building classpath..."
+        LIB=""
+        for jar in lib/funz-core-*.jar lib/funz-calculator-*.jar lib/commons-*.jar lib/ftpserver-*.jar lib/ftplet-*.jar lib/mina-*.jar lib/sigar-*.jar lib/slf4j-*.jar; do
+          if [ -f "$jar" ]; then
+            echo "  Adding to classpath: $jar"
+            LIB="${LIB}:${jar}"
+          fi
+        done
+
+        # Remove leading colon
+        LIB="${LIB:1}"
+
+        MAIN="org.funz.calculator.Calculator"
+
+        echo ""
+        echo "=== Starting calculator on port 5555 ==="
+        echo "Command: java -Dapp.home=. -classpath \$LIB $MAIN file:calculator-5555.xml"
+        nohup java -Dapp.home=. -classpath "$LIB" $MAIN file:calculator-5555.xml > calculator_5555.log 2>&1 &
+        PID1=$!
+        echo $PID1 > calculator_5555.pid
+        echo "Started calculator on port 5555 (PID: $PID1)"
+        echo "CALC_PID_5555=$PID1" >> $GITHUB_ENV
+
+        # Give it a moment to start and check log
+        sleep 2
+        echo "=== Initial log output (port 5555) ==="
+        head -20 calculator_5555.log || echo "No log yet"
+        echo ""
+
+        echo "=== Starting calculator on port 5556 ==="
+        nohup java -Dapp.home=. -classpath "$LIB" $MAIN file:calculator-5556.xml > calculator_5556.log 2>&1 &
+        PID2=$!
+        echo $PID2 > calculator_5556.pid
+        echo "Started calculator on port 5556 (PID: $PID2)"
+        echo "CALC_PID_5556=$PID2" >> $GITHUB_ENV
+
+        sleep 2
+        echo "=== Initial log output (port 5556) ==="
+        head -20 calculator_5556.log || echo "No log yet"
+        echo ""
+
+        echo "=== Starting calculator on port 5557 ==="
+        nohup java -Dapp.home=. -classpath "$LIB" $MAIN file:calculator-5557.xml > calculator_5557.log 2>&1 &
+        PID3=$!
+        echo $PID3 > calculator_5557.pid
+        echo "Started calculator on port 5557 (PID: $PID3)"
+        echo "CALC_PID_5557=$PID3" >> $GITHUB_ENV
+
+        sleep 2
+        echo "=== Initial log output (port 5557) ==="
+        head -20 calculator_5557.log || echo "No log yet"
+        echo ""
+
+        # Wait for calculators to fully initialize
+        echo "Waiting for calculators to fully initialize..."
+        sleep 5
+
+        # Check if processes are running
+        for pid in $PID1 $PID2 $PID3; do
+          if ps -p $pid > /dev/null; then
+            echo "✓ Calculator process $pid is running"
+          else
+            echo "✗ Calculator process $pid failed to start"
+            exit 1
+          fi
+        done
+
+        # Check if ports are listening
+        for port in 5555 5556 5557; do
+          if netstat -tuln | grep -q ":${port} "; then
+            echo "✓ Port $port is listening"
+          else
+            echo "⚠ Port $port is not listening yet (may still be initializing)"
+          fi
+        done
+
+    - name: Run Funz protocol tests (TCP/UDP)
+      env:
+        FUNZ_PORT: 5555
+        FZ_LOG_LEVEL: DEBUG
+      run: |
+        cd ${{ github.workspace }}
+        echo "Running protocol-level tests..."
+        pytest tests/test_funz_protocol.py -v --tb=long -s
+
+    - name: Run Funz calculator integration tests
+      run: |
+        cd ${{ github.workspace }}
+        pytest tests/test_funz_integration.py -v --tb=long
+
+    - name: Show calculator logs on failure
+      if: failure()
+      run: |
+        echo "=== Calculator 5555 log ==="
+        cat ${{ github.workspace }}/funz-calculator/dist/calculator_5555.log || echo "No log file"
+        echo ""
+        echo "=== Calculator 5556 log ==="
+        cat ${{ github.workspace }}/funz-calculator/dist/calculator_5556.log || echo "No log file"
+        echo ""
+        echo "=== Calculator 5557 log ==="
+        cat ${{ github.workspace }}/funz-calculator/dist/calculator_5557.log || echo "No log file"
+
+    - name: Stop Funz calculators
+      if: always()
+      run: |
+        # Kill calculator processes
+        for pid in ${{ env.CALC_PID_5555 }} ${{ env.CALC_PID_5556 }} ${{ env.CALC_PID_5557 }}; do
+          if [ -n "$pid" ] && ps -p $pid > /dev/null 2>&1; then
+            echo "Stopping calculator process $pid"
+            kill $pid || true
+          fi
+        done
+
+        # Wait a moment for graceful shutdown
+        sleep 2
+
+        # Force kill if still running
+        for pid in ${{ env.CALC_PID_5555 }} ${{ env.CALC_PID_5556 }} ${{ env.CALC_PID_5557 }}; do
+          if [ -n "$pid" ] && ps -p $pid > /dev/null 2>&1; then
+            echo "Force stopping calculator process $pid"
+            kill -9 $pid || true
+          fi
+        done
