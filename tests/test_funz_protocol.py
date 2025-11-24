@@ -79,12 +79,10 @@ class FunzProtocolClient:
         if not self.socket_file:
             raise RuntimeError("Not connected")
 
-        print(f"DEBUG send_message: socket connected={self.socket is not None}, lines={lines}")
         for line in lines:
             self.socket_file.write(str(line) + '\n')
         self.socket_file.write(self.END_OF_REQ + '\n')
         self.socket_file.flush()
-        print(f"DEBUG send_message: message sent and flushed")
 
     def read_response(self) -> tuple:
         """Read a protocol response until END_OF_REQ."""
@@ -130,7 +128,6 @@ class FunzProtocolClient:
         self.send_message(self.METHOD_RESERVE)
         ret, response = self.read_response()
 
-        print(f"DEBUG reserve phase 1: ret={ret}, response={response}")
 
         if ret != self.RET_YES:
             return False
@@ -142,7 +139,6 @@ class FunzProtocolClient:
             "USERNAME": os.environ.get("USER", "unknown")
         }
 
-        print(f"DEBUG reserve phase 2: sending code={code}, tagged_values={tagged_values}")
 
         # Send code
         self.socket_file.write(code + '\n')
@@ -156,7 +152,6 @@ class FunzProtocolClient:
 
         # Read second response
         ret2, response2 = self.read_response()
-        print(f"DEBUG reserve phase 2 response: ret={ret2}, response={response2}")
 
         if ret2 == self.RET_YES:
             self.reserved = True
@@ -226,7 +221,6 @@ class FunzProtocolClient:
         if "USERNAME" not in variables:
             variables["USERNAME"] = os.environ.get("USER", "unknown")
 
-        print(f"DEBUG new_case: sending variables={variables}")
 
         # Send NEWCASE command
         self.send_message(self.METHOD_NEW_CASE)
@@ -248,7 +242,6 @@ class FunzProtocolClient:
 
         # Read response
         ret, response = self.read_response()
-        print(f"DEBUG new_case response: ret={ret}, response={response}")
 
         return ret == self.RET_YES
 
@@ -293,44 +286,41 @@ class FunzProtocolClient:
         self.send_message(self.METHOD_ARCH_RES)
         ret, response = self.read_response()
 
-        print(f"DEBUG arch_results: ret={ret}, response={response}")
 
         return ret == self.RET_YES
 
     def get_results(self, target_dir: Path) -> bool:
         """Download results archive."""
         if not self.is_reserved():
-            print(f"DEBUG get_results: not reserved")
             return False
 
         # Request archive
         self.send_message(self.METHOD_GET_ARCH)
 
-        # Read archive size
+        # Read response (should be Y\n/\n, possibly with INFO messages)
         ret, response = self.read_response()
-        print(f"DEBUG get_results: archive request response: ret={ret}, response={response}, len={len(response)}")
 
         if ret != self.RET_YES:
-            print(f"DEBUG get_results: failed to get archive (ret={ret})")
             return False
 
-        # Check if size is in response (index 1) or needs to be read separately
-        if len(response) > 1:
-            archive_size = int(response[1])
-            print(f"DEBUG get_results: archive_size from response[1]={archive_size}")
-        else:
-            # Read archive size as a separate line
-            size_line = self.socket_file.readline().strip()
-            print(f"DEBUG get_results: size_line read separately={size_line}")
-            try:
-                archive_size = int(size_line)
-            except ValueError:
-                print(f"DEBUG get_results: size_line is not a number, assuming 0")
-                archive_size = 0
-            print(f"DEBUG get_results: archive_size={archive_size}")
+        # Now read lines until we find one that's all digits (the size)
+        # Skip any additional protocol responses (Y, /, INFO lines, etc.)
+        max_lines = 50
+        archive_size = None
 
-        # Send sync acknowledgment
-        self.send_message(self.RET_SYNC)
+        for i in range(max_lines):
+            line = self.socket_file.readline().strip()
+
+            if line.isdigit():
+                archive_size = int(line)
+                break
+
+        if archive_size is None:
+            return False
+
+        # Send acknowledgment (just a line, per Java: _reader.readLine())
+        self.socket_file.write("ACK\n")
+        self.socket_file.flush()
 
         # Receive archive data
         archive_data = b""
@@ -339,25 +329,20 @@ class FunzProtocolClient:
         while bytes_received < archive_size:
             chunk = self.socket.recv(min(4096, archive_size - bytes_received))
             if not chunk:
-                print(f"DEBUG get_results: connection closed at {bytes_received}/{archive_size} bytes")
                 break
             archive_data += chunk
             bytes_received += len(chunk)
 
-        print(f"DEBUG get_results: received {bytes_received} bytes")
 
         # Extract archive
         if archive_data:
             try:
                 with zipfile.ZipFile(io.BytesIO(archive_data)) as zf:
                     zf.extractall(target_dir)
-                print(f"DEBUG get_results: extracted archive successfully")
                 return True
             except Exception as e:
-                print(f"DEBUG get_results: Failed to extract archive: {e}")
                 return False
 
-        print(f"DEBUG get_results: no archive data received")
         return False
 
     def disconnect(self):
@@ -646,9 +631,9 @@ def test_reserve_timeout_behavior(funz_host, funz_port):
         assert client1.reserve("shell"), "Client 1 failed to reserve"
         print("Client 1 reserved calculator")
 
-        # Wait for reservation timeout (typically 2-5 seconds in tests)
+        # Wait for reservation timeout (Funz calculator default is 60s)
         # The calculator should auto-unreserve after timeout
-        timeout_duration = 6  # Conservative estimate
+        timeout_duration = 65  # Wait for 60s timeout + buffer
         print(f"Waiting {timeout_duration}s for reservation timeout...")
         time.sleep(timeout_duration)
 
@@ -713,10 +698,6 @@ def test_disconnect_during_reservation(funz_host, funz_port):
     assert client.reserve("shell"), "Failed to reserve"
     assert client.is_reserved(), "Should be reserved"
 
-    # Check activity
-    activity = client.get_activity()
-    print(f"Activity after reserve: {activity}")
-
     # Abruptly close connection without unreserving
     print("Forcing disconnect without unreserve...")
     if client.socket:
@@ -724,19 +705,18 @@ def test_disconnect_during_reservation(funz_host, funz_port):
         client.socket = None
         client.socket_file = None
 
-    # Wait for calculator to detect disconnection
-    time.sleep(3)
+    # Wait for calculator to detect disconnection and timeout (60s)
+    # The timeout is from the LAST request (RESERVE), so wait 65s
+    print("Waiting 65s for calculator to timeout reserved session...")
+    time.sleep(65)
 
     # Try connecting with a new client (should succeed after disconnect detected)
     client2 = FunzProtocolClient(funz_host, funz_port)
     assert client2.connect(), "Failed to reconnect"
 
     try:
-        activity2 = client2.get_activity()
-        print(f"Activity after reconnect: {activity2}")
 
         # Should be able to reserve (previous client was cleaned up)
-        time.sleep(2)  # Give calculator time to clean up
         assert client2.reserve("shell"), "Failed to reserve after forced disconnect"
         client2.unreserve()
 
