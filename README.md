@@ -995,7 +995,7 @@ Execute calculations on SLURM clusters (local or remote):
 
 ```python
 # Local SLURM execution
-calculators = "slurm://compute/bash script.sh"
+calculators = "slurm://:compute/bash script.sh"
 
 # Remote SLURM execution via SSH
 calculators = "slurm://user@cluster.edu:gpu/bash script.sh"
@@ -1010,7 +1010,9 @@ calculators = [
 ]
 ```
 
-**URI Format**: `slurm://[user@host[:port]:]partition/script`
+**URI Format**: `slurm://[user@host[:port]]:partition/script`
+
+Note: For local execution, the partition must be prefixed with a colon (`:partition`), e.g., `slurm://:compute/script.sh`
 
 **How it works**:
 1. Local execution: Uses `srun --partition=<partition> <script>` directly
