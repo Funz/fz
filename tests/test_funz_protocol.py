@@ -22,14 +22,15 @@ class FunzProtocolClient:
     Implements the same protocol as the Java Client class.
     """
 
-    # Protocol constants
+    # Protocol constants (per org.funz.Protocol in Java source)
     METHOD_RESERVE = "RESERVE"
     METHOD_UNRESERVE = "UNRESERVE"
     METHOD_PUT_FILE = "PUTFILE"
     METHOD_NEW_CASE = "NEWCASE"
     METHOD_EXECUTE = "EXECUTE"
+    METHOD_ARCH_RES = "ARCHIVE"
     METHOD_GET_ARCH = "GETFILE"
-    METHOD_INTERRUPT = "INTERUPT"  # Typo preserved from Java
+    METHOD_INTERRUPT = "INTERUPT"  # Typo in original Java code
     METHOD_GET_INFO = "GETINFO"
     METHOD_GET_ACTIVITY = "GETACTIVITY"
 
@@ -119,16 +120,43 @@ class FunzProtocolClient:
         return response[0], response
 
     def reserve(self, code: str = "shell") -> bool:
-        """Reserve the calculator."""
+        """Reserve the calculator with two-phase protocol."""
         if not self.is_connected():
             return False
 
+        # Phase 1: Send RESERVE command
         self.send_message(self.METHOD_RESERVE)
         ret, response = self.read_response()
 
-        if ret == self.RET_YES:
+
+        if ret != self.RET_YES:
+            return False
+
+        # Phase 2: Send project code and tagged values
+        # For now, send minimal information: just the code and 0 tagged values
+        import os
+        tagged_values = {
+            "USERNAME": os.environ.get("USER", "unknown")
+        }
+
+
+        # Send code
+        self.socket_file.write(code + '\n')
+        # Send number of tagged values
+        self.socket_file.write(str(len(tagged_values)) + '\n')
+        # Send each tagged value
+        for key, value in tagged_values.items():
+            self.socket_file.write(key + '\n')
+            self.socket_file.write(str(value) + '\n')
+        self.socket_file.flush()
+
+        # Read second response
+        ret2, response2 = self.read_response()
+
+        if ret2 == self.RET_YES:
             self.reserved = True
-            self.secret = response[1] if len(response) > 1 else None
+            # Response contains: [RET_YES, secret, ip, security]
+            self.secret = response2[1] if len(response2) > 1 else None
             return True
 
         return False
@@ -180,12 +208,39 @@ class FunzProtocolClient:
 
         return ""
 
-    def new_case(self, case_name: str = "case_1") -> bool:
-        """Create a new case."""
+    def new_case(self, case_name: str = "case_1", variables: dict = None) -> bool:
+        """Create a new case with variables."""
         if not self.is_reserved():
             return False
 
-        self.send_message(self.METHOD_NEW_CASE, case_name)
+        if variables is None:
+            variables = {}
+
+        # Add USERNAME if not present
+        import os
+        if "USERNAME" not in variables:
+            variables["USERNAME"] = os.environ.get("USER", "unknown")
+
+
+        # Send NEWCASE command
+        self.send_message(self.METHOD_NEW_CASE)
+
+        # Send variable count
+        self.socket_file.write(str(len(variables)) + '\n')
+
+        # Send each variable
+        for key, value in variables.items():
+            # Truncate multi-line values to first line
+            value_str = str(value).split('\n')[0]
+            if '\n' in str(value):
+                value_str += "..."
+
+            self.socket_file.write(key + '\n')
+            self.socket_file.write(value_str + '\n')
+
+        self.socket_file.flush()
+
+        # Read response
         ret, response = self.read_response()
 
         return ret == self.RET_YES
@@ -223,6 +278,17 @@ class FunzProtocolClient:
 
         return ret == self.RET_YES
 
+    def arch_results(self) -> bool:
+        """Archive results after execution (required before get_results)."""
+        if not self.is_reserved():
+            return False
+
+        self.send_message(self.METHOD_ARCH_RES)
+        ret, response = self.read_response()
+
+
+        return ret == self.RET_YES
+
     def get_results(self, target_dir: Path) -> bool:
         """Download results archive."""
         if not self.is_reserved():
@@ -231,15 +297,30 @@ class FunzProtocolClient:
         # Request archive
         self.send_message(self.METHOD_GET_ARCH)
 
-        # Read archive size
+        # Read response (should be Y\n/\n, possibly with INFO messages)
         ret, response = self.read_response()
+
         if ret != self.RET_YES:
             return False
 
-        archive_size = int(response[1]) if len(response) > 1 else 0
+        # Now read lines until we find one that's all digits (the size)
+        # Skip any additional protocol responses (Y, /, INFO lines, etc.)
+        max_lines = 50
+        archive_size = None
 
-        # Send sync acknowledgment
-        self.send_message(self.RET_SYNC)
+        for i in range(max_lines):
+            line = self.socket_file.readline().strip()
+
+            if line.isdigit():
+                archive_size = int(line)
+                break
+
+        if archive_size is None:
+            return False
+
+        # Send acknowledgment (just a line, per Java: _reader.readLine())
+        self.socket_file.write("ACK\n")
+        self.socket_file.flush()
 
         # Receive archive data
         archive_data = b""
@@ -252,6 +333,7 @@ class FunzProtocolClient:
             archive_data += chunk
             bytes_received += len(chunk)
 
+
         # Extract archive
         if archive_data:
             try:
@@ -259,7 +341,6 @@ class FunzProtocolClient:
                     zf.extractall(target_dir)
                 return True
             except Exception as e:
-                print(f"Failed to extract archive: {e}")
                 return False
 
         return False
@@ -291,10 +372,55 @@ class FunzProtocolClient:
 # Pytest fixtures
 
 @pytest.fixture
-def funz_port():
-    """Return the Funz calculator port from environment or default."""
+def funz_udp_port():
+    """Return the Funz calculator UDP broadcast port from environment or default."""
     import os
-    return int(os.environ.get("FUNZ_PORT", "5555"))
+    return int(os.environ.get("FUNZ_UDP_PORT", "5555"))
+
+
+@pytest.fixture
+def funz_port(funz_udp_port):
+    """
+    Discover and return the Funz calculator TCP port via UDP broadcast.
+
+    The calculator broadcasts on UDP port (e.g., 5555) and the message
+    contains the actual TCP port for communication.
+    """
+    import os
+    import socket
+
+    # Allow override for testing with known TCP port
+    if "FUNZ_TCP_PORT" in os.environ:
+        return int(os.environ["FUNZ_TCP_PORT"])
+
+    # Otherwise, discover via UDP
+    print(f"\nDiscovering Funz calculator TCP port via UDP broadcast on port {funz_udp_port}...")
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    try:
+        sock.bind(('', funz_udp_port))
+        sock.settimeout(10)  # 10 second timeout
+
+        # Wait for UDP broadcast
+        data, addr = sock.recvfrom(4096)
+        message = data.decode('utf-8').strip()
+        lines = message.split('\n')
+
+        if len(lines) >= 2:
+            tcp_port = int(lines[1])
+            print(f"Discovered TCP port: {tcp_port}")
+            return tcp_port
+        else:
+            pytest.skip(f"Invalid UDP broadcast message from {addr}")
+
+    except socket.timeout:
+        pytest.skip(f"No Funz calculator discovered on UDP port {funz_udp_port} within 10 seconds")
+    except Exception as e:
+        pytest.skip(f"UDP discovery failed: {e}")
+    finally:
+        sock.close()
 
 
 @pytest.fixture
@@ -363,7 +489,16 @@ def test_full_protocol_cycle(protocol_client, tmp_path):
     """
     Test complete protocol cycle (like testCase).
 
-    Tests: reserve → new_case → put_file → execute → get_results → unreserve
+    Tests: reserve → new_case → put_file → execute → arch_results → get_results → unreserve
+
+    Protocol order per Session.java:
+    1. RESERVE - reserve calculator
+    2. NEWCASE - create case (MUST come before PUTFILE!)
+    3. PUTFILE - upload files (can be called multiple times)
+    4. EXECUTE - run calculation
+    5. ARCHRES - archive results (required before GETFILE)
+    6. GETFILE - download archived results
+    7. UNRESERVE - release calculator
     """
     # Create a simple test input file
     input_file = tmp_path / "test_input.sh"
@@ -374,16 +509,19 @@ def test_full_protocol_cycle(protocol_client, tmp_path):
     assert protocol_client.is_reserved(), "Should be reserved"
 
     try:
-        # Step 2: New case
+        # Step 2: New case (must be done BEFORE uploading files!)
         assert protocol_client.new_case("test_case"), "Failed to create new case"
 
-        # Step 3: Upload file
+        # Step 3: Upload file (after new_case)
         assert protocol_client.put_file(input_file), "Failed to upload file"
 
         # Step 4: Execute
         assert protocol_client.execute("shell"), "Failed to execute"
 
-        # Step 5: Get results
+        # Step 5: Archive results (required before downloading)
+        assert protocol_client.arch_results(), "Failed to archive results"
+
+        # Step 6: Get results
         results_dir = tmp_path / "results"
         results_dir.mkdir()
         assert protocol_client.get_results(results_dir), "Failed to get results"
@@ -420,11 +558,12 @@ def test_multiple_sequential_cases(funz_host, funz_port, tmp_path):
             input_file = tmp_path / f"input_{i}.sh"
             input_file.write_text(f"#!/bin/bash\necho 'Case {i}'\necho 'result={i}' > output.txt\n")
 
-            # Full protocol cycle
+            # Full protocol cycle (correct order: reserve → new_case → put_file → execute → arch_results → get_results)
             assert client.reserve("shell"), f"Failed to reserve for case {i}"
             assert client.new_case(f"case_{i}"), f"Failed to create case {i}"
             assert client.put_file(input_file), f"Failed to upload file for case {i}"
             assert client.execute("shell"), f"Failed to execute case {i}"
+            assert client.arch_results(), f"Failed to archive results for case {i}"
 
             # Get results
             results_dir = tmp_path / f"results_{i}"
@@ -492,9 +631,9 @@ def test_reserve_timeout_behavior(funz_host, funz_port):
         assert client1.reserve("shell"), "Client 1 failed to reserve"
         print("Client 1 reserved calculator")
 
-        # Wait for reservation timeout (typically 2-5 seconds in tests)
+        # Wait for reservation timeout (Funz calculator default is 60s)
         # The calculator should auto-unreserve after timeout
-        timeout_duration = 6  # Conservative estimate
+        timeout_duration = 65  # Wait for 60s timeout + buffer
         print(f"Waiting {timeout_duration}s for reservation timeout...")
         time.sleep(timeout_duration)
 
@@ -527,7 +666,7 @@ def test_failed_execution(protocol_client, tmp_path):
     input_file = tmp_path / "test_input.sh"
     input_file.write_text("#!/bin/bash\necho 'test'\n")
 
-    # Reserve and upload
+    # Reserve and upload (correct order: reserve → new_case → upload)
     assert protocol_client.reserve("shell"), "Failed to reserve"
     assert protocol_client.new_case("fail_test"), "Failed to create case"
     assert protocol_client.put_file(input_file), "Failed to upload"
@@ -559,10 +698,6 @@ def test_disconnect_during_reservation(funz_host, funz_port):
     assert client.reserve("shell"), "Failed to reserve"
     assert client.is_reserved(), "Should be reserved"
 
-    # Check activity
-    activity = client.get_activity()
-    print(f"Activity after reserve: {activity}")
-
     # Abruptly close connection without unreserving
     print("Forcing disconnect without unreserve...")
     if client.socket:
@@ -570,19 +705,18 @@ def test_disconnect_during_reservation(funz_host, funz_port):
         client.socket = None
         client.socket_file = None
 
-    # Wait for calculator to detect disconnection
-    time.sleep(3)
+    # Wait for calculator to detect disconnection and timeout (60s)
+    # The timeout is from the LAST request (RESERVE), so wait 65s
+    print("Waiting 65s for calculator to timeout reserved session...")
+    time.sleep(65)
 
     # Try connecting with a new client (should succeed after disconnect detected)
     client2 = FunzProtocolClient(funz_host, funz_port)
     assert client2.connect(), "Failed to reconnect"
 
     try:
-        activity2 = client2.get_activity()
-        print(f"Activity after reconnect: {activity2}")
 
         # Should be able to reserve (previous client was cleaned up)
-        time.sleep(2)  # Give calculator time to clean up
         assert client2.reserve("shell"), "Failed to reserve after forced disconnect"
         client2.unreserve()
 

@@ -132,38 +132,130 @@ results = fz.fzr(
 
 ## Running the Test Script
 
+### Two Approaches
+
+**Approach 1: Standalone Scripts (Recommended for Local Development)**
+
+Use dedicated shell scripts to manage Funz calculator separately from tests:
+
+```bash
+# One-time setup: Install Funz calculator
+./tools/setup_funz_calculator.sh
+
+# Start calculator daemon
+./tools/start_funz_calculator.sh
+
+# Run tests (reuses running calculator)
+python test_funz_udp_discovery.py --no-setup
+
+# Stop calculator when done
+./tools/stop_funz_calculator.sh
+```
+
+**Benefits:**
+- Faster iteration (no re-download/build between test runs)
+- Calculator persists across multiple test sessions
+- Easier debugging (inspect running calculator)
+- See `tools/README.md` for detailed documentation
+
+**Approach 2: Fully Automatic (Good for CI/One-off Testing)**
+
+The test script automatically downloads, builds, and starts everything:
+
+```bash
+python test_funz_udp_discovery.py
+```
+
 ### Prerequisites
 
-1. **Java Funz Calculator Running**
-   ```bash
-   # See .github/workflows/funz-calculator.yml for complete setup
-   # Calculator must be broadcasting on UDP port 5555
-   ```
+**Minimum Requirements:**
+- Python 3.7+
+- Java 11+ (JDK with `javac`)
+- Apache Ant (for building Java projects)
+- Git (for cloning repositories)
 
-2. **Python fz Library Installed**
-   ```bash
-   pip install -e .
-   pip install pandas  # Optional but recommended
-   ```
+**Install on Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y openjdk-11-jdk ant git
+
+# Install Python dependencies
+pip install -e .
+pip install pandas  # Optional but recommended
+```
+
+**Install on macOS:**
+```bash
+brew install openjdk@11 ant git
+
+# Install Python dependencies
+pip install -e .
+pip install pandas
+```
 
 ### Basic Usage
 
+**Fully Automatic (Recommended):**
 ```bash
-# Run with default settings (UDP port 5555, 15s timeout)
+# Downloads Funz components, builds them, starts calculator, runs tests
 python test_funz_udp_discovery.py
+```
+
+The script will:
+1. Download funz-profile, funz-core, funz-calculator to `~/.funz_test/`
+2. Build all components with `ant`
+3. Create calculator configuration (UDP port 5555)
+4. Start calculator daemon
+5. Discover calculator via UDP
+6. Run fzr integration tests
+7. Clean up (stop calculator)
+
+**Skip Re-downloading (if already exists):**
+```bash
+# Use existing Funz installation in ~/.funz_test
+python test_funz_udp_discovery.py --skip-download
+```
+
+**Use Existing Calculator (Manual Setup):**
+```bash
+# Skip automatic setup, use calculator you started manually
+python test_funz_udp_discovery.py --no-setup
 ```
 
 ### Advanced Configuration
 
+**Custom Installation Directory:**
 ```bash
-# Custom UDP port
+python test_funz_udp_discovery.py --setup-dir /opt/funz_test
+```
+
+**Custom UDP Port:**
+```bash
+python test_funz_udp_discovery.py --udp-port 5556
+# Or via environment variable:
 FUNZ_UDP_PORT=5556 python test_funz_udp_discovery.py
+```
 
-# Longer discovery timeout
+**Longer Discovery Timeout:**
+```bash
+python test_funz_udp_discovery.py --discovery-timeout 30
+# Or via environment variable:
 FUNZ_DISCOVERY_TIMEOUT=30 python test_funz_udp_discovery.py
+```
 
-# Debug logging
+**Debug Logging:**
+```bash
 FZ_LOG_LEVEL=DEBUG python test_funz_udp_discovery.py
+```
+
+**Combined Example:**
+```bash
+# Custom directory, skip download, debug logging
+python test_funz_udp_discovery.py \
+  --setup-dir ~/my_funz \
+  --skip-download \
+  --udp-port 5555 \
+  --discovery-timeout 20
 ```
 
 ## Expected Output

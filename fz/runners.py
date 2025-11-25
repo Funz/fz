@@ -1890,14 +1890,15 @@ def run_funz_calculation(
     start_time = datetime.now()
     env_info = get_environment_info()
 
-    # Funz protocol constants
+    # Funz protocol constants (per org.funz.Protocol in Java source)
     METHOD_RESERVE = "RESERVE"
     METHOD_UNRESERVE = "UNRESERVE"
     METHOD_PUT_FILE = "PUTFILE"
     METHOD_NEW_CASE = "NEWCASE"
     METHOD_EXECUTE = "EXECUTE"
+    METHOD_ARCH_RES = "ARCHIVE"
     METHOD_GET_ARCH = "GETFILE"
-    METHOD_INTERRUPT = "INTERUPT"  # Note: typo preserved from original Java code
+    METHOD_INTERRUPT = "INTERUPT"  # Note: typo in original Java code
 
     RET_YES = "Y"
     RET_NO = "N"
@@ -1927,9 +1928,9 @@ def run_funz_calculation(
         connection_part, code = uri_part.split("/", 1)
         log_debug(f"Connection part: {connection_part}, Code: {code}")
 
-        # Parse host and port
+        # Parse host and UDP port
         host = "localhost"  # Default to localhost
-        port = 0
+        udp_port = 0
 
         if ":" in connection_part:
             # host:port format
@@ -1937,40 +1938,86 @@ def run_funz_calculation(
                 # :port format (no host)
                 port_str = connection_part[1:]
                 try:
-                    port = int(port_str)
-                    log_debug(f"Parsed port (localhost): {port}")
+                    udp_port = int(port_str)
+                    log_debug(f"Parsed UDP port (localhost): {udp_port}")
                 except ValueError:
                     return {"status": "error", "error": f"Invalid port number: {port_str}"}
             else:
                 # host:port format
                 host, port_str = connection_part.rsplit(":", 1)
                 try:
-                    port = int(port_str)
-                    log_debug(f"Parsed host:port: {host}:{port}")
+                    udp_port = int(port_str)
+                    log_debug(f"Parsed host:UDP port: {host}:{udp_port}")
                 except ValueError:
                     return {"status": "error", "error": f"Invalid port number: {port_str}"}
         else:
-            return {"status": "error", "error": "Funz URI must specify port: funz://:<port>/<code>"}
+            return {"status": "error", "error": "Funz URI must specify UDP port: funz://:<port>/<code>"}
 
         if not code:
             return {"status": "error", "error": "Funz URI must specify code"}
 
-        log_info(f"📡 Connecting to Funz server: {host}:{port}")
+        log_info(f"📡 Discovering Funz calculator via UDP broadcast on port {udp_port}...")
         log_info(f"🔧 Code: {code}")
         log_debug(f"Working directory: {working_dir}")
         log_debug(f"Timeout: {timeout}s")
 
-        # Create socket connection
-        log_debug(f"Creating TCP socket connection to {host}:{port}")
+        # Discover TCP port via UDP broadcast
+        try:
+            log_debug(f"Creating UDP socket to listen on port {udp_port}")
+            udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            udp_sock.bind(('', udp_port))
+            udp_sock.settimeout(10)  # 10 second timeout for UDP discovery
+
+            log_debug(f"Waiting for UDP broadcast from calculator...")
+            data, addr = udp_sock.recvfrom(1024)
+            udp_sock.close()
+
+            # Parse UDP broadcast data
+            # Format (lines):
+            # 0: calculator name
+            # 1: TCP port
+            # 2: secret
+            # 3: OS
+            # 4: status
+            # 5+: available codes
+            lines = data.decode('utf-8').strip().split('\n')
+            log_debug(f"Received UDP broadcast from {addr}:")
+            for i, line in enumerate(lines):
+                log_debug(f"  Line {i}: {line}")
+
+            if len(lines) < 2:
+                return {"status": "error", "error": "Invalid UDP broadcast format"}
+
+            tcp_port = int(lines[1])
+            calculator_name = lines[0]
+            available_codes = lines[6:] if len(lines) > 6 else []
+
+            log_info(f"✅ Discovered calculator '{calculator_name}' at {host}:{tcp_port}")
+            log_debug(f"Available codes: {available_codes}")
+
+            # Verify requested code is available
+            if code not in available_codes:
+                log_warning(f"⚠️  Requested code '{code}' not in available codes: {available_codes}")
+
+        except socket.timeout:
+            log_error(f"❌ UDP discovery timeout - no calculator found on port {udp_port}")
+            return {"status": "error", "error": f"No calculator found on UDP port {udp_port}"}
+        except Exception as e:
+            log_error(f"❌ UDP discovery failed: {e}")
+            return {"status": "error", "error": f"UDP discovery failed: {str(e)}"}
+
+        # Create TCP socket connection to discovered port
+        log_debug(f"Creating TCP socket connection to {host}:{tcp_port}")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connection_timeout = min(timeout, 30)
         sock.settimeout(connection_timeout)
         log_debug(f"Socket timeout set to {connection_timeout}s")
 
         try:
-            log_debug(f"Attempting TCP connection to {host}:{port}...")
-            sock.connect((host, port))
-            log_info(f"✅ Connected to Funz server at {host}:{port}")
+            log_debug(f"Attempting TCP connection to {host}:{tcp_port}...")
+            sock.connect((host, tcp_port))
+            log_info(f"✅ Connected to Funz server at {host}:{tcp_port}")
             log_debug(f"Socket state: connected, local={sock.getsockname()}, remote={sock.getpeername()}")
 
             # Create buffered reader/writer
@@ -1987,63 +2034,169 @@ def run_funz_calculation(
                 log_debug(f"→ Message sent and flushed")
 
             def read_response():
-                """Read a protocol response until END_OF_REQ"""
+                """Read a protocol response until END_OF_REQ
+
+                Returns:
+                    Tuple of (status, response_lines) where:
+                    - status is the first line (RET_YES, RET_NO, RET_ERROR, etc.) or None on timeout/error
+                    - response_lines is the full response including status line
+                """
                 response = []
                 line_count = 0
-                while True:
-                    line = sock_file.readline().strip()
-                    line_count += 1
-                    log_debug(f"← Received line {line_count}: '{line}'")
 
-                    if not line:
-                        # Connection closed
-                        log_warning(f"⚠️  Connection closed by server (empty line received)")
+                # Set socket timeout for reading
+                original_timeout = sock.gettimeout()
+                sock.settimeout(timeout)
+
+                try:
+                    while True:
+                        try:
+                            line = sock_file.readline().strip()
+                        except socket.timeout:
+                            log_error(f"❌ Timeout waiting for response after {timeout}s")
+                            sock.settimeout(original_timeout)
+                            return "TIMEOUT", []
+
+                        line_count += 1
+                        log_debug(f"← Received line {line_count}: '{line}'")
+
+                        if not line:
+                            # Connection closed
+                            log_warning(f"⚠️  Connection closed by server (empty line received)")
+                            sock.settimeout(original_timeout)
+                            return None, []
+
+                        if line == END_OF_REQ:
+                            log_debug(f"← End of response marker received (total {line_count} lines)")
+                            break
+
+                        # Handle special responses
+                        if line == RET_HEARTBEAT:
+                            log_debug("← Heartbeat received, ignoring")
+                            continue  # Ignore heartbeats
+
+                        if line == RET_INFO:
+                            # Info message - read next line
+                            info_line = sock_file.readline().strip()
+                            log_info(f"ℹ️  Funz info: {info_line}")
+                            continue
+
+                        response.append(line)
+
+                    if not response:
+                        log_debug("← Empty response received")
+                        sock.settimeout(original_timeout)
                         return None, []
 
-                    if line == END_OF_REQ:
-                        log_debug(f"← End of response marker received (total {line_count} lines)")
-                        break
+                    log_debug(f"← Response parsed: status={response[0]}, lines={len(response)}")
+                    sock.settimeout(original_timeout)
+                    return response[0], response
 
-                    # Handle special responses
-                    if line == RET_HEARTBEAT:
-                        log_debug("← Heartbeat received, ignoring")
-                        continue  # Ignore heartbeats
+                except Exception as e:
+                    log_error(f"❌ Error reading response: {e}")
+                    sock.settimeout(original_timeout)
+                    return "ERROR", []
 
-                    if line == RET_INFO:
-                        # Info message - read next line
-                        info_line = sock_file.readline().strip()
-                        log_info(f"ℹ️  Funz info: {info_line}")
-                        continue
-
-                    response.append(line)
-
-                if not response:
-                    log_debug("← Empty response received")
-                    return None, []
-
-                log_debug(f"← Response parsed: status={response[0]}, lines={len(response)}")
-                return response[0], response
-
-            # Step 1: Reserve calculator
+            # Step 1: Reserve calculator (two-phase protocol)
             log_info("🔒 Step 1: Reserving calculator...")
-            log_debug(f"Sending {METHOD_RESERVE} request")
+
+            # Phase 1: Send RESERVE command
+            log_debug(f"Sending {METHOD_RESERVE} request (phase 1)")
             send_message(METHOD_RESERVE)
             ret, response = read_response()
 
-            if ret != RET_YES:
+            # Check for errors/timeout
+            if ret == "TIMEOUT":
+                log_error(f"❌ Reservation timed out")
+                return {"status": "timeout", "error": "Calculator reservation timed out"}
+            elif ret == "ERROR":
+                log_error(f"❌ Error during reservation")
+                return {"status": "error", "error": "Error during calculator reservation"}
+            elif ret != RET_YES:
                 error_msg = response[1] if len(response) > 1 else "Unknown error"
                 log_error(f"❌ Calculator reservation failed: {error_msg}")
                 log_debug(f"Full response: {response}")
                 return {"status": "error", "error": f"Failed to reserve calculator: {error_msg}"}
 
+            log_debug(f"✅ Phase 1 complete")
+
+            # Phase 2: Send project code and tagged values
+            import getpass
+            tagged_values = {
+                "USERNAME": getpass.getuser()
+            }
+
+            log_debug(f"Sending project code '{code}' and tagged values (phase 2)")
+            # Send code
+            sock_file.write(code + '\n')
+            # Send number of tagged values
+            sock_file.write(str(len(tagged_values)) + '\n')
+            # Send each tagged value
+            for key, value in tagged_values.items():
+                sock_file.write(key + '\n')
+                sock_file.write(str(value) + '\n')
+            sock_file.flush()
+
+            # Read phase 2 response
+            ret, response = read_response()
+
+            if ret == "TIMEOUT":
+                log_error(f"❌ Reservation phase 2 timed out")
+                return {"status": "timeout", "error": "Calculator reservation phase 2 timed out"}
+            elif ret != RET_YES:
+                error_msg = response[1] if len(response) > 1 else "Unknown error"
+                log_error(f"❌ Calculator reservation phase 2 failed: {error_msg}")
+                return {"status": "error", "error": f"Failed to reserve calculator (phase 2): {error_msg}"}
+
             # Get secret code from response (for authentication)
+            # Response contains: [RET_YES, secret, ip, security]
             secret_code = response[1] if len(response) > 1 else None
             log_info(f"✅ Calculator reserved successfully")
             log_debug(f"Secret code: {secret_code}")
 
             try:
-                # Step 2: Upload input files
-                log_info("📤 Step 2: Uploading input files...")
+                # Step 2: Create new case (MUST come before uploading files!)
+                # The Funz protocol requires NEW_CASE before PUT_FILE
+                log_info("📝 Step 2: Creating new case...")
+
+                # Prepare variables (must include USERNAME)
+                variables = {
+                    "USERNAME": getpass.getuser()
+                }
+
+                log_debug(f"Sending {METHOD_NEW_CASE} request with variables: {variables}")
+                send_message(METHOD_NEW_CASE)
+
+                # Send variable count
+                sock_file.write(str(len(variables)) + '\n')
+
+                # Send each variable
+                for key, value in variables.items():
+                    # Truncate multi-line values to first line
+                    value_str = str(value).split('\n')[0]
+                    if '\n' in str(value):
+                        value_str += "..."
+
+                    sock_file.write(key + '\n')
+                    sock_file.write(value_str + '\n')
+
+                sock_file.flush()
+
+                # Read response
+                ret, case_response = read_response()
+
+                if ret == "TIMEOUT":
+                    log_error(f"❌ New case creation timed out")
+                    return {"status": "timeout", "error": "New case creation timed out"}
+                elif ret != RET_YES:
+                    error_msg = case_response[1] if len(case_response) > 1 else "Unknown error"
+                    log_error(f"❌ Failed to create new case: {error_msg}")
+                    return {"status": "error", "error": f"Failed to create new case: {error_msg}"}
+
+                log_info(f"✅ Case created successfully")
+
+                # Step 3: Upload input files (after NEW_CASE)
+                log_info("📤 Step 3: Uploading input files...")
                 files_to_upload = [item for item in working_dir.iterdir() if item.is_file()]
                 log_debug(f"Found {len(files_to_upload)} files to upload")
 
@@ -2076,21 +2229,6 @@ def run_funz_calculation(
 
                 log_info(f"✅ Uploaded {uploaded_count}/{len(files_to_upload)} files")
 
-                # Step 3: Create new case (with variables if needed)
-                # For now, we'll use a simple case without variables
-                # In the future, this could be extended to support variable substitution
-                log_info("📝 Step 3: Creating new case...")
-                case_name = "case_1"
-                log_debug(f"Sending {METHOD_NEW_CASE} request with case name: {case_name}")
-                send_message(METHOD_NEW_CASE, case_name)
-                ret, case_response = read_response()
-
-                if ret != RET_YES:
-                    log_error(f"❌ Failed to create new case: {case_response}")
-                    return {"status": "error", "error": "Failed to create new case"}
-
-                log_info(f"✅ Case '{case_name}' created successfully")
-
                 # Step 4: Execute calculation
                 log_info(f"⚙️  Step 4: Executing calculation...")
                 log_info(f"  Code: {code}")
@@ -2108,7 +2246,13 @@ def run_funz_calculation(
                     send_message(METHOD_INTERRUPT, secret_code if secret_code else "")
                     raise KeyboardInterrupt("Execution interrupted by user")
 
-                if ret != RET_YES:
+                if ret == "TIMEOUT":
+                    log_error(f"❌ Execution timed out after {timeout}s")
+                    return {"status": "timeout", "error": f"Execution timed out after {timeout}s"}
+                elif ret == "ERROR":
+                    log_error(f"❌ Error during execution")
+                    return {"status": "error", "error": "Error during execution"}
+                elif ret != RET_YES:
                     error_msg = response[1] if len(response) > 1 else "Execution failed"
                     log_error(f"❌ Execution failed: {error_msg}")
                     log_debug(f"Full response: {response}")
@@ -2120,26 +2264,65 @@ def run_funz_calculation(
                 log_info(f"✅ Execution completed in {execution_time:.2f}s")
                 log_debug(f"Execution ended at {execution_end.isoformat()}")
 
-                # Step 5: Download results
-                log_info("📥 Step 5: Downloading results...")
+                # Step 5: Archive results (required before GET_ARCH)
+                log_info("📦 Step 5: Archiving results...")
+                log_debug(f"Sending {METHOD_ARCH_RES} request")
+                send_message(METHOD_ARCH_RES)
+                ret, arch_response = read_response()
+
+                if ret != RET_YES:
+                    log_error(f"❌ Failed to archive results: {arch_response}")
+                    return {"status": "error", "error": "Failed to archive results"}
+
+                log_info(f"✅ Results archived successfully")
+
+                # Step 6: Download results archive
+                log_info("📥 Step 6: Downloading results...")
                 log_debug(f"Sending {METHOD_GET_ARCH} request")
                 send_message(METHOD_GET_ARCH)
 
-                # Read archive size
+                # Read response (should be Y\n/\n, possibly with INFO messages)
                 ret, response = read_response()
 
-                if ret != RET_YES:
-                    log_error(f"❌ Failed to get results archive: {response}")
-                    return {"status": "error", "error": "Failed to get results archive"}
+                if ret == "TIMEOUT":
+                    log_error(f"❌ Archive download timed out")
+                    return {"status": "timeout", "error": "Archive download timed out"}
+                elif ret != RET_YES:
+                    error_msg = response[1] if len(response) > 1 else "Unknown error"
+                    log_error(f"❌ Failed to get results archive: {error_msg}")
+                    return {"status": "error", "error": f"Failed to get results archive: {error_msg}"}
 
-                # Get archive size from response
-                archive_size = int(response[1]) if len(response) > 1 else 0
-                log_info(f"  Archive size: {archive_size} bytes ({archive_size/1024:.2f} KB)")
-                log_debug(f"Full response: {response}")
+                # Read lines until we find one that's all digits (the size)
+                # Skip any additional protocol responses (Y, /, INFO lines, etc.)
+                # This is necessary because transferArchive sends multiple Y\n/\n responses
+                max_lines = 50
+                archive_size = None
 
-                # Send sync acknowledgment
-                log_debug(f"Sending {RET_SYNC} acknowledgment")
-                send_message(RET_SYNC)
+                try:
+                    for i in range(max_lines):
+                        line = sock_file.readline().strip()
+                        log_debug(f"Reading size line {i}: '{line}'")
+
+                        if not line:
+                            log_error(f"❌ Connection closed while reading archive size")
+                            return {"status": "error", "error": "Connection closed while reading archive size"}
+
+                        if line.isdigit():
+                            archive_size = int(line)
+                            log_info(f"  Archive size: {archive_size} bytes ({archive_size/1024:.2f} KB)")
+                            break
+                except socket.timeout:
+                    log_error(f"❌ Timeout while reading archive size")
+                    return {"status": "timeout", "error": "Timeout while reading archive size"}
+
+                if archive_size is None:
+                    log_error(f"❌ Could not find archive size in {max_lines} lines")
+                    return {"status": "error", "error": "Could not determine archive size"}
+
+                # Send acknowledgment (just a line, per Java: _reader.readLine())
+                log_debug(f"Sending ACK for archive transfer")
+                sock_file.write("ACK\n")
+                sock_file.flush()
 
                 # Receive archive data
                 archive_data = b""
@@ -2188,7 +2371,7 @@ def run_funz_calculation(
 
                 log_file_path = working_dir / "log.txt"
                 with open(log_file_path, "w") as log_file:
-                    log_file.write(f"Calculator: funz://{host}:{port}/{code}\n")
+                    log_file.write(f"Calculator: funz://{host}:{tcp_port}/{code}\n")
                     log_file.write(f"Exit code: 0\n")
                     log_file.write(f"Time start: {start_time.isoformat()}\n")
                     log_file.write(f"Time end: {end_time.isoformat()}\n")
@@ -2196,7 +2379,7 @@ def run_funz_calculation(
                     log_file.write(f"Total time: {total_time:.3f} seconds\n")
                     log_file.write(f"User: {env_info['user']}\n")
                     log_file.write(f"Hostname: {env_info['hostname']}\n")
-                    log_file.write(f"Funz server: {host}:{port}\n")
+                    log_file.write(f"Funz server: {host}:{tcp_port}\n")
                     log_file.write(f"Timestamp: {time.ctime()}\n")
 
                 # Parse output using fzo
@@ -2210,7 +2393,7 @@ def run_funz_calculation(
                         output_dict = output_results
 
                     output_dict["status"] = "done"
-                    output_dict["calculator"] = f"funz://{host}:{port}"
+                    output_dict["calculator"] = f"funz://{host}:{tcp_port}"
                     output_dict["command"] = code
 
                     return output_dict
@@ -2219,7 +2402,7 @@ def run_funz_calculation(
                     log_warning(f"Could not parse output: {e}")
                     return {
                         "status": "done",
-                        "calculator": f"funz://{host}:{port}",
+                        "calculator": f"funz://{host}:{tcp_port}",
                         "command": code,
                         "error": f"Output parsing failed: {str(e)}"
                     }
