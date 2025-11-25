@@ -2,7 +2,22 @@
 Integration tests for Funz calculator
 
 Tests real Funz calculator servers running on localhost.
-This test requires Funz calculator servers to be running (they announce via UDP).
+
+Prerequisites:
+1. Funz calculator infrastructure must be installed:
+   ./tools/setup_funz_calculator.sh
+
+2. Test CODE configurations must be set up:
+   ./tools/setup_funz_test_codes.sh
+
+   This creates:
+   - calc.sh, calc_product.sh, calc_fail.sh scripts
+   - calculator-5555.xml, calculator-5556.xml, calculator-5557.xml configs
+
+3. Funz calculator servers must be running:
+   ./tools/start_funz_calculator.sh 5555
+   ./tools/start_funz_calculator.sh 5556
+   ./tools/start_funz_calculator.sh 5557
 """
 import pytest
 import tempfile
