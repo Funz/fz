@@ -74,56 +74,24 @@ jobs:
 
         echo "FUNZ_CALCULATOR_HOME=${{ github.workspace }}/funz-calculator" >> $GITHUB_ENV
 
-    - name: Create calculator configurations for each port
+    - name: Create test CODE configurations (calc.sh, calc_product.sh, calc_fail.sh)
       run: |
-        cd ${{ github.workspace }}/funz-calculator/dist
+        cd ${{ github.workspace }}
 
-        # Create configuration for port 5555
-        # NOTE: Root element must be <CALCULATOR> (uppercase) per Calculator.java:ELEM_CALCULATOR
-        # Architecture:
-        # - HOST port="5555": UDP port where daemon broadcasts availability info every 5s
-        # - CALCULATOR has no port attribute: TCP port is communicated in UDP messages
-        # - Clients listen to UDP broadcasts and connect via TCP to port from UDP message
-        cat > calculator-5555.xml << 'EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <CALCULATOR name="calc-5555" spool="spool-5555">
-          <HOST name="localhost" port="5555" />
-          <CODE name="bash" command="/bin/bash" />
-          <CODE name="sh" command="/bin/sh" />
-          <CODE name="shell" command="/bin/bash" />
-        </CALCULATOR>
-        EOF
+        # Set up Funz calculator location for setup script
+        mkdir -p ~/.funz_calculator
+        ln -s ${{ github.workspace }}/funz-calculator ~/.funz_calculator/funz-calculator
 
-        # Create configuration for port 5556
-        cat > calculator-5556.xml << 'EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <CALCULATOR name="calc-5556" spool="spool-5556">
-          <HOST name="localhost" port="5556" />
-          <CODE name="bash" command="/bin/bash" />
-          <CODE name="sh" command="/bin/sh" />
-          <CODE name="shell" command="/bin/bash" />
-        </CALCULATOR>
-        EOF
+        # Run setup script to create CODE configurations
+        ./tools/setup_funz_test_codes.sh
 
-        # Create configuration for port 5557
-        cat > calculator-5557.xml << 'EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <CALCULATOR name="calc-5557" spool="spool-5557">
-          <HOST name="localhost" port="5557" />
-          <CODE name="bash" command="/bin/bash" />
-          <CODE name="sh" command="/bin/sh" />
-          <CODE name="shell" command="/bin/bash" />
-        </CALCULATOR>
-        EOF
+        echo ""
+        echo "=== Created scripts ==="
+        ls -la ${{ github.workspace }}/funz-calculator/dist/*.sh
 
-        # Create spool directories
-        mkdir -p spool-5555 spool-5556 spool-5557
-
-        echo "Calculator configurations created"
-        ls -la calculator-*.xml
-
+        echo ""
         echo "=== Configuration content (port 5555) ==="
-        cat calculator-5555.xml
+        cat ${{ github.workspace }}/funz-calculator/dist/calculator-5555.xml
 
     - name: Start Funz calculators (3 instances)
       run: |
