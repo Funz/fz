@@ -11,6 +11,7 @@ build
 !tests/**
 **/__pycache__
 **/**_test**
+!tools/*.sh
 !tests/test_data/**
 **/debug**
 **/tmp*
