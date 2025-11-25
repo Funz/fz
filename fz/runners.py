@@ -270,7 +270,7 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
     Parse SLURM URI into components
 
     Args:
-        slurm_uri: SLURM URI in format slurm://[user[:password]@host[:port]:]partition/script
+        slurm_uri: SLURM URI in format slurm://[user[:password]@host[:port]]:partition/script
 
     Returns:
         Tuple of (host, port, username, password, partition, script)
@@ -288,11 +288,11 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
         uri_part = slurm_uri
 
     # Split to find the partition and script (everything after FIRST /)
-    # Format: [user[:password]@host[:port]:]partition/script
+    # Format: [user[:password]@host[:port]]:partition/script
     if "/" not in uri_part:
         raise ValueError(
             f"Invalid SLURM URI format: '{slurm_uri}'. "
-            "Expected format: slurm://[user@host:]partition/script"
+            "Expected format: slurm://[user@host]:partition/script or slurm://:partition/script"
         )
 
     # Split on FIRST / to separate partition/connection from script
@@ -304,11 +304,18 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
     if not script:
         raise ValueError(
             f"Invalid SLURM URI: script path is required. "
-            "Expected format: slurm://[user@host:]partition/script"
+            "Expected format: slurm://[user@host]:partition/script or slurm://:partition/script"
+        )
+
+    # Check for completely empty partition_part (e.g., slurm:///script.sh)
+    if not partition_part:
+        raise ValueError(
+            f"Invalid SLURM URI: partition is required. "
+            "Expected format: slurm://[user@host]:partition/script or slurm://:partition/script"
         )
 
     # Now parse partition_part to extract optional host and required partition
-    # Format: [user[:password]@host[:port]:]partition
+    # Format: [user[:password]@host[:port]]:partition
     host = None
     port = None
     username = None
@@ -319,7 +326,8 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
     # We need to be careful because:
     # - user:password@host:port:partition has multiple colons
     # - host:port:partition has multiple colons
-    # - partition alone has no colons (unless partition name has colons, which is unlikely)
+    # - :partition means local execution (new format)
+    # - partition alone is NOT supported (must use :partition for local)
 
     # Look for @ symbol which indicates user@host format
     if "@" in partition_part:
@@ -361,14 +369,24 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
                 "Expected format: slurm://user@host:partition/script"
             )
     elif ":" in partition_part:
-        # Format might be host:partition or host:port:partition (no user)
+        # Format might be :partition (local), host:partition, or host:port:partition (no user)
         # Count colons to determine format
         colons = partition_part.count(":")
 
         if colons == 1:
-            # host:partition
-            host, partition = partition_part.split(":", 1)
-            port = 22  # Default SSH port
+            # Could be :partition (local) or host:partition (remote)
+            parts = partition_part.split(":", 1)
+
+            if parts[0] == "":
+                # Format: :partition (local execution)
+                host = None
+                port = None
+                partition = parts[1]
+            else:
+                # Format: host:partition (remote execution)
+                host = parts[0]
+                partition = parts[1]
+                port = 22  # Default SSH port
         elif colons == 2:
             # host:port:partition
             parts = partition_part.split(":")
@@ -382,14 +400,20 @@ def parse_slurm_uri(slurm_uri: str) -> Tuple[Optional[str], Optional[int], Optio
             # Too many colons, unclear format
             raise ValueError(
                 f"Invalid SLURM URI format: '{slurm_uri}'. "
-                "Too many colons. Expected format: slurm://[user@host:]partition/script"
+                "Too many colons. Expected format: slurm://[user@host]:partition/script or slurm://:partition/script"
             )
-    # else: partition_part is just the partition name (local execution)
+    else:
+        # No colon at all - this is no longer supported for local execution
+        # User must use :partition format
+        raise ValueError(
+            f"Invalid SLURM URI format: '{slurm_uri}'. "
+            "For local execution, use format: slurm://:partition/script (note the colon before partition)"
+        )
 
     if not partition:
         raise ValueError(
             f"Invalid SLURM URI: partition is required. "
-            "Expected format: slurm://[user@host:]partition/script"
+            "Expected format: slurm://[user@host]:partition/script or slurm://:partition/script"
         )
 
     return host, port, username, password, partition, script

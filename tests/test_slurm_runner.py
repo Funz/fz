@@ -13,7 +13,7 @@ class TestSlurmUriParsing:
     def test_parse_slurm_uri_local_simple(self):
         """Test parsing simple local SLURM URI"""
         host, port, username, password, partition, script = parse_slurm_uri(
-            "slurm://compute/run.sh"
+            "slurm://:compute/run.sh"
         )
         assert host is None
         assert port is None
@@ -85,7 +85,7 @@ class TestSlurmUriParsing:
     def test_parse_slurm_uri_script_with_path(self):
         """Test parsing SLURM URI with script path"""
         host, port, username, password, partition, script = parse_slurm_uri(
-            "slurm://compute/path/to/script.sh"
+            "slurm://:compute/path/to/script.sh"
         )
         assert host is None
         assert partition == "compute"
@@ -94,12 +94,12 @@ class TestSlurmUriParsing:
     def test_parse_slurm_uri_missing_script(self):
         """Test parsing SLURM URI without script raises error"""
         with pytest.raises(ValueError, match="script path is required"):
-            parse_slurm_uri("slurm://compute/")
+            parse_slurm_uri("slurm://:compute/")
 
     def test_parse_slurm_uri_missing_slash(self):
         """Test parsing SLURM URI without slash raises error"""
         with pytest.raises(ValueError, match="Expected format"):
-            parse_slurm_uri("slurm://compute")
+            parse_slurm_uri("slurm://:compute")
 
     def test_parse_slurm_uri_missing_partition(self):
         """Test parsing SLURM URI with empty partition raises error"""
@@ -112,6 +112,11 @@ class TestSlurmUriParsing:
         with pytest.raises(ValueError, match="host must also be provided"):
             parse_slurm_uri("slurm://user@gpu/script.sh")
 
+    def test_parse_slurm_uri_old_format_without_colon(self):
+        """Test parsing SLURM URI without colon prefix (old format) raises error"""
+        with pytest.raises(ValueError, match="note the colon before partition"):
+            parse_slurm_uri("slurm://compute/run.sh")
+
 
 class TestSlurmUriValidation:
     """Test SLURM URI validation functionality"""
@@ -119,17 +124,17 @@ class TestSlurmUriValidation:
     def test_validate_slurm_uri_valid(self):
         """Test validation of valid SLURM URI"""
         # Should not raise
-        _validate_calculator_uri("slurm://compute/run.sh")
+        _validate_calculator_uri("slurm://:compute/run.sh")
 
     def test_validate_slurm_uri_invalid_format(self):
         """Test validation of invalid SLURM URI format"""
         with pytest.raises(ValueError, match="Invalid SLURM calculator URI"):
-            _validate_calculator_uri("slurm://compute")
+            _validate_calculator_uri("slurm://:compute")
 
     def test_validate_calculator_uri_slurm_scheme(self):
         """Test that slurm:// is a supported scheme"""
         # Should not raise
-        _validate_calculator_uri("slurm://partition/script.sh")
+        _validate_calculator_uri("slurm://:partition/script.sh")
 
     def test_validate_slurm_uri_missing_partition(self):
         """Test validation catches missing partition"""
