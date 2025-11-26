@@ -266,19 +266,22 @@ export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
 #### How It Works
 
 1. **Configuration Loading**: `FZ_SHELL_PATH` is read from environment variables in `config.py`
-2. **Binary Discovery**: The `ShellPathResolver` class in `shell_path.py` manages binary resolution with caching
+2. **Binary Discovery**: The `ShellPathResolver` class in `shell.py` manages binary resolution with caching
 3. **Command Resolution**: Commands in model output dicts and `sh://` calculators are automatically resolved to absolute paths
-4. **Fallback Behavior**: If `FZ_SHELL_PATH` is not set, uses system `PATH` environment variable
+4. **Priority Enforcement**: `FZ_SHELL_PATH` **always takes precedence** over system `PATH` - even if the same binary exists in both locations
+5. **Fallback Behavior**: If `FZ_SHELL_PATH` is not set, falls back to hardcoded common installation paths (on Windows) or standard paths (on Unix)
 
 #### Implementation Details
 
-- **Module**: `fz/shell_path.py` - Provides `ShellPathResolver` class and global functions
+- **Module**: `fz/shell.py` - Provides `ShellPathResolver` class and global functions
 - **Config Integration**: `config.py` loads `FZ_SHELL_PATH` environment variable
 - **Core Integration**:
-  - `core.py` (fzo function): Applies shell path resolution to model output commands
+  - `core.py` (fzo function, check_bash_availability_on_windows): Uses shell path resolution for bash and output commands
   - `runners.py` (run_local_calculation): Applies shell path resolution to sh:// commands
+  - `shell.py` (get_windows_bash_executable): Prioritizes FZ_SHELL_PATH over system PATH
 - **Caching**: Binary paths are cached after first resolution for performance
 - **Windows Support**: Automatically tries both `command` and `command.exe` on Windows
+- **Priority Guarantee**: System PATH is intentionally skipped to ensure FZ_SHELL_PATH always takes precedence
 
 #### Performance Considerations
 
