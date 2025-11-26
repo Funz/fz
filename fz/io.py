@@ -7,10 +7,15 @@ import glob
 import json
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 
-from .logging import log_info
+from .logging import log_info, log_warning
 from datetime import datetime
+
+if TYPE_CHECKING:
+    import pandas
+
+import pandas as pd
 
 
 def ensure_unique_directory(directory_path: Path) -> tuple[Path, Optional[Path]]:
@@ -220,7 +225,7 @@ def find_cache_match(cache_base_path: Path, current_hash_file: Path) -> Optional
             print(f"Could not read cache hash file {cache_hash_file}: {e}")
             continue
 
-    print(f"No cache match found in {cache_base_path} or its subdirectories")
+    log_info(f"No cache match found in {cache_base_path} or its subdirectories")
     return None
 
 
@@ -237,3 +242,360 @@ def load_aliases(name: str, alias_type: str = "models") -> Optional[Dict]:
             except (json.JSONDecodeError, IOError):
                 continue
     return None
+
+
+def detect_content_type(text: str) -> str:
+    """
+    Detect the type of content in a text string.
+
+    Returns: 'html', 'json', 'keyvalue', 'markdown', or 'plain'
+    """
+    if not text or not isinstance(text, str):
+        return 'plain'
+
+    text_stripped = text.strip()
+
+    # Check for HTML tags
+    if re.search(r'<(html|div|p|h1|h2|h3|img|table|body|head)', text_stripped, re.IGNORECASE):
+        return 'html'
+
+    # Check for JSON (starts with { or [)
+    if text_stripped.startswith(('{', '[')):
+        try:
+            json.loads(text_stripped)
+            return 'json'
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Check for markdown (has markdown syntax like #, ##, *, -, ```, etc.)
+    markdown_patterns = [
+        r'^#{1,6}\s+.+$',  # Headers
+        r'^\*\*.+\*\*$',   # Bold
+        r'^_.+_$',         # Italic
+        r'^\[.+\]\(.+\)$', # Links
+        r'^```',           # Code blocks
+        r'^\* .+$',        # Unordered lists
+        r'^\d+\. .+$',     # Ordered lists
+    ]
+    for pattern in markdown_patterns:
+        if re.search(pattern, text_stripped, re.MULTILINE):
+            return 'markdown'
+
+    # Check for key=value format (at least 2 lines with = signs)
+    lines = text_stripped.split('\n')
+    kv_lines = [l for l in lines if '=' in l and not l.strip().startswith('#')]
+    if len(kv_lines) >= 2:
+        # Verify they look like key=value pairs
+        if all(len(l.split('=', 1)) == 2 for l in kv_lines[:3]):
+            return 'keyvalue'
+
+    return 'plain'
+
+
+def parse_keyvalue_text(text: str) -> Dict[str, str]:
+    """Parse key=value text into a dictionary."""
+    result = {}
+    for line in text.strip().split('\n'):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '=' in line:
+            key, value = line.split('=', 1)
+            result[key.strip()] = value.strip()
+    return result
+
+
+def process_analysis_content(
+    analysis_dict: Dict[str, Any],
+    iteration: int,
+    results_dir: Path
+) -> Dict[str, Any]:
+    """
+    Process get_analysis() output, detecting content types and saving to files.
+
+    Args:
+        analysis_dict: The dict returned by get_analysis()
+        iteration: Current iteration number
+        results_dir: Directory to save files
+
+    Returns:
+        Processed dict with file references instead of raw content
+    """
+    processed = {'data': analysis_dict.get('data', {})}
+
+    # Process 'html' field if present
+    if 'html' in analysis_dict:
+        html_content = analysis_dict['html']
+        html_file = results_dir / f"analysis_{iteration}.html"
+        with open(html_file, 'w') as f:
+            f.write(html_content)
+        processed['html_file'] = str(html_file.name)
+        log_info(f"  💾 Saved HTML to {html_file.name}")
+
+    # Process 'text' field if present
+    if 'text' in analysis_dict:
+        text_content = analysis_dict['text']
+        content_type = detect_content_type(text_content)
+
+        if content_type == 'html':
+            # Save as HTML file
+            html_file = results_dir / f"analysis_{iteration}.html"
+            with open(html_file, 'w') as f:
+                f.write(text_content)
+            processed['html_file'] = str(html_file.name)
+            log_info(f"  💾 Detected HTML in text, saved to {html_file.name}")
+
+        elif content_type == 'json':
+            # Parse JSON and save to file
+            json_file = results_dir / f"analysis_{iteration}.json"
+            try:
+                parsed_json = json.loads(text_content)
+                with open(json_file, 'w') as f:
+                    json.dump(parsed_json, f, indent=2)
+                processed['json_data'] = parsed_json
+                processed['json_file'] = str(json_file.name)
+                log_info(f"  💾 Detected JSON, parsed and saved to {json_file.name}")
+            except Exception as e:
+                log_warning(f"⚠️  Failed to parse JSON: {e}")
+                processed['text'] = text_content
+
+        elif content_type == 'keyvalue':
+            # Parse key=value format and save to file
+            txt_file = results_dir / f"analysis_{iteration}.txt"
+            with open(txt_file, 'w') as f:
+                f.write(text_content)
+            try:
+                parsed_kv = parse_keyvalue_text(text_content)
+                processed['keyvalue_data'] = parsed_kv
+                processed['txt_file'] = str(txt_file.name)
+                log_info(f"  💾 Detected key=value format, parsed and saved to {txt_file.name}")
+            except Exception as e:
+                log_warning(f"⚠️  Failed to parse key=value: {e}")
+                processed['text'] = text_content
+
+        elif content_type == 'markdown':
+            # Save as markdown file
+            md_file = results_dir / f"analysis_{iteration}.md"
+            with open(md_file, 'w') as f:
+                f.write(text_content)
+            processed['md_file'] = str(md_file.name)
+            log_info(f"  💾 Detected markdown, saved to {md_file.name}")
+
+        else:
+            # Keep as plain text
+            processed['text'] = text_content
+
+    return processed
+
+
+def flatten_dict_recursive(d: dict, parent_key: str = '', sep: str = '_') -> dict:
+    """
+    Recursively flatten a nested dictionary.
+
+    Args:
+        d: Dictionary to flatten
+        parent_key: Parent key prefix for nested keys
+        sep: Separator to use between nested keys
+
+    Returns:
+        Flattened dictionary with keys joined by separator
+    """
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            # Recursively flatten nested dict
+            items.extend(flatten_dict_recursive(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def flatten_dict_columns(df: "pandas.DataFrame") -> "pandas.DataFrame":
+    """
+    Recursively flatten dictionary-valued columns into separate columns.
+
+    For each column containing dict values, creates new columns with the dict keys.
+    Nested dicts are flattened recursively with keys joined by '_'.
+    For example, {"stats": {"basic": {"min": 1, "max": 4}}} becomes:
+    - stats_basic_min: 1
+    - stats_basic_max: 4
+
+    The original dict column is removed.
+
+    Args:
+        df: DataFrame potentially containing dict-valued columns
+
+    Returns:
+        DataFrame with dict columns recursively flattened
+    """
+    
+    if df.empty:
+        return df
+
+    # Keep flattening until no more dict columns remain
+    max_iterations = 10  # Prevent infinite loops
+    iteration = 0
+
+    while iteration < max_iterations:
+        iteration += 1
+
+        # Track which columns contain dicts and need to be flattened
+        dict_columns = []
+
+        for col in df.columns:
+            # Check if this column contains dict values
+            # Sample first non-None value to check type
+            sample_value = None
+            for val in df[col]:
+                if val is not None:
+                    sample_value = val
+                    break
+
+            if isinstance(sample_value, dict):
+                dict_columns.append(col)
+
+        if not dict_columns:
+            break  # No more dict columns to flatten
+
+        # Flatten each dict column
+        new_columns = {}
+
+        for col in dict_columns:
+            # Process each row in this column
+            for row_idx, val in enumerate(df[col]):
+                if isinstance(val, dict):
+                    # Recursively flatten this dict
+                    flattened = flatten_dict_recursive(val, parent_key=col, sep='_')
+
+                    # Add flattened keys to new_columns
+                    for flat_key, flat_val in flattened.items():
+                        if flat_key not in new_columns:
+                            # Initialize column with None for all rows
+                            new_columns[flat_key] = [None] * len(df)
+                        new_columns[flat_key][row_idx] = flat_val
+
+        # Create new DataFrame with original columns plus flattened dict columns
+        df = df.copy()
+
+        # Add new columns
+        for col_name, values in new_columns.items():
+            df[col_name] = values
+
+        # Drop original dict columns
+        df = df.drop(columns=dict_columns)
+
+    return df
+
+
+def get_and_process_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    iteration: int,
+    results_dir: Path,
+    method_name: str = 'get_analysis'
+) -> Optional[Dict[str, Any]]:
+    """
+    Helper to call algorithm's analysis method and process the results.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        iteration: Current iteration number
+        results_dir: Directory to save processed results
+        method_name: Name of the display method ('get_analysis' or 'get_analysis_tmp')
+
+    Returns:
+        Processed analysis dict or None if method doesn't exist or fails
+    """
+    if not hasattr(algo_instance, method_name):
+        return None
+
+    try:
+        analysis_method = getattr(algo_instance, method_name)
+        analysis_dict = analysis_method(all_input_vars, all_output_values)
+
+        if analysis_dict:
+            # Process and save content intelligently
+            processed = process_analysis_content(analysis_dict, iteration, results_dir)
+            # Also keep the original text/html for backward compatibility
+            processed['_raw'] = analysis_dict
+            return processed
+        return None
+
+    except Exception as e:
+        log_warning(f"⚠️  {method_name} failed: {e}")
+        return None
+
+
+def get_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    output_expression: str,
+    algorithm: str,
+    iteration: int,
+    results_dir: Path
+) -> Dict[str, Any]:
+    """
+    Create final analysis results with analysis information and DataFrame.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        output_expression: Expression for output column name
+        algorithm: Algorithm path/name
+        iteration: Final iteration number
+        results_dir: Directory for saving results
+
+    Returns:
+        Dict with analysis results including XY DataFrame and analysis info
+    """
+    # Display final results
+    log_info("\n" + "="*60)
+    log_info("📈 Final Results")
+    log_info("="*60)
+
+    # Get and process final analysis results
+    processed_final_analysis = get_and_process_analysis(
+        algo_instance, all_input_vars, all_output_values,
+        iteration, results_dir, 'get_analysis'
+    )
+
+    if processed_final_analysis and '_raw' in processed_final_analysis:
+        if 'text' in processed_final_analysis['_raw']:
+            log_info(processed_final_analysis['_raw']['text'])
+        # Remove _raw from returned dict - it's only for internal use
+        del processed_final_analysis['_raw']
+
+    # If processed_final_analysis is None, create empty dict for backward compatibility
+    if processed_final_analysis is None:
+        processed_final_analysis = {}
+
+    # Create DataFrame with all input and output values
+    df_data = []
+    for inp_dict, out_val in zip(all_input_vars, all_output_values):
+        row = inp_dict.copy()
+        row[output_expression] = out_val  # Use output_expression as column name
+        df_data.append(row)
+
+    data_df = pd.DataFrame(df_data)
+
+    # Prepare return value
+    result = {
+        'XY': data_df,  # DataFrame with all X and Y values
+        'analysis': processed_final_analysis,  # Use processed analysis instead of raw
+        'algorithm': algorithm,
+        'iterations': iteration,
+        'total_evaluations': len(all_input_vars),
+    }
+
+    # Add summary
+    valid_count = sum(1 for v in all_output_values if v is not None)
+    summary = f"{algorithm} completed: {iteration} iterations, {len(all_input_vars)} evaluations ({valid_count} valid)"
+    result['summary'] = summary
+
+    return result

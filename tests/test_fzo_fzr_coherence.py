@@ -13,17 +13,12 @@ import pytest
 import platform
 
 import fz
-
-try:
-    import pandas as pd
-    PANDAS_AVAILABLE = True
-except ImportError:
-    PANDAS_AVAILABLE = False
+import pandas as pd
 
 
 def _get_value(result, key, index):
     """Helper to get value from DataFrame or dict"""
-    if PANDAS_AVAILABLE and isinstance(result, pd.DataFrame):
+    if isinstance(result, pd.DataFrame):
         value = result[key].iloc[index]
         # Convert numpy types to native Python types
         if hasattr(value, 'item'):
@@ -35,7 +30,7 @@ def _get_value(result, key, index):
 
 def _get_length(result, key):
     """Helper to get length from DataFrame or dict"""
-    if PANDAS_AVAILABLE and isinstance(result, pd.DataFrame):
+    if isinstance(result, pd.DataFrame):
         return len(result[key])
     else:
         return len(result[key])
