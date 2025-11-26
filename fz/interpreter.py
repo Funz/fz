@@ -189,6 +189,9 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
         if stripped.startswith(commentline + formulaprefix):
             # Extract the code part and preserve any indentation from original
             code_part = stripped[len(commentline + formulaprefix):]
+            # Remove Funz-specific prefixes (: for code, ? for tests)
+            if code_part.startswith(':') or code_part.startswith('?'):
+                code_part = code_part[1:].lstrip()
             context_lines.append(code_part)
 
     # If delimiters are empty, skip formula evaluation (no formulas possible)
@@ -311,13 +314,20 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
 
         # Use a more sophisticated pattern to handle nested parentheses
         if left_delim == '(' and right_delim == ')':
-            formula_pattern = rf"{esc_formulaprefix}\(([^()]*(?:\([^()]*\)[^()]*)*)\)"
+            formula_pattern = rf"{esc_formulaprefix}\(([^()]*(?:\([^()]*\)[^()]*)*) \)"
         else:
             formula_pattern = rf"{esc_formulaprefix}{esc_left}([^{esc_right}]+){esc_right}"
 
         def replace_formula(match):
             formula = match.group(1)
             try:
+                # Handle format suffix (e.g., "expr|0.0000" for number formatting)
+                format_spec = None
+                if '|' in formula:
+                    formula, format_spec = formula.split('|', 1)
+                    formula = formula.strip()
+                    format_spec = format_spec.strip()
+                
                 # Replace variables in formula with their values (R uses variable names directly)
                 # So we just remove the $ prefix for R
                 r_formula = formula
@@ -329,9 +339,20 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
                 result = r(r_formula)
                 # Convert R result to Python
                 if hasattr(result, '__len__') and len(result) == 1:
-                    return str(result[0])
+                    value = result[0]
                 else:
-                    return str(result[0]) if len(result) > 0 else str(result)
+                    value = result[0] if len(result) > 0 else result
+                
+                # Apply format if specified
+                if format_spec:
+                    # Parse format like "0.0000" → 4 decimals
+                    if '.' in format_spec:
+                        decimals = len(format_spec.split('.')[1])
+                        return f"{float(value):.{decimals}f}"
+                    else:
+                        return str(value)
+                else:
+                    return str(value)
             except Exception as e:
                 print(f"Warning: Error evaluating R formula '{formula}': {e}")
                 return match.group(0)  # Return original if evaluation fails

@@ -44,7 +44,7 @@ def _get_commit_hash() -> str:
 class Interpreter(Enum):
     """Available formula interpreters"""
     PYTHON = "python"
-    R = "R"
+    R = "r"  # Changed to lowercase for consistency
     JAVASCRIPT = "javascript"
     AUTO = "auto"
 
@@ -155,16 +155,27 @@ def set_interpreter(interpreter: str):
         interpreter: Interpreter name ("python", "R", "javascript", "auto")
 
     Raises:
-        ValueError: If interpreter name is not valid
+        ValueError: If interpreter name is invalid
     """
     global _interpreter
 
     # Validate interpreter name
     valid_interpreters = [i.value for i in Interpreter]
-    if interpreter.lower() not in valid_interpreters:
+    valid_interpreters_lower = [i.lower() for i in valid_interpreters]
+    if interpreter.lower() not in valid_interpreters_lower:
         raise ValueError(f"Invalid interpreter '{interpreter}'. Must be one of: {valid_interpreters}")
 
     _interpreter = interpreter.lower()
+    
+    # Also update config.interpreter for consistency
+    try:
+        config.interpreter = Interpreter(interpreter.lower())
+    except ValueError:
+        # If lowercase doesn't match enum, try to find matching enum value
+        for interp in Interpreter:
+            if interp.value.lower() == interpreter.lower():
+                config.interpreter = interp
+                break
 
 
 def get_interpreter() -> str:
