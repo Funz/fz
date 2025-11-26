@@ -11,6 +11,7 @@ build
 !tests/**
 **/__pycache__
 **/**_test**
+!tools/*.sh
 !tests/test_data/**
 **/debug**
 **/tmp*
@@ -19,3 +20,5 @@ build
 !tests/test_data/**/*.txt
 *.sh
 .coverage
+results*/
+output/

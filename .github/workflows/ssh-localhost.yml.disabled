@@ -8,6 +8,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  skip-on-claude:
+    if: ${{ !startsWith(github.head_ref, 'claude/' ) && !startsWith(github.ref, 'refs/heads/claude/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Skipped"
   ssh-localhost-test:
     name: SSH localhost on Ubuntu with Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest

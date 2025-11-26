@@ -8,6 +8,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  skip-on-claude:
+    if: ${{ !startsWith(github.head_ref, 'claude/' ) && !startsWith(github.ref, 'refs/heads/claude/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Skipped"
   validate-examples:
     name: Validate examples in README
     runs-on: ubuntu-latest
