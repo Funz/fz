@@ -6,13 +6,13 @@ import os
 import logging
 import time
 import uuid
+import threading
+from collections import defaultdict
 import signal
 import sys
 import platform
-import threading
 from pathlib import Path
 from typing import Dict, List, Union, Any, Optional, TYPE_CHECKING
-from collections import defaultdict
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     import pandas
 
 import pandas as pd
+
 import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug
@@ -69,19 +70,20 @@ from .helpers import (
 )
 from .shell import run_command, replace_commands_in_string
 from .io import (
+    flatten_dict_columns,
+    get_analysis,
+    get_and_process_analysis,
     ensure_unique_directory,
     resolve_cache_paths,
+    find_cache_match,
     load_aliases,
     process_analysis_content,
-    flatten_dict_columns,
-    get_and_process_analysis,
-    get_analysis,
 )
 from .interpreter import (
     parse_variables_from_path,
     cast_output,
 )
-from .runners import resolve_calculators
+from .runners import resolve_calculators, run_calculation
 from .algorithms import (
     parse_input_vars,
     parse_fixed_vars,
@@ -163,7 +165,6 @@ def _resolve_calculators_arg(calculators):
         calculators = [calculators]
 
     return calculators
-
 
 def _print_function_help(func_name: str, func_doc: str):
     """Print function signature and docstring to help users"""
@@ -701,8 +702,9 @@ def fzc(
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    if not isinstance(input_variables, dict):
-        raise TypeError(f"input_variables must be a dictionary, got {type(input_variables).__name__}")
+    # Allow dict or pandas DataFrame for input_variables
+    if not isinstance(input_variables, (dict, pd.DataFrame)):
+        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
 
     if not isinstance(output_dir, (str, Path)):
         raise TypeError(f"output_dir must be a string or Path, got {type(output_dir).__name__}")
@@ -838,75 +840,77 @@ def fzo(
 
         rows.append(row)
 
-    # Return DataFrame
-    df = pd.DataFrame(rows)
+    # Return DataFrame if pandas is available, otherwise return first row as dict for backward compatibility
+    if True:  # pandas is always available
+        df = pd.DataFrame(rows)
 
-    # Check if all 'path' values follow the "key1=val1,key2=val2,..." pattern
-    if len(df) > 0 and "path" in df.columns:
-        # Try to parse all path values
-        parsed_vars = {}
-        all_parseable = True
+        # Check if all 'path' values follow the "key1=val1,key2=val2,..." pattern
+        if len(df) > 0 and "path" in df.columns:
+            # Try to parse all path values
+            parsed_vars = {}
+            all_parseable = True
 
-        for path_val in df["path"]:
-            # Extract just the last component (subdirectory name) for parsing
-            path_obj = Path(path_val)
-            last_component = path_obj.name
+            for path_val in df["path"]:
+                # Extract just the last component (subdirectory name) for parsing
+                path_obj = Path(path_val)
+                last_component = path_obj.name
 
-            # If last component doesn't contain '=', it's not a key=value pattern
-            if '=' not in last_component:
-                all_parseable = False
-                break
-
-            # Try to parse "key1=val1,key2=val2,..." pattern from last component
-            try:
-                parts = last_component.split(",")
-                row_vars = {}
-                for part in parts:
-                    if "=" in part:
-                        key, val = part.split("=", 1)
-                        row_vars[key.strip()] = val.strip()
-                    else:
-                        # Not a key=value pattern
-                        all_parseable = False
-                        break
-
-                if not all_parseable:
+                # If last component doesn't contain '=', it's not a key=value pattern
+                if '=' not in last_component:
+                    all_parseable = False
                     break
 
-                # Add to parsed_vars for this row
-                for key in row_vars:
-                    if key not in parsed_vars:
-                        parsed_vars[key] = []
-                    parsed_vars[key].append(row_vars[key])
-
-            except Exception:
-                all_parseable = False
-                break
-
-        # If all paths were parseable, add the extracted columns
-        if all_parseable and parsed_vars:
-            for key, values in parsed_vars.items():
-                # Try to cast values to appropriate types
-                cast_values = []
-                for v in values:
-                    try:
-                        # Try int first
-                        if "." not in v:
-                            cast_values.append(int(v))
+                # Try to parse "key1=val1,key2=val2,..." pattern from last component
+                try:
+                    parts = last_component.split(",")
+                    row_vars = {}
+                    for part in parts:
+                        if "=" in part:
+                            key, val = part.split("=", 1)
+                            row_vars[key.strip()] = val.strip()
                         else:
-                            cast_values.append(float(v))
-                    except ValueError:
-                        # Keep as string
-                        cast_values.append(v)
-                df[key] = cast_values
+                            # Not a key=value pattern
+                            all_parseable = False
+                            break
 
-    # Flatten any dict-valued columns into separate columns
-    df = flatten_dict_columns(df)
+                    if not all_parseable:
+                        break
 
-    # Always restore the original working directory
-    os.chdir(working_dir)
+                    # Add to parsed_vars for this row
+                    for key in row_vars:
+                        if key not in parsed_vars:
+                            parsed_vars[key] = []
+                        parsed_vars[key].append(row_vars[key])
 
-    return df
+                except Exception:
+                    all_parseable = False
+                    break
+
+            # If all paths were parseable, add the extracted columns
+            if all_parseable and parsed_vars:
+                for key, values in parsed_vars.items():
+                    # Try to cast values to appropriate types
+                    cast_values = []
+                    for v in values:
+                        try:
+                            # Try int first
+                            if "." not in v:
+                                cast_values.append(int(v))
+                            else:
+                                cast_values.append(float(v))
+                        except ValueError:
+                            # Keep as string
+                            cast_values.append(v)
+                    df[key] = cast_values
+
+        # Flatten any dict-valued columns into separate columns
+        df = flatten_dict_columns(df)
+
+        # Always restore the original working directory
+        os.chdir(working_dir)
+
+        return df
+
 
 
 @with_helpful_errors
@@ -948,9 +952,9 @@ def fzr(
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    # Accept both dict and DataFrame for input_variables
+    # Allow dict or pandas DataFrame for input_variables
     if not isinstance(input_variables, (dict, pd.DataFrame)):
-        raise TypeError(f"input_variables must be a dictionary or pandas DataFrame, got {type(input_variables).__name__}")
+        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
@@ -1044,6 +1048,9 @@ def fzr(
 
     # Prepare results structure
     results = {var: [] for var in var_names}
+    # Get output keys from model (for reference), but don't pre-initialize arrays
+    # Output arrays will be created dynamically based on actual case results
+    # (especially important for dict outputs that get flattened)
     output_keys = list(model.get("output", {}).keys())
     for key in output_keys:
         results[key] = []
@@ -1148,7 +1155,7 @@ def fzr(
     if _interrupt_requested:
         log_warning("⚠️  Execution was interrupted. Partial results may be available.")
 
-    # Always restore the working directory
+    # Always restore the original working directory
     os.chdir(working_dir)
 
     # Return DataFrame
@@ -1159,17 +1166,127 @@ def fzr(
 
     df = pd.DataFrame(non_empty_results)
     # Flatten any dict-valued columns into separate columns
-    df = flatten_dict_columns(df)
+    final_results = flatten_dict_columns(df)
 
-    # Call on_complete callback if provided
+    # Call on_complete callback
     if callbacks and 'on_complete' in callbacks:
         try:
             completed_cases = len([r for r in results["status"] if r is not None])
-            callbacks['on_complete'](len(var_combinations), completed_cases, df)
+            callbacks['on_complete'](len(var_combinations), completed_cases, final_results)
         except Exception as e:
             log_warning(f"⚠️  Error in on_complete callback: {e}")
 
-    return df
+    # Return final results
+    return final_results
+
+
+def _get_and_process_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    iteration: int,
+    results_dir: Path,
+    method_name: str = 'get_analysis'
+) -> Optional[Dict[str, Any]]:
+    """
+    Helper to call algorithm's analysis method and process the results.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        iteration: Current iteration number
+        results_dir: Directory to save processed results
+        method_name: Name of the display method ('get_analysis' or 'get_analysis_tmp')
+
+    Returns:
+        Processed analysis dict or None if method doesn't exist or fails
+    """
+    if not hasattr(algo_instance, method_name):
+        return None
+
+    try:
+        analysis_method = getattr(algo_instance, method_name)
+        analysis_dict = analysis_method(all_input_vars, all_output_values)
+
+        if display_dict:
+            # Log text content before processing (for console output)
+            if 'text' in display_dict:
+                log_info(display_dict['text'])
+
+            # Process and save content intelligently
+            processed = process_analysis_content(display_dict, iteration, results_dir)
+            return processed
+        return None
+
+    except Exception as e:
+        log_warning(f"⚠️  {method_name} failed: {e}")
+        return None
+
+
+def _get_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    output_expression: str,
+    algorithm: str,
+    iteration: int,
+    results_dir: Path
+) -> Dict[str, Any]:
+    """
+    Create final analysis results with analysis information and DataFrame.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        output_expression: Expression for output column name
+        algorithm: Algorithm path/name
+        iteration: Final iteration number
+        results_dir: Directory for saving results
+
+    Returns:
+        Dict with analysis results including XY DataFrame and analysis info
+    """
+    # Display final results
+    log_info("\n" + "="*60)
+    log_info("📈 Final Results")
+    log_info("="*60)
+
+    # Get and process final display results (logging is done inside)
+    processed_final_display = _get_and_process_analysis(
+        algo_instance, all_input_vars, all_output_values,
+        iteration, results_dir, 'get_analysis'
+    )
+
+    # If processed_final_display is None, create empty dict for backward compatibility
+    if processed_final_display is None:
+        processed_final_display = {}
+
+    # Create DataFrame with all input and output values
+    df_data = []
+    for inp_dict, out_val in zip(all_input_vars, all_output_values):
+        row = inp_dict.copy()
+        row[output_expression] = out_val  # Use output_expression as column name
+        df_data.append(row)
+
+    data_df = pd.DataFrame(df_data)
+
+    # Prepare return value
+    result = {
+        'XY': data_df,  # DataFrame with all X and Y values
+        'analysis': processed_final_analysis,  # Use processed analysis instead of raw
+        'algorithm': algorithm,
+        'iterations': iteration,
+        'total_evaluations': len(all_input_vars),
+    }
+
+    # Add summary
+    valid_count = sum(1 for v in all_output_values if v is not None)
+    summary = f"{algorithm} completed: {iteration} iterations, {len(all_input_vars)} evaluations ({valid_count} valid)"
+    result['summary'] = summary
+
+    return result
 
 
 def fzd(
@@ -1227,6 +1344,7 @@ def fzd(
     _interrupt_requested = False
     _install_signal_handler()
 
+    
     try:
         model = _resolve_model(model)
 
@@ -1240,6 +1358,9 @@ def fzd(
         # Convert to absolute paths
         input_dir = Path(input_path).resolve()
         results_dir = Path(analysis_dir).resolve()
+
+        # Ensure analysis directory is unique (rename existing with timestamp)
+        results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
 
         # Parse input variable ranges and fixed values
         parsed_input_vars = parse_input_vars(input_variables)  # Only variables with ranges
@@ -1295,12 +1416,18 @@ def fzd(
                 log_info(f"  Running {len(current_design)} cases in parallel...")
                 # Create DataFrame with all variables (both variable and fixed)
                 all_var_names = list(parsed_input_vars.keys()) + list(fixed_input_vars.keys())
+                # Build cache paths: include current iterations and renamed directory if it exists
+                cache_paths = [f"cache://{results_dir / f'iter{j:03d}'}" for j in range(1, iteration)]
+                if renamed_results_dir is not None:
+                    # Also check renamed directory for cached results from previous runs
+                    cache_paths.extend([f"cache://{renamed_results_dir / f'iter{j:03d}'}" for j in range(1, 100)])  # Check up to 99 iterations
+
                 result_df = fzr(
                     str(input_dir),
                     pd.DataFrame(current_design, columns=all_var_names),# All points in batch
                     model,
                     results_dir=str(iteration_result_dir),
-                    calculators=[*["cache://"+str(results_dir / f"iter{j:03d}") for j in range(1,iteration)], *calculators] # add in cache all previous iterations
+                    calculators=[*cache_paths, *calculators]  # Cache paths first, then actual calculators
                 )
 
                 # Extract output values for each point
@@ -1351,8 +1478,7 @@ def fzd(
             )
             if tmp_analysis_processed:
                 log_info(f"\n📊 Iteration {iteration} intermediate results:")
-                if '_raw' in tmp_analysis_processed and 'text' in tmp_analysis_processed['_raw']:
-                    log_info(tmp_analysis_processed['_raw']['text'])
+                # Text logging is done inside _get_and_process_analysis
 
             # Save iteration results to files
             try:
@@ -1401,16 +1527,27 @@ def fzd(
     </div>
 """
                 # Add intermediate results from get_analysis_tmp
-                if tmp_analysis_processed and '_raw' in tmp_analysis_processed:
-                    tmp_analysis = tmp_analysis_processed['_raw']
+                if tmp_display_processed:
                     html_content += """
     <div class="section">
         <h2>Intermediate Progress</h2>
 """
-                    if 'text' in tmp_analysis:
-                        html_content += f"<pre>{tmp_analysis['text']}</pre>\n"
-                    if 'html' in tmp_analysis:
-                        html_content += tmp_analysis['html'] + '\n'
+                    # Link to analysis files if they were created
+                    if 'html_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in tmp_display_processed:
+                        html_content += f"<pre>{tmp_display_processed['text']}</pre>\n"
+                    if 'data' in tmp_display_processed and tmp_display_processed['data']:
+                        html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
+                        for key, value in tmp_display_processed['data'].items():
+                            html_content += f"{key}: {value}\n"
+                        html_content += "</pre>\n"
                     html_content += "    </div>\n"
 
                 # Always call get_analysis for this iteration and process content
@@ -1418,17 +1555,27 @@ def fzd(
                     algo_instance, all_input_vars, all_output_values,
                     iteration, results_dir, 'get_analysis'
                 )
-                if iter_analysis_processed and '_raw' in iter_analysis_processed:
-                    iter_analysis = iter_analysis_processed['_raw']
-                    # Also save traditional HTML results file for compatibility
+                if iter_display_processed:
                     html_content += """
     <div class="section">
         <h2>Current Results</h2>
 """
-                    if 'text' in iter_analysis:
-                        html_content += f"<pre>{iter_analysis['text']}</pre>\n"
-                    if 'html' in iter_analysis:
-                        html_content += iter_analysis['html'] + '\n'
+                    # Link to analysis files if they were created
+                    if 'html_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in iter_display_processed:
+                        html_content += f"<pre>{iter_display_processed['text']}</pre>\n"
+                    if 'data' in iter_display_processed and iter_display_processed['data']:
+                        html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
+                        for key, value in iter_display_processed['data'].items():
+                            html_content += f"{key}: {value}\n"
+                        html_content += "</pre>\n"
                     html_content += "    </div>\n"
 
                 html_content += """

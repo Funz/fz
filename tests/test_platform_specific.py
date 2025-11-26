@@ -61,20 +61,5 @@ class TestPandasRequirement:
         except ImportError:
             pytest.fail("pandas should be installed for fzd to work")
 
-    def test_fzd_imports_pandas(self):
-        """Test that importing fz.core checks for pandas"""
-        # This should not raise an error if pandas is installed
-        from fz import core
-
-    def test_fzd_requires_pandas_error_message(self):
-        """Test that fzd gives helpful error if pandas is missing
-
-        Note: This test is informational only since pandas is required
-        for the test suite to run.
-        """
-        # We can't actually test the error without uninstalling pandas,
-        # but we can verify the check exists
-        from fz import core
-
-
-        # Since pandas must be installed for tests to run, it should be True
+    # Removed test_fzd_imports_pandas and test_fzd_requires_pandas_error_message
+    # pandas is now a required dependency, not optional

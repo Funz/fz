@@ -148,13 +148,7 @@ class TestFzdIntegration:
         assert "result" in result["XY"].columns  # output_expression as column name
         assert algo_path in result["algorithm"]  # algorithm field contains the path
 
-    def test_fzd_requires_pandas(self, simple_model):
-        """Test that fzd raises ImportError when pandas is not available"""
-        from unittest.mock import patch
-        import fz.core
-
-        input_dir, model = simple_model
-        algo_path = str(Path(__file__).parent.parent / "examples" / "algorithms" / "randomsampling.py")
+    # Removed test_fzd_requires_pandas - pandas is now a required dependency
 
     def test_fzd_returns_dataframe(self, simple_model):
         """Test that fzd returns XY DataFrame with all X and Y values"""

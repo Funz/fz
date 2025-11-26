@@ -20,13 +20,26 @@ def get_version():
     """Get the package version"""
     try:
         # Try the new package name first
-        return version("funz-fz")
+        v = version("funz-fz")
+        if v is not None:
+            return v
     except Exception:
-        try:
-            # Fallback to old package name for backward compatibility
-            return version("fz")
-        except Exception:
-            return "unknown"
+        pass
+    
+    try:
+        # Fallback to old package name for backward compatibility
+        v = version("fz")
+        if v is not None:
+            return v
+    except Exception:
+        pass
+    
+    # Fallback to __version__ from __init__.py
+    try:
+        from fz import __version__
+        return __version__
+    except:
+        return "unknown"
 
 
 # Helper functions used by all CLI commands
@@ -136,7 +149,6 @@ def parse_algorithm(algo_str):
 def parse_algorithm_options(opts_str):
     """Parse algorithm options from JSON string or JSON file"""
     return parse_argument(opts_str, alias_type=None)
-
 
 def format_output(data, format_type='markdown'):
     """
@@ -377,6 +389,7 @@ def fzr_main():
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
+
 def fzd_main():
     """Entry point for fzd command"""
     parser = argparse.ArgumentParser(description="fzd - Iterative design of experiments with algorithms")
@@ -395,6 +408,7 @@ def fzd_main():
     try:
         model = parse_model(args.model)
         variables = parse_variables(args.input_vars)
+
         calculators = parse_calculators(args.calculators) if args.calculators else None
         algo_options = parse_algorithm_options(args.options) if args.options else {}
 

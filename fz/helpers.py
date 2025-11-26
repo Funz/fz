@@ -12,7 +12,12 @@ from typing import Dict, List, Tuple, Union, Any, Optional
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import pandas as pd
+# Optional pandas import for DataFrame support
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
 
 from .logging import log_debug, log_info, log_warning, log_error, log_progress
 from .config import get_config

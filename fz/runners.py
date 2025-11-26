@@ -13,7 +13,7 @@ import uuid
 import threading
 from collections import defaultdict
 
-from .logging import log_warning, log_info, log_debug
+from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
 from .shell import run_command, replace_commands_in_string
 import getpass
