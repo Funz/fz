@@ -168,14 +168,7 @@ def set_interpreter(interpreter: str):
     _interpreter = interpreter.lower()
     
     # Also update config.interpreter for consistency
-    try:
-        config.interpreter = Interpreter(interpreter.lower())
-    except ValueError:
-        # If lowercase doesn't match enum, try to find matching enum value
-        for interp in Interpreter:
-            if interp.value.lower() == interpreter.lower():
-                config.interpreter = interp
-                break
+    config.interpreter = Interpreter(interpreter.lower())
 
 
 def get_interpreter() -> str:
