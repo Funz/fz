@@ -195,9 +195,22 @@ def run_command(
 
         # Handle bash executable and command modification
         if executable and isinstance(command, str):
-            # Split command and replace 'bash' with executable path
+            # Replace 'bash' command with executable path using safe pattern
+            # Only replace standalone 'bash' commands, not 'bash' within paths/URIs
+            import re
+            # Pattern: bash only when it's a complete word (surrounded by spaces or at boundaries)
+            # This prevents replacing bash in paths like "C:/dir/bash.exe" or "sh://path/bash"
+            pattern = r'(^|\s)bash(\s|$)'
+
+            def replace_bash(match):
+                prefix = match.group(1)  # Leading whitespace or start
+                suffix = match.group(2)  # Trailing whitespace or end
+                return prefix + executable + suffix
+
+            command = re.sub(pattern, replace_bash, command)
+            # Split into parts for direct execution
             command_parts = command.split()
-            command = [s.replace('bash', executable) for s in command_parts]
+            command = command_parts
             common_args["shell"] = False  # Use direct execution with bash
             common_args["executable"] = None
         else:

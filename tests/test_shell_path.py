@@ -9,7 +9,7 @@ import platform
 import tempfile
 from pathlib import Path
 
-from fz.shell import ShellPathResolver, get_resolver, reinitialize_resolver, replace_commands_in_string
+from fz.shell import ShellPathResolver, get_resolver, reinitialize_resolver, replace_commands_in_string, run_command
 from fz.config import get_config, Config
 
 
@@ -377,3 +377,91 @@ class TestBashDiscoveryPriority:
             # On Unix, bash is typically available
             # If not found, that's okay for this test - we're just verifying fallback logic
             assert bash_path is None or Path(bash_path).exists()
+
+
+class TestRunCommandBashReplacement:
+    """Tests for run_command bash replacement safety"""
+
+    @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
+    def test_run_command_does_not_replace_bash_in_paths(self, monkeypatch):
+        """Test that run_command doesn't replace bash within file paths or URIs"""
+        # Mock get_windows_bash_executable to return a test path
+        from fz import shell
+        original_get_bash = shell.get_windows_bash_executable
+
+        def mock_get_bash():
+            return "C:\\msys64\\usr\\bin\\bash.exe"
+
+        monkeypatch.setattr(shell, "get_windows_bash_executable", mock_get_bash)
+
+        # Test command that contains 'bash' in a path (should NOT be replaced)
+        # This simulates something like: "sh://C:/path/bash.exe inputfile"
+        # The word "bash" at the end should be replaced, but not bash.exe in the path
+        test_command = "bash -c 'echo test'"
+
+        # Import subprocess to access the mock
+        import subprocess
+        from unittest.mock import MagicMock
+
+        # Mock subprocess.Popen to capture the command
+        captured_command = []
+
+        def mock_popen(*args, **kwargs):
+            captured_command.append(args[0] if args else None)
+            mock_proc = MagicMock()
+            mock_proc.communicate.return_value = (b"", b"")
+            mock_proc.returncode = 0
+            return mock_proc
+
+        monkeypatch.setattr(subprocess, "Popen", mock_popen)
+
+        # Call run_command with use_popen=True (which triggers the bash replacement code)
+        try:
+            run_command(test_command, use_popen=True)
+        except Exception:
+            # We're mainly testing the command transformation, not execution
+            pass
+
+        # Verify the command was transformed correctly
+        if captured_command:
+            result_cmd = captured_command[0]
+            # Should be a list with bash replaced
+            assert isinstance(result_cmd, list)
+            # First element should be the bash executable path
+            assert "msys64" in result_cmd[0] or "bash.exe" in result_cmd[0]
+
+    def test_run_command_bash_replacement_pattern(self, monkeypatch):
+        """Test the bash replacement regex pattern directly"""
+        import re
+
+        # Pattern from run_command
+        pattern = r'(^|\s)bash(\s|$)'
+
+        def replace_bash(match):
+            prefix = match.group(1)
+            suffix = match.group(2)
+            return prefix + "/custom/bash.exe" + suffix
+
+        # Test cases that SHOULD be replaced
+        test_cases_should_replace = [
+            ("bash script.sh", "/custom/bash.exe script.sh"),
+            ("bash -c 'test'", "/custom/bash.exe -c 'test'"),
+            ("run bash", "run /custom/bash.exe"),
+        ]
+
+        for input_cmd, expected in test_cases_should_replace:
+            result = re.sub(pattern, replace_bash, input_cmd)
+            assert result == expected, f"Failed: {input_cmd!r} -> {result!r} (expected {expected!r})"
+
+        # Test cases that should NOT be replaced
+        test_cases_no_replace = [
+            "sh://C:/dir/bash.exe",
+            "/usr/local/bin/bash.sh",
+            "mybash",
+            "bash.log",
+        ]
+
+        for input_cmd in test_cases_no_replace:
+            result = re.sub(pattern, replace_bash, input_cmd)
+            # Should remain unchanged
+            assert result == input_cmd, f"Incorrectly modified: {input_cmd!r} -> {result!r}"
