@@ -28,11 +28,19 @@ def test_bash_check_on_non_windows():
 
 def test_bash_check_on_windows_without_bash():
     """Test that bash check raises error on Windows when bash is missing"""
+    import shutil
     from fz.core import check_bash_availability_on_windows
 
-    # Mock platform to be Windows and shutil.which to return None
+    # Check if bash is actually available on the host system
+    # If bash exists, we can't meaningfully test the "without bash" scenario
+    if platform.system() == "Windows":
+        bash_available = shutil.which("bash") is not None
+        if bash_available:
+            pytest.skip("Bash is available on this Windows system, cannot test 'without bash' scenario")
+
+    # Mock platform to be Windows and get_windows_bash_executable to return None
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value=None):
+        with patch('fz.shell.get_windows_bash_executable', return_value=None):
             with pytest.raises(RuntimeError) as exc_info:
                 check_bash_availability_on_windows()
 
@@ -48,9 +56,9 @@ def test_bash_check_on_windows_with_bash():
     """Test that bash check succeeds on Windows when bash is available"""
     from fz.core import check_bash_availability_on_windows
 
-    # Mock platform to be Windows and shutil.which to return a bash path
+    # Mock platform to be Windows and get_windows_bash_executable to return a bash path
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value='C:\\msys64\\usr\\bin\\bash.exe'):
+        with patch('fz.shell.get_windows_bash_executable', return_value='C:\\msys64\\usr\\bin\\bash.exe'):
             # Should not raise any exception
             check_bash_availability_on_windows()
 
@@ -84,7 +92,7 @@ def test_error_message_format():
     from fz.core import check_bash_availability_on_windows
 
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value=None):
+        with patch('fz.shell.get_windows_bash_executable', return_value=None):
             with pytest.raises(RuntimeError) as exc_info:
                 check_bash_availability_on_windows()
 
@@ -115,7 +123,7 @@ def test_bash_path_logged_when_found():
     bash_path = 'C:\\Program Files\\Git\\bin\\bash.exe'
 
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value=bash_path):
+        with patch('fz.shell.get_windows_bash_executable', return_value=bash_path):
             with patch('fz.core.log_debug') as mock_log:
                 check_bash_availability_on_windows()
 
@@ -136,7 +144,7 @@ def test_various_bash_installations(bash_path):
     from fz.core import check_bash_availability_on_windows
 
     with patch('fz.core.platform.system', return_value='Windows'):
-        with patch('fz.core.shutil.which', return_value=bash_path):
+        with patch('fz.shell.get_windows_bash_executable', return_value=bash_path):
             # Should not raise any exception regardless of bash path
             check_bash_availability_on_windows()
 

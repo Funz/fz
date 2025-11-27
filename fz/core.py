@@ -287,26 +287,29 @@ def _resolve_calculators_arg(calculators):
 
 def check_bash_availability_on_windows():
     """
-    Check if bash is available in PATH on Windows.
+    Check if bash is available on Windows.
 
     On Windows, fz requires bash to be available for running shell commands
     and evaluating output expressions. This function checks for bash availability
-    and raises an error with installation instructions if not found.
+    in FZ_SHELL_PATH or common installation locations and raises an error with
+    installation instructions if not found.
 
     Raises:
-        RuntimeError: If running on Windows and bash is not found in PATH
+        RuntimeError: If running on Windows and bash is not found
     """
     if platform.system() != "Windows":
         # Only check on Windows
         return
 
-    # Check if bash is in PATH
-    bash_path = shutil.which("bash")
+    # Check if bash is available via get_windows_bash_executable()
+    # This checks FZ_SHELL_PATH first, then common installation paths
+    from .shell import get_windows_bash_executable
+    bash_path = get_windows_bash_executable()
 
     if bash_path is None:
         # bash not found - provide helpful error message
         error_msg = (
-            "ERROR: bash is not available in PATH on Windows.\n\n"
+            "ERROR: bash is not available on Windows.\n\n"
             "fz requires bash and Unix utilities (grep, cut, awk, sed, tr, cat) to run\n"
             "shell commands and evaluate output expressions.\n\n"
             "Please install one of the following:\n\n"
@@ -314,22 +317,27 @@ def check_bash_availability_on_windows():
             "   - Download from: https://www.msys2.org/\n"
             "   - Or install via Chocolatey: choco install msys2\n"
             "   - After installation, run: pacman -S bash grep gawk sed bc coreutils\n"
-            "   - Add C:\\msys64\\usr\\bin to your PATH environment variable\n\n"
+            "   - Set FZ_SHELL_PATH to point to MSYS2 binaries:\n"
+            "     SET FZ_SHELL_PATH=C:\\msys64\\usr\\bin\n\n"
             "2. Git for Windows (includes Git Bash):\n"
             "   - Download from: https://git-scm.com/download/win\n"
             "   - Ensure 'Git Bash Here' is selected during installation\n"
-            "   - Add Git\\bin to your PATH (e.g., C:\\Program Files\\Git\\bin)\n"
+            "   - Set FZ_SHELL_PATH to point to Git binaries:\n"
+            "     SET FZ_SHELL_PATH=C:\\Program Files\\Git\\usr\\bin\n"
             "   - Note: Git Bash includes bash and common Unix utilities\n\n"
             "3. WSL (Windows Subsystem for Linux):\n"
             "   - Install from Microsoft Store or use: wsl --install\n"
-            "   - Note: bash.exe should be accessible from Windows PATH\n\n"
+            "   - Note: bash.exe should be accessible at C:\\Windows\\System32\\bash.exe\n\n"
             "4. Cygwin (alternative):\n"
             "   - Download from: https://www.cygwin.com/\n"
             "   - During installation, select 'bash', 'grep', 'gawk', 'sed', and 'coreutils' packages\n"
-            "   - Add C:\\cygwin64\\bin to your PATH environment variable\n\n"
-            "After installation, verify bash is in PATH by running:\n"
+            "   - Set FZ_SHELL_PATH to point to Cygwin binaries:\n"
+            "     SET FZ_SHELL_PATH=C:\\cygwin64\\bin\n\n"
+            "After installation, verify bash is available by running:\n"
             "   bash --version\n"
-            "   grep --version\n"
+            "   grep --version\n\n"
+            "TIP: Set FZ_SHELL_PATH environment variable to override system PATH and\n"
+            "     ensure fz uses the correct bash and utilities.\n"
         )
         raise RuntimeError(error_msg)
 

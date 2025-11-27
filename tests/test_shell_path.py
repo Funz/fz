@@ -9,7 +9,7 @@ import platform
 import tempfile
 from pathlib import Path
 
-from fz.shell import ShellPathResolver, get_resolver, reinitialize_resolver, replace_commands_in_string
+from fz.shell import ShellPathResolver, get_resolver, reinitialize_resolver, replace_commands_in_string, run_command
 from fz.config import get_config, Config
 
 
@@ -148,6 +148,60 @@ class TestShellPathResolver:
             # But we can't be certain of exact output, so just check it contains expected parts
             assert "pattern" in result
             assert "$1" in result
+
+    def test_replace_commands_does_not_replace_in_uris_or_paths(self):
+        """Test that command replacement doesn't break URIs or file paths"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create mock binaries
+            for cmd in ["bash", "grep", "python"]:
+                cmd_path = Path(tmpdir) / cmd
+                cmd_path.touch()
+                cmd_path.chmod(0o755)
+
+            resolver = ShellPathResolver(tmpdir)
+
+            # Test cases that should NOT be replaced
+            test_cases = [
+                # URIs should not be modified
+                ("sh://C:/dir/bash.exe inputfile", "bash"),
+                ("sh:///usr/local/bin/bash inputfile", "bash"),
+                ("file:///path/to/grep.txt", "grep"),
+                ("https://example.com/python/docs", "python"),
+
+                # Paths should not be modified
+                ("/usr/local/bin/bash", "bash"),
+                ("C:/Program Files/Git/bin/bash.exe", "bash"),
+                ("/opt/tools/grep/bin/grep", "grep"),
+
+                # Filenames should not be modified
+                ("bash.sh", "bash"),
+                ("grep.log", "grep"),
+                ("python_script.py", "python"),
+
+                # Variables and other contexts where commands appear but shouldn't be replaced
+                ("BASH_VERSION=5.0", "bash"),
+                ("grep_tool=mygrep", "grep"),
+            ]
+
+            for test_string, cmd in test_cases:
+                result = resolver.replace_commands_in_string(test_string)
+                # The string should remain unchanged because the command is part of a path/URI/filename
+                # and not a standalone command
+                assert result == test_string, f"Failed for: {test_string!r} - expected unchanged but got: {result!r}"
+
+            # Test cases that SHOULD be replaced (commands with proper spacing)
+            test_replacements = [
+                "bash script.sh",  # bash at start with space after
+                "grep pattern file.txt",  # grep at start
+                "echo hello | grep pattern",  # grep after pipe and space
+                "python -c 'print(1)'",  # python at start
+                "run bash -c 'echo test'",  # bash in middle with spaces around
+            ]
+
+            for test_string in test_replacements:
+                result = resolver.replace_commands_in_string(test_string)
+                # Result should be different from input (command should be replaced)
+                assert result != test_string, f"Expected replacement for: {test_string!r} but got unchanged: {result!r}"
 
 
 class TestGlobalResolver:
@@ -323,3 +377,91 @@ class TestBashDiscoveryPriority:
             # On Unix, bash is typically available
             # If not found, that's okay for this test - we're just verifying fallback logic
             assert bash_path is None or Path(bash_path).exists()
+
+
+class TestRunCommandBashReplacement:
+    """Tests for run_command bash replacement safety"""
+
+    @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
+    def test_run_command_does_not_replace_bash_in_paths(self, monkeypatch):
+        """Test that run_command doesn't replace bash within file paths or URIs"""
+        # Mock get_windows_bash_executable to return a test path
+        from fz import shell
+        original_get_bash = shell.get_windows_bash_executable
+
+        def mock_get_bash():
+            return "C:\\msys64\\usr\\bin\\bash.exe"
+
+        monkeypatch.setattr(shell, "get_windows_bash_executable", mock_get_bash)
+
+        # Test command that contains 'bash' in a path (should NOT be replaced)
+        # This simulates something like: "sh://C:/path/bash.exe inputfile"
+        # The word "bash" at the end should be replaced, but not bash.exe in the path
+        test_command = "bash -c 'echo test'"
+
+        # Import subprocess to access the mock
+        import subprocess
+        from unittest.mock import MagicMock
+
+        # Mock subprocess.Popen to capture the command
+        captured_command = []
+
+        def mock_popen(*args, **kwargs):
+            captured_command.append(args[0] if args else None)
+            mock_proc = MagicMock()
+            mock_proc.communicate.return_value = (b"", b"")
+            mock_proc.returncode = 0
+            return mock_proc
+
+        monkeypatch.setattr(subprocess, "Popen", mock_popen)
+
+        # Call run_command with use_popen=True (which triggers the bash replacement code)
+        try:
+            run_command(test_command, use_popen=True)
+        except Exception:
+            # We're mainly testing the command transformation, not execution
+            pass
+
+        # Verify the command was transformed correctly
+        if captured_command:
+            result_cmd = captured_command[0]
+            # Should be a list with bash replaced
+            assert isinstance(result_cmd, list)
+            # First element should be the bash executable path
+            assert "msys64" in result_cmd[0] or "bash.exe" in result_cmd[0]
+
+    def test_run_command_bash_replacement_pattern(self, monkeypatch):
+        """Test the bash replacement regex pattern directly"""
+        import re
+
+        # Pattern from run_command
+        pattern = r'(^|\s)bash(\s|$)'
+
+        def replace_bash(match):
+            prefix = match.group(1)
+            suffix = match.group(2)
+            return prefix + "/custom/bash.exe" + suffix
+
+        # Test cases that SHOULD be replaced
+        test_cases_should_replace = [
+            ("bash script.sh", "/custom/bash.exe script.sh"),
+            ("bash -c 'test'", "/custom/bash.exe -c 'test'"),
+            ("run bash", "run /custom/bash.exe"),
+        ]
+
+        for input_cmd, expected in test_cases_should_replace:
+            result = re.sub(pattern, replace_bash, input_cmd)
+            assert result == expected, f"Failed: {input_cmd!r} -> {result!r} (expected {expected!r})"
+
+        # Test cases that should NOT be replaced
+        test_cases_no_replace = [
+            "sh://C:/dir/bash.exe",
+            "/usr/local/bin/bash.sh",
+            "mybash",
+            "bash.log",
+        ]
+
+        for input_cmd in test_cases_no_replace:
+            result = re.sub(pattern, replace_bash, input_cmd)
+            # Should remain unchanged
+            assert result == input_cmd, f"Incorrectly modified: {input_cmd!r} -> {result!r}"

@@ -65,13 +65,16 @@ def get_windows_bash_executable() -> Optional[str]:
     by checking FZ_SHELL_PATH, system PATH, and common installation locations.
 
     Priority order:
-    1. Bash in FZ_SHELL_PATH (custom shell path set via environment variable)
-    2. Bash in system/user PATH (from MSYS2, Git Bash, WSL, Cygwin, etc.)
-    3. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred)
-    4. Git for Windows bash
-    5. Cygwin bash
-    6. WSL bash
-    7. win-bash
+    1. Bash in FZ_SHELL_PATH (custom shell path set via environment variable) - ALWAYS takes precedence
+    2. MSYS2 bash at C:\\msys64\\usr\\bin\\bash.exe (preferred default)
+    3. Git for Windows bash
+    4. Cygwin bash
+    5. WSL bash
+    6. win-bash
+
+    Note: We intentionally skip checking system PATH to ensure FZ_SHELL_PATH always
+    takes priority when set. This allows users to override their system bash with
+    a specific version via FZ_SHELL_PATH.
 
     Returns:
         Optional[str]: Path to bash executable if found on Windows, None otherwise.
@@ -80,21 +83,16 @@ def get_windows_bash_executable() -> Optional[str]:
     if platform.system() != "Windows":
         return "/bin/bash"  # Not Windows, return standard bash path
 
-    # Try FZ_SHELL_PATH first (custom shell path takes precedence)
+    # Try FZ_SHELL_PATH first (custom shell path takes precedence over everything)
     resolver = get_resolver()
     bash_path = resolver.resolve_command("bash")
     if bash_path:
         log_debug(f"Using bash from FZ_SHELL_PATH: {bash_path}")
         return bash_path
 
-    # Try system/user PATH next
-    bash_in_path = shutil.which("bash")
-    if bash_in_path:
-        log_debug(f"Using bash from PATH: {bash_in_path}")
-        # Convert to short name if path contains spaces
-        return _get_windows_short_path(bash_in_path)
-
     # Check common bash installation paths, prioritizing MSYS2
+    # Note: We skip shutil.which() here to ensure FZ_SHELL_PATH always takes priority.
+    # If bash is not in FZ_SHELL_PATH, we check hardcoded paths directly.
     # Include both short names (8.3) and long names to handle various Git installations
     bash_paths = [
         # MSYS2 bash (preferred - provides complete Unix environment)
@@ -197,9 +195,22 @@ def run_command(
 
         # Handle bash executable and command modification
         if executable and isinstance(command, str):
-            # Split command and replace 'bash' with executable path
+            # Replace 'bash' command with executable path using safe pattern
+            # Only replace standalone 'bash' commands, not 'bash' within paths/URIs
+            import re
+            # Pattern: bash only when it's a complete word (surrounded by spaces or at boundaries)
+            # This prevents replacing bash in paths like "C:/dir/bash.exe" or "sh://path/bash"
+            pattern = r'(^|\s)bash(\s|$)'
+
+            def replace_bash(match):
+                prefix = match.group(1)  # Leading whitespace or start
+                suffix = match.group(2)  # Trailing whitespace or end
+                return prefix + executable + suffix
+
+            command = re.sub(pattern, replace_bash, command)
+            # Split into parts for direct execution
             command_parts = command.split()
-            command = [s.replace('bash', executable) for s in command_parts]
+            command = command_parts
             common_args["shell"] = False  # Use direct execution with bash
             common_args["executable"] = None
         else:
@@ -371,6 +382,12 @@ class ShellPathResolver:
         On Windows, this ensures commands are resolved from the configured
         FZ_SHELL_PATH instead of relying on system PATH.
 
+        Important: Only replaces commands that appear as standalone words,
+        not within URIs, paths, filenames, or variable names. A command is
+        only replaced if it is:
+        - Preceded by: start of string, whitespace, or specific punctuation (|, ;, &, (, ))
+        - Followed by: end of string, whitespace, or specific punctuation
+
         Args:
             command_string: Shell command string that may contain commands
 
@@ -381,6 +398,8 @@ class ShellPathResolver:
             >>> resolver = ShellPathResolver("C:\\msys64\\usr\\bin")
             >>> resolver.replace_commands_in_string("grep 'pattern' file.txt")
             "C:\\msys64\\usr\\bin\\grep.exe 'pattern' file.txt"
+            >>> resolver.replace_commands_in_string("sh://C:/dir/bash.exe input")
+            "sh://C:/dir/bash.exe input"  # unchanged - bash is part of path
         """
         if not self.custom_shell_path:
             # No custom shell path, return original
@@ -397,16 +416,35 @@ class ShellPathResolver:
         ]
 
         modified = command_string
+        import re
+
         for cmd in common_commands:
             resolved_path = self.resolve_command(cmd)
             if resolved_path:
-                # Replace 'cmd ' (with space) to avoid partial replacements
-                # Use word boundaries to be safe
-                # IMPORTANT: escape resolved_path to avoid backslash issues on Windows
-                import re
-                pattern = r'\b' + re.escape(cmd) + r'\b'
-                # Use a lambda function to properly handle backslashes in the replacement
-                modified = re.sub(pattern, lambda m: resolved_path, modified)
+                # Only replace commands that are standalone words:
+                # - Preceded by: start of string OR whitespace OR shell operators (|, ;, &, (, ))
+                # - Followed by: end of string OR whitespace OR shell operators
+                # This prevents replacing commands within:
+                #   - URIs (sh://C:/dir/bash.exe)
+                #   - Paths (/usr/local/bin/bash)
+                #   - Filenames (bash.sh, grep.log)
+                #   - Variable names (BASH_VERSION, grep_tool)
+
+                # Pattern explanation:
+                # (^|[\s|;&()]) - capture group: start of string or whitespace/shell operators
+                # {cmd} - the command name (escaped)
+                # (?=[\s|;&()]|$) - positive lookahead: whitespace/shell operators or end of string
+                #
+                # We use a capturing group for the prefix instead of lookbehind because
+                # lookbehind requires fixed-width patterns in Python regex
+                pattern = r'(^|[\s|;&()])' + re.escape(cmd) + r'(?=[\s|;&()]|$)'
+
+                # Replacement function that preserves the prefix (group 1) and replaces the command
+                def replace_func(match):
+                    prefix = match.group(1) if match.group(1) else ''
+                    return prefix + resolved_path
+
+                modified = re.sub(pattern, replace_func, modified)
                 #log_debug(f"Replaced '{cmd}' with '{resolved_path}' in command string")
 
         return modified
