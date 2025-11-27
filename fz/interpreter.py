@@ -191,7 +191,7 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
             code_part = stripped[len(commentline + formulaprefix):]
             # Remove Funz-specific prefixes (: for code, ? for tests)
             if code_part.startswith(':') or code_part.startswith('?'):
-                code_part = code_part[1:].lstrip()
+                code_part = code_part[1:]
             context_lines.append(code_part)
 
     # If delimiters are empty, skip formula evaluation (no formulas possible)
