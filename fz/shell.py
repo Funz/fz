@@ -197,9 +197,17 @@ def run_command(
 
         # Handle bash executable and command modification
         if executable and isinstance(command, str):
-            # Split command and replace 'bash' with executable path
+            # Split command and safely replace standalone 'bash' with executable path
+            # Only replace 'bash' when it's a complete word, not part of paths/URIs/filenames
             command_parts = command.split()
-            command = [s.replace('bash', executable) for s in command_parts]
+            import re
+            def safe_replace_bash(part):
+                # Only replace if the entire part is exactly 'bash' (case-insensitive)
+                # This prevents replacing bash in: 'bash.exe', 'mybash', 'sh://C:/dir/bash.exe', etc.
+                if part.lower() == 'bash':
+                    return executable
+                return part
+            command = [safe_replace_bash(s) for s in command_parts]
             common_args["shell"] = False  # Use direct execution with bash
             common_args["executable"] = None
         else:
