@@ -341,7 +341,7 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
                 if hasattr(result, '__len__') and len(result) == 1:
                     value = result[0]
                 else:
-                    value = result[0] if len(result) > 0 else result
+                    value = result if not (hasattr(result, '__len__') and len(result) == 0) else result
                 
                 # Apply format if specified
                 if format_spec:
