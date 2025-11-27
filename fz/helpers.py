@@ -982,7 +982,8 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir: Path,
                       calculators: List[str], model: Dict, original_input_was_dir: bool,
                       var_names: List[str], output_keys: List[str], original_cwd: str = None,
-                      has_input_variables: bool = True, callbacks: Optional[Dict[str, callable]] = None) -> List[Dict[str, Any]]:
+                      has_input_variables: bool = True, callbacks: Optional[Dict[str, callable]] = None,
+                      timeout: int = None) -> List[Dict[str, Any]]:
     """
     Run multiple cases in parallel across available calculators
 
@@ -997,6 +998,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         output_keys: List of output keys
         has_input_variables: Whether input_variables dict is non-empty
         callbacks: Optional dict of callback functions for progress monitoring
+        timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
 
     Returns:
         List of case results in the same order as var_combinations

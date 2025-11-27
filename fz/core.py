@@ -925,6 +925,7 @@ def fzr(
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
     callbacks: Optional[Dict[str, callable]] = None,
+    timeout: int = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
     """
     Run full parametric calculations
@@ -942,6 +943,7 @@ def fzr(
                   - 'on_case_complete': Called when a case completes. Args: (case_index, total_cases, var_combo, status, result)
                   - 'on_progress': Called periodically. Args: (completed, total, eta_seconds)
                   - 'on_complete': Called when all cases finish. Args: (total_cases, completed_cases, results)
+        timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
 
     Returns:
         DataFrame with variable values and results (if pandas available), otherwise Dict with lists
@@ -1088,6 +1090,7 @@ def fzr(
                 original_cwd,
                 has_input_variables,
                 callbacks,
+                timeout,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
