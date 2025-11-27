@@ -348,7 +348,10 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
                     # Parse format like "0.0000" → 4 decimals
                     if '.' in format_spec:
                         decimals = len(format_spec.split('.')[1])
-                        return f"{float(value):.{decimals}f}"
+                        try:
+                            return f"{float(value):.{decimals}f}"
+                        except (ValueError, TypeError):
+                            return str(value)
                     else:
                         return str(value)
                 else:
