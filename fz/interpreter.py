@@ -314,7 +314,7 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
 
         # Use a more sophisticated pattern to handle nested parentheses
         if left_delim == '(' and right_delim == ')':
-            formula_pattern = rf"{esc_formulaprefix}\(([^()]*(?:\([^()]*\)[^()]*)*) \)"
+            formula_pattern = rf"{esc_formulaprefix}\(([^()]*(?:\([^()]*\)[^()]*)*)\)"
         else:
             formula_pattern = rf"{esc_formulaprefix}{esc_left}([^{esc_right}]+){esc_right}"
 
