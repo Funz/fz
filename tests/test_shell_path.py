@@ -149,6 +149,60 @@ class TestShellPathResolver:
             assert "pattern" in result
             assert "$1" in result
 
+    def test_replace_commands_does_not_replace_in_uris_or_paths(self):
+        """Test that command replacement doesn't break URIs or file paths"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create mock binaries
+            for cmd in ["bash", "grep", "python"]:
+                cmd_path = Path(tmpdir) / cmd
+                cmd_path.touch()
+                cmd_path.chmod(0o755)
+
+            resolver = ShellPathResolver(tmpdir)
+
+            # Test cases that should NOT be replaced
+            test_cases = [
+                # URIs should not be modified
+                ("sh://C:/dir/bash.exe inputfile", "bash"),
+                ("sh:///usr/local/bin/bash inputfile", "bash"),
+                ("file:///path/to/grep.txt", "grep"),
+                ("https://example.com/python/docs", "python"),
+
+                # Paths should not be modified
+                ("/usr/local/bin/bash", "bash"),
+                ("C:/Program Files/Git/bin/bash.exe", "bash"),
+                ("/opt/tools/grep/bin/grep", "grep"),
+
+                # Filenames should not be modified
+                ("bash.sh", "bash"),
+                ("grep.log", "grep"),
+                ("python_script.py", "python"),
+
+                # Variables and other contexts where commands appear but shouldn't be replaced
+                ("BASH_VERSION=5.0", "bash"),
+                ("grep_tool=mygrep", "grep"),
+            ]
+
+            for test_string, cmd in test_cases:
+                result = resolver.replace_commands_in_string(test_string)
+                # The string should remain unchanged because the command is part of a path/URI/filename
+                # and not a standalone command
+                assert result == test_string, f"Failed for: {test_string!r} - expected unchanged but got: {result!r}"
+
+            # Test cases that SHOULD be replaced (commands with proper spacing)
+            test_replacements = [
+                "bash script.sh",  # bash at start with space after
+                "grep pattern file.txt",  # grep at start
+                "echo hello | grep pattern",  # grep after pipe and space
+                "python -c 'print(1)'",  # python at start
+                "run bash -c 'echo test'",  # bash in middle with spaces around
+            ]
+
+            for test_string in test_replacements:
+                result = resolver.replace_commands_in_string(test_string)
+                # Result should be different from input (command should be replaced)
+                assert result != test_string, f"Expected replacement for: {test_string!r} but got unchanged: {result!r}"
+
 
 class TestGlobalResolver:
     """Tests for global resolver instance"""

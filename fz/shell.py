@@ -369,6 +369,12 @@ class ShellPathResolver:
         On Windows, this ensures commands are resolved from the configured
         FZ_SHELL_PATH instead of relying on system PATH.
 
+        Important: Only replaces commands that appear as standalone words,
+        not within URIs, paths, filenames, or variable names. A command is
+        only replaced if it is:
+        - Preceded by: start of string, whitespace, or specific punctuation (|, ;, &, (, ))
+        - Followed by: end of string, whitespace, or specific punctuation
+
         Args:
             command_string: Shell command string that may contain commands
 
@@ -379,6 +385,8 @@ class ShellPathResolver:
             >>> resolver = ShellPathResolver("C:\\msys64\\usr\\bin")
             >>> resolver.replace_commands_in_string("grep 'pattern' file.txt")
             "C:\\msys64\\usr\\bin\\grep.exe 'pattern' file.txt"
+            >>> resolver.replace_commands_in_string("sh://C:/dir/bash.exe input")
+            "sh://C:/dir/bash.exe input"  # unchanged - bash is part of path
         """
         if not self.custom_shell_path:
             # No custom shell path, return original
@@ -395,16 +403,35 @@ class ShellPathResolver:
         ]
 
         modified = command_string
+        import re
+
         for cmd in common_commands:
             resolved_path = self.resolve_command(cmd)
             if resolved_path:
-                # Replace 'cmd ' (with space) to avoid partial replacements
-                # Use word boundaries to be safe
-                # IMPORTANT: escape resolved_path to avoid backslash issues on Windows
-                import re
-                pattern = r'\b' + re.escape(cmd) + r'\b'
-                # Use a lambda function to properly handle backslashes in the replacement
-                modified = re.sub(pattern, lambda m: resolved_path, modified)
+                # Only replace commands that are standalone words:
+                # - Preceded by: start of string OR whitespace OR shell operators (|, ;, &, (, ))
+                # - Followed by: end of string OR whitespace OR shell operators
+                # This prevents replacing commands within:
+                #   - URIs (sh://C:/dir/bash.exe)
+                #   - Paths (/usr/local/bin/bash)
+                #   - Filenames (bash.sh, grep.log)
+                #   - Variable names (BASH_VERSION, grep_tool)
+
+                # Pattern explanation:
+                # (^|[\s|;&()]) - capture group: start of string or whitespace/shell operators
+                # {cmd} - the command name (escaped)
+                # (?=[\s|;&()]|$) - positive lookahead: whitespace/shell operators or end of string
+                #
+                # We use a capturing group for the prefix instead of lookbehind because
+                # lookbehind requires fixed-width patterns in Python regex
+                pattern = r'(^|[\s|;&()])' + re.escape(cmd) + r'(?=[\s|;&()]|$)'
+
+                # Replacement function that preserves the prefix (group 1) and replaces the command
+                def replace_func(match):
+                    prefix = match.group(1) if match.group(1) else ''
+                    return prefix + resolved_path
+
+                modified = re.sub(pattern, replace_func, modified)
                 #log_debug(f"Replaced '{cmd}' with '{resolved_path}' in command string")
 
         return modified
