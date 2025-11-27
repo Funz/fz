@@ -547,7 +547,7 @@ def run_calculation(
     working_dir: Path,
     calculator_uri: str,
     model: Dict,
-    timeout: int = 300,
+    timeout: int = None,
     original_input_was_dir: bool = False,
     original_cwd: str = None,
     input_files_list: List[str] = None,
@@ -559,13 +559,16 @@ def run_calculation(
         working_dir: Directory containing input files
         calculator_uri: Calculator URI (e.g., "sh://command", "ssh://host/command", "slurm://partition/script")
         model: Model definition dict
-        timeout: Timeout in seconds
+        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         original_input_was_dir: Whether original input was a directory
         input_files_list: List of input file names in order (from .fz_hash)
 
     Returns:
         Dict containing calculation results and status
     """
+    # Use config default if timeout not specified
+    if timeout is None:
+        timeout = get_config().run_timeout
     base_uri = calculator_uri
 
     # Handle different calculator types
@@ -841,7 +844,7 @@ def run_local_calculation(
     working_dir: Path,
     command: str,
     model: Dict,
-    timeout: int = 300,
+    timeout: int = None,
     original_input_was_dir: bool = False,
     original_cwd: str = None,
     input_files_list: List[str] = None,
@@ -853,7 +856,7 @@ def run_local_calculation(
         working_dir: Directory containing input files
         command: Shell command to execute
         model: Model definition dict
-        timeout: Timeout in seconds
+        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         original_input_was_dir: Whether original input was a directory
         original_cwd: Original working directory
         input_files_list: List of input file names in order (from .fz_hash)
@@ -861,6 +864,9 @@ def run_local_calculation(
     Returns:
         Dict containing calculation results and status
     """
+    # Use config default if timeout not specified
+    if timeout is None:
+        timeout = get_config().run_timeout
     # Import here to avoid circular imports
     from .core import fzo, is_interrupted
 
@@ -1079,7 +1085,7 @@ def run_ssh_calculation(
     working_dir: Path,
     ssh_uri: str,
     model: Dict,
-    timeout: int = 300,
+    timeout: int = None,
     input_files_list: List[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -1089,12 +1095,16 @@ def run_ssh_calculation(
         working_dir: Directory containing input files
         ssh_uri: SSH URI (e.g., "ssh://user:password@host:port/command")
         model: Model definition dict
-        timeout: Timeout in seconds
+        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
 
     Returns:
         Dict containing calculation results and status
     """
+    # Use config default if timeout not specified
+    if timeout is None:
+        timeout = get_config().run_timeout
+
     # Import here to avoid circular imports
     from .core import is_interrupted
 
@@ -1285,7 +1295,7 @@ def run_slurm_calculation(
     working_dir: Path,
     slurm_uri: str,
     model: Dict,
-    timeout: int = 300,
+    timeout: int = None,
     input_files_list: List[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -1295,12 +1305,16 @@ def run_slurm_calculation(
         working_dir: Directory containing input files
         slurm_uri: SLURM URI (e.g., "slurm://partition/script" or "slurm://user@host:partition/script")
         model: Model definition dict
-        timeout: Timeout in seconds
+        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
 
     Returns:
         Dict containing calculation results and status
     """
+    # Use config default if timeout not specified
+    if timeout is None:
+        timeout = get_config().run_timeout
+
     # Import here to avoid circular imports
     from .core import is_interrupted
 
@@ -1884,7 +1898,7 @@ def run_funz_calculation(
     working_dir: Path,
     funz_uri: str,
     model: Dict,
-    timeout: int = 300,
+    timeout: int = None,
     input_files_list: List[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -1894,12 +1908,15 @@ def run_funz_calculation(
         working_dir: Directory containing input files
         funz_uri: Funz URI (e.g., "funz://:<port>/<code>")
         model: Model definition dict
-        timeout: Timeout in seconds
+        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
 
     Returns:
         Dict containing calculation results and status
     """
+    # Use config default if timeout not specified
+    if timeout is None:
+        timeout = get_config().run_timeout
     # Import here to avoid circular imports
     from .core import is_interrupted, fzo
 
@@ -2721,7 +2738,7 @@ def run_single_case_calculation(
     working_dir: Path,
     calculator_uri: str,
     model: Dict,
-    timeout: int = 300,
+    timeout: int = None,
     original_input_was_dir: bool = False,
     original_cwd: str = None,
     input_files_list: List[str] = None,
@@ -2733,7 +2750,7 @@ def run_single_case_calculation(
         working_dir: Directory containing input files
         calculator_uri: Calculator URI to use for this case
         model: Model definition dict
-        timeout: Timeout in seconds
+        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         original_input_was_dir: Whether original input was a directory
         original_cwd: Original working directory
         input_files_list: List of input file names in order

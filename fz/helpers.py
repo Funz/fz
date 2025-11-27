@@ -342,7 +342,7 @@ def get_calculator_manager():
 def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: int,
                               tmp_dir: Path, model: Dict, original_input_was_dir: bool,
                               thread_id: int, start_time: float, original_cwd: str = None,
-                              input_files_list: List[str] = None) -> Tuple[Dict[str, Any], str]:
+                              input_files_list: List[str] = None, timeout: int = None) -> Tuple[Dict[str, Any], str]:
     """
     Try calculators with retry mechanism for failed calculations
 
@@ -356,6 +356,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         start_time: Case start time
         original_cwd: Original working directory
         input_files_list: List of input file names in order
+        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
 
     Returns:
         Tuple of (calculation result dict, used calculator ID)
@@ -423,7 +424,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         try:
             calc_start = time.time()
             calc_result = run_single_case_calculation(
-                tmp_dir, selected_calculator_uri, model, 300, original_input_was_dir, original_cwd, input_files_list
+                tmp_dir, selected_calculator_uri, model, timeout, original_input_was_dir, original_cwd, input_files_list
             )
             calc_elapsed = time.time() - calc_start
 
@@ -538,6 +539,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     spinner = case_info.get("spinner")  # Optional spinner instance
     has_input_variables = case_info.get("has_input_variables", True)  # Directory structure flag
     callbacks = case_info.get("callbacks")  # Optional callbacks for progress monitoring
+    timeout = case_info.get("timeout")  # Optional timeout for calculations
 
     # Get thread ID for debugging
     thread_id = threading.get_ident()
@@ -688,7 +690,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             # Try calculators with retry mechanism using unique IDs
             calc_result, used_calculator_id = try_calculators_with_retry(
                 non_cache_calculator_ids, case_index, tmp_dir, model,
-                original_input_was_dir, thread_id, start_time, original_cwd, input_files_list
+                original_input_was_dir, thread_id, start_time, original_cwd, input_files_list, timeout
             )
             # Use calculator ID directly (includes #n suffix for duplicate URIs)
             used_calculator = used_calculator_id
@@ -982,7 +984,8 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir: Path,
                       calculators: List[str], model: Dict, original_input_was_dir: bool,
                       var_names: List[str], output_keys: List[str], original_cwd: str = None,
-                      has_input_variables: bool = True, callbacks: Optional[Dict[str, callable]] = None) -> List[Dict[str, Any]]:
+                      has_input_variables: bool = True, callbacks: Optional[Dict[str, callable]] = None,
+                      timeout: int = None) -> List[Dict[str, Any]]:
     """
     Run multiple cases in parallel across available calculators
 
@@ -997,6 +1000,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         output_keys: List of output keys
         has_input_variables: Whether input_variables dict is non-empty
         callbacks: Optional dict of callback functions for progress monitoring
+        timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
 
     Returns:
         List of case results in the same order as var_combinations
@@ -1039,7 +1043,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
             "original_cwd": original_cwd,
             "spinner": spinner,  # Add spinner instance
             "has_input_variables": has_input_variables,  # Add flag for directory structure
-            "callbacks": callbacks  # Add callbacks for progress monitoring
+            "callbacks": callbacks,  # Add callbacks for progress monitoring
+            "timeout": timeout  # Add timeout for calculations
         }
         case_infos.append(case_info)
         case_name = ",".join(f"{k}={v}" for k, v in var_combo.items()) if len(var_combinations) > 1 else "single case"
