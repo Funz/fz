@@ -544,7 +544,6 @@ def run_calculation(
     """
     # Use config default if timeout not specified
     if timeout is None:
-        from .config import get_config
         timeout = get_config().run_timeout
     base_uri = calculator_uri
 
@@ -843,7 +842,6 @@ def run_local_calculation(
     """
     # Use config default if timeout not specified
     if timeout is None:
-        from .config import get_config
         timeout = get_config().run_timeout
     # Import here to avoid circular imports
     from .core import fzo, is_interrupted
@@ -1081,7 +1079,6 @@ def run_ssh_calculation(
     """
     # Use config default if timeout not specified
     if timeout is None:
-        from .config import get_config
         timeout = get_config().run_timeout
 
     # Import here to avoid circular imports
@@ -1292,7 +1289,6 @@ def run_slurm_calculation(
     """
     # Use config default if timeout not specified
     if timeout is None:
-        from .config import get_config
         timeout = get_config().run_timeout
 
     # Import here to avoid circular imports
@@ -1896,7 +1892,6 @@ def run_funz_calculation(
     """
     # Use config default if timeout not specified
     if timeout is None:
-        from .config import get_config
         timeout = get_config().run_timeout
     # Import here to avoid circular imports
     from .core import is_interrupted, fzo
