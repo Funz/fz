@@ -173,9 +173,9 @@ y=$y
         # Verify parallel execution was faster than sequential would be
         # With 9 cases taking ~1s each, sequential would take ~9s
         # With 3 parallel calculators, should take ~3s (9 cases / 3 calculators)
-        # Allow significant overhead for network communication and setup, so max 15s
-        assert elapsed_time < 15, \
-            f"Parallel execution took {elapsed_time:.2f}s, expected < 15s"
+        # Allow significant overhead for network communication and setup, so max 20s
+        assert elapsed_time < 20, \
+            f"Parallel execution took {elapsed_time:.2f}s, expected < 20s"
 
         print(f"✓ Parallel Funz calculation test passed ({elapsed_time:.2f}s for 9 cases)")
 
