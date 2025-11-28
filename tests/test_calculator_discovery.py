@@ -156,6 +156,89 @@ class TestCalculatorModelSupport:
 class TestModelFiltering:
     """Tests for filtering calculators by model"""
 
+    def test_funz_calculator_uri_construction(self, isolated_env, monkeypatch):
+        """
+        Test Funz calculator URI construction with model appending
+
+        Funz calculators have a special URI format where the model name is
+        appended to the URI path: funz://:<udp_port>/<model>
+
+        When using a calculator JSON file, the structure is:
+        {
+          "uri": "funz://:5555",
+          "models": {
+            "model_name": "model_name"
+          }
+        }
+
+        The implementation should:
+        1. When model_name is specified: construct "funz://:5555/model_name"
+        2. When no model is specified: return base URI "funz://:5555"
+        3. Filter out calculators that don't support the requested model
+        """
+        test_dir = isolated_env / "test_funz_uri"
+        test_dir.mkdir()
+        calc_dir = test_dir / ".fz" / "calculators"
+        calc_dir.mkdir(parents=True)
+
+        # Create a Funz calculator that supports multiple models
+        funz_calc_file = calc_dir / "funz_server.json"
+        funz_calc_data = {
+            "uri": "funz://:5555",
+            "description": "Funz calculator server on port 5555",
+            "models": {
+                "mymodel": "mymodel",
+                "othermodel": "othermodel",
+                "thirdmodel": "thirdmodel"
+            }
+        }
+        with open(funz_calc_file, 'w') as f:
+            json.dump(funz_calc_data, f)
+
+        # Create another Funz calculator on different port with different models
+        funz_calc2_file = calc_dir / "funz_server2.json"
+        funz_calc2_data = {
+            "uri": "funz://:6666",
+            "description": "Funz calculator server on port 6666",
+            "models": {
+                "mymodel": "mymodel",
+                "specialmodel": "specialmodel"
+            }
+        }
+        with open(funz_calc2_file, 'w') as f:
+            json.dump(funz_calc2_data, f)
+
+        monkeypatch.chdir(test_dir)
+
+        # Test 1: Request "mymodel" - should get both calculators with model appended
+        calculators_mymodel = _find_all_calculators(model_name="mymodel")
+        assert len(calculators_mymodel) == 2
+        assert "funz://:5555/mymodel" in calculators_mymodel
+        assert "funz://:6666/mymodel" in calculators_mymodel
+
+        # Test 2: Request "othermodel" - should only get first calculator
+        calculators_othermodel = _find_all_calculators(model_name="othermodel")
+        assert len(calculators_othermodel) == 1
+        assert calculators_othermodel[0] == "funz://:5555/othermodel"
+
+        # Test 3: Request "specialmodel" - should only get second calculator
+        calculators_specialmodel = _find_all_calculators(model_name="specialmodel")
+        assert len(calculators_specialmodel) == 1
+        assert calculators_specialmodel[0] == "funz://:6666/specialmodel"
+
+        # Test 4: Request unsupported model - should get no Funz calculators
+        calculators_unsupported = _find_all_calculators(model_name="unsupported")
+        assert len(calculators_unsupported) == 0
+
+        # Test 5: No model filter - should get base URIs without model paths
+        calculators_all = _find_all_calculators(model_name=None)
+        assert len(calculators_all) == 2
+        assert "funz://:5555" in calculators_all
+        assert "funz://:6666" in calculators_all
+        # Model paths should NOT be appended when no model is specified
+        assert "funz://:5555/mymodel" not in calculators_all
+        assert "funz://:6666/mymodel" not in calculators_all
+
     def test_find_calculators_filtered_by_model(self, isolated_env, monkeypatch):
         """Test finding calculators filtered by model name"""
         test_dir = isolated_env / "test_filter_by_model"
