@@ -38,6 +38,7 @@ setup(
             "fzc=fz.cli:fzc_main",
             "fzo=fz.cli:fzo_main",
             "fzr=fz.cli:fzr_main",
+            "fzl=fz.cli:fzl_main",
         ],
     },
     classifiers=[

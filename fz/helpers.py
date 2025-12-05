@@ -242,7 +242,7 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
     Tries in order:
     1. JSON string (if starts with '{')
     2. JSON file path (if ends with '.json')
-    3. Model alias
+    3. Model alias in .fz/models/
 
     Args:
         model: Model definition (dict, JSON string, JSON file path, or alias)
@@ -320,9 +320,7 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
             f"Check if the file exists or the alias is defined in .fz/models/"
         )
 
-    # Validate the resolved model
-    _validate_model(model)
-    return model
+    raise TypeError(f"Model must be a dict or string, got {type(model).__name__}")
 
 
 def get_calculator_manager():
@@ -1422,4 +1420,580 @@ def prepare_case_directories(var_combinations: List[Dict], temp_path: Path, resu
             log_info(f"Created result hash file: {result_dir}/.fz_hash")
         except Exception as e:
             log_warning(f"Warning: Could not create hash file for case {var_combo}: {e}")
+
+
+# ============================================================================
+# Calculator-specific helper functions
+# ============================================================================
+
+def _calculator_supports_model(calc_data, model_name):
+    """
+    Check if calculator supports a given model.
+
+    A calculator supports a model if:
+    1. It has no "models" field (supports all models)
+    2. It has a "models" dict that includes the model_name as a key
+    3. It has a "models" list that includes the model_name
+
+    Args:
+        calc_data: Calculator data dict from JSON
+        model_name: Model name to check
+
+    Returns:
+        True if calculator supports the model, False otherwise
+    """
+    if "models" not in calc_data:
+        # No models field - supports all models
+        return True
+
+    models = calc_data["models"]
+
+    if isinstance(models, dict):
+        # Models is a dict - check if model_name is a key
+        return model_name in models
+    elif isinstance(models, list):
+        # Models is a list - check if model_name is in list
+        return model_name in models
+    else:
+        # Unknown format - assume it supports the model
+        return True
+
+
+def _extract_calculator_uri(calc_data, model_name=None):
+    """
+    Extract calculator URI from calculator data dict.
+
+    Args:
+        calc_data: Calculator data dict (from JSON file or inline)
+        model_name: Optional model name for model-specific commands
+
+    Returns:
+        Calculator URI string, or None if no URI can be extracted
+    """
+    if "uri" in calc_data:
+        # Calculator with URI specification
+        uri = calc_data["uri"]
+
+        # If models dict exists and model_name is provided, get model-specific command
+        if "models" in calc_data and isinstance(calc_data["models"], dict) and model_name:
+            if model_name in calc_data["models"]:
+                # Use model-specific command from models dict
+                model_command = calc_data["models"][model_name]
+                # Append command to URI if it doesn't already contain it
+                if not uri.endswith(model_command):
+                    # Check if we're dealing with a protocol URI (contains ://)
+                    if '://' in uri:
+                        # For URIs ending with "://" (like "sh://"), append command directly
+                        # For URIs with content after "://" (like "funz://:5555"), add "/" separator
+                        if uri.endswith("://"):
+                            uri = f"{uri}{model_command}"
+                        else:
+                            uri = f"{uri}/{model_command}"
+                    else:
+                        # For non-protocol URIs, use the command as-is
+                        uri = model_command
+
+        return uri
+    elif "command" in calc_data:
+        # Simple calculator with command
+        return calc_data["command"]
+    else:
+        # No URI or command field - return None (caller will use the dict as-is)
+        return None
+
+
+def _find_all_calculators(model_name=None):
+    """
+    Find all calculator JSON files in .fz/calculators/ directories.
+
+    Searches in:
+    1. Current working directory: ./.fz/calculators/
+    2. Home directory: ~/.fz/calculators/
+
+    Args:
+        model_name: Optional model name to filter calculators (only include calculators that support this model)
+
+    Returns:
+        List of calculator specifications (URIs or dicts)
+    """
+    # Use the generic finder with "*" pattern to get all calculators
+    return find_items_by_pattern("*", "calculators", model_name, use_regex=False)
+
+
+def _filter_calculators_by_model(calculators, model_name):
+    """
+    Filter a list of calculator specifications by model support.
+
+    This is used when calculators are explicitly provided (not wildcarded)
+    to filter out calculators that don't support the specified model.
+
+    Args:
+        calculators: List of calculator specifications
+        model_name: Model name to filter by
+
+    Returns:
+        Filtered list of calculator specifications
+    """
+    filtered = []
+
+    for calc in calculators:
+        if isinstance(calc, dict):
+            if _calculator_supports_model(calc, model_name):
+                filtered.append(calc)
+            else:
+                log_debug(f"Filtered out calculator (dict): does not support model '{model_name}'")
+        else:
+            # String URIs - include them (we don't have metadata to filter)
+            filtered.append(calc)
+
+    return filtered
+
+
+def _resolve_calculators_arg(calculators, model_name=None):
+    """
+    Parse and resolve calculator argument.
+
+    Each calculator element is parsed as:
+    - A URI string (e.g., "sh://bash calc.sh", "ssh://server/calc.sh")
+    - A regex pattern on JSON files (e.g., "configs/.*calc.json")
+    - A regex pattern on calculator names in .fz/calculators/ (e.g., "^local.*", ".*_test$")
+    - A glob pattern on calculator names (e.g., "*calc", "local*", "dev?test")
+    - A glob pattern on JSON file paths (e.g., "configs/*calc.json")
+    - A JSON file path (e.g., "mydir/calc.json", ".fz/calculators/local.json")
+    - An alias name in .fz/calculators/ (e.g., "local", "remote")
+
+    Handles:
+    - None (defaults to "*" - find all calculators in .fz/calculators/)
+    - "*" (wildcard - find all calculators in .fz/calculators/)
+    - Single string, dict, or list of calculator specs
+
+    Args:
+        calculators: Calculator specification (None, "*", string, dict, or list)
+        model_name: Optional model name to filter calculators (only include calculators that support this model)
+
+    Returns:
+        List of calculator specifications
+    """
+    # Handle None or "*" - find all calculators
+    if calculators is None or calculators == "*":
+        calc_specs = _find_all_calculators(model_name)
+        if not calc_specs:
+            return ["sh://"]
+        return calc_specs
+
+    # Handle dict input
+    if isinstance(calculators, dict):
+        uri = _extract_calculator_uri(calculators, model_name)
+        return [uri] if uri else [calculators]
+
+    # Handle list input - process each element
+    if isinstance(calculators, list):
+        result = []
+        for item in calculators:
+            if isinstance(item, str):
+                # Resolve each string element using generic resolver
+                resolved = resolve_single_item(item, 'calculators', model_name)
+                result.extend(resolved)
+            elif isinstance(item, dict):
+                uri = _extract_calculator_uri(item, model_name)
+                result.append(uri if uri else item)
+            else:
+                result.append(item)
+
+        # Filter by model if needed
+        if model_name:
+            result = _filter_calculators_by_model(result, model_name)
+
+        return result if result else ["sh://"]
+
+    # Handle string input
+    if isinstance(calculators, str):
+        result = resolve_single_item(calculators, 'calculators', model_name)
+
+        # Filter by model if needed
+        if model_name:
+            result = _filter_calculators_by_model(result, model_name)
+
+        return result if result else ["sh://"]
+
+    # Fallback: return as-is wrapped in list
+    return [calculators]
+
+
+# ============================================================================
+# Generic item resolution functions (used by calculators, can be reused for other types)
+# ============================================================================
+
+def find_items_by_pattern(pattern, item_type, model_name=None, use_regex=False):
+    """
+    Find items (models or calculators) matching a glob or regex pattern.
+
+    Supports two pattern matching modes:
+    1. Glob patterns (default): "*calc", "local*", "dev?test"
+    2. Regex patterns (use_regex=True): "^local.*", ".*calc$", "dev[0-9]+"
+
+    Args:
+        pattern: Pattern to match item names (prefix without .json extension)
+        item_type: Type of item to search for ('models' or 'calculators')
+        model_name: Optional model name to filter calculators (ignored for models)
+        use_regex: If True, treat pattern as regex; otherwise use glob (fnmatch)
+
+    Returns:
+        List of item specifications that match the pattern
+    """
+    import fnmatch
+    import re
+    import json
+
+    search_dirs = [Path.cwd() / ".fz" / item_type, Path.home() / ".fz" / item_type]
+    items = []
+    matched_files = set()  # Track matched files to avoid duplicates
+
+    # Compile regex pattern if using regex mode
+    if use_regex:
+        try:
+            regex_pattern = re.compile(pattern)
+        except re.error as e:
+            log_warning(f"Invalid regex pattern '{pattern}': {e}")
+            return []
+
+    for item_dir in search_dirs:
+        if not item_dir.exists() or not item_dir.is_dir():
+            continue
+
+        # Find all .json files in the directory
+        for item_file in item_dir.glob("*.json"):
+            # Get the item name (filename without .json extension)
+            item_name = item_file.stem
+
+            # Check if name matches the pattern
+            if use_regex:
+                if not regex_pattern.search(item_name):
+                    continue
+            else:
+                if not fnmatch.fnmatch(item_name, pattern):
+                    continue
+
+            # Skip if we've already processed this item
+            if item_file in matched_files:
+                continue
+
+            matched_files.add(item_file)
+
+            try:
+                with open(item_file, 'r') as f:
+                    item_data = json.load(f)
+
+                # For calculators, check model support
+                if item_type == 'calculators' and model_name:
+                    if not _calculator_supports_model(item_data, model_name):
+                        log_debug(f"Skipping calculator {item_file.name}: does not support model '{model_name}'")
+                        continue
+
+                # For calculators, extract URI; for models, return the dict
+                if item_type == 'calculators':
+                    uri = _extract_calculator_uri(item_data, model_name)
+                    if uri:
+                        items.append(uri)
+                        log_debug(f"Pattern '{pattern}' matched {item_type}: {item_file.name} -> {uri}")
+                    else:
+                        items.append(item_data)
+                        log_debug(f"Pattern '{pattern}' matched {item_type}: {item_file.name} (dict spec)")
+                else:
+                    # For models, return the model dict
+                    items.append(item_data)
+                    log_debug(f"Pattern '{pattern}' matched {item_type}: {item_file.name}")
+
+            except (json.JSONDecodeError, IOError, KeyError) as e:
+                log_warning(f"Could not load {item_type} file {item_file}: {e}")
+                continue
+
+    return items
+
+
+def find_items_by_json_file_pattern(pattern, item_type, model_name=None, use_regex=False):
+    """
+    Find items by matching JSON file paths (not just item names in .fz/<item_type>/).
+
+    This function searches for JSON files matching the pattern anywhere in the filesystem,
+    not limited to .fz/<item_type>/ directories.
+
+    Args:
+        pattern: Pattern to match JSON file paths (can include directory paths)
+        item_type: Type of item ('models' or 'calculators')
+        model_name: Optional model name to filter calculators
+        use_regex: If True, treat pattern as regex; otherwise use glob
+
+    Returns:
+        List of item specifications from matching JSON files
+    """
+    import fnmatch
+    import re
+    import json
+    from pathlib import Path
+
+    items = []
+
+    # If using regex, search from current directory
+    if use_regex:
+        try:
+            regex_pattern = re.compile(pattern)
+        except re.error as e:
+            log_warning(f"Invalid regex pattern '{pattern}': {e}")
+            return []
+
+        # Search for .json files in current directory tree
+        cwd = Path.cwd()
+        for json_file in cwd.rglob("*.json"):
+            # Match against relative path (use forward slashes for cross-platform compatibility)
+            rel_path = json_file.relative_to(cwd).as_posix()
+            if regex_pattern.search(rel_path):
+                try:
+                    with open(json_file, 'r') as f:
+                        item_data = json.load(f)
+
+                    # Check if it's a valid item definition
+                    if not isinstance(item_data, dict):
+                        continue
+
+                    # For calculators, check if it has calculator fields
+                    if item_type == 'calculators':
+                        if "uri" not in item_data and "command" not in item_data and "models" not in item_data:
+                            continue
+
+                        # Check model support
+                        if model_name:
+
+                            if not _calculator_supports_model(item_data, model_name):
+                                continue
+
+
+                        uri = _extract_calculator_uri(item_data, model_name)
+                        if uri:
+                            items.append(uri)
+                            log_debug(f"JSON file pattern '{pattern}' matched: {rel_path} -> {uri}")
+                        else:
+                            items.append(item_data)
+                            log_debug(f"JSON file pattern '{pattern}' matched: {rel_path} (dict spec)")
+                    else:
+                        # For models, return the model dict
+                        items.append(item_data)
+                        log_debug(f"JSON file pattern '{pattern}' matched: {rel_path}")
+
+                except (json.JSONDecodeError, IOError, KeyError):
+                    continue
+    else:
+        # Use glob pattern directly
+        cwd = Path.cwd()
+        for json_file in cwd.glob(pattern):
+            if not json_file.is_file() or json_file.suffix != '.json':
+                continue
+
+            try:
+                with open(json_file, 'r') as f:
+                    item_data = json.load(f)
+
+                # Check if it's a valid item definition
+                if not isinstance(item_data, dict):
+                    continue
+
+                # For calculators, check if it has calculator fields
+                if item_type == 'calculators':
+                    if "uri" not in item_data and "command" not in item_data and "models" not in item_data:
+                        continue
+
+                    # Check model support
+                    if model_name:
+
+                        if not _calculator_supports_model(item_data, model_name):
+                            continue
+
+
+                    uri = _extract_calculator_uri(item_data, model_name)
+                    if uri:
+                        items.append(uri)
+                        log_debug(f"JSON file pattern '{pattern}' matched: {json_file} -> {uri}")
+                    else:
+                        items.append(item_data)
+                        log_debug(f"JSON file pattern '{pattern}' matched: {json_file} (dict spec)")
+                else:
+                    # For models, return the model dict
+                    items.append(item_data)
+                    log_debug(f"JSON file pattern '{pattern}' matched: {json_file}")
+
+            except (json.JSONDecodeError, IOError, KeyError):
+                continue
+
+    return items
+
+
+def resolve_single_item(item_str, item_type, model_name=None):
+    """
+    Resolve a single item string (model or calculator) to item specification(s).
+
+    Tries in order:
+    1. Inline JSON (starts with { or [)
+    2. Plain URI (contains "://") - for calculators only
+    3. Regex pattern on item names in .fz/<item_type>/ (starts with "^" or ends with "$")
+    4. Regex pattern on JSON file paths (contains "/" and regex chars)
+    5. Glob pattern on item names (contains *, ?, [, ])
+    6. Glob pattern on JSON file paths (contains "/" and glob chars)
+    7. JSON file path (ends with .json)
+    8. Alias in .fz/<item_type>/
+
+    Args:
+        item_str: Item string to resolve
+        item_type: Type of item ('models' or 'calculators')
+        model_name: Optional model name to filter (for calculators)
+
+    Returns:
+        List of resolved item specifications (may be empty if pattern doesn't match)
+    """
+    import re
+    import json as json_module
+    from .core import _parse_argument
+
+    # 1. Try to parse as inline JSON first (starts with { or [)
+    if item_str.startswith('{') or item_str.startswith('['):
+        try:
+            # Try direct JSON parsing first
+            parsed = json_module.loads(item_str)
+            if isinstance(parsed, dict):
+                if item_type == 'calculators':
+
+                    uri = _extract_calculator_uri(parsed, model_name)
+                    return [uri] if uri else [parsed]
+                else:
+                    # For models, return the dict
+                    return [parsed]
+            elif isinstance(parsed, list):
+                result = []
+                for item in parsed:
+                    if isinstance(item, dict):
+                        if item_type == 'calculators':
+    
+                            uri = _extract_calculator_uri(item, model_name)
+                            result.append(uri if uri else item)
+                        else:
+                            result.append(item)
+                    else:
+                        result.append(item)
+                return result
+        except (json_module.JSONDecodeError, ValueError):
+            # Not valid JSON, continue with pattern matching
+            pass
+
+    # 2. Check if it's a plain URI (contains ://) - only for calculators
+    if item_type == 'calculators' and "://" in item_str:
+        return [item_str]
+
+    # 3. Check for regex pattern indicators
+    # Regex indicators: starts with ^ or ends with $, or contains regex metacharacters
+    # Exclude { and } if they're at the start/end (likely JSON, not regex)
+    regex_chars = {'^', '$', '\\', '+', '|', '(', ')'}
+    # Only add { and } if not at string boundaries
+    if '{' in item_str and not item_str.startswith('{'):
+        regex_chars.add('{')
+    if '}' in item_str and not item_str.endswith('}'):
+        regex_chars.add('}')
+    has_regex_chars = any(char in item_str for char in regex_chars)
+
+    # Check for glob pattern characters
+    glob_chars = {'*', '?', '[', ']'}
+    has_glob_chars = any(char in item_str for char in glob_chars)
+
+    # Special case: detect .* as regex (not glob)
+    has_dot_star = '.*' in item_str
+    has_path_sep = '/' in item_str or '\\' in item_str
+
+    # If has regex chars or dot-star pattern with path sep, try regex first
+    if has_regex_chars or (has_dot_star and has_path_sep):
+        # Try as regex pattern on JSON file paths (if contains path separator)
+        if has_path_sep:
+            matched = find_items_by_json_file_pattern(item_str, item_type, model_name, use_regex=True)
+            if matched:
+                return matched
+
+        # Try as regex pattern on item names in .fz/<item_type>/
+        matched = find_items_by_pattern(item_str, item_type, model_name, use_regex=True)
+        if matched:
+            return matched
+
+    # 4. Try glob patterns
+    if has_glob_chars:
+        # If contains path separator, try as glob on JSON file paths
+        if has_path_sep:
+            matched = find_items_by_json_file_pattern(item_str, item_type, model_name, use_regex=False)
+            if matched:
+                return matched
+
+        # Try as glob pattern on item names in .fz/<item_type>/
+        matched = find_items_by_pattern(item_str, item_type, model_name, use_regex=False)
+        if matched:
+            return matched
+
+        # If no match, might be a literal string - fall through
+
+    # 5. Try as JSON file path
+    if item_str.endswith('.json'):
+        try:
+            parsed = _parse_argument(item_str, alias_type=item_type)
+            if isinstance(parsed, dict):
+                if item_type == 'calculators':
+
+                    uri = _extract_calculator_uri(parsed, model_name)
+                    return [uri] if uri else [parsed]
+                else:
+                    return [parsed]
+            elif isinstance(parsed, list):
+                # JSON file contains array of items
+                result = []
+                for item in parsed:
+                    if isinstance(item, dict):
+                        if item_type == 'calculators':
+    
+                            uri = _extract_calculator_uri(item, model_name)
+                            result.append(uri if uri else item)
+                        else:
+                            result.append(item)
+                    else:
+                        result.append(item)
+                return result
+            else:
+                return [parsed]
+        except:
+            pass
+
+    # 6. Try as alias in .fz/<item_type>/
+    try:
+        parsed = _parse_argument(item_str, alias_type=item_type)
+        if isinstance(parsed, dict):
+            if item_type == 'calculators':
+
+                uri = _extract_calculator_uri(parsed, model_name)
+                return [uri] if uri else [parsed]
+            else:
+                return [parsed]
+        elif isinstance(parsed, list):
+            result = []
+            for item in parsed:
+                if isinstance(item, dict):
+                    if item_type == 'calculators':
+
+                        uri = _extract_calculator_uri(item, model_name)
+                        result.append(uri if uri else item)
+                    elif isinstance(item, str):
+                        result.append(item)
+                    else:
+                        result.append(item)
+                else:
+                    result.append(item)
+            return result
+        else:
+            return [parsed]
+    except:
+        pass
+
+    # 7. No match found - return as-is (might be a literal string)
+    return [item_str]
 
