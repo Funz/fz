@@ -1745,8 +1745,8 @@ def find_items_by_json_file_pattern(pattern, item_type, model_name=None, use_reg
         # Search for .json files in current directory tree
         cwd = Path.cwd()
         for json_file in cwd.rglob("*.json"):
-            # Match against relative path
-            rel_path = str(json_file.relative_to(cwd))
+            # Match against relative path (use forward slashes for cross-platform compatibility)
+            rel_path = json_file.relative_to(cwd).as_posix()
             if regex_pattern.search(rel_path):
                 try:
                     with open(json_file, 'r') as f:
