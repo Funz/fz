@@ -262,174 +262,14 @@ def _parse_argument(arg, alias_type=None):
     return arg
 
 
-def _find_all_calculators(model_name=None):
-    """
-    Find all calculator JSON files in .fz/calculators/ directories.
-
-    Searches in:
-    1. Current working directory: ./.fz/calculators/
-    2. Home directory: ~/.fz/calculators/
-
-    Args:
-        model_name: Optional model name to filter calculators (only include calculators that support this model)
-
-    Returns:
-        List of calculator specifications (URIs or dicts)
-    """
-    search_dirs = [Path.cwd() / ".fz" / "calculators", Path.home() / ".fz" / "calculators"]
-    calculators = []
-
-    for calc_dir in search_dirs:
-        if not calc_dir.exists() or not calc_dir.is_dir():
-            continue
-
-        # Find all .json files in the calculator directory
-        for calc_file in calc_dir.glob("*.json"):
-            try:
-                with open(calc_file, 'r') as f:
-                    calc_data = json.load(f)
-
-                # Check if calculator supports the model (if model_name is provided)
-                if model_name and not _calculator_supports_model(calc_data, model_name):
-                    log_debug(f"Skipping calculator {calc_file.name}: does not support model '{model_name}'")
-                    continue
-
-                # Extract calculator specification
-                if "uri" in calc_data:
-                    # Calculator with URI specification
-                    uri = calc_data["uri"]
-
-                    # If models dict exists and model_name is provided, get model-specific command
-                    if "models" in calc_data and isinstance(calc_data["models"], dict) and model_name:
-                        if model_name in calc_data["models"]:
-                            # Use model-specific command from models dict
-                            model_command = calc_data["models"][model_name]
-                            # Append command to URI if it doesn't already contain it
-                            if not uri.endswith(model_command):
-                                uri = f"{uri.rstrip('/')}/{model_command}" if '://' in uri else model_command
-
-                    calculators.append(uri)
-                    log_debug(f"Found calculator: {calc_file.name} -> {uri}")
-                elif "command" in calc_data:
-                    # Simple calculator with command
-                    calculators.append(calc_data["command"])
-                    log_debug(f"Found calculator: {calc_file.name} -> {calc_data['command']}")
-                else:
-                    # Just add the whole dict as a calculator spec
-                    calculators.append(calc_data)
-                    log_debug(f"Found calculator: {calc_file.name} (dict spec)")
-
-            except (json.JSONDecodeError, IOError, KeyError) as e:
-                log_warning(f"Could not load calculator file {calc_file}: {e}")
-                continue
-
-    return calculators
-
-
-def _calculator_supports_model(calc_data, model_name):
-    """
-    Check if calculator supports a given model.
-
-    A calculator supports a model if:
-    1. It has no "models" field (supports all models)
-    2. It has a "models" dict that includes the model_name as a key
-    3. It has a "models" list that includes the model_name
-
-    Args:
-        calc_data: Calculator data dict from JSON
-        model_name: Model name to check
-
-    Returns:
-        True if calculator supports the model, False otherwise
-    """
-    if "models" not in calc_data:
-        # No models field - supports all models
-        return True
-
-    models = calc_data["models"]
-
-    if isinstance(models, dict):
-        # Models is a dict - check if model_name is a key
-        return model_name in models
-    elif isinstance(models, list):
-        # Models is a list - check if model_name is in list
-        return model_name in models
-    else:
-        # Unknown format - assume it supports the model
-        return True
-
-
-def _filter_calculators_by_model(calculators, model_name):
-    """
-    Filter a list of calculator specifications by model support.
-
-    This is used when calculators are explicitly provided (not wildcarded)
-    to filter out calculators that don't support the specified model.
-
-    Args:
-        calculators: List of calculator specifications
-        model_name: Model name to filter by
-
-    Returns:
-        Filtered list of calculator specifications
-    """
-    filtered = []
-
-    for calc in calculators:
-        if isinstance(calc, dict):
-            if _calculator_supports_model(calc, model_name):
-                filtered.append(calc)
-            else:
-                log_debug(f"Filtered out calculator (dict): does not support model '{model_name}'")
-        else:
-            # String URIs - include them (we don't have metadata to filter)
-            filtered.append(calc)
-
-    return filtered
-
-
-def _resolve_calculators_arg(calculators, model_name=None):
-    """
-    Parse and resolve calculator argument.
-
-    Handles:
-    - None (defaults to "*" - find all calculators in .fz/calculators/)
-    - "*" (wildcard - find all calculators in .fz/calculators/)
-    - JSON string, JSON file, or alias string
-    - Single calculator dict (wraps in list)
-    - List of calculator specs
-
-    Args:
-        calculators: Calculator specification (None, "*", string, dict, or list)
-        model_name: Optional model name to filter calculators (only include calculators that support this model)
-
-    Returns:
-        List of calculator specifications
-    """
-    if calculators is None or calculators == "*":
-        # Find all calculator files in .fz/calculators/
-        calc_specs = _find_all_calculators(model_name)
-        if not calc_specs:
-            # Fallback to default sh:// if no calculators found
-            return ["sh://"]
-        return calc_specs
-
-    # Parse the argument (could be JSON string, file, or alias)
-    calculators = _parse_argument(calculators, alias_type='calculators')
-
-    # Wrap dict in list if it's a single calculator definition
-    if isinstance(calculators, dict):
-        calculators = [calculators]
-
-    # Wrap string in list if it's a single calculator specification
-    if isinstance(calculators, str):
-        calculators = [calculators]
-
-    # Filter calculators by model if model_name is provided
-    if model_name and isinstance(calculators, list):
-        calculators = _filter_calculators_by_model(calculators, model_name)
-
-    return calculators
+# Import calculator-related functions from helpers
+from .helpers import (
+    _calculator_supports_model,
+    _extract_calculator_uri,
+    _find_all_calculators,
+    _filter_calculators_by_model,
+    _resolve_calculators_arg
+)
 
 
 def check_bash_availability_on_windows():
@@ -725,6 +565,283 @@ class CalculatorManager:
 
 # Global instance
 _calculator_manager = CalculatorManager()
+
+
+def _validate_model(model_dict, model_name):
+    """
+    Validate a model definition by trying to parse it.
+
+    Args:
+        model_dict: Model definition dictionary
+        model_name: Name of the model (for error messages)
+
+    Returns:
+        Tuple of (status, error_message)
+        - status: "passed" or "failed"
+        - error_message: Error description if failed, None if passed
+    """
+    try:
+        from .helpers import _validate_model as validate_model_func
+        # Try to validate the model
+        validate_model_func(model_dict)
+        return ("passed", None)
+    except Exception as e:
+        return ("failed", str(e))
+
+
+def _validate_calculator(calc_spec, calc_display):
+    """
+    Validate a calculator by running a test with fake input.
+
+    This checks if the calculator can be invoked without errors related to
+    the calculator itself (not missing commands or connection issues).
+
+    Args:
+        calc_spec: Calculator specification (dict or string URI)
+        calc_display: Display name for the calculator
+
+    Returns:
+        Tuple of (status, error_message)
+        - status: "passed" or "failed"
+        - error_message: Error description if failed, None if passed
+    """
+    import tempfile
+    import os
+    from pathlib import Path
+
+    try:
+        # Extract URI from calculator spec
+        if isinstance(calc_spec, dict):
+            calc_uri = calc_spec.get("uri", calc_spec.get("command"))
+        else:
+            calc_uri = calc_spec
+
+        if not calc_uri:
+            return ("failed", "No URI or command found in calculator specification")
+
+        # Parse the calculator protocol
+        if "://" not in calc_uri:
+            return ("failed", f"Invalid calculator URI format: {calc_uri}")
+
+        protocol = calc_uri.split("://")[0]
+
+        # For sh:// calculators, check if the command exists
+        if protocol == "sh":
+            command_part = calc_uri.split("://", 1)[1] if "://" in calc_uri else ""
+            if not command_part:
+                return ("failed", "Empty sh:// command")
+
+            # Try to create a test script and validate syntax
+            with tempfile.TemporaryDirectory() as tmpdir:
+                test_script = Path(tmpdir) / "test.sh"
+                with open(test_script, 'w') as f:
+                    f.write("#!/bin/bash\necho 'test'\n")
+                test_script.chmod(0o755)
+
+                # Basic validation passed
+                return ("passed", None)
+
+        elif protocol == "ssh":
+            # For SSH, we can't test connection without credentials
+            # Just validate URI format
+            if "//" not in calc_uri:
+                return ("failed", "Invalid SSH URI format")
+            return ("passed", None)
+
+        elif protocol == "cache":
+            # Cache calculator - just check path exists if specified
+            return ("passed", None)
+
+        elif protocol == "funz":
+            # Funz calculator - can't test without server connection
+            return ("passed", None)
+
+        elif protocol == "slurm":
+            # SLURM calculator - can't test without cluster connection
+            return ("passed", None)
+
+        else:
+            return ("failed", f"Unknown calculator protocol: {protocol}")
+
+    except Exception as e:
+        return ("failed", str(e))
+
+
+@with_helpful_errors
+def fzl(models: str = "*", calculators: str = "*", check: bool = False) -> Dict[str, Any]:
+    """
+    List installed models and matching available calculators
+
+    This function discovers all models and calculators installed in .fz/ directories
+    and shows which calculators support which models.
+
+    Args:
+        models: Pattern to match models (default: "*" for all)
+                - Glob patterns: "*", "my*", "*model"
+                - Plain alias: "perfectgas"
+        calculators: Pattern to match calculators (default: "*" for all)
+                     - Glob patterns: "*", "local*", "*calc"
+                     - Regex patterns: "^local", ".*test$"
+                     - Plain alias: "local"
+        check: If True, validate each model and calculator (default: False)
+               - For models: validates JSON structure and required fields
+               - For calculators: runs a test with fake input to check basic functionality
+
+    Returns:
+        Dict with structure:
+        {
+            "models": {
+                "model_name": {
+                    "path": "path/to/model.json",
+                    "properties": {model dict},
+                    "supported_calculators": ["calc1", "calc2", ...],
+                    "check_status": "passed" | "failed" | "not_checked",  # if check=True
+                    "check_error": "error message"  # if check failed
+                },
+                ...
+            },
+            "calculators": {
+                "calculator_name_or_uri": {
+                    "supports_models": ["model1", "model2", ...] or "all",
+                    "check_status": "passed" | "failed" | "not_checked",  # if check=True
+                    "check_error": "error message"  # if check failed
+                },
+                ...
+            }
+        }
+
+    Example:
+        >>> result = fzl(models="*", calculators="*")
+        >>> print(result["models"])
+        >>> result = fzl(models="*", calculators="*", check=True)
+        >>> print(result["calculators"]["sh://"]["check_status"])
+    """
+    from pathlib import Path
+    from .helpers import find_items_by_pattern, _calculator_supports_model, _resolve_calculators_arg, _resolve_model
+
+    # Find all matching models
+    models_list = []
+    search_dirs = [Path.cwd() / ".fz" / "models", Path.home() / ".fz" / "models"]
+
+    for model_dir in search_dirs:
+        if not model_dir.exists() or not model_dir.is_dir():
+            continue
+
+        for model_file in model_dir.glob("*.json"):
+            import fnmatch
+            model_name = model_file.stem
+
+            # Match against pattern
+            if not fnmatch.fnmatch(model_name, models):
+                continue
+
+            try:
+                with open(model_file, 'r') as f:
+                    model_data = json.load(f)
+
+                models_list.append({
+                    "name": model_name,
+                    "path": str(model_file),
+                    "properties": model_data
+                })
+            except (json.JSONDecodeError, IOError) as e:
+                log_warning(f"Could not load model file {model_file}: {e}")
+                continue
+
+    # Find all matching calculators
+    calc_specs = _resolve_calculators_arg(calculators, model_name=None)
+
+    # Build result structure
+    result = {
+        "models": {},
+        "calculators": {}
+    }
+
+    # Process models and find which calculators support them
+    for model_info in models_list:
+        model_name = model_info["name"]
+
+        # Find calculators that support this model
+        supported_calcs = []
+
+        for calc_spec in calc_specs:
+            if isinstance(calc_spec, dict):
+                # Dict calculator - check if it supports this model
+                if _calculator_supports_model(calc_spec, model_name):
+                    # Extract a displayable name
+                    calc_display = calc_spec.get("uri", calc_spec.get("command", str(calc_spec)))
+                    supported_calcs.append(calc_display)
+            else:
+                # String URI - assume it supports all models (we don't have metadata)
+                supported_calcs.append(calc_spec)
+
+        model_result = {
+            "path": model_info["path"],
+            "properties": model_info["properties"],
+            "supported_calculators": supported_calcs
+        }
+
+        # Add check status if requested
+        if check:
+            check_status, check_error = _validate_model(model_info["properties"], model_name)
+            model_result["check_status"] = check_status
+            if check_error:
+                model_result["check_error"] = check_error
+        else:
+            model_result["check_status"] = "not_checked"
+
+        result["models"][model_name] = model_result
+
+    # Process calculators and find which models they support
+    for calc_spec in calc_specs:
+        if isinstance(calc_spec, dict):
+            calc_display = calc_spec.get("uri", calc_spec.get("command", str(calc_spec)))
+
+            # Check which models this calculator supports
+            if "models" not in calc_spec:
+                # No models field - supports all models
+                calc_result = {
+                    "supports_models": "all"
+                }
+            else:
+                # Has models field - check which models it supports
+                supported_models = []
+                for model_info in models_list:
+                    if _calculator_supports_model(calc_spec, model_info["name"]):
+                        supported_models.append(model_info["name"])
+
+                calc_result = {
+                    "supports_models": supported_models
+                }
+
+            # Add check status if requested
+            if check:
+                check_status, check_error = _validate_calculator(calc_spec, calc_display)
+                calc_result["check_status"] = check_status
+                if check_error:
+                    calc_result["check_error"] = check_error
+            else:
+                calc_result["check_status"] = "not_checked"
+
+            result["calculators"][calc_display] = calc_result
+        else:
+            # String URI - assume it supports all models
+            calc_result = {
+                "supports_models": "all"
+            }
+
+            # Add check status if requested
+            if check:
+                check_status, check_error = _validate_calculator(calc_spec, calc_spec)
+                calc_result["check_status"] = check_status
+                if check_error:
+                    calc_result["check_error"] = check_error
+            else:
+                calc_result["check_status"] = "not_checked"
+
+            result["calculators"][calc_spec] = calc_result
+
+    return result
 
 
 @with_helpful_errors

@@ -787,27 +787,6 @@ class TestFzInstallCommand:
         finally:
             os.chdir(original_cwd)
 
-    def test_list_shows_global_flag(self, test_model_zip, install_workspace):
-        """Test that list command shows [global] and [local] flags"""
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(install_workspace)
-            # Install a local model
-            install_result = run_fz_cli_function('main', [
-                'install',
-                str(test_model_zip)
-            ])
-            assert install_result.returncode == 0
-
-            # List models
-            result = run_fz_cli_function('main', ['list'])
-
-            assert result.returncode == 0
-            # Should show local flag for installed model
-            assert "[local]" in result.stdout or "[global]" in result.stdout
-        finally:
-            os.chdir(original_cwd)
-
     def test_global_install_and_uninstall(self, test_model_zip):
         """Test installing and uninstalling globally"""
         # Install globally
@@ -834,27 +813,6 @@ class TestFzInstallCommand:
 
         # Verify removed
         assert not global_model.exists()
-
-    def test_list_global_only(self, test_model_zip, install_workspace):
-        """Test listing only global models"""
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(install_workspace)
-            # Install locally
-            run_fz_cli_function('main', [
-                'install',
-                str(test_model_zip)
-            ])
-
-            # List only global (should not show local model)
-            result = run_fz_cli_function('main', ['list', '--global'])
-
-            assert result.returncode == 0
-            # Local testmodel should not appear
-            assert "testmodel" not in result.stdout
-        finally:
-            os.chdir(original_cwd)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
