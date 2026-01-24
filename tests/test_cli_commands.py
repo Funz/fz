@@ -176,6 +176,7 @@ class TestFziCommand:
         assert result.returncode == 0
         output = json.loads(result.stdout)
         assert isinstance(output, dict)
+        # Single-level dict with variables as keys
         assert "var1" in output
         assert "var2" in output
         assert "var3" in output

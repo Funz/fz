@@ -215,10 +215,11 @@ def test_fzi_with_empty_file():
         }
 
         # Parse variables from empty file
-        variables = fzi(input_path=str(empty_file), model=model)
+        result = fzi(input_path=str(empty_file), model=model)
 
-        assert isinstance(variables, dict)
-        assert len(variables) == 0 or all(v is None for v in variables.values())
+        assert isinstance(result, dict)
+        # Should return empty dict or dict with None values
+        assert len(result) == 0 or all(v is None for v in result.values())
 
 
 def test_fzi_with_no_variables():
@@ -236,10 +237,11 @@ def test_fzi_with_no_variables():
         }
 
         # Parse variables
-        variables = fzi(input_path=str(input_file), model=model)
+        result = fzi(input_path=str(input_file), model=model)
 
-        assert isinstance(variables, dict)
-        assert len(variables) == 0 or all(v is None for v in variables.values())
+        assert isinstance(result, dict)
+        # Should return empty dict or dict with None values
+        assert len(result) == 0 or all(v is None for v in result.values())
 
 
 def test_parse_with_invalid_varprefix():
