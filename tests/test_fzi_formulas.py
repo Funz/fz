@@ -40,9 +40,9 @@ Perimeter: @{2 * ($x + $y)}
         assert "x" in result
         assert "y" in result
 
-        # Formulas should be found (with @{} syntax)
-        assert any("@{" in k and "$x * $y" in k for k in result.keys())
-        assert any("@{" in k and "2 * ($x + $y)" in k for k in result.keys())
+        # Formulas should be found (without @{} syntax now)
+        assert "x * y" in result
+        assert "2 * (x + y)" in result
 
 
 def test_fzi_extracts_variable_defaults():
@@ -106,15 +106,15 @@ Sum: @{$x + $y}
 
         # Formulas should be evaluated
         # Find the area formula
-        area_formula = [k for k in result.keys() if "@{" in k and "$x * $y" in k][0]
+        area_formula = "x * y"
         assert result[area_formula] == 50
 
         # Find the sum formula
-        sum_formula = [k for k in result.keys() if "@{" in k and "$x + $y" in k and "2 *" not in k][0]
+        sum_formula = "x + y"
         assert result[sum_formula] == 15
 
         # Find the perimeter formula
-        perim_formula = [k for k in result.keys() if "@{" in k and "2 * ($x + $y)" in k][0]
+        perim_formula = "2 * (x + y)"
         assert result[perim_formula] == 30
 
 
@@ -150,7 +150,7 @@ Area: @{$x * $y}
         assert result["y"] is None
 
         # Formulas should be None (cannot evaluate without values)
-        area_formula = [k for k in result.keys() if "@{" in k and "$x * $y" in k][0]
+        area_formula = "x * y"
         assert result[area_formula] is None
 
 
@@ -181,7 +181,7 @@ Result: @{$x / 3 | 0.0000}
         result = fzi(str(input_file), model=model)
 
         # Formula should be evaluated with formatting
-        formula_key = [k for k in result.keys() if "@{" in k and "$x / 3" in k][0]
+        formula_key = "x / 3"
         # Should be formatted to 4 decimal places: 1/3 = 0.3333
         assert abs(result[formula_key] - 0.3333) < 0.0001
 
@@ -215,11 +215,11 @@ Double: @{$x * 2}
         result = fzi(str(input_file), model=model)
 
         # Formula using only x (which has default) should evaluate
-        double_formula = [k for k in result.keys() if "@{" in k and "$x * 2" in k][0]
+        double_formula = "x * 2"
         assert result[double_formula] == 20
 
         # Formula using both x and y (y has no default) should be None
-        area_formula = [k for k in result.keys() if "@{" in k and "$x * $y" in k][0]
+        area_formula = "x * y"
         assert result[area_formula] is None
 
 
@@ -251,12 +251,12 @@ Sqrt: @{sqrt($r)}
 
         result = fzi(str(input_file), model=model)
 
-        # Area formula
-        area_formula = [k for k in result.keys() if "@{" in k and "3.14159" in k][0]
+        # Area formula (no @{} in keys anymore)
+        area_formula = "3.14159 * r ** 2"
         assert abs(result[area_formula] - 78.53975) < 0.001
 
         # Sqrt formula
-        sqrt_formula = [k for k in result.keys() if "@{" in k and "sqrt" in k][0]
+        sqrt_formula = "sqrt(r)"
         assert abs(result[sqrt_formula] - 2.236) < 0.001
 
 

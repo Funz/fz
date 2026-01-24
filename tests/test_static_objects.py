@@ -45,8 +45,8 @@ Area: @{PI * $r ** 2}
 
         # Formula should be evaluated using the constant (formulas still evaluate)
         # Formula key is now just the expression (no @{...})
-        assert "PI * $r ** 2" in result
-        assert abs(result["PI * $r ** 2"] - 78.53975) < 0.001
+        assert "PI * r ** 2" in result
+        assert abs(result["PI * r ** 2"] - 78.53975) < 0.001
 
 
 def test_fzi_with_function_definition():
@@ -89,7 +89,7 @@ Result: @{double($val)}
 
         # Formula should be evaluated using the function
         # Formula key is now just the expression
-        result_key = "double($val)"
+        result_key = "double(val)"
         assert result[result_key] == 20
 
 
@@ -174,7 +174,7 @@ Classification: @{classify($val)}
         assert "def classify(x):" in result["classify"]
 
         # Formula result
-        class_key = "classify($val)"
+        class_key = "classify(val)"
         assert result[class_key] == "positive"
 
 
@@ -214,7 +214,7 @@ Planck_per_G: @{h / G}
         formula_keys = [k for k in result.keys() if k not in ["G", "h"]]
         formula_key = formula_keys[0] if formula_keys else None
         if formula_key:
-        assert result[formula_key] is not None
+            assert result[formula_key] is not None
 
 
 def test_fzi_ignores_unit_tests():
@@ -287,7 +287,7 @@ SquareRoot: @{math.sqrt($x)}
         assert "math.sqrt(2)" in result["sqrt2"]
 
         # Formula should evaluate (using the imported math module)
-        sqrt_key = "math.sqrt($x)"
+        sqrt_key = "math.sqrt(x)"
         assert abs(result[sqrt_key] - 2.0) < 0.001
 
 
@@ -381,10 +381,10 @@ Density2: @{density(-1, $var2)}
         assert result["var2"] == 0.2
 
         # Formulas should evaluate
-        density1_key = "density(1, $var2)"
+        density1_key = "density(1, var2)"
         assert result[density1_key] == 0.2  # 0.2 / 1^3 = 0.2
 
-        density2_key = "density(-1, $var2)"
+        density2_key = "density(-1, var2)"
         expected = 0.2 / (0.9 + 1)  # 0.2 / (L_x + (-1)^2) = 0.2 / 1.9
         assert abs(result[density2_key] - expected) < 0.001
 
@@ -434,7 +434,7 @@ Area: @{pi * $r ** 2}
         assert result["r"] == 2
 
         # Formula should evaluate
-        area_key = "pi * $r ** 2"
+        area_key = "pi * r ** 2"
         expected_area = 3.14159 * 4  # pi * r^2 = 3.14159 * 4
         assert abs(result[area_key] - expected_area) < 0.001
 
@@ -488,7 +488,7 @@ Height: @{H_fiss_cm($mass, $dens)}
         assert result["dens"] == 1
 
         # Formula should evaluate successfully (not None)
-        height_key = "H_fiss_cm($mass, $dens)"
+        height_key = "H_fiss_cm(mass, dens)"
         assert result[height_key] is not None
         # The function calculates height based on mass and density
         assert result[height_key] > 0
@@ -524,7 +524,7 @@ Result: @{MY_CONSTANT + $v}
         assert result["MY_CONSTANT"] == "42"
 
         # Formula should evaluate
-        result_key = [k for k in result.keys() if "@{" in k][0]
+        result_key = "MY_CONSTANT + v"
         assert result[result_key] == 52  # 42 + 10
 
 
@@ -569,7 +569,7 @@ Sum: @{{CONST + $x}}
             assert result["CONST"] == "99", f"Failed for alias '{key}': CONST != 99"
 
             # Check formula evaluated
-            sum_key = [k for k in result.keys() if "@{" in k][0]
+            sum_key = "CONST + x"
             assert result[sum_key] == 100, f"Failed for alias '{key}': formula didn't evaluate"
 
 

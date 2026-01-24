@@ -50,7 +50,7 @@ Result: @{{CONST + {prefix}x}}
 
             # Check formula evaluated
             # Formula key is CONST + {prefix}x
-            result_key = f"CONST + {prefix}x"
+            result_key = f"CONST + x"
             assert result[result_key] == 60, f"Failed for alias '{key}': formula didn't evaluate to 60"
 
 
@@ -98,8 +98,8 @@ Area: {prefix}{{PI * $r ** 2}}
             assert "r" in result, f"Failed for alias '{key}': r not found"
             assert result["r"] == 5, f"Failed for alias '{key}': r != 5"
 
-            # Check formula evaluated
-            formula_key = [k for k in result.keys() if prefix + "{" in k][0]
+            # Check formula evaluated (formula expression is the same regardless of prefix)
+            formula_key = "PI * r ** 2"
             expected = 3.14159 * 25  # PI * r^2
             assert abs(result[formula_key] - expected) < 0.001, f"Failed for alias '{key}': formula value wrong"
 
@@ -144,7 +144,7 @@ Sum: @{{VALUE + $n}}
             assert result["VALUE"] == "100", f"Failed for alias '{key}': VALUE != 100"
 
             # Check formula evaluated
-            sum_key = "VALUE + $n"
+            sum_key = "VALUE + n"
             assert result[sum_key] == 105, f"Failed for alias '{key}': formula didn't evaluate"
 
 
@@ -180,8 +180,8 @@ Output: F{V(val) * MULTIPLIER}
         assert "val" in result
         assert result["val"] == 7
         
-        # Check formula
-        formula_key = [k for k in result.keys() if "F{" in k][0]
+        # Check formula (formula expression, not with prefix)
+        formula_key = "val * MULTIPLIER"
         assert result[formula_key] == 21  # 7 * 3
 
 

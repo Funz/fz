@@ -1091,8 +1091,27 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
             if value is None and default_format:
                 value = default_format
             
-            # Use just the formula expression as key (no prefix/delimiters)
-            result[formula_expr] = value
+            # Clean formula expression: remove variable prefix and delimiters
+            # E.g., "$r * 2" -> "r * 2", "$(x)" -> "x", "$x + $(y)" -> "x + y"
+            clean_expr = formula_expr
+            
+            # Remove variable references with delimiters: $(var) or V(var)
+            if len(var_delim) == 2:
+                left_d = re.escape(var_delim[0])
+                right_d = re.escape(var_delim[1])
+                var_prefix_esc = re.escape(varprefix)
+                # Pattern: $(...) or V(...)
+                pattern = rf'{var_prefix_esc}{left_d}([a-zA-Z_][a-zA-Z0-9_]*){right_d}'
+                clean_expr = re.sub(pattern, r'\1', clean_expr)
+            
+            # Remove simple variable prefix: $var or Vvar
+            var_prefix_esc = re.escape(varprefix)
+            # Pattern: $var (followed by non-alphanumeric or end of string)
+            pattern = rf'{var_prefix_esc}([a-zA-Z_][a-zA-Z0-9_]*)\b'
+            clean_expr = re.sub(pattern, r'\1', clean_expr)
+            
+            # Use cleaned formula expression as key
+            result[clean_expr] = value
 
         return result
     finally:
