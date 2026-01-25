@@ -10,7 +10,6 @@ Verifies that FZ supports the original Java Funz syntax:
 - Unit tests: #@? assertion
 """
 import tempfile
-from pathlib import Path
 from fz.interpreter import (
     parse_variables_from_content,
     replace_variables_in_content,
