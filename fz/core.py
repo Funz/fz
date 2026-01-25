@@ -946,20 +946,22 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
                 default_value = match.group(2).strip()
 
                 # Try to parse the default value
+                # Use ast.literal_eval to handle various Python literal formats:
+                # - Hexadecimal (0x1F), octal (0o77), binary (0b1010)
+                # - Numbers with underscores (1_000_000)
+                # - Scientific notation (1e6)
+                # - Regular integers and floats
                 try:
-                    # Try numeric conversion
-                    if '.' in default_value or 'e' in default_value.lower():
-                        variable_defaults[var_name] = float(default_value)
-                    else:
-                        variable_defaults[var_name] = int(default_value)
-                except ValueError:
-                    # Keep as string, removing quotes if present
+                    variable_defaults[var_name] = ast.literal_eval(default_value)
+                except (ValueError, SyntaxError):
+                    # If literal_eval fails, try to interpret as string
                     if default_value.startswith('"') and default_value.endswith('"'):
                         variable_defaults[var_name] = default_value[1:-1]
                     elif default_value.startswith('[') or default_value.startswith('{'):
                         # Keep bounds/values as string for now
                         variable_defaults[var_name] = None
                     else:
+                        # Keep as raw string
                         variable_defaults[var_name] = default_value
 
         # Build result dict starting with static objects
