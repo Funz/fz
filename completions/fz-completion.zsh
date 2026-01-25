@@ -1,5 +1,5 @@
-#compdef fz fzi fzc fzo fzr
-# Zsh completion script for fz, fzi, fzc, fzo, fzr commands
+#compdef fz fzi fzc fzo fzr fzl
+# Zsh completion script for fz, fzi, fzc, fzo, fzr, fzl commands
 
 # Completion for fzi command
 _fzi() {
@@ -45,6 +45,17 @@ _fzr() {
         '--version[Show version]'
 }
 
+# Completion for fzl command
+_fzl() {
+    _arguments \
+        '(-m --models)'{-m,--models}'[Model pattern to match (supports glob)]:model pattern:' \
+        '(-c --calculators)'{-c,--calculators}'[Calculator pattern to match (supports glob/regex)]:calculator pattern:' \
+        '--check[Validate each model and calculator]' \
+        '(-f --format)'{-f,--format}'[Output format]:format:(json markdown table)' \
+        '(-h --help)'{-h,--help}'[Show help message]' \
+        '--version[Show version]'
+}
+
 # Completion for fz main command with subcommands
 _fz() {
     local curcontext="$curcontext" state line
@@ -64,6 +75,7 @@ _fz() {
                 'compile:Compile input with variable values'
                 'output:Parse output files'
                 'run:Run full parametric calculations'
+                'list:List available models and calculators'
             )
             _describe -t commands 'fz command' subcommands
             ;;
@@ -105,6 +117,15 @@ _fz() {
                         '(-h --help)'{-h,--help}'[Show help message]' \
                         '--version[Show version]'
                     ;;
+                list)
+                    _arguments \
+                        '(-m --models)'{-m,--models}'[Model pattern to match (supports glob)]:model pattern:' \
+                        '(-c --calculators)'{-c,--calculators}'[Calculator pattern to match (supports glob/regex)]:calculator pattern:' \
+                        '--check[Validate each model and calculator]' \
+                        '(-f --format)'{-f,--format}'[Output format]:format:(json markdown table)' \
+                        '(-h --help)'{-h,--help}'[Show help message]' \
+                        '--version[Show version]'
+                    ;;
             esac
             ;;
     esac
@@ -116,3 +137,4 @@ compdef _fzi fzi
 compdef _fzc fzc
 compdef _fzo fzo
 compdef _fzr fzr
+compdef _fzl fzl

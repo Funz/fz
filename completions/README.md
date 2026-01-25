@@ -84,25 +84,28 @@ Once installed, the completion scripts provide intelligent tab completion for al
 
 ### Commands with completion support
 
-- `fz` - Main command with subcommands (input, compile, output, run)
+- `fz` - Main command with subcommands (input, compile, output, run, list)
 - `fzi` - Parse input to find variables
 - `fzc` - Compile input with variable values
 - `fzo` - Parse output files
 - `fzr` - Run full parametric calculations
+- `fzl` - List available models and calculators
 
 ### Examples
 
 ```bash
 # Press TAB after typing these to see available options:
-fz <TAB>                    # Shows: input, compile, output, run, --help, -h
+fz <TAB>                    # Shows: input, compile, output, run, list, --help, -h
 fzi --<TAB>                 # Shows: --input_path, --model, --help
 fzc -<TAB>                  # Shows: -i, -m, -v, -o, -h
 fzr --input_path <TAB>      # Shows available files in current directory
 fzc --output_dir <TAB>      # Shows available directories
+fzl --<TAB>                 # Shows: --models, --calculators, --check, --format
 
 # Subcommand completion:
 fz input --<TAB>            # Shows options for input command
 fz run --results_dir <TAB>  # Shows available directories
+fz list --format <TAB>      # Shows: json, markdown, table
 ```
 
 ### Features
