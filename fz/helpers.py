@@ -1275,8 +1275,10 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     # Get the formula interpreter from model, or fall back to global setting
     interpreter = model.get("interpreter", get_interpreter())
 
-    varprefix = model.get("varprefix", "$")
-    delim = model.get("delim", "{}")
+    # Variable prefix: use var_prefix if set, else varprefix (old name), else default to "$"
+    varprefix = model.get("var_prefix", model.get("varprefix", "$"))
+    # Variable delimiters: use var_delim if set, else delim if set, else default to ()
+    delim = model.get("var_delim", model.get("delim", "()"))
     input_path = Path(input_path)
 
     # Determine if input_variables is non-empty

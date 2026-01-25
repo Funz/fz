@@ -13,6 +13,21 @@ import pytest
 
 import fz
 
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+
+def is_none_or_nan(value):
+    """Check if value is None or NaN (pandas converts None to NaN in DataFrames)"""
+    if value is None:
+        return True
+    if PANDAS_AVAILABLE:
+        return pd.isna(value)
+    return False
+
 def test_complete_parallel_execution():
     """Test that all cases complete successfully with results"""
 
@@ -115,8 +130,8 @@ echo 'Done'
                 pressure_values = result["pressure"]
                 print(f"   Pressure values: {pressure_values}")
 
-                successful_cases = len([p for p in pressure_values if p is not None])
-                failed_cases = len([p for p in pressure_values if p is None])
+                successful_cases = len([p for p in pressure_values if not is_none_or_nan(p)])
+                failed_cases = len([p for p in pressure_values if is_none_or_nan(p)])
 
                 print(f"   Successful cases: {successful_cases}/{len(variables['T_celsius'])}")
                 print(f"   Failed cases: {failed_cases}")
@@ -125,7 +140,7 @@ echo 'Done'
                 if "T_celsius" in result:
                     for i, temp in enumerate(result["T_celsius"]):
                         pressure = pressure_values[i] if i < len(pressure_values) else None
-                        status = "✅ SUCCESS" if pressure is not None else "❌ FAILED"
+                        status = "✅ SUCCESS" if not is_none_or_nan(pressure) else "❌ FAILED"
                         print(f"     Case {i}: T_celsius={temp} → pressure={pressure} {status}")
 
                 # Verify timing

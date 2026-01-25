@@ -7,6 +7,21 @@ import shutil
 from pathlib import Path
 from fz import fzr
 
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+
+def is_none_or_nan(value):
+    """Check if value is None or NaN (pandas converts None to NaN in DataFrames)"""
+    if value is None:
+        return True
+    if PANDAS_AVAILABLE:
+        return pd.isna(value)
+    return False
+
 def test_cache_none_outputs():
     """Test that cases with None outputs are re-computed instead of using cache"""
 
@@ -58,7 +73,7 @@ def test_cache_none_outputs():
     assert all(result1['status'] == ['done', 'failed', 'done']), f"Unexpected statuses: {result1['status']}"
 
     # check no 'result' for x=2 case
-    assert result1['result'][1] is None, f"Expected None result for x=2 case, got: {result1['result'][1]}"
+    assert is_none_or_nan(result1['result'][1]), f"Expected None/NaN result for x=2 case, got: {result1['result'][1]}"
 
     # check error message for x=2 case
     assert 'exit code 123' in result1.get('error', [''])[1], f"Expected error message for x=2 case, got: {result1.get('error', [''])[1]}"
@@ -75,8 +90,8 @@ def test_cache_none_outputs():
     print(f"\nSecond run: "+str(result2.to_dict()))
 
     print(f"\nSecond run results: {result2['result']}")
-    none_count_2 = sum(1 for r in result2['result'] if r is None)
-    print(f"Cases with None outputs after cache+fix: {none_count_2}")
+    none_count_2 = sum(1 for r in result2['result'] if is_none_or_nan(r))
+    print(f"Cases with None/NaN outputs after cache+fix: {none_count_2}")
 
     assert all(result2['status'] == ['done', 'done', 'done']), f"Unexpected statuses in second run: {result2['status']}"
     assert none_count_2 == 0, f"Expected no None results in second run, got {none_count_2} None results"

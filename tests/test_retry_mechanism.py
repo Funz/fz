@@ -10,6 +10,21 @@ import pytest
 from fz import fzr
 import time
 
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+
+def is_none_or_nan(value):
+    """Check if value is None or NaN (pandas converts None to NaN in DataFrames)"""
+    if value is None:
+        return True
+    if PANDAS_AVAILABLE:
+        return pd.isna(value)
+    return False
+
 @pytest.fixture(autouse=True)
 def test_files():
     """Create test files for retry mechanism"""
@@ -122,8 +137,8 @@ def test_all_fail():
     # Assert all calculators failed as expected
     assert result['status'][0] in ['failed', 'error'], \
         f"Expected status 'failed' or 'error', got: {result['status'][0]}"
-    assert result['result'][0] is None, \
-        f"Expected None result when all calculators fail, got: {result['result'][0]}"
+    assert is_none_or_nan(result['result'][0]), \
+        f"Expected None/NaN result when all calculators fail, got: {result['result'][0]}"
     assert 'error' in result and result['error'][0] is not None, \
         "Expected error message when all calculators fail"
 

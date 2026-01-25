@@ -12,6 +12,21 @@ import pytest
 
 import fz
 
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+
+def is_none_or_nan(value):
+    """Check if value is None or NaN (pandas converts None to NaN in DataFrames)"""
+    if value is None:
+        return True
+    if PANDAS_AVAILABLE:
+        return pd.isna(value)
+    return False
+
 
 @pytest.fixture
 def advanced_setup(tmp_path):
@@ -224,8 +239,8 @@ def test_failure_always_fails(advanced_setup):
     assert len(result) == 12
     # All should fail
     assert all(result["status"] == "failed")
-    # All pressure values should be None
-    assert all(p is None for p in result["pressure"])
+    # All pressure values should be None/NaN
+    assert all(is_none_or_nan(p) for p in result["pressure"])
 
 
 def test_failure_cache_with_fallback(advanced_setup):

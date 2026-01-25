@@ -75,7 +75,7 @@ from collections import defaultdict
 import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug, log_progress
-from .config import get_config
+from .config import get_config, get_interpreter
 from .helpers import (
     fz_temporary_directory,
     _get_result_directory,
@@ -101,6 +101,9 @@ from .io import (
 from .interpreter import (
     parse_variables_from_path,
     cast_output,
+    _get_comment_char,
+    _get_var_prefix,
+    _get_formula_prefix,
 )
 from .runners import resolve_calculators, run_calculation
 
@@ -845,16 +848,23 @@ def fzl(models: str = "*", calculators: str = "*", check: bool = False) -> Dict[
 
 
 @with_helpful_errors
-def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
+def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
     """
-    Parse input file(s) to find variables
+    Parse input file(s) to find variables, formulas, and static objects
 
     Args:
         input_path: Path to input file or directory
         model: Model definition dict or alias string
 
     Returns:
-        Dict of variable names with None values
+        Dict with static objects, variable names, and formula expressions as keys, with their values (or None)
+        - Static object keys are the defined names (constants, functions): "PI", "my_function"
+        - Variable keys are just the variable name: "var1", "var2"
+        - Formula keys are the cleaned formula expressions without prefixes or delimiters: "x * y"
+        
+        Static objects are defined with lines starting with commentline + formula_prefix + ":"
+        (e.g., "#@: PI = 3.14159" or "#@: def my_func(x): return x*2")
+        and are evaluated before variables and formulas.
 
     Raises:
         TypeError: If arguments have invalid types
@@ -871,8 +881,17 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
     try:
         model = _resolve_model(model)
 
-        varprefix = model.get("varprefix", "$")
-        delim = model.get("delim", "()")
+        # Variable prefix: support multiple aliases
+        varprefix = _get_var_prefix(model)
+        # Variable delimiters: use var_delim if set, else delim if set, else default to ()
+        var_delim = model.get("var_delim", model.get("delim", "()"))
+
+        # Formula prefix: support multiple aliases
+        formulaprefix = _get_formula_prefix(model)
+        formula_delim = model.get("formula_delim", model.get("delim", "{}"))
+
+        # Get interpreter
+        interpreter = model.get("interpreter", get_interpreter())
 
         input_path = Path(input_path).resolve()
 
@@ -880,9 +899,129 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, None]:
         if not input_path.exists():
             raise FileNotFoundError(f"Input path '{input_path}' not found")
 
-        variables = parse_variables_from_path(input_path, varprefix, delim)
+        # Parse variables
+        variables = parse_variables_from_path(input_path, varprefix, var_delim)
 
-        return {var: None for var in sorted(variables)}
+        # Read content to extract defaults and formulas
+        if input_path.is_file():
+            with open(input_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        else:
+            # For directories, concatenate all file contents
+            content = ""
+            for filepath in input_path.rglob("*"):
+                if filepath.is_file():
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            content += f.read() + "\n"
+                    except UnicodeDecodeError:
+                        # Skip binary files
+                        pass
+
+        # Extract default values from variables
+        from .interpreter import parse_formulas_from_content, evaluate_single_formula, parse_static_objects_from_content, evaluate_static_objects, parse_static_objects_with_expressions
+
+        # Parse static objects to get their expressions (for returning in fzi)
+        commentline = _get_comment_char(model)
+        static_expressions = parse_static_objects_with_expressions(content, commentline, formulaprefix)
+        
+        # Also evaluate static objects for formula evaluation
+        static_lines = parse_static_objects_from_content(content, commentline, formulaprefix)
+        static_objects_evaluated = evaluate_static_objects(static_lines, interpreter)
+
+        variable_defaults = {}
+
+        # Pattern to match variables with defaults: $(var~default...)
+        if len(var_delim) == 2:
+            left_delim, right_delim = var_delim[0], var_delim[1]
+            esc_varprefix = re.escape(varprefix)
+            esc_left = re.escape(left_delim)
+            esc_right = re.escape(right_delim)
+
+            # Match $(var~default...) patterns
+            default_pattern = rf"{esc_varprefix}{esc_left}([a-zA-Z_][a-zA-Z0-9_]*)~([^{esc_right};]*)"
+
+            for match in re.finditer(default_pattern, content):
+                var_name = match.group(1)
+                default_value = match.group(2).strip()
+
+                # Try to parse the default value
+                # Use ast.literal_eval to handle various Python literal formats:
+                # - Hexadecimal (0x1F), octal (0o77), binary (0b1010)
+                # - Numbers with underscores (1_000_000)
+                # - Scientific notation (1e6)
+                # - Regular integers and floats
+                try:
+                    variable_defaults[var_name] = ast.literal_eval(default_value)
+                except (ValueError, SyntaxError):
+                    # If literal_eval fails, try to interpret as string
+                    if default_value.startswith('"') and default_value.endswith('"'):
+                        variable_defaults[var_name] = default_value[1:-1]
+                    elif default_value.startswith('[') or default_value.startswith('{'):
+                        # Keep bounds/values as string for now
+                        variable_defaults[var_name] = None
+                    else:
+                        # Keep as raw string
+                        variable_defaults[var_name] = default_value
+
+        # Build result dict starting with static objects
+        result = {}
+
+        # Add static objects first (as their original expressions, not evaluated values)
+        for name, expression in static_expressions.items():
+            # Skip internal keys like _import_*
+            if not name.startswith('_'):
+                result[name] = expression
+
+        # Add variables (without prefix/delimiters)
+        for var in sorted(variables):
+            result[var] = variable_defaults.get(var, None)
+
+        # Parse formulas
+        formulas = parse_formulas_from_content(content, formulaprefix, formula_delim)
+
+        # Merge variable defaults with evaluated static objects for formula evaluation
+        formula_context = {**static_objects_evaluated, **variable_defaults}
+
+        for formula in formulas:
+            # Check if formula has a default format: expression|format
+            default_format = None
+            formula_expr = formula
+            if '|' in formula:
+                parts = formula.split('|', 1)
+                formula_expr = parts[0].strip()
+                default_format = parts[1].strip()
+            
+            # Try to evaluate with available defaults and static objects
+            value = evaluate_single_formula(formula, model, formula_context, interpreter)
+            
+            # If evaluation failed and there's a default format, use it as the value
+            if value is None and default_format:
+                value = default_format
+            
+            # Clean formula expression: remove variable prefix and delimiters
+            # E.g., "$r * 2" -> "r * 2", "$(x)" -> "x", "$x + $(y)" -> "x + y"
+            clean_expr = formula_expr
+            
+            # Remove variable references with delimiters: $(var) or V(var)
+            if len(var_delim) == 2:
+                left_d = re.escape(var_delim[0])
+                right_d = re.escape(var_delim[1])
+                var_prefix_esc = re.escape(varprefix)
+                # Pattern: $(...) or V(...)
+                pattern = rf'{var_prefix_esc}{left_d}([a-zA-Z_][a-zA-Z0-9_]*){right_d}'
+                clean_expr = re.sub(pattern, r'\1', clean_expr)
+            
+            # Remove simple variable prefix: $var or Vvar
+            var_prefix_esc = re.escape(varprefix)
+            # Pattern: $var (followed by non-alphanumeric or end of string)
+            pattern = rf'{var_prefix_esc}([a-zA-Z_][a-zA-Z0-9_]*)\b'
+            clean_expr = re.sub(pattern, r'\1', clean_expr)
+            
+            # Use cleaned formula expression as key
+            result[clean_expr] = value
+
+        return result
     finally:
         # Always restore the original working directory
         os.chdir(working_dir)

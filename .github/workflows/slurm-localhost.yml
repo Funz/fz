@@ -258,6 +258,7 @@ jobs:
 
             # Define model
             model = {
+                "delim": "{}",  # Use braces for ${x} syntax
                 "output": {
                     "result": "grep 'result = ' output.txt | awk '{print \$3}'"
                 }
@@ -323,6 +324,7 @@ jobs:
 
             # Define model
             model = {
+                "delim": "{}",  # Use braces for ${x} syntax
                 "output": {
                     "result": "grep 'result = ' output.txt | awk '{print \$3}'"
                 }
@@ -383,6 +385,7 @@ jobs:
 
             # Define model
             model = {
+                "delim": "{}",  # Use braces for ${x} syntax
                 "output": {
                     "result": "grep 'result = ' output.txt | awk '{print \$3}'"
                 }
