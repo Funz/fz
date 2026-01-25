@@ -590,7 +590,6 @@ def _validate_calculator(calc_spec, calc_display):
         - error_message: Error description if failed, None if passed
     """
     import tempfile
-    from pathlib import Path
 
     try:
         # Extract URI from calculator spec
@@ -699,8 +698,6 @@ def fzl(models: str = "*", calculators: str = "*", check: bool = False) -> Dict[
         >>> result = fzl(models="*", calculators="*", check=True)
         >>> print(result["calculators"]["sh://"]["check_status"])
     """
-    from pathlib import Path
-
     # Find all matching models
     models_list = []
     search_dirs = [Path.cwd() / ".fz" / "models", Path.home() / ".fz" / "models"]

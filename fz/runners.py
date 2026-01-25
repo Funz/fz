@@ -695,7 +695,6 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
     """
     import shlex
     import re
-    import os
 
     # Parse command parts using shlex for proper quote handling
     try:
@@ -1134,8 +1133,6 @@ def run_ssh_calculation(
 
         if not username:
             # Try to get username from environment or use current user
-            import getpass
-
             username = os.getenv("SSH_USER") or getpass.getuser()
 
         # Validate connection security
@@ -1421,8 +1418,6 @@ def _run_local_slurm_calculation(
 
         with open(out_file_path, "w") as out_file, open(err_file_path, "w") as err_file:
             # Start process with Popen to allow interrupt handling
-            from .shell import run_command
-
             process = run_command(
                 full_command,
                 shell=True,
@@ -2162,7 +2157,6 @@ def run_funz_calculation(
             log_debug(f"✅ Phase 1 complete")
 
             # Phase 2: Send project code and tagged values
-            import getpass
             tagged_values = {
                 "USERNAME": getpass.getuser()
             }
