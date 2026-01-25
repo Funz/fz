@@ -101,6 +101,9 @@ from .io import (
 from .interpreter import (
     parse_variables_from_path,
     cast_output,
+    _get_comment_char,
+    _get_var_prefix,
+    _get_formula_prefix,
 )
 from .runners import resolve_calculators, run_calculation
 
@@ -260,103 +263,6 @@ def _parse_argument(arg, alias_type=None):
 
     # If alias_type not provided or alias not found, return as-is
     return arg
-
-
-def _get_comment_char(model: Dict) -> str:
-    """
-    Get comment character from model with support for multiple aliases
-    
-    Supported keys (in order of precedence):
-    - commentline
-    - comment_line  
-    - comment_char
-    - commentchar
-    - comment
-    
-    Args:
-        model: Model definition dict
-        
-    Returns:
-        Comment character (default "#")
-    """
-    return model.get(
-        "commentline",
-        model.get(
-            "comment_line",
-            model.get(
-                "comment_char",
-                model.get(
-                    "commentchar",
-                    model.get("comment", "#")
-                )
-            )
-        )
-    )
-
-
-def _get_var_prefix(model: Dict) -> str:
-    """
-    Get variable prefix from model with support for multiple aliases
-    
-    Supported keys (in order of precedence):
-    - var_prefix
-    - varprefix
-    - var_char
-    - varchar
-    
-    Args:
-        model: Model definition dict
-        
-    Returns:
-        Variable prefix (default "$")
-    """
-    return model.get(
-        "var_prefix",
-        model.get(
-            "varprefix",
-            model.get(
-                "var_char",
-                model.get("varchar", "$")
-            )
-        )
-    )
-
-
-def _get_formula_prefix(model: Dict) -> str:
-    """
-    Get formula prefix from model with support for multiple aliases
-    
-    Supported keys (in order of precedence):
-    - formula_prefix
-    - formulaprefix
-    - form_prefix
-    - formprefix
-    - formula_char
-    - form_char
-    
-    Args:
-        model: Model definition dict
-        
-    Returns:
-        Formula prefix (default "@")
-    """
-    return model.get(
-        "formula_prefix",
-        model.get(
-            "formulaprefix",
-            model.get(
-                "form_prefix",
-                model.get(
-                    "formprefix",
-                    model.get(
-                        "formula_char",
-                        model.get("form_char", "@")
-                    )
-                )
-            )
-        )
-    )
-
 
 
 # Import calculator-related functions from helpers
