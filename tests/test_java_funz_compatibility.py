@@ -9,7 +9,6 @@ Verifies that FZ supports the original Java Funz syntax:
 - Function declarations: #@: func = ...
 - Unit tests: #@? assertion
 """
-import tempfile
 from fz.interpreter import (
     parse_variables_from_content,
     replace_variables_in_content,
