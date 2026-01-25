@@ -4,8 +4,6 @@ Core functions for fz package: fzi, fzc, fzo, fzr
 
 import os
 import re
-import subprocess
-import tempfile
 import json
 import ast
 import logging
@@ -13,12 +11,9 @@ import time
 import uuid
 import signal
 import sys
-import io
 import platform
 from pathlib import Path
-from typing import Dict, List, Union, Any, Optional, Tuple, TYPE_CHECKING
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
+from typing import Dict, List, Union, Any, Optional, TYPE_CHECKING
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
@@ -72,30 +67,23 @@ except ImportError:
 
 import threading
 from collections import defaultdict
-import shutil
 
-from .logging import log_error, log_warning, log_info, log_debug, log_progress
-from .config import get_config, get_interpreter
+from .logging import log_error, log_warning, log_debug
+from .config import get_interpreter
 from .helpers import (
     fz_temporary_directory,
-    _get_result_directory,
-    _get_case_directories,
     _cleanup_fzr_resources,
     _resolve_model,
-    get_calculator_manager,
-    try_calculators_with_retry,
-    run_single_case,
+    _resolve_calculators_arg,
+    _calculator_supports_model,
     run_cases_parallel,
     compile_to_result_directories,
     prepare_temp_directories,
-    prepare_case_directories,
 )
 from .shell import run_command, replace_commands_in_string
 from .io import (
     ensure_unique_directory,
-    create_hash_file,
     resolve_cache_paths,
-    find_cache_match,
     load_aliases,
 )
 from .interpreter import (
@@ -105,7 +93,7 @@ from .interpreter import (
     _get_var_prefix,
     _get_formula_prefix,
 )
-from .runners import resolve_calculators, run_calculation
+from .runners import resolve_calculators
 
 
 def _print_function_help(func_name: str, func_doc: str):
@@ -155,12 +143,12 @@ def with_helpful_errors(func):
             # Check if it's an argument name error
             if "got an unexpected keyword argument" in error_msg or \
                "missing" in error_msg and "required positional argument" in error_msg:
-                print(f"\n⚠️  This error suggests improper argument names were used.", file=sys.stderr)
-                print(f"Please check the function signature below:\n", file=sys.stderr)
+                print("\n⚠️  This error suggests improper argument names were used.", file=sys.stderr)
+                print("Please check the function signature below:\n", file=sys.stderr)
                 _print_function_help(func.__name__, func.__doc__)
             else:
-                print(f"\n⚠️  This error suggests an argument has an invalid type.", file=sys.stderr)
-                print(f"Please check the expected types in the function signature:\n", file=sys.stderr)
+                print("\n⚠️  This error suggests an argument has an invalid type.", file=sys.stderr)
+                print("Please check the expected types in the function signature:\n", file=sys.stderr)
                 _print_function_help(func.__name__, func.__doc__)
 
             # Re-raise the exception
@@ -169,8 +157,8 @@ def with_helpful_errors(func):
         except ValueError as e:
             error_msg = str(e)
             print(f"\n❌ ValueError in {func.__name__}(): {error_msg}", file=sys.stderr)
-            print(f"\n⚠️  This error suggests an argument has an improper value.", file=sys.stderr)
-            print(f"Please check the constraints in the function documentation:\n", file=sys.stderr)
+            print("\n⚠️  This error suggests an argument has an improper value.", file=sys.stderr)
+            print("Please check the constraints in the function documentation:\n", file=sys.stderr)
             _print_function_help(func.__name__, func.__doc__)
 
             # Re-raise the exception
@@ -179,7 +167,7 @@ def with_helpful_errors(func):
         except FileNotFoundError as e:
             error_msg = str(e)
             print(f"\n❌ FileNotFoundError in {func.__name__}(): {error_msg}", file=sys.stderr)
-            print(f"\n⚠️  Please check that the file or directory path is correct.\n", file=sys.stderr)
+            print("\n⚠️  Please check that the file or directory path is correct.\n", file=sys.stderr)
 
             # Re-raise the exception
             raise
@@ -265,14 +253,7 @@ def _parse_argument(arg, alias_type=None):
     return arg
 
 
-# Import calculator-related functions from helpers
-from .helpers import (
-    _calculator_supports_model,
-    _extract_calculator_uri,
-    _find_all_calculators,
-    _filter_calculators_by_model,
-    _resolve_calculators_arg
-)
+# Calculator-related functions imported later where needed
 
 
 def check_bash_availability_on_windows():
@@ -543,7 +524,7 @@ class CalculatorManager:
                             f"🧹 Cleanup: Force-releasing calculator {calc_id} from thread {thread_id}"
                         )
                         calc_lock.release()
-                except Exception as e:
+                except Exception:
                     # Lock might not be held, which is fine
                     pass
 
@@ -609,7 +590,6 @@ def _validate_calculator(calc_spec, calc_display):
         - error_message: Error description if failed, None if passed
     """
     import tempfile
-    import os
     from pathlib import Path
 
     try:
@@ -720,7 +700,6 @@ def fzl(models: str = "*", calculators: str = "*", check: bool = False) -> Dict[
         >>> print(result["calculators"]["sh://"]["check_status"])
     """
     from pathlib import Path
-    from .helpers import find_items_by_pattern, _calculator_supports_model, _resolve_calculators_arg, _resolve_model
 
     # Find all matching models
     models_list = []
@@ -1410,10 +1389,6 @@ def fzr(
     input_path_obj = Path(input_path).resolve()
     if not input_path_obj.exists():
         raise FileNotFoundError(f"Input path '{input_path}' not found")
-
-    # Get the global formula interpreter
-    from .config import get_interpreter
-    interpreter = get_interpreter()
 
     # Get model ID for calculator filtering
     model_id = model.get("id") if isinstance(model, dict) else None
