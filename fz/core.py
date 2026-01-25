@@ -954,7 +954,7 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
         Dict with static objects, variable names, and formula expressions as keys, with their values (or None)
         - Static object keys are the defined names (constants, functions): "PI", "my_function"
         - Variable keys are just the variable name: "var1", "var2"
-        - Formula keys include the formula prefix and delimiters: "@{expr}"
+        - Formula keys are the cleaned formula expressions without prefixes or delimiters: "x * y"
         
         Static objects are defined with lines starting with commentline + formula_prefix + ":"
         (e.g., "#@: PI = 3.14159" or "#@: def my_func(x): return x*2")
