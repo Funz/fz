@@ -367,19 +367,28 @@ def parse_static_objects_with_expressions(content: str, commentline: str = "#", 
         if not line or line.startswith('#'):
             i += 1
             continue
-            
+
         # Check for Python assignment: name = value
-        if '=' in line and not line.startswith('def ') and '<-' not in line:
-            parts = line.split('=', 1)
-            if len(parts) == 2:
-                name = parts[0].strip()
-                # Remove any type hints
-                if ':' in name:
-                    name = name.split(':')[0].strip()
-                value = parts[1].strip()
-                expressions[name] = value
-                i += 1
-                continue
+        # Use regex to match only actual assignments, not comparison operators (==, !=, <=, >=)
+        # Pattern: start with optional whitespace, valid identifier, optional whitespace,
+        # single = not followed by another = or preceded by !, <, >
+        assignment_pattern = r'^\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\s*:\s*[a-zA-Z_][a-zA-Z0-9_.\[\]]*)?)\s*=\s*(?!=)'
+        assignment_match = re.match(assignment_pattern, line)
+
+        if assignment_match and not line.startswith('def ') and '<-' not in line:
+            # Ensure it's not !=, <=, >= by checking the character before =
+            # The regex already handles =, but we need to check for !=, <=, >=
+            if '!=' not in line[:assignment_match.end()] and '<=' not in line[:assignment_match.end()] and '>=' not in line[:assignment_match.end()]:
+                parts = line.split('=', 1)
+                if len(parts) == 2:
+                    name = parts[0].strip()
+                    # Remove any type hints
+                    if ':' in name:
+                        name = name.split(':')[0].strip()
+                    value = parts[1].strip()
+                    expressions[name] = value
+                    i += 1
+                    continue
         
         # Check for R assignment: name <- value or name <- function(...)
         if '<-' in line:
