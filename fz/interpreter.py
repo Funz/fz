@@ -608,6 +608,8 @@ def evaluate_single_formula(formula: str, model: Dict, input_variables: Dict, in
                 else:
                     robjects.globalenv[var] = str(val)
             except Exception:
+                # Ignore errors for individual variable assignments so that other
+                # variables can still be set and the R formula evaluation can proceed.
                 pass
 
         # Handle format suffix
