@@ -5,7 +5,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/funz.svg)](https://pypi.org/project/funz/)
 -->
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/Funz/fz/releases)
+[![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)](https://github.com/Funz/fz/releases)
 
 A powerful Python package for parametric simulations and computational experiments. FZ wraps your simulation codes to automatically run parametric studies, manage input/output files, handle parallel execution, and collect results in structured DataFrames.
 
@@ -214,6 +214,7 @@ Available commands:
 - `fzc` - Compile input files
 - `fzo` - Read output files
 - `fzr` - Run parametric calculations
+- `fzl` - List and validate installed models and calculators
 
 ### fzi - Parse Input Variables
 
@@ -350,6 +351,60 @@ fzo results/ \
   --output-cmd pressure="grep 'pressure = ' output.txt | awk '{print \$3}'" \
   --output-cmd temperature="cat temp.txt" \
   --format json
+```
+
+### fzl - List and Validate Models/Calculators
+
+List installed models and calculators with optional validation:
+
+```bash
+# List all models and calculators
+fzl
+
+# List with validation checks
+fzl --check
+
+# Filter by pattern
+fzl --models "perfect*" --calculators "ssh*"
+
+# Different output formats
+fzl --format json
+fzl --format table
+fzl --format markdown  # default
+```
+
+**Example output:**
+
+```bash
+$ fzl --check --format table
+
+=== MODELS ===
+
+Model: perfectgas ✓
+  Path: /home/user/project/.fz/models/perfectgas.json
+  Supported Calculators: 2
+    - local
+    - ssh_cluster
+
+Model: navier-stokes ✗
+  Path: /home/user/.fz/models/navier-stokes.json
+  Error: Missing required field 'output'
+  Supported Calculators: 0
+
+=== CALCULATORS ===
+
+Calculator: local ✓
+  Path: /home/user/project/.fz/calculators/local.json
+  URI: sh://
+  Models: 1
+    - perfectgas
+
+Calculator: ssh_cluster ✓
+  Path: /home/user/.fz/calculators/ssh_cluster.json
+  URI: ssh://user@cluster.edu
+  Models: 2
+    - perfectgas
+    - navier-stokes
 ```
 
 ### fzr - Run Parametric Calculations
@@ -1413,7 +1468,60 @@ export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=0
 
 # Default formula interpreter (python or R)
 export FZ_INTERPRETER=python
+
+# Custom shell binary search path (overrides system PATH)
+# Windows example: SET FZ_SHELL_PATH=C:\msys64\usr\bin;C:\Program Files\Git\usr\bin
+# Linux/macOS example: export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
+export FZ_SHELL_PATH=/usr/local/bin:/usr/bin
+
+# Execution timeout in seconds (default per calculator)
+export FZ_EXECUTION_TIMEOUT=3600
 ```
+
+### Shell Path Configuration (FZ_SHELL_PATH)
+
+The `FZ_SHELL_PATH` environment variable allows you to specify custom locations for shell binaries (grep, awk, sed, etc.) used in model output expressions and calculator commands. This is particularly important on Windows where Unix-like tools may be installed in non-standard locations.
+
+**Why use FZ_SHELL_PATH?**
+- **Windows compatibility**: Locate tools in MSYS2, Git Bash, Cygwin, or WSL
+- **Custom installations**: Use specific versions of tools from custom directories
+- **Priority control**: Override system PATH to ensure correct tool versions
+- **Performance**: Cached binary paths for faster resolution
+
+**Usage examples:**
+
+```bash
+# Windows with MSYS2 (use semicolon separator)
+SET FZ_SHELL_PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin
+
+# Windows with Git Bash
+SET FZ_SHELL_PATH=C:\Program Files\Git\usr\bin;C:\Program Files\Git\bin
+
+# Linux/macOS (use colon separator)
+export FZ_SHELL_PATH=/opt/homebrew/bin:/usr/local/bin
+
+# Priority: FZ_SHELL_PATH paths are checked BEFORE system PATH
+```
+
+**How it works:**
+1. Commands in model `output` dictionaries are parsed for binary names (grep, awk, etc.)
+2. Binary names are resolved to absolute paths using FZ_SHELL_PATH
+3. Commands in `sh://` calculators are similarly resolved
+4. Windows: Automatically tries both `command` and `command.exe`
+5. Resolved paths are cached for performance
+
+**Example in model:**
+```python
+model = {
+    "output": {
+        "pressure": "grep 'pressure' output.txt | awk '{print $2}'"
+    }
+}
+# With FZ_SHELL_PATH=C:\msys64\usr\bin, executes:
+# C:\msys64\usr\bin\grep.exe 'pressure' output.txt | C:\msys64\usr\bin\awk.exe '{print $2}'
+```
+
+See `SHELL_PATH_IMPLEMENTATION.md` and `examples/shell_path_example.md` for detailed documentation.
 
 ### Python Configuration
 

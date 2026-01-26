@@ -236,6 +236,208 @@ mpirun -np 16 ./simulation input.txt
 # Results written to output.txt
 ```
 
+## SLURM Workload Manager (`slurm://`)
+
+Execute calculations on SLURM clusters (local or remote).
+
+### Basic Syntax
+
+```python
+# Local SLURM
+calculators = "slurm://:partition/command"
+
+# Remote SLURM via SSH
+calculators = "slurm://user@host:partition/command"
+calculators = "slurm://user@host:port:partition/command"  # with custom SSH port
+```
+
+**Note**: For local execution, the partition must be prefixed with a colon (`:partition`).
+
+### Examples
+
+**Example 1: Local SLURM execution**
+
+```python
+calculators = "slurm://:compute/bash script.sh"
+```
+
+**Example 2: Remote SLURM on HPC cluster**
+
+```python
+calculators = "slurm://user@cluster.edu:gpu/bash simulation.sh"
+```
+
+**Example 3: Remote SLURM with custom SSH port**
+
+```python
+calculators = "slurm://user@hpc.university.edu:2222:compute/bash run.sh"
+```
+
+**Example 4: Multiple SLURM partitions for parallel execution**
+
+```python
+calculators = [
+    "slurm://user@cluster:compute/bash calc.sh",
+    "slurm://user@cluster:gpu/bash calc.sh",
+    "slurm://user@cluster:highmem/bash calc.sh"
+]
+```
+
+### How it Works
+
+**Local execution**:
+1. Uses `srun --partition=<partition> <command>` directly
+2. Automatically handles SLURM partition scheduling
+3. Supports interrupt handling (Ctrl+C terminates SLURM jobs)
+
+**Remote execution**:
+1. Connects via SSH to remote cluster
+2. Transfers input files via SFTP
+3. Executes `srun` on remote cluster
+4. Retrieves results via SFTP
+
+### Features
+
+- **Partition specification**: Control which SLURM partition to use
+- **Automatic file transfer**: For remote execution
+- **Timeout handling**: Configurable execution timeouts
+- **Interrupt support**: Graceful job termination with Ctrl+C
+- **Compatible with all SLURM schedulers**
+
+### Requirements
+
+- **Local**: SLURM installed (`srun` command available)
+- **Remote**: SSH access to SLURM cluster + `paramiko` library
+
+### Configuration
+
+**Environment variables**:
+```bash
+export FZ_EXECUTION_TIMEOUT=3600  # Timeout in seconds
+export FZ_SSH_KEEPALIVE=300       # For remote SLURM
+```
+
+**Python**:
+```python
+import os
+os.environ['FZ_EXECUTION_TIMEOUT'] = '7200'  # 2 hours
+```
+
+## Funz Server Calculator (`funz://`)
+
+Execute calculations using legacy Java Funz calculator servers via TCP socket protocol.
+
+### Basic Syntax
+
+```python
+# Local Funz server
+calculators = "funz://:port/code"
+
+# Remote Funz server
+calculators = "funz://host:port/code"
+```
+
+**URI Format**: `funz://[host]:<port>/<code>`
+- `host`: Server hostname (default: localhost)
+- `port`: Server port (required)
+- `code`: Calculator code/model name (e.g., "R", "Python", "Modelica", "bash")
+
+### Examples
+
+**Example 1: Connect to local Funz server**
+
+```python
+calculators = "funz://:5555/R"
+```
+
+**Example 2: Connect to remote Funz server**
+
+```python
+calculators = "funz://server.example.com:5555/Python"
+```
+
+**Example 3: Multiple Funz servers for parallel execution**
+
+```python
+calculators = [
+    "funz://:5555/R",
+    "funz://:5556/R",
+    "funz://:5557/R"
+]
+```
+
+**Example 4: Complete parametric study**
+
+```python
+import fz
+
+model = {
+    "output": {
+        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
+    }
+}
+
+results = fz.fzr(
+    "input.txt",
+    {"temp": [100, 200, 300]},
+    model,
+    calculators="funz://:5555/bash"
+)
+```
+
+### How it Works
+
+1. **Calculator reservation**: Connects to Funz server and reserves calculator
+2. **File upload**: Transfers input files to server
+3. **Remote execution**: Executes calculation via Funz protocol
+4. **Result download**: Retrieves output files
+5. **Unreservation**: Releases calculator and cleans up
+
+### Funz Protocol
+
+The Funz calculator uses a text-based TCP socket communication protocol:
+
+- **RESERVE**: Request calculator reservation with authentication
+- **EXECUTE**: Submit calculation job
+- **STATUS**: Check job status
+- **DOWNLOAD**: Retrieve result files
+- **UNRESERVE**: Release calculator
+
+### UDP Discovery
+
+Funz calculators broadcast their availability via UDP:
+
+```
+Port 5555 (UDP): Broadcasts availability every ~5 seconds
+  Message format:
+    Line 1: Protocol version (e.g., "FUNZ1.0")
+    Line 2: TCP port number
+    Line 3+: Available codes (bash, R, Python, etc.)
+
+Port <TCP> (dynamic): Actual calculator communication
+```
+
+See `FUNZ_UDP_DISCOVERY.md` for detailed protocol documentation.
+
+### Features
+
+- **Compatible with legacy Java Funz servers**
+- **Automatic file upload/download**
+- **TCP socket communication**
+- **Calculator reservation system**
+- **Interrupt handling support**
+- **Authentication support**
+
+### Requirements
+
+- Funz calculator server running (Java-based)
+- Network access to server port
+- No Python dependencies beyond standard library
+
+### Starting a Funz Calculator
+
+See `tools/start_funz_calculator.sh` and `tools/setup_funz_calculator.sh` for helper scripts.
+
 ## Cache Calculator (`cache://`)
 
 Reuse results from previous calculations based on input file hashes.

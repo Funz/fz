@@ -1,13 +1,98 @@
 # FZ Core Functions
 
-## The Four Core Functions
+## The Core Functions
 
-FZ provides four main functions for parametric computing:
+FZ provides five main functions for parametric computing:
 
 1. **`fzi`** - Parse **I**nput files to identify variables
 2. **`fzc`** - **C**ompile input files by substituting variables
 3. **`fzo`** - Parse **O**utput files from calculations
 4. **`fzr`** - **R**un complete parametric calculations end-to-end
+5. **`fzl`** - **L**ist and validate installed models and calculators
+
+## fzl - List and Validate Models/Calculators
+
+**Purpose**: List installed models and calculators, optionally validating their configuration.
+
+### Function Signature
+
+```python
+import fz
+
+result = fz.fzl(models="*", calculators="*", check=False)
+```
+
+**Parameters**:
+- `models` (str): Model pattern to match (default: "*" for all). Supports glob patterns.
+- `calculators` (str): Calculator pattern to match (default: "*" for all). Supports glob/regex.
+- `check` (bool): Validate each model and calculator (default: False)
+
+**Returns**: Dictionary with two keys: "models" and "calculators"
+
+### Examples
+
+**Example 1: List all models and calculators**
+
+```python
+import fz
+
+result = fz.fzl()
+print(result)
+# Output:
+# {
+#   "models": {
+#     "perfectgas": {
+#       "path": "/home/user/.fz/models/perfectgas.json",
+#       "supported_calculators": ["local", "ssh_cluster"]
+#     }
+#   },
+#   "calculators": {
+#     "local": {
+#       "path": "/home/user/.fz/calculators/local.json",
+#       "uri": "sh://",
+#       "models": ["perfectgas"]
+#     }
+#   }
+# }
+```
+
+**Example 2: Filter by pattern**
+
+```python
+result = fz.fzl(models="perfect*", calculators="ssh*")
+# Only lists models matching "perfect*" and calculators matching "ssh*"
+```
+
+**Example 3: Validate configurations**
+
+```python
+result = fz.fzl(check=True)
+# Each model/calculator includes check_status: "passed" or "failed"
+# Failed items include check_error with details
+```
+
+**Example 4: CLI usage**
+
+```bash
+# List all
+fzl
+
+# List with validation
+fzl --check
+
+# Filter and format
+fzl --models "navier*" --format table
+
+# JSON output
+fzl --format json > config.json
+```
+
+### Use Cases
+
+- **Discover available models**: See what models are installed
+- **Verify configurations**: Check for errors before running calculations
+- **Document setup**: Export configuration inventory
+- **Troubleshoot**: Identify missing or broken configurations
 
 ## fzi - Parse Input Variables
 
