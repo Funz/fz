@@ -6,6 +6,7 @@ import platform
 import shutil
 import threading
 import time
+import uuid
 import itertools
 from pathlib import Path
 from typing import Dict, List, Tuple, Union, Any, Optional
@@ -15,6 +16,24 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from .logging import log_debug, log_info, log_warning, log_error, log_progress, get_log_level, LogLevel
 from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
+
+
+def format_time(seconds):
+    """
+    Format seconds into human-readable time string
+    
+    Args:
+        seconds: Number of seconds
+        
+    Returns:
+        Formatted string (e.g., "5.3s", "2.5m", "1.2h")
+    """
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        return f"{seconds/60:.1f}m"
+    else:
+        return f"{seconds/3600:.1f}h"
 
 
 @contextmanager
@@ -28,9 +47,6 @@ def fz_temporary_directory(session_cwd=None):
     Yields:
         Path to temporary directory
     """
-    import time
-    import uuid
-    
     # Use centralized temp base directory
     if session_cwd is None:
         session_cwd = os.getcwd()
@@ -265,7 +281,6 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
     if isinstance(model, str):
         import json
         import sys
-        from pathlib import Path
         from .io import load_aliases
 
         json_error = None
@@ -1099,15 +1114,6 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                         remaining_cases = len(var_combinations) - completed_count
                         estimated_remaining = avg_time_per_case * remaining_cases
 
-                        # Format time estimates
-                        def format_time(seconds):
-                            if seconds < 60:
-                                return f"{seconds:.1f}s"
-                            elif seconds < 3600:
-                                return f"{seconds/60:.1f}m"
-                            else:
-                                return f"{seconds/3600:.1f}h"
-
                         log_progress(f"📊 Progress: {completed_count}/{len(var_combinations)} cases completed "
                                f"({completed_count/len(var_combinations)*100:.1f}%), "
                                f"ETA: {format_time(estimated_remaining)}")
@@ -1140,15 +1146,6 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                 # Collect results in order
                 case_results = [None] * len(var_combinations)
                 completed_count = 0
-
-                # Helper function to format time
-                def format_time(seconds):
-                    if seconds < 60:
-                        return f"{seconds:.1f}s"
-                    elif seconds < 3600:
-                        return f"{seconds/60:.1f}m"
-                    else:
-                        return f"{seconds/3600:.1f}h"
 
                 for future in as_completed(future_to_index):
                     # Check for interrupt

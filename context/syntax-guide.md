@@ -30,6 +30,29 @@ model = {
 - Case-sensitive: `$Temp` ≠ `$temp`
 - Cannot start with number: `$1var` is invalid
 
+### Legacy Funz Syntax Compatibility
+
+FZ supports the legacy Java Funz variable syntax for backward compatibility:
+
+```text
+# Old Funz syntax (question mark prefix)
+Temperature: ?T_celsius
+Pressure: ?pressure
+
+# Equivalent to modern FZ syntax
+Temperature: $T_celsius
+Pressure: $pressure
+```
+
+**Automatic detection**: `?var` is automatically converted to `$var` internally.
+
+**Use cases**:
+- Migrating from Java Funz to Python FZ
+- Reusing existing Funz input templates
+- Backward compatibility with legacy projects
+
+See `examples/java_funz_syntax_example.py` for complete examples.
+
 ### Default Values
 
 Variables can specify default values using `~` syntax:

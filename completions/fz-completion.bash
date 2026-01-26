@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bash completion script for fz, fzi, fzc, fzo, fzr commands
+# Bash completion script for fz, fzi, fzc, fzo, fzr, fzl commands
 
 # Helper function to complete file paths
 _fz_complete_files() {
@@ -147,6 +147,36 @@ _fzr() {
     return 0
 }
 
+# Completion for fzl command
+_fzl() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts="--models -m --calculators -c --check --format -f --help -h --version"
+
+    case "${prev}" in
+        --models|-m)
+            COMPREPLY=($(compgen -W "* *.json" -- ${cur}))
+            return 0
+            ;;
+        --calculators|-c)
+            COMPREPLY=($(compgen -W "* sh:// ssh:// slurm:// funz:// cache://" -- ${cur}))
+            return 0
+            ;;
+        --format|-f)
+            COMPREPLY=($(compgen -W "json markdown table" -- ${cur}))
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+
+    COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+    return 0
+}
+
 # Completion for fz main command
 _fz() {
     local cur prev opts subcommand
@@ -158,7 +188,7 @@ _fz() {
     subcommand=""
     for ((i=1; i < COMP_CWORD; i++)); do
         case "${COMP_WORDS[i]}" in
-            input|compile|output|run)
+            input|compile|output|run|list)
                 subcommand="${COMP_WORDS[i]}"
                 break
                 ;;
@@ -167,7 +197,7 @@ _fz() {
 
     # If no subcommand yet, offer subcommands and main options
     if [[ -z "$subcommand" ]]; then
-        opts="input compile output run --help -h --version"
+        opts="input compile output run list --help -h --version"
         COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
         return 0
     fi
@@ -274,6 +304,27 @@ _fz() {
                     ;;
             esac
             ;;
+        list)
+            opts="--models -m --calculators -c --check --format -f --help -h --version"
+            case "${prev}" in
+                --models|-m)
+                    COMPREPLY=($(compgen -W "* *.json" -- ${cur}))
+                    return 0
+                    ;;
+                --calculators|-c)
+                    COMPREPLY=($(compgen -W "* sh:// ssh:// slurm:// funz:// cache://" -- ${cur}))
+                    return 0
+                    ;;
+                --format|-f)
+                    COMPREPLY=($(compgen -W "json markdown table" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
     esac
 
     return 0
@@ -285,3 +336,4 @@ complete -F _fzi fzi
 complete -F _fzc fzc
 complete -F _fzo fzo
 complete -F _fzr fzr
+complete -F _fzl fzl

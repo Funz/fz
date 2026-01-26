@@ -254,7 +254,6 @@ def fzl_main():
         result = fzl_func(models=args.models, calculators=args.calculators, check=args.check)
 
         if args.format == "json":
-            import json
             print(json.dumps(result, indent=2))
         elif args.format == "table":
             # Table format
@@ -598,7 +597,6 @@ def main():
             result = fzl_func(models=args.models, calculators=args.calculators, check=args.check)
 
             if args.format == "json":
-                import json
                 print(json.dumps(result, indent=2))
             elif args.format == "table":
                 # Table format
