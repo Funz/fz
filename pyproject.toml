@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "funz-fz"
-version = "0.9.0"
+dynamic = ["version"]
 description = "Parametric scientific computing package"
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
@@ -55,6 +55,9 @@ fzr = "fz.cli:fzr_main"
 
 [tool.setuptools]
 packages = ["fz"]
+
+[tool.setuptools.dynamic]
+version = {attr = "fz.__version__"}
 
 [tool.setuptools.package-data]
 fz = ["py.typed"]
