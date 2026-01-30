@@ -15,14 +15,42 @@ A powerful Python package for parametric simulations and computational experimen
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [CLI Usage](#cli-usage)
+  - [Argument Formats](#argument-formats)
+  - [fzi - Parse Input Variables](#fzi---parse-input-variables)
+  - [fzc - Compile Input Files](#fzc---compile-input-files)
+  - [fzo - Read Output Files](#fzo---read-output-files)
+  - [fzl - List and Validate Models/Calculators](#fzl---list-and-validate-modelscalculators)
+  - [fzr - Run Parametric Calculations](#fzr---run-parametric-calculations)
 - [Core Functions](#core-functions)
 - [Model Definition](#model-definition)
+  - [Variable Default Values](#variable-default-values)
+  - [Old Funz Syntax Compatibility](#old-funz-syntax-compatibility)
+  - [Formula Evaluation](#formula-evaluation)
 - [Calculator Types](#calculator-types)
+  - [Local Shell Execution](#local-shell-execution)
+  - [SSH Remote Execution](#ssh-remote-execution)
+  - [SLURM Workload Manager](#slurm-workload-manager)
+  - [Funz Server Execution](#funz-server-execution)
+  - [Cache Calculator](#cache-calculator)
+  - [Calculator-Model Compatibility](#calculator-model-compatibility)
 - [Advanced Features](#advanced-features)
+  - [Parallel Execution](#parallel-execution)
+  - [Retry Mechanism](#retry-mechanism)
+  - [Caching Strategy](#caching-strategy)
+  - [Output Type Casting](#output-type-casting)
+  - [Progress Callbacks](#progress-callbacks)
 - [Complete Examples](#complete-examples)
 - [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+  - [Shell Path Configuration](#shell-path-configuration-fz_shell_path)
+  - [Timeout Configuration](#timeout-configuration)
 - [Interrupt Handling](#interrupt-handling)
+- [Breaking Changes](#breaking-changes)
 - [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [Performance Tips](#performance-tips)
+- [Documentation](#documentation)
+- [Support](#support)
 
 ## Features
 
@@ -493,6 +521,65 @@ fzr ... --format html > results.html
 --formulaprefix PREFIX    Formula prefix (default: @)
 --commentline CHAR        Comment character (default: #)
 --format FORMAT           Output format: json, table, csv, markdown, html
+```
+
+#### Argument Formats
+
+FZ CLI commands support three flexible formats for specifying models, calculators, and variables:
+
+**1. Inline JSON** - Direct JSON string:
+```bash
+fzr input.txt \
+  --model '{"varprefix": "$", "output": {"result": "cat output.txt"}}' \
+  --variables '{"temp": [10, 20, 30], "pressure": 1}' \
+  --calculator "sh://bash calc.sh"
+```
+
+**2. JSON File** - Path to JSON file:
+```bash
+# Create model file
+cat > mymodel.json << 'EOF'
+{
+  "varprefix": "$",
+  "formulaprefix": "@",
+  "delim": "{}",
+  "output": {
+    "result": "cat output.txt"
+  }
+}
+EOF
+
+# Use file path
+fzr input.txt --model mymodel.json --variables vars.json --calculator "sh://calc.sh"
+```
+
+**3. Alias** - Named configuration from `.fz/` directory:
+```bash
+# Uses .fz/models/perfectgas.json
+fzr input.txt --model perfectgas --calculator local
+```
+
+**Automatic Detection**:
+- FZ automatically detects which format you're using
+- Tries formats in order: Alias → JSON File → Inline JSON
+- Provides helpful error messages if parsing fails
+- Works for `--model`, `--calculator`, and `--variables` arguments
+
+**Format Detection Logic**:
+```python
+# Examples of automatic detection
+"perfectgas"                          # → Alias (no .json, no braces)
+"model.json"                          # → File (ends with .json)
+'{"varprefix": "$"}'                  # → Inline JSON (starts with {)
+```
+
+**Mixing Formats**:
+```bash
+# Mix different formats in the same command
+fzr input.txt \
+  --model perfectgas \                              # Alias
+  --variables '{"temp": [10, 20, 30]}' \           # Inline JSON
+  --calculator cluster                              # Alias
 ```
 
 #### Model Definition Options
@@ -983,6 +1070,45 @@ result = replace_variables_in_content(content, input_variables)
 
 See `examples/variable_substitution.md` for comprehensive documentation.
 
+#### Old Funz Syntax Compatibility
+
+For backward compatibility with legacy Java Funz users, FZ supports the old `?var` variable syntax:
+
+```text
+# Legacy Funz syntax (still supported)
+Temperature: ?T_celsius
+Pressure: ?P_bar
+
+# Equivalent modern FZ syntax
+Temperature: $T_celsius
+Pressure: $P_bar
+```
+
+**Behavior**:
+- `?variable` is automatically converted to `$variable`
+- No configuration needed - works transparently
+- Useful for migrating existing Funz projects to Python
+- Can mix both syntaxes in the same file
+
+**Example**:
+```python
+import fz
+
+# Input file with old Funz syntax
+content = """
+n_mol=?n_mol
+T_celsius=?T_celsius
+"""
+
+model = {"varprefix": "$"}  # Standard FZ configuration
+
+# Works automatically - ?n_mol treated as $n_mol
+variables = fz.fzi("input.txt", model)
+# Returns: {'n_mol': None, 'T_celsius': None}
+```
+
+See `examples/java_funz_syntax_example.py` for more examples.
+
 **Features**:
 - Python or R expression evaluation
 - Multi-line function definitions
@@ -1111,6 +1237,35 @@ calculators = [
 - Remote execution with the Funz protocol
 - Result download and extraction
 - Support for interrupt handling
+- UDP discovery for automatic server detection
+
+**UDP Discovery**:
+
+FZ supports automatic Funz server discovery via UDP broadcast:
+
+```python
+from fz.runners import discover_funz_servers
+
+# Discover all available Funz servers on the network
+servers = discover_funz_servers(timeout=5)
+
+# Returns list of discovered servers:
+# [
+#   {'host': '192.168.1.100', 'port': 5555, 'code': 'R'},
+#   {'host': '192.168.1.101', 'port': 5555, 'code': 'Python'},
+#   ...
+# ]
+
+# Use discovered servers
+calculators = [f"funz://{s['host']}:{s['port']}/{s['code']}" for s in servers]
+results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
+```
+
+**Discovery Protocol**:
+- Broadcasts UDP message on port 19001
+- Servers respond with their host, port, and supported codes
+- Useful for dynamic calculator allocation in cluster environments
+- See `context/funz-protocol.md` for detailed protocol documentation
 
 **Protocol**:
 - Text-based TCP socket communication
@@ -1184,6 +1339,58 @@ Use by name:
 ```python
 results = fz.fzr("input.txt", input_variables, "perfectgas", calculators="cluster")
 ```
+
+### Calculator-Model Compatibility
+
+FZ automatically validates that calculators support the specified model to prevent incompatible combinations:
+
+```python
+# .fz/calculators/cluster.json
+{
+    "uri": "ssh://user@cluster.edu",
+    "models": {
+        "perfectgas": "bash /path/to/perfectgas.sh",
+        "cfd": "bash /path/to/cfd.sh"
+    }
+}
+```
+
+**Validation**:
+
+```python
+# This works - perfectgas is supported
+results = fz.fzr("input.txt", input_variables, "perfectgas", calculators="cluster")
+
+# This fails with clear error - unsupported_model not in calculator's models
+results = fz.fzr("input.txt", input_variables, "unsupported_model", calculators="cluster")
+# Error: Calculator 'cluster' does not support model 'unsupported_model'
+#        Supported models: perfectgas, cfd
+```
+
+**Automatic Resolution**:
+- Model and calculator aliases are resolved from `.fz/` directories
+- Compatibility check happens before execution
+- Clear error messages indicate which models are supported
+- Prevents wasted computation on incompatible setups
+
+**Direct URIs (No Validation)**:
+
+When using direct calculator URIs (not aliases), no validation occurs:
+
+```python
+# No validation - you're responsible for compatibility
+results = fz.fzr(
+    "input.txt",
+    input_variables,
+    "anymodel",
+    calculators="sh://bash any_script.sh"
+)
+```
+
+**Best Practice**:
+- Use calculator aliases for complex setups
+- Document model compatibility in calculator JSON files
+- Use `fzl --check` to validate configurations
 
 ## Advanced Features
 
@@ -1305,6 +1512,66 @@ results = fz.fzo("output_dir", model)
 3. Try numeric conversion (int/float)
 4. Keep as string
 5. Single-element arrays → scalar
+
+### Progress Callbacks
+
+Monitor execution progress in real-time with custom callback functions:
+
+```python
+import fz
+
+model = {
+    "varprefix": "$",
+    "output": {"result": "cat output.txt"}
+}
+
+# Define callback function
+def progress_callback(event_type, case_info):
+    """
+    Called during execution for each case event.
+
+    Args:
+        event_type: One of "case_start", "case_complete", "case_failed"
+        case_info: Dict with case details (case_name, calculator, etc.)
+    """
+    if event_type == "case_start":
+        print(f"⏳ Starting: {case_info['case_name']}")
+    elif event_type == "case_complete":
+        print(f"✅ Completed: {case_info['case_name']}")
+    elif event_type == "case_failed":
+        print(f"❌ Failed: {case_info['case_name']} - {case_info.get('error', 'Unknown error')}")
+
+# Run with callback
+results = fz.fzr(
+    "input.txt",
+    {"param": [1, 2, 3, 4, 5]},
+    model,
+    calculators="sh://bash calc.sh",
+    results_dir="results",
+    callbacks=[progress_callback]
+)
+```
+
+**Use Cases**:
+- Custom progress bars
+- Real-time logging and monitoring
+- Integration with external monitoring systems
+- UI updates for long-running calculations
+- Performance profiling
+
+**Multiple Callbacks**:
+```python
+def logger_callback(event_type, case_info):
+    # Log to file
+    with open("execution.log", "a") as f:
+        f.write(f"{event_type}: {case_info}\n")
+
+def metrics_callback(event_type, case_info):
+    # Send to monitoring system
+    send_to_prometheus(event_type, case_info)
+
+results = fz.fzr(..., callbacks=[logger_callback, metrics_callback])
+```
 
 ## Complete Examples
 
@@ -1474,8 +1741,8 @@ export FZ_INTERPRETER=python
 # Linux/macOS example: export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
 export FZ_SHELL_PATH=/usr/local/bin:/usr/bin
 
-# Execution timeout in seconds (default per calculator)
-export FZ_EXECUTION_TIMEOUT=3600
+# Run timeout in seconds (default: 600 = 10 minutes)
+export FZ_RUN_TIMEOUT=3600
 ```
 
 ### Shell Path Configuration (FZ_SHELL_PATH)
@@ -1521,7 +1788,80 @@ model = {
 # C:\msys64\usr\bin\grep.exe 'pressure' output.txt | C:\msys64\usr\bin\awk.exe '{print $2}'
 ```
 
-See `SHELL_PATH_IMPLEMENTATION.md` and `examples/shell_path_example.md` for detailed documentation.
+See `context/shell-path.md` and `examples/shell_path_example.md` for detailed documentation.
+
+### Timeout Configuration
+
+FZ provides flexible timeout settings at multiple levels for controlling calculation execution time:
+
+#### 1. Environment Variable (Global Default)
+
+```bash
+# Set default timeout for all calculations (in seconds)
+export FZ_RUN_TIMEOUT=3600  # 1 hour (default: 600 seconds = 10 minutes)
+```
+
+#### 2. Model Configuration (Per-Model)
+
+```python
+model = {
+    "varprefix": "$",
+    "output": {"result": "cat output.txt"},
+    "timeout": 1800  # 30 minutes for this model
+}
+
+results = fz.fzr("input.txt", input_variables, model, calculators="sh://calc.sh")
+```
+
+#### 3. Calculator URI Parameter (Per-Calculator)
+
+```python
+# Set timeout directly in calculator URI
+calculators = [
+    "sh://bash quick_calc.sh?timeout=300",      # 5 minutes
+    "sh://bash slow_calc.sh?timeout=7200",       # 2 hours
+    "ssh://user@hpc.edu/sbatch job.sh?timeout=86400"  # 24 hours
+]
+
+results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
+```
+
+#### Priority Order (highest to lowest)
+
+1. **Calculator URI parameter** (`?timeout=300`)
+2. **Model configuration** (`model["timeout"]`)
+3. **Environment variable** (`FZ_RUN_TIMEOUT`)
+4. **Default** (600 seconds = 10 minutes)
+
+**Example combining multiple levels**:
+
+```python
+import os
+
+# Global default: 1 hour
+os.environ['FZ_RUN_TIMEOUT'] = '3600'
+
+# Model-specific: 30 minutes
+model = {
+    "timeout": 1800,
+    "output": {"result": "cat output.txt"}
+}
+
+# Override for specific calculator: 2 hours
+calculators = [
+    "cache://previous_results",
+    "sh://bash calc.sh?timeout=7200",  # Uses 2 hours (URI overrides)
+    "sh://bash calc.sh"                 # Uses 30 minutes (model timeout)
+]
+
+results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
+```
+
+**Timeout Behavior**:
+- Calculation terminates after timeout expires
+- Marked as "failed" with timeout error
+- Retry mechanism may attempt with next calculator
+- Partial results preserved for debugging
 
 ### Python Configuration
 
@@ -1684,6 +2024,59 @@ f6e5d4c3b2a1...  config.dat
 ```
 
 Used for cache matching.
+
+## Breaking Changes
+
+### Version 0.9.1
+
+#### fzr Directory Structure Change
+
+**Previous behavior** (< 0.9.1):
+- `fzr` created subdirectories only when multiple values were provided for variables
+- Single values resulted in flat directory structure
+
+**New behavior** (>= 0.9.1):
+- `fzr` creates subdirectories in `results_dir` as long as **any** `input_variable` is provided
+- No subdirectories only when `input_variables={}` (empty dict)
+- More consistent and predictable behavior
+
+**Example**:
+
+```python
+import fz
+
+model = {"output": {"result": "cat output.txt"}}
+
+# Single value - OLD: flat directory, NEW: subdirectory
+results = fz.fzr(
+    "input.txt",
+    {"temp": 25},  # Single value
+    model,
+    calculators="sh://bash calc.sh",
+    results_dir="results"
+)
+
+# OLD (< 0.9.1):
+#   results/input.txt, results/output.txt, ...
+#
+# NEW (>= 0.9.1):
+#   results/temp=25/input.txt, results/temp=25/output.txt, ...
+
+# Only flat when explicitly empty
+results = fz.fzr(
+    "input.txt",
+    {},  # Empty - no variables
+    model,
+    calculators="sh://bash calc.sh",
+    results_dir="results"
+)
+# Both versions: results/input.txt, results/output.txt, ... (flat)
+```
+
+**Migration**:
+- Update scripts expecting flat directory structure for single-value cases
+- Use path parsing from `fzo` to handle subdirectory names
+- Benefits: Better organization, consistent with parametric study expectations
 
 ## Development
 
@@ -1873,8 +2266,54 @@ If you use FZ in your research, please cite:
 }
 ```
 
+## Documentation
+
+### Main Documentation
+
+- **README.md** (this file) - Complete user guide with examples
+- **NEWS.md** - Release notes and changelog (version 0.9.1 and later)
+- **context/funz-protocol.md** - Funz protocol and UDP discovery documentation
+- **context/shell-path.md** - FZ_SHELL_PATH configuration details
+- **claude/** - Developer documentation and session notes
+
+### Context Documentation
+
+Modular documentation in the `context/` directory:
+
+- **context/INDEX.md** - Documentation overview and navigation
+- **context/overview.md** - High-level FZ concepts and design
+- **context/core-functions.md** - API reference for fzi, fzc, fzo, fzr
+- **context/calculators.md** - Calculator types, URIs, and configuration
+- **context/model-definition.md** - Model structure, aliases, and output parsing
+- **context/formulas-and-interpreters.md** - Formula evaluation (Python/R)
+- **context/syntax-guide.md** - Input template syntax reference
+- **context/parallel-and-caching.md** - Performance optimization strategies
+- **context/quick-examples.md** - Common usage patterns and snippets
+
+### Examples
+
+Practical examples in the `examples/` directory:
+
+- **examples/examples.md** - Overview of all examples
+- **examples/r_interpreter_example.md** - R interpreter setup and usage
+- **examples/variable_substitution.md** - Default values and variable syntax
+- **examples/shell_path_example.md** - FZ_SHELL_PATH configuration examples
+- **examples/java_funz_syntax_example.py** - Legacy Funz syntax compatibility
+- **examples/fzi_formulas_example.py** - Formula evaluation examples
+- **examples/fzi_static_objects_example.py** - Static object handling
+
+### Test Examples
+
+Working examples in test files:
+
+- `tests/test_examples_*.py` - Comprehensive integration tests
+- `tests/test_parallel.py` - Parallel execution examples
+- `tests/test_interrupt_handling.py` - Interrupt handling demonstrations
+- `tests/test_funz_protocol.py` - Funz server protocol examples
+- `tests/test_slurm_runner.py` - SLURM workload manager examples
+
 ## Support
 
 - **Issues**: https://github.com/Funz/fz/issues
 - **Documentation**: https://fz.github.io
-- **Examples**: See `tests/test_examples_*.py` for working examples
+- **Repository**: https://github.com/Funz/fz

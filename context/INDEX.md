@@ -89,6 +89,8 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Calculator URI format | calculators.md | "Calculator URI Format" |
 | Local shell (sh://) | calculators.md | "Local Shell Calculator" |
 | Remote SSH (ssh://) | calculators.md | "Remote SSH Calculator" |
+| SLURM (slurm://) | calculators.md | "SLURM Workload Manager" |
+| Funz server (funz://) | calculators.md | "Funz Server Calculator" |
 | Cache (cache://) | calculators.md | "Cache Calculator" |
 | Parallel execution | calculators.md | "Multiple Calculators" → "Parallel Execution" |
 | Fallback chain | calculators.md | "Multiple Calculators" → "Fallback Chain" |
@@ -191,6 +193,19 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Use caching | calculators.md → "Cache Calculator" |
 | Debug my calculation | quick-examples.md → "Troubleshooting Examples" |
 
+## Configuration & Advanced Topics
+
+| Topic | File | Section |
+|-------|------|---------|
+| FZ_SHELL_PATH overview | shell-path.md | "Overview" |
+| Shell path setup | shell-path.md | "Usage" |
+| Windows path configuration | shell-path.md | "Common Configurations" → "Windows with MSYS2" |
+| Shell path troubleshooting | shell-path.md | "Troubleshooting" |
+| Funz protocol overview | funz-protocol.md | "Overview" |
+| UDP discovery | funz-protocol.md | "UDP Discovery" |
+| Funz TCP protocol | funz-protocol.md | "TCP Protocol" |
+| Funz server setup | funz-protocol.md | "Server Setup" |
+
 ## Keywords Index
 
 Quick keyword search:
@@ -204,6 +219,11 @@ Quick keyword search:
 - **Parallel**: parallel-and-caching.md
 - **Cache**: parallel-and-caching.md, calculators.md
 - **SSH**: calculators.md → "Remote SSH Calculator"
+- **SLURM**: calculators.md → "SLURM Workload Manager"
+- **Funz**: calculators.md → "Funz Server Calculator", funz-protocol.md
+- **UDP**: funz-protocol.md → "UDP Discovery"
+- **Shell path**: shell-path.md
+- **FZ_SHELL_PATH**: shell-path.md
 - **Examples**: quick-examples.md
 - **CLI**: quick-examples.md → "CLI Quick Examples"
 - **DataFrame**: core-functions.md → "fzr", "fzo"

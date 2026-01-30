@@ -32,7 +32,7 @@
 - Automatic file upload/download
 - UDP discovery support for automatic server detection
 - Example: `funz://:5555/R` or `funz://server.example.com:5555/Python`
-- See `FUNZ_UDP_DISCOVERY.md` for detailed protocol documentation
+- See `context/funz-protocol.md` for detailed protocol documentation
 
 #### Shell Path Configuration (FZ_SHELL_PATH)
 - **New environment variable**: `FZ_SHELL_PATH` for custom binary resolution
@@ -42,7 +42,7 @@
 - Example: `SET FZ_SHELL_PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin`
 - Automatic `.exe` extension handling on Windows
 - Binary path caching for performance
-- See `SHELL_PATH_IMPLEMENTATION.md` for implementation details
+- See `context/shell-path.md` for implementation details
 
 #### R Interpreter Support
 - **Formula evaluation with R**: Set interpreter to "R" for statistical computing
@@ -104,7 +104,7 @@
 
 #### Timeout Configuration
 - Flexible timeout settings at multiple levels:
-  - Environment variable: `FZ_EXECUTION_TIMEOUT`
+  - Environment variable: `FZ_RUN_TIMEOUT` (default: 600 seconds = 10 minutes)
   - Model configuration: `model["timeout"]`
   - Calculator URI: `sh://script.sh?timeout=300`
 - Per-calculator timeout overrides
@@ -145,9 +145,8 @@
 ### Documentation
 
 #### New Documentation Files
-- `FUNZ_UDP_DISCOVERY.md` - Funz protocol and UDP discovery guide
-- `SHELL_PATH_IMPLEMENTATION.md` - Shell path configuration details
-- `CLAUDE.md` - LLM-friendly codebase documentation
+- `context/funz-protocol.md` - Funz protocol and UDP discovery guide
+- `context/shell-path.md` - Shell path configuration details
 - `context/` directory - Modular documentation for different aspects:
   - `INDEX.md` - Documentation overview
   - `core-functions.md` - API reference for fzi, fzc, fzo, fzr
@@ -202,12 +201,59 @@ None in this release.
 
 ---
 
-## Version 0.9.0 (Initial Release)
+## Version 0.9.0 (2025-10-16)
 
-### Core Features
+### New Features
+
+#### Model Plugin Manager
+- **New commands**: `fz install`, `fz uninstall`, `fz list` for model management
+- Automatic installation from GitHub repositories (default: `gh/Funz/fz-<model>`)
+- List installed models and calculators
+- Remove unwanted models
+
+#### Progress Visualization
+- **Progress spinner**: Real-time display of case execution progress
+- Shows completed/total cases during parametric runs
+- ETA estimation for long-running calculations
+
+#### Enhanced Interrupt Handling
+- **Windows compatibility**: Fixed interrupt handling on Windows platforms
+- **SSH interrupt support**: Graceful shutdown for remote SSH calculations
+- Better cleanup of resources on Ctrl+C
+
+#### CLI Improvements
+- Enhanced command-line interface consistency
+- Better JSON argument parsing for Windows PowerShell
+- Improved error messages and help text
+
+### Changes
+
+#### Default Delimiter Change
+- **Breaking**: Default formula delimiter changed from `()` to `{}`
+- Old: `@(expression)`
+- New: `@{expression}`
+- More consistent with other template engines and reduces conflicts
+
+### Bug Fixes
+
+- Fixed Windows/CLI workflow JSON parsing issues
+- Improved calculator alias hostname handling
+- Better handling of edge cases in parallel execution
+
+### Development
+
+- Version stamping in CI workflow
+- Synchronized logging level with config
+- Version info displayed in config summary
+
+---
+
+## Version 0.8.0 (2025-10-12)
+
+### Core Features (Initial Public Release)
 
 - Four core functions: `fzi`, `fzc`, `fzo`, `fzr`
-- Command-line interface with dedicated commands
+- Command-line interface with dedicated commands (`fzi`, `fzc`, `fzo`, `fzr`)
 - Parametric study automation with Cartesian product
 - Parallel execution with thread pool
 - Smart caching based on input file hashes
@@ -229,7 +275,7 @@ None in this release.
 ### Model Definition
 
 - Variable substitution with `$var` syntax
-- Formula evaluation with `@{expression}` syntax
+- Formula evaluation with `@(expression)` syntax (changed to `@{expression}` in 0.9.0)
 - Comment-based formula context
 - Output command specification
 - Model aliasing with JSON files
@@ -244,5 +290,5 @@ None in this release.
 
 For detailed information, see:
 - README.md - User guide and examples
-- CLAUDE.md - Developer documentation
+- claude/ - Developer documentation and session notes
 - context/ - Modular documentation by topic

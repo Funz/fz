@@ -313,14 +313,14 @@ calculators = [
 
 **Environment variables**:
 ```bash
-export FZ_EXECUTION_TIMEOUT=3600  # Timeout in seconds
-export FZ_SSH_KEEPALIVE=300       # For remote SLURM
+export FZ_RUN_TIMEOUT=3600    # Timeout in seconds (default: 600 = 10 minutes)
+export FZ_SSH_KEEPALIVE=300   # For remote SLURM
 ```
 
 **Python**:
 ```python
 import os
-os.environ['FZ_EXECUTION_TIMEOUT'] = '7200'  # 2 hours
+os.environ['FZ_RUN_TIMEOUT'] = '7200'  # 2 hours
 ```
 
 ## Funz Server Calculator (`funz://`)
@@ -417,7 +417,7 @@ Port 5555 (UDP): Broadcasts availability every ~5 seconds
 Port <TCP> (dynamic): Actual calculator communication
 ```
 
-See `FUNZ_UDP_DISCOVERY.md` for detailed protocol documentation.
+See `funz-protocol.md` for detailed protocol documentation.
 
 ### Features
 
