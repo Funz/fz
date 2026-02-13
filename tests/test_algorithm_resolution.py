@@ -115,7 +115,8 @@ class {class_name}:
             path = resolve_algorithm_path("montecarlo")
             assert path is not None
             assert path.name == "montecarlo.py"
-            assert path.parent == algorithms_dir
+            # Use resolve() to handle symlinks on macOS (/var -> /private/var)
+            assert path.parent.resolve() == algorithms_dir.resolve()
             
             # Test another exact name
             path = resolve_algorithm_path("brent")
@@ -138,13 +139,15 @@ class {class_name}:
             path = resolve_algorithm_path("monte*")
             assert path is not None
             assert path.name in ["montecarlo.py", "montecarlo_uniform.py"]
-            assert path.parent == algorithms_dir
+            # Use resolve() to handle symlinks on macOS (/var -> /private/var)
+            assert path.parent.resolve() == algorithms_dir.resolve()
             
             # Test wildcard in middle
             path = resolve_algorithm_path("*optimization*")
             assert path is not None
             assert "optimization" in path.name
-            assert path.parent == algorithms_dir
+            # Use resolve() to handle symlinks on macOS (/var -> /private/var)
+            assert path.parent.resolve() == algorithms_dir.resolve()
             
             # Test prefix for specific algorithm
             path = resolve_algorithm_path("gradient*")
