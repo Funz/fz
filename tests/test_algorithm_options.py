@@ -190,6 +190,7 @@ class TestFzdWithAlgorithmOptions:
         """Create a simple test model and input files"""
         tmpdir = tempfile.mkdtemp()
         workspace = Path(tmpdir)
+        original_cwd = os.getcwd()
         
         # Create input file
         input_file = workspace / "input.txt"
@@ -235,6 +236,9 @@ class TestAlgorithm:
 """)
         
         yield workspace, model
+        
+        # Ensure we're not in the temp directory before cleanup (Windows compatibility)
+        os.chdir(original_cwd)
         shutil.rmtree(tmpdir)
 
     def test_fzd_with_dict_options(self, simple_model_setup):
