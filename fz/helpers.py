@@ -401,6 +401,80 @@ def _resolve_model(model: Union[str, Dict]) -> Dict:
     raise TypeError(f"Model must be a dict or string, got {type(model).__name__}")
 
 
+def _resolve_algorithm_options(options: Union[str, Dict, None]) -> Dict:
+    """
+    Resolve algorithm options from dict, JSON string, or JSON file path
+
+    Tries in order:
+    1. If dict, returns as-is
+    2. JSON string (if starts with '{')
+    3. JSON file path (if ends with '.json')
+
+    Args:
+        options: Algorithm options (dict, JSON string, or JSON file path)
+
+    Returns:
+        Dict of algorithm options (empty dict if None)
+
+    Raises:
+        TypeError: If options is invalid type
+        ValueError: If JSON string/file is invalid
+    """
+    if options is None:
+        return {}
+
+    if isinstance(options, dict):
+        return options
+
+    if isinstance(options, str):
+        import json
+        import sys
+
+        json_error = None
+        file_error = None
+
+        # Try 1: Parse as JSON string
+        if options.strip().startswith(('{', '[')):
+            try:
+                parsed_options = json.loads(options)
+                if not isinstance(parsed_options, dict):
+                    raise TypeError(f"Algorithm options must be a dict, got {type(parsed_options).__name__}")
+                return parsed_options
+            except json.JSONDecodeError as e:
+                json_error = str(e)
+                # Fall through to next option
+
+        # Try 2: Load as JSON file path
+        if options.endswith('.json'):
+            try:
+                path = Path(options)
+                if path.exists():
+                    with open(path) as f:
+                        parsed_options = json.load(f)
+                    if not isinstance(parsed_options, dict):
+                        raise TypeError(f"Algorithm options must be a dict, got {type(parsed_options).__name__}")
+                    return parsed_options
+                else:
+                    file_error = f"File not found: {options}"
+            except IOError as e:
+                file_error = f"Cannot read file: {e}"
+            except json.JSONDecodeError as e:
+                file_error = f"Invalid JSON in file {options}: {e}"
+
+        # If all failed, print detailed warnings and raise error
+        print(f"❌ Error: Could not parse algorithm options '{options}':", file=sys.stderr)
+        if json_error:
+            print(f"    - Invalid JSON: {json_error}", file=sys.stderr)
+        if file_error:
+            print(f"    - File issue: {file_error}", file=sys.stderr)
+
+        raise ValueError(
+            f"Could not parse algorithm_options '{options}'. Must be a valid JSON string or path to .json file."
+        )
+
+    raise TypeError(f"Algorithm options must be a dict, JSON string, or JSON file path, got {type(options).__name__}")
+
+
 def get_calculator_manager():
     """
     Get or create the global calculator manager instance

@@ -68,6 +68,7 @@ from .helpers import (
     fz_temporary_directory,
     _cleanup_fzr_resources,
     _resolve_model,
+    _resolve_algorithm_options,
     _resolve_calculators_arg,
     _calculator_supports_model,
     run_cases_parallel,
@@ -1680,7 +1681,7 @@ def fzd(
     output_expression: str,
     algorithm: str,
     calculators: Union[str, List[str]] = None,
-    algorithm_options: Dict[str, Any] = None,
+    algorithm_options: Union[Dict[str, Any], str] = None,
     analysis_dir: str = "analysis"
 ) -> Dict[str, Any]:
     """
@@ -1695,7 +1696,10 @@ def fzd(
         output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2"
         algorithm: Path to algorithm Python file (e.g., "algorithms/montecarlo.py")
         calculators: Calculator specifications (default: ["sh://"])
-        algorithm_options: Dict of algorithm-specific options (e.g., {"batch_size": 10, "max_iter": 100})
+        algorithm_options: Algorithm-specific options. Can be:
+            - Dict: {"batch_size": 10, "max_iter": 100}
+            - JSON string: '{"batch_size": 10, "max_iter": 100}'
+            - JSON file path: "options.json"
         analysis_dir: Analysis results directory (default: "results_fzd")
 
     Returns:
@@ -1708,7 +1712,8 @@ def fzd(
     Raises:
         ImportError: If pandas is not installed
 
-    Example:
+    Examples:
+        # Using dict for algorithm_options
         >>> analysis = fz.fzd(
         ...     input_path='input.txt',
         ...     input_variables={"x1": "[0;10]", "x2": "[0;5]"},
@@ -1718,6 +1723,26 @@ def fzd(
         ...     calculators=["sh://bash ./calculator.sh"],
         ...     algorithm_options={"batch_sample_size": 20, "max_iterations": 50},
         ...     analysis_dir="fzd_analysis"
+        ... )
+        
+        # Using JSON string for algorithm_options
+        >>> analysis = fz.fzd(
+        ...     input_path='input.txt',
+        ...     input_variables={"x1": "[0;10]", "x2": "[0;5]"},
+        ...     model="mymodel",
+        ...     output_expression="pressure",
+        ...     algorithm="montecarlo",  # Plugin name
+        ...     algorithm_options='{"batch_sample_size": 20, "max_iterations": 50}'
+        ... )
+        
+        # Using JSON file for algorithm_options
+        >>> analysis = fz.fzd(
+        ...     input_path='input.txt',
+        ...     input_variables={"x1": "[0;10]", "x2": "[0;5]"},
+        ...     model="mymodel",
+        ...     output_expression="pressure",
+        ...     algorithm="montecarlo",
+        ...     algorithm_options="algo_config.json"  # Path to JSON file
         ... )
     """
     # This represents the directory from which the function was launched
@@ -1764,8 +1789,7 @@ def fzd(
             raise ValueError("Model must specify output variables in 'output' field")
 
         # Load algorithm with options
-        if algorithm_options is None:
-            algorithm_options = {}
+        algorithm_options = _resolve_algorithm_options(algorithm_options)
         algo_instance = load_algorithm(algorithm, **algorithm_options)
 
         # Get initial design from algorithm (only for variable inputs)
