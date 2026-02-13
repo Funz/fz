@@ -141,14 +141,36 @@ def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, res
     return tmp_dir, result_dir, case_name
 
 
+def _convert_numpy_to_list(value):
+    """
+    Convert numpy arrays to Python lists recursively.
+    
+    Args:
+        value: Value to convert (can be numpy array, list, dict, or scalar)
+        
+    Returns:
+        Converted value with numpy arrays replaced by lists
+    """
+    # Check if numpy is available and value is a numpy array
+    try:
+        import numpy as np
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+    except ImportError:
+        pass
+    
+    return value
+
+
 def generate_variable_combinations(input_variables: Union[Dict, Any]) -> List[Dict]:
     """
     Generate variable combinations from input variables
 
     Supports two input formats:
     1. Dict: Creates Cartesian product (full factorial design)
-       - If any value is a list, generates the cartesian product of all variables
+       - If any value is a list or numpy array, generates the cartesian product of all variables
        - Single values are treated as single-element lists
+       - Numpy arrays are automatically converted to lists
 
     2. DataFrame: Non-factorial design
        - Each row represents one case
@@ -156,7 +178,7 @@ def generate_variable_combinations(input_variables: Union[Dict, Any]) -> List[Di
        - Allows arbitrary combinations of values
 
     Args:
-        input_variables: Dict of variable values/lists OR pandas DataFrame
+        input_variables: Dict of variable values/lists/numpy arrays OR pandas DataFrame
 
     Returns:
         List of variable combination dicts
@@ -173,6 +195,11 @@ def generate_variable_combinations(input_variables: Union[Dict, Any]) -> List[Di
         >>> df = pd.DataFrame({"x": [1, 2, 3], "y": [10, 10, 20]})
         >>> generate_variable_combinations(df)
         [{"x": 1, "y": 10}, {"x": 2, "y": 10}, {"x": 3, "y": 20}]
+        
+        Numpy arrays:
+        >>> import numpy as np
+        >>> generate_variable_combinations({"x": np.array([1, 2]), "y": [3, 4]})
+        [{"x": 1, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 3}, {"x": 2, "y": 4}]
     """
     # Check if input is a pandas DataFrame
     if isinstance(input_variables, pd.DataFrame):
@@ -188,6 +215,9 @@ def generate_variable_combinations(input_variables: Union[Dict, Any]) -> List[Di
     if not isinstance(input_variables, dict):
         # If not dict and not DataFrame, raise error
         raise TypeError(f"input_variables must be a dict or pandas DataFrame, got {type(input_variables)}")
+    
+    # Convert numpy arrays to lists in the input dict
+    input_variables = {k: _convert_numpy_to_list(v) for k, v in input_variables.items()}
 
     var_names = list(input_variables.keys())
     has_lists = any(isinstance(v, list) for v in input_variables.values())

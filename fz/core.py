@@ -1070,7 +1070,7 @@ def fzc(
 
     Args:
         input_path: Path to input file or directory
-        input_variables: Dict of variable values or lists of values for grid
+        input_variables: Dict of variable values or lists/numpy arrays of values for grid
         model: Model definition dict or alias string
         output_dir: Output directory for compiled files
 
@@ -1309,8 +1309,9 @@ def fzr(
 
     Args:
         input_path: Path to input file or directory
-        input_variables: Dict of variable values or lists of values for factorial grid,
-                        or pandas DataFrame for non-factorial designs (each row is one case)
+        input_variables: Dict of variable values or lists/numpy arrays of values for factorial grid,
+                        or pandas DataFrame for non-factorial designs (each row is one case).
+                        Numpy arrays are automatically converted to lists.
         model: Model definition dict or alias string
         results_dir: Results directory
         calculators: Calculator specifications
