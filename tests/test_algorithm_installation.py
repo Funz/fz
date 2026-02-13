@@ -495,35 +495,13 @@ class TestAlgorithmCLIIntegration:
         assert returncode == 0
         assert 'algorithm' in output.lower()
 
-    def test_cli_list_algorithms_help(self):
-        """Test fz list algorithms --help"""
-        from fz.cli import main
-        import sys
-        from io import StringIO
+    def test_cli_list_algorithms_api(self):
+        """Test algorithm listing via Python API"""
+        from fz.installer import list_installed_algorithms
 
-        # Save original
-        original_argv = sys.argv
-        original_stdout = sys.stdout
-        original_stderr = sys.stderr
-
-        # Redirect output
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-        sys.argv = ['fz', 'list', 'algorithms', '--help']
-
-        returncode = 0
-        try:
-            returncode = main()
-        except SystemExit as e:
-            returncode = e.code if e.code is not None else 0
-        finally:
-            output = sys.stdout.getvalue() + sys.stderr.getvalue()
-            sys.stdout = original_stdout
-            sys.stderr = original_stderr
-            sys.argv = original_argv
-
-        assert returncode == 0
-        assert 'algorithm' in output.lower()
+        # Should return a dict (possibly empty)
+        result = list_installed_algorithms(global_list=False)
+        assert isinstance(result, dict)
 
 
 class TestAlgorithmPythonAPI:

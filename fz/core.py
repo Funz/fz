@@ -151,28 +151,6 @@ def _parse_argument(arg, alias_type=None):
     return arg
 
 
-def _resolve_calculators_arg(calculators):
-    """
-    Parse and resolve calculator argument.
-
-    Handles:
-    - None (defaults to ["sh://"])
-    - JSON string, JSON file, or alias string
-    - Single calculator dict (wraps in list)
-    - List of calculator specs
-    """
-    if calculators is None:
-        return ["sh://"]
-
-    # Parse the argument (could be JSON string, file, or alias)
-    calculators = _parse_argument(calculators, alias_type='calculators')
-
-    # Wrap dict in list if it's a single calculator definition
-    if isinstance(calculators, dict):
-        calculators = [calculators]
-
-    return calculators
-
 def _print_function_help(func_name: str, func_doc: str):
     """Print function signature and docstring to help users"""
     print(f"\n{'='*60}", file=sys.stderr)
@@ -1614,13 +1592,13 @@ def _get_and_process_analysis(
         analysis_method = getattr(algo_instance, method_name)
         analysis_dict = analysis_method(all_input_vars, all_output_values)
 
-        if display_dict:
+        if analysis_dict:
             # Log text content before processing (for console output)
-            if 'text' in display_dict:
-                log_info(display_dict['text'])
+            if 'text' in analysis_dict:
+                log_info(analysis_dict['text'])
 
             # Process and save content intelligently
-            processed = process_analysis_content(display_dict, iteration, results_dir)
+            processed = process_analysis_content(analysis_dict, iteration, results_dir)
             return processed
         return None
 
@@ -1680,7 +1658,7 @@ def _get_analysis(
     # Prepare return value
     result = {
         'XY': data_df,  # DataFrame with all X and Y values
-        'analysis': processed_final_analysis,  # Use processed analysis instead of raw
+        'analysis': processed_final_display,  # Use processed analysis instead of raw
         'algorithm': algorithm,
         'iterations': iteration,
         'total_evaluations': len(all_input_vars),
@@ -1932,25 +1910,25 @@ def fzd(
     </div>
 """
                 # Add intermediate results from get_analysis_tmp
-                if tmp_display_processed:
+                if tmp_analysis_processed:
                     html_content += """
     <div class="section">
         <h2>Intermediate Progress</h2>
 """
                     # Link to analysis files if they were created
-                    if 'html_file' in tmp_display_processed:
-                        html_content += f'<p>📄 <a href="{tmp_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
-                    if 'md_file' in tmp_display_processed:
-                        html_content += f'<p>📄 <a href="{tmp_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
-                    if 'json_file' in tmp_display_processed:
-                        html_content += f'<p>📄 <a href="{tmp_display_processed["json_file"]}">View JSON Data</a></p>\n'
-                    if 'txt_file' in tmp_display_processed:
-                        html_content += f'<p>📄 <a href="{tmp_display_processed["txt_file"]}">View Text Data</a></p>\n'
-                    if 'text' in tmp_display_processed:
-                        html_content += f"<pre>{tmp_display_processed['text']}</pre>\n"
-                    if 'data' in tmp_display_processed and tmp_display_processed['data']:
+                    if 'html_file' in tmp_analysis_processed:
+                        html_content += f'<p>📄 <a href="{tmp_analysis_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in tmp_analysis_processed:
+                        html_content += f'<p>📄 <a href="{tmp_analysis_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in tmp_analysis_processed:
+                        html_content += f'<p>📄 <a href="{tmp_analysis_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in tmp_analysis_processed:
+                        html_content += f'<p>📄 <a href="{tmp_analysis_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in tmp_analysis_processed:
+                        html_content += f"<pre>{tmp_analysis_processed['text']}</pre>\n"
+                    if 'data' in tmp_analysis_processed and tmp_analysis_processed['data']:
                         html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
-                        for key, value in tmp_display_processed['data'].items():
+                        for key, value in tmp_analysis_processed['data'].items():
                             html_content += f"{key}: {value}\n"
                         html_content += "</pre>\n"
                     html_content += "    </div>\n"
@@ -1960,25 +1938,25 @@ def fzd(
                     algo_instance, all_input_vars, all_output_values,
                     iteration, results_dir, 'get_analysis'
                 )
-                if iter_display_processed:
+                if iter_analysis_processed:
                     html_content += """
     <div class="section">
         <h2>Current Results</h2>
 """
                     # Link to analysis files if they were created
-                    if 'html_file' in iter_display_processed:
-                        html_content += f'<p>📄 <a href="{iter_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
-                    if 'md_file' in iter_display_processed:
-                        html_content += f'<p>📄 <a href="{iter_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
-                    if 'json_file' in iter_display_processed:
-                        html_content += f'<p>📄 <a href="{iter_display_processed["json_file"]}">View JSON Data</a></p>\n'
-                    if 'txt_file' in iter_display_processed:
-                        html_content += f'<p>📄 <a href="{iter_display_processed["txt_file"]}">View Text Data</a></p>\n'
-                    if 'text' in iter_display_processed:
-                        html_content += f"<pre>{iter_display_processed['text']}</pre>\n"
-                    if 'data' in iter_display_processed and iter_display_processed['data']:
+                    if 'html_file' in iter_analysis_processed:
+                        html_content += f'<p>📄 <a href="{iter_analysis_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in iter_analysis_processed:
+                        html_content += f'<p>📄 <a href="{iter_analysis_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in iter_analysis_processed:
+                        html_content += f'<p>📄 <a href="{iter_analysis_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in iter_analysis_processed:
+                        html_content += f'<p>📄 <a href="{iter_analysis_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in iter_analysis_processed:
+                        html_content += f"<pre>{iter_analysis_processed['text']}</pre>\n"
+                    if 'data' in iter_analysis_processed and iter_analysis_processed['data']:
                         html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
-                        for key, value in iter_display_processed['data'].items():
+                        for key, value in iter_analysis_processed['data'].items():
                             html_content += f"{key}: {value}\n"
                         html_content += "</pre>\n"
                     html_content += "    </div>\n"

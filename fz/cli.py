@@ -648,20 +648,6 @@ def main():
     parser_install_algorithm.add_argument("--global", dest="global_install", action="store_true",
                                           help="Install to ~/.fz/algorithms/ (default: ./.fz/algorithms/)")
 
-    # list command (supports both models and algorithms)
-    parser_list = subparsers.add_parser("list", help="List installed models or algorithms")
-    list_subparsers = parser_list.add_subparsers(dest="list_type", help="Type of resource to list")
-
-    # list models subcommand
-    parser_list_models = list_subparsers.add_parser("models", help="List installed models")
-    parser_list_models.add_argument("--global", dest="global_list", action="store_true",
-                                    help="List models from ~/.fz/models/ (default: ./.fz/models/)")
-
-    # list algorithms subcommand
-    parser_list_algorithms = list_subparsers.add_parser("algorithms", help="List installed algorithms")
-    parser_list_algorithms.add_argument("--global", dest="global_list", action="store_true",
-                                        help="List algorithms from ~/.fz/algorithms/ (default: ./.fz/algorithms/)")
-
     # uninstall command (supports both models and algorithms)
     parser_uninstall = subparsers.add_parser("uninstall", help="Uninstall a model or algorithm")
     uninstall_subparsers = parser_uninstall.add_subparsers(dest="uninstall_type", help="Type of resource to uninstall")

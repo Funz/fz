@@ -648,8 +648,8 @@ class TestFzInstallCommand:
             ])
             assert install_result.returncode == 0
 
-            # List models
-            result = run_fz_cli_function('main', ['list', 'models'])
+            # List models using fzl-style list command
+            result = run_fz_cli_function('main', ['list'])
 
             assert result.returncode == 0
             assert "testmodel" in result.stdout
@@ -667,18 +667,10 @@ class TestFzInstallCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(empty_workspace)
-            result = run_fz_cli_function('main', ['list', 'models'])
+            result = run_fz_cli_function('main', ['list'])
 
             assert result.returncode == 0
-            # May show global models, just verify it runs without error
-            # If there are any models listed, they should be marked [global]
-            if "Installed models" in result.stdout:
-                # Should only have global models, no local ones
-                lines = result.stdout.split('\n')
-                for line in lines:
-                    if line.strip() and line.strip().startswith('-'):
-                        # This is a model line, should have [global] flag
-                        assert "[global]" in line
+            # fzl-style list outputs markdown format, just verify it runs
         finally:
             os.chdir(original_cwd)
 
@@ -794,7 +786,7 @@ class TestFzInstallCommand:
             os.chdir(original_cwd)
 
     def test_list_shows_global_flag(self, test_model_zip, install_workspace):
-        """Test that list command shows [global] and [local] flags"""
+        """Test that list command shows installed model"""
         original_cwd = os.getcwd()
         try:
             os.chdir(install_workspace)
@@ -805,12 +797,12 @@ class TestFzInstallCommand:
             ])
             assert install_result.returncode == 0
 
-            # List models
-            result = run_fz_cli_function('main', ['list', 'models'])
+            # List using fzl-style list command
+            result = run_fz_cli_function('main', ['list'])
 
             assert result.returncode == 0
-            # Should show local flag for installed model
-            assert "[local]" in result.stdout or "[global]" in result.stdout
+            # Should show installed model in output
+            assert "testmodel" in result.stdout
         finally:
             os.chdir(original_cwd)
 
@@ -842,7 +834,7 @@ class TestFzInstallCommand:
         assert not global_model.exists()
 
     def test_list_global_only(self, test_model_zip, install_workspace):
-        """Test listing only global models"""
+        """Test listing models via Python API for global listing"""
         original_cwd = os.getcwd()
         try:
             os.chdir(install_workspace)
@@ -852,12 +844,12 @@ class TestFzInstallCommand:
                 str(test_model_zip)
             ])
 
-            # List only global (should not show local model)
-            result = run_fz_cli_function('main', ['list', 'models', '--global'])
+            # Use Python API for global-only listing
+            from fz.installer import list_installed_models
+            global_models = list_installed_models(global_list=True)
 
-            assert result.returncode == 0
-            # Local testmodel should not appear
-            assert "testmodel" not in result.stdout
+            # Local testmodel should not appear in global listing
+            assert "testmodel" not in global_models
         finally:
             os.chdir(original_cwd)
 
