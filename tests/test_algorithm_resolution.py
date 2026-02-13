@@ -342,7 +342,8 @@ class {class_name}:
                 # Should resolve to project-level (priority)
                 path = resolve_algorithm_path("testpriority")
                 assert path is not None
-                assert path == local_algo
+                # Use resolve() to handle symlinks on macOS (/var -> /private/var)
+                assert path.resolve() == local_algo.resolve()
                 assert "local" in path.read_text()
             finally:
                 os.chdir(original_cwd)
