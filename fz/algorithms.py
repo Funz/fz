@@ -794,10 +794,15 @@ def resolve_algorithm_path(algorithm: str) -> Optional[Path]:
     1. .fz/algorithms/ (project-level, priority)
     2. ~/.fz/algorithms/ (global)
 
+    Also supports glob patterns:
+    - "monte*" - matches files starting with "monte"
+    - "*optimization*" - matches files containing "optimization"
+    - "brent*" - matches files starting with "brent"
+
     Supports both .py and .R extensions.
 
     Args:
-        algorithm: Algorithm name (e.g., "myalgorithm") or path (e.g., "path/to/algo.py")
+        algorithm: Algorithm name, glob pattern, or path (e.g., "myalgorithm", "monte*", "path/to/algo.py")
 
     Returns:
         Path to algorithm file if found, None otherwise
@@ -806,10 +811,14 @@ def resolve_algorithm_path(algorithm: str) -> Optional[Path]:
         >>> resolve_algorithm_path("myalgorithm")  # Looks for .fz/algorithms/myalgorithm.py
         Path('/path/to/project/.fz/algorithms/myalgorithm.py')
 
+        >>> resolve_algorithm_path("monte*")  # Matches montecarlo.py or montecarlo_uniform.py
+        Path('/path/to/project/.fz/algorithms/montecarlo.py')
+
         >>> resolve_algorithm_path("path/to/algo.py")  # Returns as-is (it's a path)
         None  # Caller should handle as direct path
     """
     import os
+    import glob
 
     # If algorithm looks like a path (contains / or \ or has extension), don't resolve
     if '/' in algorithm or '\\' in algorithm or algorithm.endswith(('.py', '.R')):
@@ -828,15 +837,31 @@ def resolve_algorithm_path(algorithm: str) -> Optional[Path]:
     # Try both .py and .R extensions
     extensions = ['.py', '.R']
 
+    # Check if algorithm contains glob patterns
+    has_glob_pattern = any(c in algorithm for c in ['*', '?', '[', ']'])
+
     for base_dir in search_dirs:
         if not base_dir.exists():
             continue
 
-        for ext in extensions:
-            algo_path = base_dir / f"{algorithm}{ext}"
-            if algo_path.exists() and algo_path.is_file():
-                logging.info(f"Found algorithm plugin: {algo_path}")
-                return algo_path
+        if has_glob_pattern:
+            # Use glob pattern matching
+            for ext in extensions:
+                pattern = str(base_dir / f"{algorithm}{ext}")
+                matches = glob.glob(pattern)
+                if matches:
+                    # Return first match
+                    algo_path = Path(matches[0])
+                    if algo_path.is_file():
+                        logging.info(f"Found algorithm plugin (glob): {algo_path}")
+                        return algo_path
+        else:
+            # Exact name matching
+            for ext in extensions:
+                algo_path = base_dir / f"{algorithm}{ext}"
+                if algo_path.exists() and algo_path.is_file():
+                    logging.info(f"Found algorithm plugin: {algo_path}")
+                    return algo_path
 
     return None
 
@@ -845,16 +870,17 @@ def load_algorithm(algorithm: str, **options):
     """
     Load an algorithm from a Python or R file and create an instance with options
 
-    This function supports two modes:
+    This function supports multiple modes:
     1. Plugin mode: Simple name (e.g., "myalgorithm") - searches in .fz/algorithms/
-    2. Direct path: File path (e.g., "path/to/algo.py" or "algorithms/monte_carlo.R")
+    2. Glob pattern: Pattern with wildcards (e.g., "monte*", "*optimization*")
+    3. Direct path: File path (e.g., "path/to/algo.py" or "algorithms/monte_carlo.R")
 
     Plugin directories (searched in order):
     - .fz/algorithms/ (project-level, priority)
     - ~/.fz/algorithms/ (global)
 
     Args:
-        algorithm: Algorithm name (plugin) or path to Python (.py) or R (.R) file
+        algorithm: Algorithm name, glob pattern, or path to Python (.py) or R (.R) file
         **options: Algorithm-specific options passed to the algorithm's __init__ method
 
     Returns:
@@ -867,6 +893,9 @@ def load_algorithm(algorithm: str, **options):
     Examples:
         # Plugin mode - searches in .fz/algorithms/
         >>> algo = load_algorithm("myalgorithm", batch_size=10)
+
+        # Glob pattern mode - matches first file
+        >>> algo = load_algorithm("monte*", batch_size=10)  # Matches montecarlo.py
 
         # Direct path mode
         >>> algo = load_algorithm("algorithms/monte_carlo.py", batch_size=10, max_iter=100)
