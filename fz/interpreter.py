@@ -706,6 +706,9 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
             if code_part.startswith(':') or code_part.startswith('?'):
                 code_part = code_part[1:]
             context_lines.append(code_part)
+    # If delimiters are empty, skip formula evaluation (no formulas possible)
+    if len(delim) == 0:
+        return content
 
     # If delimiters are empty, skip formula evaluation (no formulas possible)
     if len(delim) == 0:

@@ -9,6 +9,8 @@ import ast
 import logging
 import time
 import uuid
+import threading
+from collections import defaultdict
 import signal
 import sys
 import platform
@@ -56,19 +58,11 @@ if platform.system() == "Windows":
 if TYPE_CHECKING:
     import pandas
 
-try:
-    import pandas as pd
+import pandas as pd
 
-    PANDAS_AVAILABLE = True
-except ImportError:
-    PANDAS_AVAILABLE = False
-    pd = None
-    logging.warning("pandas not available, fzo() and fzr() will return dicts instead of DataFrames")
+import shutil
 
-import threading
-from collections import defaultdict
-
-from .logging import log_error, log_warning, log_debug
+from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_interpreter
 from .helpers import (
     fz_temporary_directory,
@@ -82,9 +76,13 @@ from .helpers import (
 )
 from .shell import run_command, replace_commands_in_string
 from .io import (
+    flatten_dict_columns,
+    get_analysis,
+    get_and_process_analysis,
     ensure_unique_directory,
     resolve_cache_paths,
     load_aliases,
+    process_analysis_content,
 )
 from .interpreter import (
     parse_variables_from_path,
@@ -93,8 +91,87 @@ from .interpreter import (
     _get_var_prefix,
     _get_formula_prefix,
 )
-from .runners import resolve_calculators
+from .runners import resolve_calculators, run_calculation
+from .algorithms import (
+    parse_input_vars,
+    parse_fixed_vars,
+    evaluate_output_expression,
+    load_algorithm,
+)
 
+
+def _parse_argument(arg, alias_type=None):
+    """
+    Parse an argument that can be: JSON string, JSON file path, or alias.
+
+    Tries in order:
+    1. JSON string (e.g., '{"key": "value"}')
+    2. JSON file path (e.g., 'path/to/file.json')
+    3. Alias (e.g., 'myalias' -> looks for .fz/<alias_type>/myalias.json)
+
+    Args:
+        arg: The argument to parse (str, dict, list, or other)
+        alias_type: Type of alias ('models', 'calculators', 'algorithms', etc.)
+
+    Returns:
+        Parsed data or the original argument if it's not a string
+    """
+    # If not a string, return as-is
+    if not isinstance(arg, str):
+        return arg
+
+    if not arg:
+        return None
+
+    # Try 1: Parse as JSON string (preferred)
+    if arg.strip().startswith(('{', '[')):
+        try:
+            return json.loads(arg)
+        except json.JSONDecodeError:
+            pass  # Fall through to next option
+
+    # Try 2: Load as JSON file path
+    if arg.endswith('.json'):
+        try:
+            path = Path(arg)
+            if path.exists():
+                with open(path) as f:
+                    return json.load(f)
+        except (IOError, json.JSONDecodeError):
+            pass  # Fall through to next option
+
+    # Try 3: Load as alias
+    if alias_type:
+        from .io import load_aliases
+        alias_data = load_aliases(arg, alias_type)
+        if alias_data is not None:
+            return alias_data
+
+    # If alias_type not provided or alias not found, return as-is
+    return arg
+
+
+def _resolve_calculators_arg(calculators):
+    """
+    Parse and resolve calculator argument.
+
+    Handles:
+    - None (defaults to ["sh://"])
+    - JSON string, JSON file, or alias string
+    - Single calculator dict (wraps in list)
+    - List of calculator specs
+    """
+    if calculators is None:
+        return ["sh://"]
+
+    # Parse the argument (could be JSON string, file, or alias)
+    calculators = _parse_argument(calculators, alias_type='calculators')
+
+    # Wrap dict in list if it's a single calculator definition
+    if isinstance(calculators, dict):
+        calculators = [calculators]
+
+    return calculators
 
 def _print_function_help(func_name: str, func_doc: str):
     """Print function signature and docstring to help users"""
@@ -1028,8 +1105,9 @@ def fzc(
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    if not isinstance(input_variables, dict):
-        raise TypeError(f"input_variables must be a dictionary, got {type(input_variables).__name__}")
+    # Allow dict or pandas DataFrame for input_variables
+    if not isinstance(input_variables, (dict, pd.DataFrame)):
+        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
 
     if not isinstance(output_dir, (str, Path)):
         raise TypeError(f"output_dir must be a string or Path, got {type(output_dir).__name__}")
@@ -1166,7 +1244,7 @@ def fzo(
         rows.append(row)
 
     # Return DataFrame if pandas is available, otherwise return first row as dict for backward compatibility
-    if PANDAS_AVAILABLE:
+    if True:  # pandas is always available
         df = pd.DataFrame(rows)
 
         # Check if all 'path' values follow the "key1=val1,key2=val2,..." pattern
@@ -1228,86 +1306,20 @@ def fzo(
                             cast_values.append(v)
                     df[key] = cast_values
 
+        # Flatten any dict-valued columns into separate columns
+        df = flatten_dict_columns(df)
+
         # Always restore the original working directory
         os.chdir(working_dir)
 
         return df
-    else:
-        # Return dict with lists for backward compatibility when no pandas
-        if not rows:
-            return {}
 
-        # Convert list of dicts to dict of lists
-        result_dict = {}
-        for row in rows:
-            for key, value in row.items():
-                if key not in result_dict:
-                    result_dict[key] = []
-                result_dict[key].append(value)
-
-        # Also parse variable values from path if applicable
-        if len(rows) > 0 and "path" in result_dict:
-            parsed_vars = {}
-            all_parseable = True
-
-            for path_val in result_dict["path"]:
-                # Extract just the last component (subdirectory name) for parsing
-                path_obj = Path(path_val)
-                last_component = path_obj.name
-
-                # If last component doesn't contain '=', it's not a key=value pattern
-                if '=' not in last_component:
-                    all_parseable = False
-                    break
-
-                try:
-                    parts = last_component.split(",")
-                    row_vars = {}
-                    for part in parts:
-                        if "=" in part:
-                            key, val = part.split("=", 1)
-                            row_vars[key.strip()] = val.strip()
-                        else:
-                            all_parseable = False
-                            break
-
-                    if not all_parseable:
-                        break
-
-                    for key in row_vars:
-                        if key not in parsed_vars:
-                            parsed_vars[key] = []
-                        parsed_vars[key].append(row_vars[key])
-
-                except Exception:
-                    all_parseable = False
-                    break
-
-            # If all paths were parseable, add the extracted columns
-            if all_parseable and parsed_vars:
-                for key, values in parsed_vars.items():
-                    # Try to cast values to appropriate types
-                    cast_values = []
-                    for v in values:
-                        try:
-                            if "." not in v:
-                                cast_values.append(int(v))
-                            else:
-                                cast_values.append(float(v))
-                        except ValueError:
-                            cast_values.append(v)
-                    result_dict[key] = cast_values
-        
-        # Always restore the original working directory
-        os.chdir(working_dir)
-
-        return result_dict
 
 
 @with_helpful_errors
 def fzr(
     input_path: str,
-    input_variables: Dict,
+    input_variables: Union[Dict, "pandas.DataFrame"],
     model: Union[str, Dict],
     results_dir: str = "results",
     calculators: Union[str, List[str]] = None,
@@ -1319,7 +1331,8 @@ def fzr(
 
     Args:
         input_path: Path to input file or directory
-        input_variables: Dict of variable values or lists of values for grid
+        input_variables: Dict of variable values or lists of values for factorial grid,
+                        or pandas DataFrame for non-factorial designs (each row is one case)
         model: Model definition dict or alias string
         results_dir: Results directory
         calculators: Calculator specifications
@@ -1344,8 +1357,9 @@ def fzr(
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    if not isinstance(input_variables, dict):
-        raise TypeError(f"input_variables must be a dictionary, got {type(input_variables).__name__}")
+    # Allow dict or pandas DataFrame for input_variables
+    if not isinstance(input_variables, (dict, pd.DataFrame)):
+        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
@@ -1438,6 +1452,9 @@ def fzr(
 
     # Prepare results structure
     results = {var: [] for var in var_names}
+    # Get output keys from model (for reference), but don't pre-initialize arrays
+    # Output arrays will be created dynamically based on actual case results
+    # (especially important for dict outputs that get flattened)
     output_keys = list(model.get("output", {}).keys())
     for key in output_keys:
         results[key] = []
@@ -1452,7 +1469,11 @@ def fzr(
         temp_path = Path(temp_dir)
 
         # Determine if input_variables is non-empty for directory structure decisions
-        has_input_variables = bool(input_variables)
+        # Handle both dict and DataFrame input types
+        if isinstance(input_variables, pd.DataFrame):
+            has_input_variables = not input_variables.empty
+        else:
+            has_input_variables = bool(input_variables)
 
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
@@ -1480,15 +1501,35 @@ def fzr(
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
+            # First pass: collect all output columns from all cases to support dict flattening
+            all_output_cols = set()
+            valid_case_results = []
+
             for case_result in case_results:
                 # Skip None results (incomplete cases from interrupts)
                 if case_result is None:
                     continue
 
+                valid_case_results.append(case_result)
+
+                # Collect all output columns (including flattened dict columns)
+                metadata_keys = {"var_combo", "path", "calculator", "status", "error", "command"}
+                for key in case_result.keys():
+                    if key not in var_names and key not in metadata_keys:
+                        all_output_cols.add(key)
+
+            # Initialize all output columns in results dict
+            for key in all_output_cols:
+                if key not in results:
+                    results[key] = []
+
+            # Second pass: populate results
+            for case_result in valid_case_results:
                 for var in var_names:
                     results[var].append(case_result["var_combo"][var])
 
-                for key in output_keys:
+                # Append values for all output columns
+                for key in all_output_cols:
                     results[key].append(case_result.get(key))
 
                 results["path"].append(case_result.get("path", "."))
@@ -1522,11 +1563,15 @@ def fzr(
     # Always restore the original working directory
     os.chdir(working_dir)
 
-    # Prepare final results
-    if PANDAS_AVAILABLE:
-        final_results = pd.DataFrame(results)
-    else:
-        final_results = results
+    # Return DataFrame
+    # Remove any columns that are empty (e.g., original dict columns that were flattened)
+    # This happens when dict flattening creates new columns (min, max, diff) and the
+    # original column (stats) is no longer populated
+    non_empty_results = {k: v for k, v in results.items() if len(v) > 0}
+
+    df = pd.DataFrame(non_empty_results)
+    # Flatten any dict-valued columns into separate columns
+    final_results = flatten_dict_columns(df)
 
     # Call on_complete callback
     if callbacks and 'on_complete' in callbacks:
@@ -1538,3 +1583,448 @@ def fzr(
 
     # Return final results
     return final_results
+
+
+def _get_and_process_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    iteration: int,
+    results_dir: Path,
+    method_name: str = 'get_analysis'
+) -> Optional[Dict[str, Any]]:
+    """
+    Helper to call algorithm's analysis method and process the results.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        iteration: Current iteration number
+        results_dir: Directory to save processed results
+        method_name: Name of the display method ('get_analysis' or 'get_analysis_tmp')
+
+    Returns:
+        Processed analysis dict or None if method doesn't exist or fails
+    """
+    if not hasattr(algo_instance, method_name):
+        return None
+
+    try:
+        analysis_method = getattr(algo_instance, method_name)
+        analysis_dict = analysis_method(all_input_vars, all_output_values)
+
+        if display_dict:
+            # Log text content before processing (for console output)
+            if 'text' in display_dict:
+                log_info(display_dict['text'])
+
+            # Process and save content intelligently
+            processed = process_analysis_content(display_dict, iteration, results_dir)
+            return processed
+        return None
+
+    except Exception as e:
+        log_warning(f"⚠️  {method_name} failed: {e}")
+        return None
+
+
+def _get_analysis(
+    algo_instance,
+    all_input_vars: List[Dict[str, float]],
+    all_output_values: List[float],
+    output_expression: str,
+    algorithm: str,
+    iteration: int,
+    results_dir: Path
+) -> Dict[str, Any]:
+    """
+    Create final analysis results with analysis information and DataFrame.
+
+    Args:
+        algo_instance: Algorithm instance
+        all_input_vars: All evaluated input combinations
+        all_output_values: All corresponding output values
+        output_expression: Expression for output column name
+        algorithm: Algorithm path/name
+        iteration: Final iteration number
+        results_dir: Directory for saving results
+
+    Returns:
+        Dict with analysis results including XY DataFrame and analysis info
+    """
+    # Display final results
+    log_info("\n" + "="*60)
+    log_info("📈 Final Results")
+    log_info("="*60)
+
+    # Get and process final display results (logging is done inside)
+    processed_final_display = _get_and_process_analysis(
+        algo_instance, all_input_vars, all_output_values,
+        iteration, results_dir, 'get_analysis'
+    )
+
+    # If processed_final_display is None, create empty dict for backward compatibility
+    if processed_final_display is None:
+        processed_final_display = {}
+
+    # Create DataFrame with all input and output values
+    df_data = []
+    for inp_dict, out_val in zip(all_input_vars, all_output_values):
+        row = inp_dict.copy()
+        row[output_expression] = out_val  # Use output_expression as column name
+        df_data.append(row)
+
+    data_df = pd.DataFrame(df_data)
+
+    # Prepare return value
+    result = {
+        'XY': data_df,  # DataFrame with all X and Y values
+        'analysis': processed_final_analysis,  # Use processed analysis instead of raw
+        'algorithm': algorithm,
+        'iterations': iteration,
+        'total_evaluations': len(all_input_vars),
+    }
+
+    # Add summary
+    valid_count = sum(1 for v in all_output_values if v is not None)
+    summary = f"{algorithm} completed: {iteration} iterations, {len(all_input_vars)} evaluations ({valid_count} valid)"
+    result['summary'] = summary
+
+    return result
+
+
+def fzd(
+    input_path: str,
+    input_variables: Dict[str, str],
+    model: Union[str, Dict],
+    output_expression: str,
+    algorithm: str,
+    calculators: Union[str, List[str]] = None,
+    algorithm_options: Dict[str, Any] = None,
+    analysis_dir: str = "analysis"
+) -> Dict[str, Any]:
+    """
+    Run iterative design of experiments with algorithms
+
+    Requires pandas to be installed.
+
+    Args:
+        input_path: Path to input file or directory
+        input_variables: Input variables to vary, as dict of strings {"var1": "[min;max]", ...}
+        model: Model definition dict or alias string
+        output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2"
+        algorithm: Path to algorithm Python file (e.g., "algorithms/montecarlo.py")
+        calculators: Calculator specifications (default: ["sh://"])
+        algorithm_options: Dict of algorithm-specific options (e.g., {"batch_size": 10, "max_iter": 100})
+        analysis_dir: Analysis results directory (default: "results_fzd")
+
+    Returns:
+        Dict with algorithm results including:
+            - 'input_vars': List of evaluated input combinations
+            - 'output_values': List of corresponding output values
+            - 'analysis': Display information from algorithm.get_analysis()
+            - 'summary': Summary text
+
+    Raises:
+        ImportError: If pandas is not installed
+
+    Example:
+        >>> analysis = fz.fzd(
+        ...     input_path='input.txt',
+        ...     input_variables={"x1": "[0;10]", "x2": "[0;5]"},
+        ...     model="mymodel",
+        ...     output_expression="pressure",
+        ...     algorithm="algorithms/montecarlo_uniform.py",
+        ...     calculators=["sh://bash ./calculator.sh"],
+        ...     algorithm_options={"batch_sample_size": 20, "max_iterations": 50},
+        ...     analysis_dir="fzd_analysis"
+        ... )
+    """
+    # This represents the directory from which the function was launched
+    working_dir = os.getcwd()
+
+    # Install signal handler for graceful interrupt handling
+    global _interrupt_requested
+    _interrupt_requested = False
+    _install_signal_handler()
+
+    
+    try:
+        model = _resolve_model(model)
+
+        # Parse calculator argument (handles JSON string, file, or alias)
+        calculators = _resolve_calculators_arg(calculators)
+
+        # Get model ID for calculator resolution
+        model_id = model.get("id") if isinstance(model, dict) else None
+        calculators = resolve_calculators(calculators, model_id)
+
+        # Convert to absolute paths
+        input_dir = Path(input_path).resolve()
+        results_dir = Path(analysis_dir).resolve()
+
+        # Ensure analysis directory is unique (rename existing with timestamp)
+        results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
+
+        # Parse input variable ranges and fixed values
+        parsed_input_vars = parse_input_vars(input_variables)  # Only variables with ranges
+        fixed_input_vars = parse_fixed_vars(input_variables)   # Fixed (unique) values
+
+        # Log what we're doing
+        if fixed_input_vars:
+            log_info(f"🔒 Fixed variables: {', '.join(f'{k}={v}' for k, v in fixed_input_vars.items())}")
+        if parsed_input_vars:
+            log_info(f"🔄 Variable ranges: {', '.join(f'{k}={v}' for k, v in parsed_input_vars.items())}")
+
+        # Extract output variable names from the model
+        output_spec = model.get("output", {})
+        output_var_names = list(output_spec.keys())
+
+        if not output_var_names:
+            raise ValueError("Model must specify output variables in 'output' field")
+
+        # Load algorithm with options
+        if algorithm_options is None:
+            algorithm_options = {}
+        algo_instance = load_algorithm(algorithm, **algorithm_options)
+
+        # Get initial design from algorithm (only for variable inputs)
+        log_info(f"🎯 Starting {algorithm} algorithm...")
+        initial_design_vars = algo_instance.get_initial_design(parsed_input_vars, output_expression)
+
+        # Merge fixed values with algorithm-generated design
+        initial_design = []
+        for design_point in initial_design_vars:
+            # Combine variable values (from algorithm) with fixed values
+            full_point = {**design_point, **fixed_input_vars}
+            initial_design.append(full_point)
+
+        # Track all evaluations
+        all_input_vars = []
+        all_output_values = []
+
+        # Iterative loop
+        iteration = 0
+        current_design = initial_design
+
+        while current_design and not _interrupt_requested:
+            iteration += 1
+            log_info(f"\n📊 Iteration {iteration}: Evaluating {len(current_design)} point(s)...")
+
+            # Create results subdirectory for this iteration
+            iteration_result_dir = results_dir / f"iter{iteration:03d}"
+            iteration_result_dir.mkdir(parents=True, exist_ok=True)
+
+            # Run fzr for all points in parallel using calculators
+            try:
+                log_info(f"  Running {len(current_design)} cases in parallel...")
+                # Create DataFrame with all variables (both variable and fixed)
+                all_var_names = list(parsed_input_vars.keys()) + list(fixed_input_vars.keys())
+                # Build cache paths: include current iterations and renamed directory if it exists
+                cache_paths = [f"cache://{results_dir / f'iter{j:03d}'}" for j in range(1, iteration)]
+                if renamed_results_dir is not None:
+                    # Also check renamed directory for cached results from previous runs
+                    cache_paths.extend([f"cache://{renamed_results_dir / f'iter{j:03d}'}" for j in range(1, 100)])  # Check up to 99 iterations
+
+                result_df = fzr(
+                    str(input_dir),
+                    pd.DataFrame(current_design, columns=all_var_names),# All points in batch
+                    model,
+                    results_dir=str(iteration_result_dir),
+                    calculators=[*cache_paths, *calculators]  # Cache paths first, then actual calculators
+                )
+
+                # Extract output values for each point
+                iteration_inputs = []
+                iteration_outputs = []
+
+                # result_df is a DataFrame (pandas is required for fzd)
+                for i, point in enumerate(current_design):
+                    iteration_inputs.append(point)
+
+                    if i < len(result_df):
+                        row = result_df.iloc[i]
+                        output_data = row #{key: row.get(key, None) for key in output_var_names}
+
+                        # Evaluate output expression
+                        try:
+                            output_value = evaluate_output_expression(
+                                output_expression,
+                                output_data
+                            )
+                            log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
+                            iteration_outputs.append(output_value)
+                        except Exception as e:
+                            available_vars = ', '.join(f"'{k}'" for k in output_data.keys())
+                            log_warning(
+                                f"  Point {i+1}: Failed to evaluate expression '{output_expression}': {e}\n"
+                                f"    Available output variables: {available_vars}"
+                            )
+                            iteration_outputs.append(None)
+                    else:
+                        log_warning(f"  Point {i+1}: No results")
+                        iteration_outputs.append(None)
+
+            except Exception as e:
+                log_error(f"  ❌ Error evaluating batch: {e}")
+                # Add all points with None outputs
+                iteration_inputs = current_design
+                iteration_outputs = [None] * len(current_design)
+
+            # Add iteration results to overall tracking
+            all_input_vars.extend(iteration_inputs)
+            all_output_values.extend(iteration_outputs)
+
+            # Display intermediate results if the method exists
+            tmp_analysis_processed = get_and_process_analysis(
+                algo_instance, all_input_vars, all_output_values,
+                iteration, results_dir, 'get_analysis_tmp'
+            )
+            if tmp_analysis_processed:
+                log_info(f"\n📊 Iteration {iteration} intermediate results:")
+                # Text logging is done inside _get_and_process_analysis
+
+            # Save iteration results to files
+            try:
+                # Save X (input variables) to CSV
+                x_file = results_dir / f"X_{iteration}.csv"
+                with open(x_file, 'w') as f:
+                    if all_input_vars:
+                        # Get all variable names from the first entry
+                        var_names = list(all_input_vars[0].keys())
+                        f.write(','.join(var_names) + '\n')
+                        for inp in all_input_vars:
+                            f.write(','.join(str(inp[var]) for var in var_names) + '\n')
+
+                # Save Y (output values) to CSV
+                y_file = results_dir / f"Y_{iteration}.csv"
+                with open(y_file, 'w') as f:
+                    f.write('output\n')
+                    for val in all_output_values:
+                        f.write(f"{val if val is not None else 'NA'}\n")
+
+                # Save HTML results
+                html_file = results_dir / f"results_{iteration}.html"
+                html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Iteration {iteration} Results</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h1 {{ color: #333; }}
+        h2 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
+        .section {{ margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }}
+        pre {{ background: #f0f0f0; padding: 10px; border-radius: 3px; overflow-x: auto; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #4CAF50; color: white; }}
+    </style>
+</head>
+<body>
+    <h1>Algorithm Results - Iteration {iteration}</h1>
+    <div class="section">
+        <h2>Summary</h2>
+        <p><strong>Total samples:</strong> {len(all_input_vars)}</p>
+        <p><strong>Valid samples:</strong> {sum(1 for v in all_output_values if v is not None)}</p>
+        <p><strong>Iteration:</strong> {iteration}</p>
+    </div>
+"""
+                # Add intermediate results from get_analysis_tmp
+                if tmp_display_processed:
+                    html_content += """
+    <div class="section">
+        <h2>Intermediate Progress</h2>
+"""
+                    # Link to analysis files if they were created
+                    if 'html_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in tmp_display_processed:
+                        html_content += f'<p>📄 <a href="{tmp_display_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in tmp_display_processed:
+                        html_content += f"<pre>{tmp_display_processed['text']}</pre>\n"
+                    if 'data' in tmp_display_processed and tmp_display_processed['data']:
+                        html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
+                        for key, value in tmp_display_processed['data'].items():
+                            html_content += f"{key}: {value}\n"
+                        html_content += "</pre>\n"
+                    html_content += "    </div>\n"
+
+                # Always call get_analysis for this iteration and process content
+                iter_analysis_processed = get_and_process_analysis(
+                    algo_instance, all_input_vars, all_output_values,
+                    iteration, results_dir, 'get_analysis'
+                )
+                if iter_display_processed:
+                    html_content += """
+    <div class="section">
+        <h2>Current Results</h2>
+"""
+                    # Link to analysis files if they were created
+                    if 'html_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["html_file"]}">View HTML Analysis</a></p>\n'
+                    if 'md_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["md_file"]}">View Markdown Analysis</a></p>\n'
+                    if 'json_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["json_file"]}">View JSON Data</a></p>\n'
+                    if 'txt_file' in iter_display_processed:
+                        html_content += f'<p>📄 <a href="{iter_display_processed["txt_file"]}">View Text Data</a></p>\n'
+                    if 'text' in iter_display_processed:
+                        html_content += f"<pre>{iter_display_processed['text']}</pre>\n"
+                    if 'data' in iter_display_processed and iter_display_processed['data']:
+                        html_content += "<p><strong>Data:</strong></p>\n<pre>\n"
+                        for key, value in iter_display_processed['data'].items():
+                            html_content += f"{key}: {value}\n"
+                        html_content += "</pre>\n"
+                    html_content += "    </div>\n"
+
+                html_content += """
+</body>
+</html>
+"""
+                with open(html_file, 'w') as f:
+                    f.write(html_content)
+
+                log_info(f"  💾 Saved iteration results: {x_file.name}, {y_file.name}, {html_file.name}")
+
+            except Exception as e:
+                log_warning(f"⚠️  Failed to save iteration files: {e}")
+
+            if _interrupt_requested:
+                break
+
+            # Get next design from algorithm (only for variable inputs)
+            next_design_vars = algo_instance.get_next_design(
+                all_input_vars,
+                all_output_values
+            )
+
+            # Merge fixed values with algorithm-generated design
+            current_design = []
+            for design_point in next_design_vars:
+                # Combine variable values (from algorithm) with fixed values
+                full_point = {**design_point, **fixed_input_vars}
+                current_design.append(full_point)
+
+        # Get final analysis results
+        result = get_analysis(
+            algo_instance, all_input_vars, all_output_values,
+            output_expression, algorithm, iteration, results_dir
+        )
+
+        return result
+
+    finally:
+        # Restore signal handler
+        _restore_signal_handler()
+
+        # Always restore the original working directory
+        os.chdir(working_dir)
+
+        if _interrupt_requested:
+            log_warning("⚠️  Execution was interrupted. Partial results may be available.")

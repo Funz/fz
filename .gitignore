@@ -1,6 +1,6 @@
 .claude
 claude
-*fz.egg-info
+*.egg-info
 venv
 build
 .vscode

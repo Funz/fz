@@ -131,7 +131,10 @@ def temp_workspace():
 def sample_input_file(temp_workspace):
     """Create a sample input file with variables"""
     input_file = temp_workspace / "input.txt"
-    input_file.write_text("x = ${var1}\ny = ${var2}\nz = ${var3}")
+    with input_file.open('w',newline='\n') as f:
+        f.write("x = ${var1}\n")
+        f.write("y = ${var2}\n")
+        f.write("z = ${var3}\n")
     return input_file
 
 
@@ -271,7 +274,9 @@ class TestFzoCommand:
         """Test fzo with JSON format"""
         # Create a simple output file
         output_file = temp_workspace / "output.txt"
-        output_file.write_text("x = 1.0\ny = 2.0")
+        with output_file.open('w',newline='\n') as f:
+            f.write("x = 1.0\n")
+            f.write("y = 2.0\n")
 
         # Use a simple model (same as input model for consistency)
         result = run_fz_cli_function('fzo_main', [
@@ -580,7 +585,7 @@ class TestFzInstallCommand:
         try:
             os.chdir(install_workspace)
             result = run_fz_cli_function('main', [
-                'install',
+                'install', 'model',
                 str(test_model_zip)
             ])
 
@@ -605,7 +610,7 @@ class TestFzInstallCommand:
         try:
             os.chdir(install_workspace)
             result = run_fz_cli_function('main', [
-                'install',
+                'install', 'model',
                 str(test_model_with_calculators)
             ])
 
@@ -638,13 +643,13 @@ class TestFzInstallCommand:
             os.chdir(install_workspace)
             # Install a model first
             install_result = run_fz_cli_function('main', [
-                'install',
+                'install', 'model',
                 str(test_model_zip)
             ])
             assert install_result.returncode == 0
 
             # List models
-            result = run_fz_cli_function('main', ['list'])
+            result = run_fz_cli_function('main', ['list', 'models'])
 
             assert result.returncode == 0
             assert "testmodel" in result.stdout
@@ -662,7 +667,7 @@ class TestFzInstallCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(empty_workspace)
-            result = run_fz_cli_function('main', ['list'])
+            result = run_fz_cli_function('main', ['list', 'models'])
 
             assert result.returncode == 0
             # May show global models, just verify it runs without error
@@ -680,7 +685,7 @@ class TestFzInstallCommand:
     def test_install_invalid_source(self, temp_workspace):
         """Test error handling for invalid source"""
         result = run_fz_cli_function('main', [
-            'install',
+            'install', 'model',
             str(temp_workspace / "nonexistent.zip")
         ])
 
@@ -691,7 +696,7 @@ class TestFzInstallCommand:
     def test_install_from_github_name(self, install_workspace):
         """Test installing from GitHub shortname (requires network)"""
         result = run_fz_cli_function('main', [
-            'install',
+            'install', 'model',
             'moret'
         ])
 
@@ -705,7 +710,7 @@ class TestFzInstallCommand:
     def test_install_from_github_url(self, install_workspace):
         """Test installing from full GitHub URL (requires network)"""
         result = run_fz_cli_function('main', [
-            'install',
+            'install', 'model',
             'https://github.com/Funz/fz-moret'
         ])
 
@@ -721,14 +726,14 @@ class TestFzInstallCommand:
             os.chdir(install_workspace)
             # Install first time
             result1 = run_fz_cli_function('main', [
-                'install',
+                'install', 'model',
                 str(test_model_zip)
             ])
             assert result1.returncode == 0
 
             # Install again (should overwrite)
             result2 = run_fz_cli_function('main', [
-                'install',
+                'install', 'model',
                 str(test_model_zip)
             ])
             assert result2.returncode == 0
@@ -750,7 +755,7 @@ class TestFzInstallCommand:
             os.chdir(install_workspace)
             # Install model first
             install_result = run_fz_cli_function('main', [
-                'install',
+                'install', 'model',
                 str(test_model_zip)
             ])
             assert install_result.returncode == 0
@@ -761,7 +766,7 @@ class TestFzInstallCommand:
 
             # Uninstall
             result = run_fz_cli_function('main', [
-                'uninstall',
+                'uninstall', 'model',
                 'testmodel'
             ])
 
@@ -779,7 +784,7 @@ class TestFzInstallCommand:
         try:
             os.chdir(install_workspace)
             result = run_fz_cli_function('main', [
-                'uninstall',
+                'uninstall', 'model',
                 'nonexistent_model'
             ])
 
@@ -788,11 +793,32 @@ class TestFzInstallCommand:
         finally:
             os.chdir(original_cwd)
 
+    def test_list_shows_global_flag(self, test_model_zip, install_workspace):
+        """Test that list command shows [global] and [local] flags"""
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            # Install a local model
+            install_result = run_fz_cli_function('main', [
+                'install', 'model',
+                str(test_model_zip)
+            ])
+            assert install_result.returncode == 0
+
+            # List models
+            result = run_fz_cli_function('main', ['list', 'models'])
+
+            assert result.returncode == 0
+            # Should show local flag for installed model
+            assert "[local]" in result.stdout or "[global]" in result.stdout
+        finally:
+            os.chdir(original_cwd)
+
     def test_global_install_and_uninstall(self, test_model_zip):
         """Test installing and uninstalling globally"""
         # Install globally
         result1 = run_fz_cli_function('main', [
-            'install',
+            'install', 'model',
             str(test_model_zip),
             '--global'
         ])
@@ -805,7 +831,7 @@ class TestFzInstallCommand:
 
         # Uninstall globally
         result2 = run_fz_cli_function('main', [
-            'uninstall',
+            'uninstall', 'model',
             'testmodel',
             '--global'
         ])
@@ -814,6 +840,27 @@ class TestFzInstallCommand:
 
         # Verify removed
         assert not global_model.exists()
+
+    def test_list_global_only(self, test_model_zip, install_workspace):
+        """Test listing only global models"""
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(install_workspace)
+            # Install locally
+            run_fz_cli_function('main', [
+                'install', 'model',
+                str(test_model_zip)
+            ])
+
+            # List only global (should not show local model)
+            result = run_fz_cli_function('main', ['list', 'models', '--global'])
+
+            assert result.returncode == 0
+            # Local testmodel should not appear
+            assert "testmodel" not in result.stdout
+        finally:
+            os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

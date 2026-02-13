@@ -10,7 +10,7 @@ A Python package for wrapping parametric simulations with support for:
 - Smart caching and retry mechanisms
 """
 
-from .core import fzi, fzc, fzo, fzr, fzl, check_bash_availability_on_windows
+from .core import fzi, fzc, fzo, fzr, fzl, fzd, check_bash_availability_on_windows
 
 # Check bash availability on Windows at import time
 # This ensures users get immediate feedback if bash is not available
@@ -30,6 +30,9 @@ from .installer import (
     install_model,
     uninstall_model,
     list_installed_models,
+    install_algorithm,
+    uninstall_algorithm,
+    list_installed_algorithms,
 )
 
 
@@ -90,8 +93,11 @@ def list_models(global_list=False):
 
 __version__ = "0.9.1"
 __all__ = [
-    "fzi", "fzc", "fzo", "fzr", "fzl",
+    "fzi", "fzc", "fzo", "fzr", "fzl", "fzd",
     "install", "uninstall", "list_models",
+    "install_model", "uninstall_model", "list_installed_models",
+    "install_algorithm", "uninstall_algorithm", "list_installed_algorithms",
+
     "set_log_level", "get_log_level",
     "get_config", "reload_config", "print_config",
     "set_interpreter", "get_interpreter",
