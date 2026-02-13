@@ -31,14 +31,16 @@ class CaseSpinner:
     [□□|/-\\✓✗] ETA: 2m 30s
     """
 
-    def __init__(self, num_cases: int):
+    def __init__(self, num_cases: int, num_calculators: int = 1):
         """
         Initialize spinner for multiple cases
 
         Args:
             num_cases: Total number of cases to track
+            num_calculators: Number of parallel calculators (for ETA estimation)
         """
         self.num_cases = num_cases
+        self.num_calculators = max(1, num_calculators)  # At least 1
         self.statuses = [CaseStatus.PENDING] * num_cases
         self.spinner_chars = ['◢', '◣', '◤', '◥']
         self.spinner_index = 0
@@ -164,7 +166,8 @@ class CaseSpinner:
                 if remaining > 0 and self.case_durations:
                     # Use average duration of completed cases
                     avg_duration = sum(self.case_durations) / len(self.case_durations)
-                    eta_seconds = avg_duration * remaining
+                    # Divide by number of calculators for parallel execution
+                    eta_seconds = (avg_duration * remaining) / self.num_calculators
                     eta_text = f"ETA: {self._format_eta(eta_seconds)}"
                 elif remaining > 0:
                     # No completed cases yet, show calculating

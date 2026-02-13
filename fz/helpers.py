@@ -1084,7 +1084,10 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
     id_to_uri_map = {calc_id: calc_mgr.get_original_uri(calc_id) for calc_id in calculator_ids}
 
     # Create spinner for case status tracking
-    spinner = CaseSpinner(len(var_combinations))
+    # Count non-cache calculators for accurate ETA estimation
+    non_cache_calculators = [calc for calc in calculators if not calc.startswith("cache://")]
+    num_parallel_calculators = len(non_cache_calculators) if non_cache_calculators else 1
+    spinner = CaseSpinner(len(var_combinations), num_calculators=num_parallel_calculators)
 
     # Prepare case information for each case
     case_infos = []
