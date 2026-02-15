@@ -73,6 +73,11 @@ jobs:
       run: |
         python -m pytest tests/test_ssh_localhost.py::test_ssh_localhost_with_dedicated_key -v -s
 
+    - name: Run SSH error reporting integration tests
+      run: |
+        pip install paramiko
+        python -m pytest tests/test_error_reporting.py::TestSSHIntegrationErrorReporting -v -s --tb=long
+
     - name: Test summary
       if: always()
       run: |

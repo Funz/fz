@@ -37,6 +37,154 @@ except ImportError:
 from .io import load_aliases
 
 
+def classify_error(stderr: str, exit_code: int = None, command: str = None, protocol: str = "sh") -> str:
+    """
+    Classify a calculation error based on stderr content and exit code,
+    returning a human-readable error message.
+
+    Args:
+        stderr: Standard error output from the failed command
+        exit_code: Process exit code (if available)
+        command: The command that was executed (if available)
+        protocol: The protocol used (sh, ssh, slurm, funz)
+
+    Returns:
+        A descriptive error message explaining the likely cause of failure
+    """
+    stderr_lower = stderr.lower() if stderr else ""
+    cmd_name = command.split()[0] if command else "unknown"
+
+    # --- Command not found ---
+    if any(pattern in stderr_lower for pattern in [
+        "command not found",
+        "not found",
+        "no such file or directory",
+        "is not recognized as",  # Windows
+        "cannot find the path",  # Windows
+        "the system cannot find",  # Windows
+    ]):
+        location = "on remote server" if protocol in ("ssh", "slurm") else "locally"
+        return (
+            f"Command not found {location}: '{cmd_name}'. "
+            f"Check that the command is installed and available in PATH. "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # --- Permission denied ---
+    if any(pattern in stderr_lower for pattern in [
+        "permission denied",
+        "operation not permitted",
+        "access is denied",  # Windows
+    ]):
+        return (
+            f"Permission denied when executing '{cmd_name}'. "
+            f"Check file permissions (chmod +x) and user privileges. "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # --- Connection / SSH errors ---
+    if protocol == "ssh" and any(pattern in stderr_lower for pattern in [
+        "connection refused",
+        "connection timed out",
+        "connection reset",
+        "no route to host",
+        "network is unreachable",
+        "host key verification failed",
+        "authentication failed",
+    ]):
+        return (
+            f"SSH connection error: {stderr.strip()}"
+        )
+
+    # --- SLURM specific errors ---
+    if protocol == "slurm" and any(pattern in stderr_lower for pattern in [
+        "invalid partition",
+        "partition not available",
+        "invalid account",
+        "unable to allocate resources",
+        "job submit/allocate failed",
+        "sbatch: error",
+        "srun: error",
+    ]):
+        return (
+            f"SLURM error: {stderr.strip()}"
+        )
+
+    # --- Out of memory ---
+    if any(pattern in stderr_lower for pattern in [
+        "out of memory",
+        "cannot allocate memory",
+        "killed",
+        "oom",
+        "memory allocation failed",
+    ]):
+        return (
+            f"Process ran out of memory or was killed. "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # --- Syntax / script errors ---
+    if any(pattern in stderr_lower for pattern in [
+        "syntax error",
+        "unexpected token",
+        "parse error",
+    ]):
+        return (
+            f"Script syntax error in '{cmd_name}'. "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # --- Disk / filesystem errors ---
+    if any(pattern in stderr_lower for pattern in [
+        "no space left on device",
+        "disk quota exceeded",
+        "read-only file system",
+    ]):
+        return (
+            f"Filesystem error: {stderr.strip()}"
+        )
+
+    # --- Timeout (signal 124 or exit code 124) ---
+    if exit_code == 124 or "timed out" in stderr_lower or "timeout" in stderr_lower:
+        return (
+            f"Command timed out. "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # --- Signal-based termination ---
+    if exit_code is not None and exit_code < 0:
+        import signal as sig
+        try:
+            signal_name = sig.Signals(-exit_code).name
+        except (ValueError, AttributeError):
+            signal_name = str(-exit_code)
+        return (
+            f"Process terminated by signal {signal_name} (exit code {exit_code}). "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # Special exit codes
+    if exit_code == 126:
+        return (
+            f"Command '{cmd_name}' found but not executable (exit code 126). "
+            f"Check file permissions (chmod +x). "
+            f"stderr: {stderr.strip()}"
+        )
+    if exit_code == 127:
+        location = "on remote server" if protocol in ("ssh", "slurm") else "locally"
+        return (
+            f"Command not found {location}: '{cmd_name}' (exit code 127). "
+            f"Check that the command is installed and available in PATH. "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # --- Fallback: generic error with as much context as possible ---
+    parts = [f"Command failed with exit code {exit_code}"]
+    if stderr and stderr.strip():
+        parts.append(f"stderr: {stderr.strip()}")
+    return ". ".join(parts)
+
+
 def get_environment_info() -> Dict[str, str]:
     """
     Get environment information for logging
@@ -1175,10 +1323,18 @@ def run_local_calculation(
             except Exception:
                 pass
 
+            # Classify the error to provide a human-readable message
+            error_message = classify_error(
+                stderr=stderr_content,
+                exit_code=result.returncode,
+                command=command_for_result or full_command,
+                protocol="sh",
+            )
+
             failure_result = {
                 "status": "failed",
                 "exit_code": result.returncode,
-                "error": f"Command failed with exit code {result.returncode}",
+                "error": error_message,
                 "stderr": stderr_content,
             }
 
@@ -1649,10 +1805,18 @@ def _run_local_slurm_calculation(
             except Exception:
                 pass
 
+            # Classify the error to provide a human-readable message
+            error_message = classify_error(
+                stderr=stderr_content,
+                exit_code=result.returncode,
+                command=full_command,
+                protocol="slurm",
+            )
+
             return {
                 "status": "failed",
                 "exit_code": result.returncode,
-                "error": f"SLURM job failed with exit code {result.returncode}",
+                "error": error_message,
                 "stderr": stderr_content,
                 "command": full_command,
             }
@@ -2047,7 +2211,20 @@ EOF
     ssh_client.exec_command(log_command, timeout=30)
 
     if exit_code != 0:
-        return {"status": "failed", "exit_code": exit_code, "stderr": stderr_data}
+        # Classify the error to provide a human-readable message
+        error_message = classify_error(
+            stderr=stderr_data,
+            exit_code=exit_code,
+            command=f"srun --partition={partition} {script}",
+            protocol="slurm",
+        )
+        return {
+            "status": "failed",
+            "exit_code": exit_code,
+            "error": error_message,
+            "stderr": stderr_data,
+            "command": full_command,
+        }
 
     return {"status": "done", "stdout": stdout_data, "stderr": stderr_data}
 
@@ -2844,7 +3021,20 @@ EOF
     ssh_client.exec_command(log_command, timeout=30)
 
     if exit_code != 0:
-        return {"status": "failed", "exit_code": exit_code, "stderr": stderr_data}
+        # Classify the error to provide a human-readable message
+        error_message = classify_error(
+            stderr=stderr_data,
+            exit_code=exit_code,
+            command=command,
+            protocol="ssh",
+        )
+        return {
+            "status": "failed",
+            "exit_code": exit_code,
+            "error": error_message,
+            "stderr": stderr_data,
+            "command": command,
+        }
 
     return {"status": "done", "stdout": stdout_data, "stderr": stderr_data}
 

@@ -189,6 +189,14 @@ jobs:
         cd ${{ github.workspace }}
         pytest tests/test_funz_integration.py -v --tb=long
 
+    - name: Run Funz error reporting integration tests
+      env:
+        FUNZ_UDP_PORT: 5555
+        FZ_LOG_LEVEL: DEBUG
+      run: |
+        cd ${{ github.workspace }}
+        pytest tests/test_error_reporting.py::TestFunzIntegrationErrorReporting -v -s --tb=long
+
     - name: Show calculator logs on failure
       if: failure()
       run: |

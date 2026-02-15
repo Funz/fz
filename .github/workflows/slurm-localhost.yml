@@ -423,6 +423,10 @@ jobs:
             print("\\n✓ Multiple partition test passed!")
         PYTHON
 
+    - name: Run SLURM error reporting integration tests
+      run: |
+        python -m pytest tests/test_error_reporting.py::TestSlurmIntegrationErrorReporting -v -s --tb=long
+
     - name: Show SLURM logs on failure
       if: failure()
       run: |
