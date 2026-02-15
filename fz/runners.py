@@ -1452,7 +1452,8 @@ def run_local_calculation(
         # OSError includes FileNotFoundError, PermissionError, etc.
         # On Windows, when trying to execute a non-existent or non-executable script via subprocess.Popen,
         # various OSError subtypes may be raised depending on the execution mode (shell=True/False)
-        error_result = {"status": "failed", "error": f"Script execution failed: {str(e)}"}
+        classified = classify_error(str(e), exit_code=getattr(e, 'errno', None), command=command_for_result, protocol="sh")
+        error_result = {"status": "failed", "error": classified}
         error_result["command"] = command_for_result
         return error_result
     except Exception as e:

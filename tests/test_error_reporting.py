@@ -262,7 +262,7 @@ class TestLocalShellErrorReporting:
         assert result["status"] == "failed"
         assert "error" in result
         error = result["error"].lower()
-        assert "not found" in error or "no such file" in error, (
+        assert "not found" in error or "no such file" in error or "cannot find" in error, (
             f"Error should mention 'not found' but got: {result['error']}"
         )
 
