@@ -75,6 +75,7 @@ def classify_error(stderr: str, exit_code: int = None, command: str = None, prot
         "permission denied",
         "operation not permitted",
         "access is denied",  # Windows
+        "is not a valid win32 application",  # Windows: not executable
     ]):
         return (
             f"Permission denied when executing '{cmd_name}'. "

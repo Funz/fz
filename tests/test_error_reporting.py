@@ -295,7 +295,7 @@ class TestLocalShellErrorReporting:
         assert result["status"] == "failed"
         assert "error" in result
         error = result["error"].lower()
-        assert "permission" in error or "not executable" in error or "denied" in error, (
+        assert "permission" in error or "not executable" in error or "denied" in error or "not a valid" in error, (
             f"Error should mention 'permission' but got: {result['error']}"
         )
 
