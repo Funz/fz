@@ -305,9 +305,11 @@ class TestLocalShellErrorReporting:
         shutil.copy2(syntax_error_script, dest)
         dest.chmod(0o755)
 
+        # On Windows, .sh files cannot be executed directly; use bash
+        command = f"bash {dest}" if platform.system() == "Windows" else str(dest)
         result = run_local_calculation(
             working_dir=input_dir,
-            command=str(dest),
+            command=command,
             model=simple_model,
             timeout=10,
             original_cwd=str(input_dir),
@@ -325,9 +327,11 @@ class TestLocalShellErrorReporting:
         dest = input_dir / bad_exit_script.name
         shutil.copy2(bad_exit_script, dest)
 
+        # On Windows, .sh files cannot be executed directly; use bash
+        command = f"bash {dest}" if platform.system() == "Windows" else str(dest)
         result = run_local_calculation(
             working_dir=input_dir,
-            command=str(dest),
+            command=command,
             model=simple_model,
             timeout=10,
             original_cwd=str(input_dir),
@@ -344,9 +348,11 @@ class TestLocalShellErrorReporting:
         dest = input_dir / good_script.name
         shutil.copy2(good_script, dest)
 
+        # On Windows, .sh files cannot be executed directly; use bash
+        command = f"bash {dest}" if platform.system() == "Windows" else str(dest)
         result = run_local_calculation(
             working_dir=input_dir,
-            command=str(dest),
+            command=command,
             model=simple_model,
             timeout=10,
             original_cwd=str(input_dir),
@@ -372,9 +378,11 @@ class TestLocalShellErrorReporting:
         dest = input_dir / bad_exit_script.name
         shutil.copy2(bad_exit_script, dest)
 
+        # On Windows, .sh files cannot be executed directly; use bash
+        command = f"bash {dest}" if platform.system() == "Windows" else str(dest)
         result = run_local_calculation(
             working_dir=input_dir,
-            command=str(dest),
+            command=command,
             model=simple_model,
             timeout=10,
             original_cwd=str(input_dir),
