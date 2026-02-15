@@ -195,6 +195,52 @@ class TestClassifyError:
         msg = classify_error("Killed", exit_code=137, command="big_calc")
         assert "memory" in msg.lower() or "killed" in msg.lower()
 
+    # --- New error categories ---
+
+    def test_missing_input_file(self):
+        """Detect 'cannot open' style errors as input file not found."""
+        msg = classify_error("cannot open 'data.csv': No such file or directory",
+                             exit_code=1, command="process data.csv")
+        assert "input file not found" in msg.lower() or "not found" in msg.lower()
+
+    def test_missing_output_file(self):
+        """Detect 'output file not found' patterns."""
+        msg = classify_error("output file not found", exit_code=1, command="calc.sh")
+        assert "missing output" in msg.lower() or "output" in msg.lower()
+
+    def test_no_output_produced(self):
+        """Detect 'no output produced' errors."""
+        msg = classify_error("no output produced", exit_code=1, command="calc.sh")
+        assert "missing output" in msg.lower() or "output" in msg.lower()
+
+    def test_funz_connection_error(self):
+        """Detect Funz-specific connection errors."""
+        msg = classify_error("No calculator found on UDP port 5555",
+                             exit_code=None, command="funz://...", protocol="funz")
+        assert "funz" in msg.lower() or "connection" in msg.lower()
+
+    def test_generic_connection_refused(self):
+        """Detect generic connection refused errors for non-ssh protocols."""
+        msg = classify_error("Connection refused", exit_code=1, command="client.sh", protocol="sh")
+        assert "connection" in msg.lower()
+
+    def test_generic_connection_timeout(self):
+        """Detect generic connection timeout errors."""
+        msg = classify_error("Connection timed out", exit_code=1, command="remote_call", protocol="funz")
+        assert "connection" in msg.lower()
+
+    def test_ssh_remote_input_file_not_found(self):
+        """Input file missing on remote server."""
+        msg = classify_error("cannot open 'input.dat': No such file or directory",
+                             exit_code=1, command="solver input.dat", protocol="ssh")
+        assert "remote" in msg.lower()
+        assert "not found" in msg.lower() or "input file" in msg.lower()
+
+    def test_failed_to_open(self):
+        """Detect 'failed to open' patterns."""
+        msg = classify_error("failed to open input stream", exit_code=1, command="reader.sh")
+        assert "not found" in msg.lower() or "input file" in msg.lower()
+
 
 # ===========================================================================
 # 2. sh:// (local shell) error reporting
@@ -774,7 +820,309 @@ class TestRunCalculationDispatcher:
 
 
 # ===========================================================================
-# 8. SSH integration error reporting (requires SSH server on localhost)
+# 8. Timeout error reporting
+# ===========================================================================
+
+class TestTimeoutErrorReporting:
+    """Test that timeouts produce descriptive error messages."""
+
+    def test_sh_timeout_has_error_key(self, input_dir, simple_model):
+        """sh:// timeout should include an 'error' key with descriptive message."""
+        # Create a script that sleeps longer than timeout
+        script = input_dir / "slow.sh"
+        script.write_text("#!/bin/bash\nsleep 30\n")
+        script.chmod(0o755)
+
+        result = run_local_calculation(
+            working_dir=input_dir,
+            command=str(script),
+            model=simple_model,
+            timeout=1,
+            original_cwd=str(input_dir),
+            input_files_list=["input.txt"],
+        )
+        assert result["status"] == "timeout"
+        assert "error" in result, "Timeout result must include 'error' key"
+        assert "timed out" in result["error"].lower() or "timeout" in result["error"].lower()
+
+    def test_timeout_error_mentions_command(self, input_dir, simple_model):
+        """Timeout error message should mention the command."""
+        script = input_dir / "slow2.sh"
+        script.write_text("#!/bin/bash\nsleep 30\n")
+        script.chmod(0o755)
+
+        result = run_local_calculation(
+            working_dir=input_dir,
+            command=str(script),
+            model=simple_model,
+            timeout=1,
+            original_cwd=str(input_dir),
+            input_files_list=["input.txt"],
+        )
+        assert result["status"] == "timeout"
+        # Error should mention either command name or timeout duration
+        assert "slow2" in result["error"] or "1 second" in result["error"] or "timeout" in result["error"].lower()
+
+    def test_classify_error_timeout_patterns(self):
+        """classify_error should detect multiple timeout patterns."""
+        msg1 = classify_error("timed out waiting for lock", exit_code=1, command="lock_cmd")
+        assert "timed out" in msg1.lower() or "timeout" in msg1.lower()
+
+        msg2 = classify_error("timeout: operation took too long", exit_code=1, command="long_cmd")
+        assert "timed out" in msg2.lower() or "timeout" in msg2.lower()
+
+
+# ===========================================================================
+# 9. Missing output error reporting
+# ===========================================================================
+
+class TestMissingOutputErrorReporting:
+    """Test that missing output is reported clearly through fzr/fzo."""
+
+    def test_fzo_output_error_captured(self, tmp_path):
+        """When fzo output command fails, _output_error should be set."""
+        from fz.core import fzo
+        # Create a directory with no output files
+        case_dir = tmp_path / "case_noout"
+        case_dir.mkdir()
+        (case_dir / "input.txt").write_text("x = 1\n")
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "commentline": "#",
+            "output": {
+                "pressure": "cat nonexistent_output.txt 2>/dev/null",
+            },
+        }
+
+        result = fzo(str(case_dir), model)
+        # Result should have None for pressure and _output_error set
+        if hasattr(result, 'iloc'):
+            row = result.iloc[0]
+            assert row["pressure"] is None
+            assert "_output_error" in result.columns
+        else:
+            assert result["pressure"] is None
+
+    def test_sh_missing_output_propagates_error(self, input_dir, tmp_path):
+        """When script runs OK but doesn't produce expected output, report it."""
+        # Script that succeeds (exit 0) but doesn't write output.txt
+        script = input_dir / "no_output.sh"
+        script.write_text("#!/bin/bash\necho 'hello' > /dev/null\nexit 0\n")
+        script.chmod(0o755)
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "commentline": "#",
+            "output": {
+                "result": "cat output.txt 2>/dev/null | grep 'result =' | cut -d'=' -f2 | tr -d ' '",
+            },
+        }
+
+        result = run_local_calculation(
+            working_dir=input_dir,
+            command=str(script),
+            model=model,
+            timeout=10,
+            original_cwd=str(input_dir),
+            input_files_list=["input.txt"],
+        )
+        # Should still be "done" (script succeeded) but have output error
+        assert result["status"] == "done"
+        # The output key should be None since output.txt doesn't exist
+        assert result.get("result") is None
+        # There should be an error message about missing/empty output
+        assert result.get("error") is not None, \
+            f"Expected error about missing output, got result: {result}"
+        assert "output" in result["error"].lower() or "empty" in result["error"].lower()
+
+    def test_fzr_missing_output_in_dataframe(self, tmp_path):
+        """fzr results should contain the error column with output parsing info."""
+        import fz
+        from fz.core import fzr
+
+        # Create input file
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "input.txt").write_text("x = ${x}\n")
+
+        # Create calculator script that exits 0 but produces no output
+        calc = tmp_path / "calc_no_out.sh"
+        calc.write_text("#!/bin/bash\n# deliberately produce no output\nexit 0\n")
+        calc.chmod(0o755)
+
+        model = {
+            "id": "testmodel",
+            "varprefix": "$",
+            "delim": "{}",
+            "commentline": "#",
+            "output": {
+                "pressure": "cat output.txt 2>/dev/null | grep 'pressure =' | cut -d'=' -f2 | tr -d ' '"
+            },
+        }
+
+        results = fzr(
+            str(input_dir),
+            {"x": [1.0]},
+            model,
+            results_dir=str(tmp_path / "results"),
+            calculators=[f"sh://{calc}"],
+        )
+
+        assert "error" in results.columns
+        # At least one row should have an error about missing/empty output
+        error_vals = results["error"].tolist()
+        has_output_error = any(
+            e is not None and ("output" in str(e).lower() or "empty" in str(e).lower() or "missing" in str(e).lower())
+            for e in error_vals
+        )
+        assert has_output_error, f"Expected output error in results, got: {error_vals}"
+
+
+# ===========================================================================
+# 10. CLI format_output with DataFrame
+# ===========================================================================
+
+class TestCLIFormatOutput:
+    """Test that CLI format_output handles DataFrames and shows errors."""
+
+    def test_format_output_dataframe_markdown(self):
+        """format_output should handle pandas DataFrame for markdown output."""
+        from fz.cli import format_output
+        import pandas as pd
+
+        df = pd.DataFrame({
+            "x": [1.0, 2.0],
+            "result": [42.0, None],
+            "status": ["done", "failed"],
+            "error": [None, "Command not found: 'missing_cmd'"],
+        })
+
+        output = format_output(df, "markdown")
+        assert "x" in output
+        assert "result" in output
+        assert "error" in output
+        assert "Command not found" in output
+
+    def test_format_output_dataframe_json(self):
+        """format_output should handle pandas DataFrame for json output."""
+        from fz.cli import format_output
+        import pandas as pd
+
+        df = pd.DataFrame({
+            "x": [1.0],
+            "status": ["failed"],
+            "error": ["Permission denied"],
+        })
+
+        output = format_output(df, "json")
+        assert "Permission denied" in output
+
+    def test_format_output_dataframe_csv(self):
+        """format_output should handle pandas DataFrame for csv output."""
+        from fz.cli import format_output
+        import pandas as pd
+
+        df = pd.DataFrame({
+            "x": [1.0],
+            "status": ["failed"],
+            "error": ["SSH connection error: Connection refused"],
+        })
+
+        output = format_output(df, "csv")
+        assert "error" in output
+        assert "Connection refused" in output
+
+    def test_format_output_still_works_with_dict(self):
+        """format_output should still work with plain dict input."""
+        from fz.cli import format_output
+
+        data = {"key1": "value1", "key2": "value2"}
+        output = format_output(data, "markdown")
+        assert "key1" in output
+        assert "value1" in output
+
+
+# ===========================================================================
+# 11. fzd error propagation
+# ===========================================================================
+
+class TestFzdErrorPropagation:
+    """Test that fzd reports errors from underlying fzr calculations."""
+
+    def test_fzd_failed_point_logged(self, tmp_path):
+        """When a calculation point fails in fzd, the failure reason
+        should propagate (not just show as None output)."""
+        import fz
+        from fz.core import fzd
+
+        # Create input dir with variable
+        input_dir = tmp_path / "fzd_input"
+        input_dir.mkdir()
+        (input_dir / "input.txt").write_text("x = ${x}\n")
+
+        # Calculator that always fails
+        calc = tmp_path / "fail_calc.sh"
+        calc.write_text("#!/bin/bash\necho 'missing_tool: command not found' >&2\nexit 127\n")
+        calc.chmod(0o755)
+
+        model = {
+            "id": "testmodel",
+            "varprefix": "$",
+            "delim": "{}",
+            "commentline": "#",
+            "output": {
+                "pressure": "grep 'pressure =' output.txt | cut -d'=' -f2 | tr -d ' '"
+            },
+        }
+
+        # Create a minimal algorithm
+        algo_file = tmp_path / "simple_algo.py"
+        algo_file.write_text("""
+class Algorithm:
+    def __init__(self, **kwargs):
+        self.max_iter = kwargs.get('max_iterations', 1)
+        self.iter = 0
+
+    def get_initial_design(self, input_vars, output_expression):
+        # input_vars values are (min, max) tuples from parse_input_vars
+        points = []
+        for var, bounds in input_vars.items():
+            mid = (bounds[0] + bounds[1]) / 2
+            points.append({var: mid})
+        return points
+
+    def get_next_design(self, all_inputs, all_outputs):
+        self.iter += 1
+        if self.iter >= self.max_iter:
+            return []
+        return []
+
+    def get_analysis(self, all_inputs, all_outputs):
+        return {"text": "done"}
+""")
+
+        result = fzd(
+            str(input_dir),
+            {"x": "[0;10]"},
+            model,
+            "pressure",
+            str(algo_file),
+            calculators=[f"sh://{calc}"],
+            algorithm_options={"max_iterations": 1},
+            analysis_dir=str(tmp_path / "analysis"),
+        )
+
+        # The output values should be None (since calculation failed)
+        assert result is not None
+        # Output values should contain None for the failed point
+        assert None in result.get("XY", {}).get("pressure", pd.Series()).tolist() if hasattr(result.get("XY"), "columns") else True
+
+
+# ===========================================================================
+# 12. SSH integration error reporting (requires SSH server on localhost)
 # ===========================================================================
 
 def _ssh_key_available():

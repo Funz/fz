@@ -1189,6 +1189,7 @@ def fzo(
         row = {"path": str(output_path_rel)}
 
         # Execute model output commands from this directory
+        output_errors = []  # Collect output parsing errors for this directory
         for key, command in output_spec.items():
             try:
                 # Apply shell path resolution to command if FZ_SHELL_PATH is set
@@ -1208,17 +1209,40 @@ def fzo(
                     # Try to cast to appropriate Python type
                     parsed_value = cast_output(raw_output)
                     row[key] = parsed_value
+                    # If output is empty/None but stderr has content, report it
+                    if parsed_value is None and raw_output == "":
+                        stderr_msg = result.stderr.strip() if result.stderr else ""
+                        if stderr_msg:
+                            output_errors.append(
+                                f"Output '{key}': command returned empty output — {stderr_msg}"
+                            )
+                        else:
+                            output_errors.append(
+                                f"Output '{key}': command returned empty output (no result produced)"
+                            )
                 else:
+                    stderr_msg = result.stderr.strip() if result.stderr else ""
+                    error_detail = (
+                        f"Output '{key}': command failed (exit code {result.returncode})"
+                    )
+                    if stderr_msg:
+                        error_detail += f" — {stderr_msg}"
+                    output_errors.append(error_detail)
                     log_warning(
                         f"Warning: Command for '{output_path_rel}/{key}' failed: {result.stderr}"
                     )
                     row[key] = None
 
             except Exception as e:
+                output_errors.append(f"Output '{key}': {e}")
                 log_warning(
                     f"Warning: Error executing command for '{output_path_rel}/{key}': {e}"
                 )
                 row[key] = None
+
+        # If there are output parsing errors, add an _output_error column
+        if output_errors:
+            row["_output_error"] = "; ".join(output_errors)
 
         rows.append(row)
 
@@ -1850,6 +1874,17 @@ def fzd(
                         row = result_df.iloc[i]
                         output_data = row #{key: row.get(key, None) for key in output_var_names}
 
+                        # Check if the case itself failed (status != 'done')
+                        case_status = row.get("status") if "status" in row.index else None
+                        case_error = row.get("error") if "error" in row.index else None
+
+                        if case_status is not None and case_status != "done":
+                            # Case failed — report the error from the runner
+                            error_desc = case_error if case_error else f"Calculation failed (status: {case_status})"
+                            log_warning(f"  Point {i+1}: {point} → FAILED: {error_desc}")
+                            iteration_outputs.append(None)
+                            continue
+
                         # Evaluate output expression
                         try:
                             output_value = evaluate_output_expression(
@@ -1859,9 +1894,13 @@ def fzd(
                             log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
                             iteration_outputs.append(output_value)
                         except Exception as e:
+                            # Include the runner error if available for better diagnostics
+                            error_info = str(e)
+                            if case_error:
+                                error_info += f" (calculation error: {case_error})"
                             available_vars = ', '.join(f"'{k}'" for k in output_data.keys())
                             log_warning(
-                                f"  Point {i+1}: Failed to evaluate expression '{output_expression}': {e}\n"
+                                f"  Point {i+1}: Failed to evaluate expression '{output_expression}': {error_info}\n"
                                 f"    Available output variables: {available_vars}"
                             )
                             iteration_outputs.append(None)

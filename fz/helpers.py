@@ -986,7 +986,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             all_output_keys = list(result_output.keys()) if hasattr(result_output, 'keys') else result_output.columns.tolist()
 
             # Filter out metadata columns (path, etc.) to only get output values
-            metadata_cols = ['path']
+            metadata_cols = ['path', '_output_error']
             output_columns = [k for k in all_output_keys if k not in metadata_cols]
 
             for key in output_columns:
@@ -1001,6 +1001,21 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                 else:
                     # Already a scalar
                     result[key] = value
+
+            # Propagate output parsing errors from fzo
+            if '_output_error' in all_output_keys:
+                output_error_val = result_output.get('_output_error')
+                if hasattr(output_error_val, 'iloc'):
+                    output_error_val = output_error_val.iloc[0] if len(output_error_val) > 0 else None
+                elif isinstance(output_error_val, list):
+                    output_error_val = output_error_val[0] if len(output_error_val) > 0 else None
+                if output_error_val:
+                    # Merge output parsing error with any existing calc error
+                    existing_error = result.get("error")
+                    if existing_error:
+                        result["error"] = f"{existing_error}; Missing output: {output_error_val}"
+                    else:
+                        result["error"] = f"Missing output: {output_error_val}"
         except Exception as e:
             log_warning(f"⚠️ [Thread {thread_id}] {case_name}: Could not parse output from result directory: {e}")
             # Add more debugging for parse failures

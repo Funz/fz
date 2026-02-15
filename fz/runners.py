@@ -96,6 +96,32 @@ def classify_error(stderr: str, exit_code: int = None, command: str = None, prot
             f"SSH connection error: {stderr.strip()}"
         )
 
+    # --- Connection errors (generic, all protocols) ---
+    if any(pattern in stderr_lower for pattern in [
+        "connection refused",
+        "connection timed out",
+        "connection reset",
+        "no route to host",
+        "network is unreachable",
+    ]):
+        location = "on remote server" if protocol in ("ssh", "slurm", "funz") else "locally"
+        return (
+            f"Connection error {location}: {stderr.strip()}"
+        )
+
+    # --- Funz protocol errors ---
+    if protocol == "funz" and any(pattern in stderr_lower for pattern in [
+        "no calculator found",
+        "udp discovery",
+        "reservation failed",
+        "failed to reserve",
+        "failed to create new case",
+        "calculator reservation",
+    ]):
+        return (
+            f"Funz connection error: {stderr.strip()}"
+        )
+
     # --- SLURM specific errors ---
     if protocol == "slurm" and any(pattern in stderr_lower for pattern in [
         "invalid partition",
@@ -108,6 +134,34 @@ def classify_error(stderr: str, exit_code: int = None, command: str = None, prot
     ]):
         return (
             f"SLURM error: {stderr.strip()}"
+        )
+
+    # --- Missing input file ---
+    if any(pattern in stderr_lower for pattern in [
+        "no such file or directory",
+        "cannot open",
+        "failed to open",
+        "input file not found",
+        "file not found",
+    ]) and "command not found" not in stderr_lower:
+        location = "on remote server" if protocol in ("ssh", "slurm") else "locally"
+        return (
+            f"Input file not found {location}. "
+            f"Check that all required input files exist and are accessible. "
+            f"stderr: {stderr.strip()}"
+        )
+
+    # --- Missing output file / output parsing failure ---
+    if any(pattern in stderr_lower for pattern in [
+        "output file not found",
+        "no output produced",
+        "missing output",
+        "expected output",
+        "output.txt: no such file",
+    ]):
+        return (
+            f"Missing output file: the calculation did not produce expected output. "
+            f"stderr: {stderr.strip()}"
         )
 
     # --- Out of memory ---
@@ -1354,16 +1408,26 @@ def run_local_calculation(
             # Already a dict
             output_dict = output_results
 
+        # Propagate _output_error from fzo if present
+        output_error = output_dict.pop("_output_error", None)
+
         output_dict["status"] = "done"
         output_dict["calculator"] = "sh://"
 
         # Include command information
         output_dict["command"] = command_for_result
 
+        # If output parsing had errors, report them
+        if output_error:
+            output_dict["error"] = f"Missing output: {output_error}"
+
         return output_dict
 
     except subprocess.TimeoutExpired:
-        timeout_result = {"status": "timeout"}
+        timeout_result = {
+            "status": "timeout",
+            "error": f"Command timed out after {timeout} seconds: '{command_for_result or 'unknown'}'",
+        }
         timeout_result["command"] = command_for_result
         return timeout_result
     except KeyboardInterrupt:
@@ -1575,12 +1639,17 @@ def run_ssh_calculation(
                     else:
                         # Already a dict
                         output_dict = output_results
+
+                    # Propagate _output_error from fzo if present
+                    output_error = output_dict.pop("_output_error", None)
                     result.update(output_dict)
                     result["calculator"] = f"ssh://{host}"
                     result["command"] = command
+                    if output_error:
+                        result["error"] = f"Missing output on remote server: {output_error}"
                 except Exception as e:
                     log_warning(f"Could not parse output: {e}")
-                    result["error"] = str(e)
+                    result["error"] = f"Output parsing failed after successful remote execution: {e}"
 
             # Add command to result even if not done
             if "command" not in result:
@@ -1599,7 +1668,15 @@ def run_ssh_calculation(
             sftp.close()
 
     except Exception as e:
-        return {"status": "error", "error": f"SSH calculation failed: {str(e)}"}
+        # Classify SSH-level errors for better diagnostics
+        error_str = str(e)
+        error_msg = classify_error(
+            stderr=error_str,
+            exit_code=None,
+            command=ssh_uri,
+            protocol="ssh",
+        )
+        return {"status": "error", "error": f"SSH calculation failed: {error_msg}", "command": ssh_uri}
     finally:
         try:
             ssh_client.close()
@@ -1830,15 +1907,23 @@ def _run_local_slurm_calculation(
         else:
             output_dict = output_results
 
+        # Propagate _output_error from fzo if present
+        output_error = output_dict.pop("_output_error", None)
+
         output_dict["status"] = "done"
         output_dict["calculator"] = f"slurm://{partition}"
         output_dict["command"] = full_command
+
+        # If output parsing had errors, report them
+        if output_error:
+            output_dict["error"] = f"Missing output: {output_error}"
 
         return output_dict
 
     except subprocess.TimeoutExpired:
         return {
             "status": "timeout",
+            "error": f"SLURM job timed out after {timeout} seconds on partition '{partition}'",
             "command": f"srun --partition={partition} {script}",
         }
     except KeyboardInterrupt:
@@ -2010,12 +2095,17 @@ def _run_remote_slurm_calculation(
                         output_dict = output_results.iloc[0].to_dict()
                     else:
                         output_dict = output_results
+
+                    # Propagate _output_error from fzo if present
+                    output_error = output_dict.pop("_output_error", None)
                     result.update(output_dict)
                     result["calculator"] = f"slurm://{host}:{partition}"
                     result["command"] = f"srun --partition={partition} {script}"
+                    if output_error:
+                        result["error"] = f"Missing output on remote SLURM node: {output_error}"
                 except Exception as e:
                     log_warning(f"Could not parse output: {e}")
-                    result["error"] = str(e)
+                    result["error"] = f"Output parsing failed after successful remote SLURM execution: {e}"
 
             if "command" not in result:
                 result["command"] = f"srun --partition={partition} {script}"

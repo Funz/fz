@@ -155,12 +155,31 @@ def format_output(data, format_type='markdown'):
     Format output data in various formats
 
     Args:
-        data: Dictionary or list to format
+        data: Dictionary, list, or pandas DataFrame to format
         format_type: One of 'json', 'csv', 'html', 'markdown', 'table'
 
     Returns:
         Formatted string
     """
+    # Handle pandas DataFrame
+    try:
+        import pandas as pd
+        if isinstance(data, pd.DataFrame):
+            if format_type == 'json':
+                return data.to_json(orient='records', indent=2)
+            elif format_type == 'csv':
+                return data.to_csv(index=False)
+            elif format_type == 'html':
+                return data.to_html(index=False)
+            elif format_type == 'markdown':
+                return data.to_markdown(index=False)
+            elif format_type == 'table':
+                return data.to_string(index=False)
+            else:
+                raise ValueError(f"Unsupported format: {format_type}")
+    except ImportError:
+        pass
+
     if format_type == 'json':
         return json.dumps(data, indent=2)
 
