@@ -195,10 +195,22 @@ def run_command(
 
         # Handle bash executable and command modification
         if executable and isinstance(command, str):
-            # Wrap the entire command in bash -c so that shell scripts (.sh)
-            # and bash-specific syntax (&&, ||, pipes, etc.) work correctly
-            # on Windows where .sh files are not natively executable.
-            command = [executable, "-c", command]
+            # On Windows, .sh scripts created by Python don't have MSYS2-visible
+            # execute permission (os.chmod is a no-op for Unix perms on Windows).
+            # bash -c "script.sh args" would fail with exit 126 (permission denied).
+            # Detect if the command starts with a file path and use
+            # bash script.sh args (direct interpretation, no +x needed).
+            # For compound commands (pipes, &&, etc.), use bash -c.
+            first_token = command.split()[0] if command.strip() else ""
+            has_shell_operators = any(op in command for op in ['|', '&&', '||', ';', '>', '<', '$(', '`'])
+
+            if not has_shell_operators and first_token and os.path.isfile(first_token):
+                # File-based command: bash reads and interprets the script directly
+                # without requiring execute permission
+                command = [executable] + command.split()
+            else:
+                # Compound command or PATH-based command: use bash -c
+                command = [executable, "-c", command]
             common_args["shell"] = False  # Use direct execution with bash
             common_args["executable"] = None
         else:
