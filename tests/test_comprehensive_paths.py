@@ -85,7 +85,7 @@ def test_comprehensive_path_resolution():
         {
             "name": "Simple file copy operation",
             "calculator": "sh://cp data.txt output.txt && echo 'result = 100'",
-            "expected_status": "done" if platform.system() != "Windows" else "failed"
+            "expected_status": "done"
         },
         #{ NO: redirection inside command line is not supported
         #    "name": "File processing with redirection",
