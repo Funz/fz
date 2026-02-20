@@ -266,6 +266,11 @@ class TestLocalShellErrorReporting:
             f"Error should mention 'not found' but got: {result['error']}"
         )
 
+    @pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Windows/MSYS2 does not enforce Unix file execute permissions; "
+               "chmod(0o644) is a no-op so scripts remain executable"
+    )
     def test_permission_denied_reports_permission(self, input_dir, simple_model, permission_denied_script):
         """When script lacks execute permission, error should mention 'permission'."""
         # Copy script into working dir

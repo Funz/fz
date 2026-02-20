@@ -20,9 +20,12 @@ try:
 except ImportError:
     HAS_PANDAS = False
 
+from datetime import datetime
+
 from .logging import log_debug, log_info, log_warning, log_error, log_progress
 from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
+from .history import CaseHistory, write_info_file
 
 
 def format_time(seconds):
@@ -492,7 +495,8 @@ def get_calculator_manager():
 def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: int,
                               tmp_dir: Path, model: Dict, original_input_was_dir: bool,
                               thread_id: int, start_time: float, original_cwd: str = None,
-                              input_files_list: List[str] = None, timeout: int = None) -> Tuple[Dict[str, Any], str]:
+                              input_files_list: List[str] = None, timeout: int = None,
+                              history: 'CaseHistory | None' = None) -> Tuple[Dict[str, Any], str]:
     """
     Try calculators with retry mechanism for failed calculations
 
@@ -569,10 +573,14 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         attempted_calculator_ids.append(selected_calculator_id)
         attempt_label = "retry" if attempt > 0 else "primary"
         selected_calculator_uri = calc_mgr.get_original_uri(selected_calculator_id)
+        if history:
+            history.append(f"Trying calculator: {selected_calculator_uri}")
         log_debug(f"🎯 [Thread {thread_id}] Case {case_index}: {attempt_label} attempt with calculator: {selected_calculator_uri}")
 
         try:
             calc_start = time.time()
+            if history:
+                history.append(f"Running command: {selected_calculator_uri}")
             calc_result = run_single_case_calculation(
                 tmp_dir, selected_calculator_uri, model, timeout, original_input_was_dir, original_cwd, input_files_list
             )
@@ -582,6 +590,8 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
 
             # Check if calculation succeeded
             if calc_result and calc_result.get("status") == "done":
+                if history:
+                    history.append(f"Calculation completed (status: done)")
                 used_calculator = calc_result.get("calculator_uri", selected_calculator_uri)
                 elapsed = time.time() - start_time
                 calc_type = "LOCAL" if used_calculator.startswith("sh://") else "REMOTE" if used_calculator.startswith("ssh://") else "CALCULATOR"
@@ -604,6 +614,9 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                     failure_info += f", exit_code={exit_code}"
 
                 log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} failed ({failure_info}): {error_msg}")
+                if history:
+                    retry_suffix = ", retrying..." if attempt < max_attempts - 1 else ""
+                    history.append(f"Calculator {selected_calculator_uri} failed ({failure_info}){retry_suffix}")
                 last_error = calc_result
             else:
                 log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} returned None result")
@@ -699,6 +712,9 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
     log_debug(f"🔄 [Thread {thread_id}] Starting {case_name}")
     start_time = time.time()
+    case_start_dt = datetime.now()
+    history = CaseHistory(case_name)
+    history.append("Case started")
 
     # Call on_case_start callback
     if callbacks and 'on_case_start' in callbacks:
@@ -740,6 +756,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     # Find corresponding calculator IDs for cache calculators
     for i, calculator in enumerate(calculators):
         if calculator.startswith("cache://"):
+            history.append(f"Checking cache: {calculator}")
             cache_pattern = calculator[8:]  # Remove "cache://"
             cache_paths = resolve_cache_paths(cache_pattern)
 
@@ -797,6 +814,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                             continue
 
                         log_debug(f"📦 [Thread {thread_id}] Case {case_index}: Cache validated and restored from: {cache_match}")
+                        history.append(f"Cache hit from {cache_match}")
                         calc_result = {"status": "done"}
 
                     except Exception as validation_error:
@@ -819,6 +837,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                     continue
             else:
                 # Cache miss, continue to next calculator
+                history.append("Cache miss")
                 continue
 
     # If no cache hit, run calculation with retry mechanism
@@ -845,7 +864,8 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             # Try calculators with retry mechanism using unique IDs
             calc_result, used_calculator_id = try_calculators_with_retry(
                 non_cache_calculator_ids, case_index, tmp_dir, model,
-                original_input_was_dir, thread_id, start_time, original_cwd, input_files_list, timeout
+                original_input_was_dir, thread_id, start_time, original_cwd, input_files_list, timeout,
+                history=history
             )
             # Use calculator ID directly (includes #n suffix for duplicate URIs)
             used_calculator = used_calculator_id
@@ -892,6 +912,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
         log_debug(f"🔍 [Thread {thread_id}] {case_name}: Result dir exists: {result_dir.exists()}")
 
         # Copy calculation results from tmp_dir to result_dir with retry logic
+        history.append("Copying results from temp to result directory")
         copy_success = True
         max_retries = 3
         retry_count = 0
@@ -967,6 +988,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                     copy_success = False
 
         # Parse output from the result directory
+        history.append("Parsing output")
         parse_success = True
         parse_error = None
         try:
@@ -1136,6 +1158,28 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
         # Update spinner to show failure
         if spinner:
             spinner.update_status(case_index, CaseStatus.FAILED)
+
+    # Write history.txt and info.txt to result directory
+    elapsed = time.time() - start_time
+    final_status = result.get("status", "unknown")
+    history.append(f"Case finished (status: {final_status}, {elapsed:.2f}s)")
+    try:
+        history.write(result_dir)
+        # Collect output values (non-metadata keys) for info.txt
+        metadata_keys = {"var_combo", "path", "calculator", "status", "error",
+                         "error_details", "command", "exit_code", "stderr"}
+        output_vals = {k: v for k, v in result.items() if k not in metadata_keys}
+        write_info_file(
+            result_dir,
+            state=final_status,
+            calculator=result.get("calculator", used_calculator or "unknown"),
+            start_time=case_start_dt,
+            end_time=datetime.now(),
+            input_variables=var_combo,
+            output_values=output_vals,
+        )
+    except Exception as e:
+        log_warning(f"⚠️ [Thread {thread_id}] {case_name}: Could not write history/info files: {e}")
 
     # Clean up tmp_dir after calculation (unless in DEBUG mode)
     from .logging import get_log_level, LogLevel
