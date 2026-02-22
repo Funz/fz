@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bash completion script for fz, fzi, fzc, fzo, fzr, fzl commands
+# Bash completion script for fz, fzi, fzc, fzo, fzr, fzl, fzd commands
 
 # Helper function to complete file paths
 _fz_complete_files() {
@@ -177,6 +177,52 @@ _fzl() {
     return 0
 }
 
+# Completion for fzd command
+_fzd() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts="--input_dir -i --input_vars -v --model -m --output_expression -e --algorithm -a --results_dir -r --calculators -c --options -o --help -h --version"
+
+    case "${prev}" in
+        --input_dir|-i)
+            _fz_complete_dirs "${cur}"
+            return 0
+            ;;
+        --model|-m)
+            _fz_complete_files "${cur}"
+            return 0
+            ;;
+        --input_vars|-v)
+            _fz_complete_files "${cur}"
+            return 0
+            ;;
+        --algorithm|-a)
+            _fz_complete_files "${cur}"
+            return 0
+            ;;
+        --results_dir|-r)
+            _fz_complete_dirs "${cur}"
+            return 0
+            ;;
+        --calculators|-c)
+            _fz_complete_files "${cur}"
+            return 0
+            ;;
+        --options|-o)
+            _fz_complete_files "${cur}"
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+
+    COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+    return 0
+}
+
 # Completion for fz main command
 _fz() {
     local cur prev opts subcommand
@@ -188,7 +234,7 @@ _fz() {
     subcommand=""
     for ((i=1; i < COMP_CWORD; i++)); do
         case "${COMP_WORDS[i]}" in
-            input|compile|output|run|list)
+            input|compile|output|run|list|design|install|uninstall)
                 subcommand="${COMP_WORDS[i]}"
                 break
                 ;;
@@ -197,7 +243,7 @@ _fz() {
 
     # If no subcommand yet, offer subcommands and main options
     if [[ -z "$subcommand" ]]; then
-        opts="input compile output run list --help -h --version"
+        opts="input compile output run design list install uninstall --help -h --version"
         COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
         return 0
     fi
@@ -325,6 +371,47 @@ _fz() {
                     ;;
             esac
             ;;
+        design)
+            opts="--input_dir -i --input_vars -v --model -m --output_expression -e --algorithm -a --results_dir -r --calculators -c --options -o --help -h --version"
+            case "${prev}" in
+                --input_dir|-i)
+                    _fz_complete_dirs "${cur}"
+                    return 0
+                    ;;
+                --model|-m)
+                    _fz_complete_files "${cur}"
+                    return 0
+                    ;;
+                --input_vars|-v)
+                    _fz_complete_files "${cur}"
+                    return 0
+                    ;;
+                --algorithm|-a)
+                    _fz_complete_files "${cur}"
+                    return 0
+                    ;;
+                --results_dir|-r)
+                    _fz_complete_dirs "${cur}"
+                    return 0
+                    ;;
+                --calculators|-c)
+                    _fz_complete_files "${cur}"
+                    return 0
+                    ;;
+                --options|-o)
+                    _fz_complete_files "${cur}"
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        install|uninstall)
+            COMPREPLY=($(compgen -W "model algorithm --global --help -h" -- ${cur}))
+            return 0
+            ;;
     esac
 
     return 0
@@ -337,3 +424,4 @@ complete -F _fzc fzc
 complete -F _fzo fzo
 complete -F _fzr fzr
 complete -F _fzl fzl
+complete -F _fzd fzd

@@ -2,13 +2,14 @@
 
 ## The Core Functions
 
-FZ provides five main functions for parametric computing:
+FZ provides six main functions for parametric computing:
 
 1. **`fzi`** - Parse **I**nput files to identify variables
 2. **`fzc`** - **C**ompile input files by substituting variables
 3. **`fzo`** - Parse **O**utput files from calculations
 4. **`fzr`** - **R**un complete parametric calculations end-to-end
-5. **`fzl`** - **L**ist and validate installed models and calculators
+5. **`fzd`** - Run iterative **D**esign of experiments with adaptive algorithms
+6. **`fzl`** - **L**ist and validate installed models and calculators
 
 ## fzl - List and Validate Models/Calculators
 
@@ -505,6 +506,146 @@ The returned DataFrame includes:
 - **Optimization**: Generate data for optimization algorithms
 - **Validation**: Compare multiple methods or configurations
 
+## fzd - Run Design of Experiments
+
+**Purpose**: Run iterative design of experiments with adaptive algorithms that intelligently choose which points to evaluate next.
+
+### Function Signature
+
+```python
+import fz
+
+result = fz.fzd(
+    input_path,
+    input_variables,
+    model,
+    output_expression,
+    algorithm,
+    calculators=None,
+    algorithm_options=None,
+    analysis_dir="analysis"
+)
+```
+
+**Parameters**:
+- `input_path` (str): Path to input file or directory
+- `input_variables` (dict): Variable ranges as `{"var": "[min;max]"}` or fixed values as `{"var": "value"}`
+- `model` (dict or str): Model definition or alias
+- `output_expression` (str): Expression to evaluate from outputs (e.g., `"pressure"` or `"r1 + r2 * 2"`)
+- `algorithm` (str): Path to algorithm Python file
+- `calculators` (str or list): Calculator URI(s) (default: `["sh://"]`)
+- `algorithm_options` (dict, str, or None): Algorithm-specific options (dict, JSON string, or JSON file path)
+- `analysis_dir` (str): Analysis results directory (default: `"analysis"`)
+
+**Returns**: Dictionary with keys:
+- `XY`: pandas DataFrame with all input and output values
+- `analysis`: Processed analysis results (HTML, plots, metrics)
+- `algorithm`: Algorithm path
+- `iterations`: Number of iterations completed
+- `total_evaluations`: Total number of function evaluations
+- `summary`: Human-readable summary text
+
+### Examples
+
+**Example 1: Random sampling**
+
+```python
+import fz
+
+model = {
+    "varprefix": "$",
+    "delim": "()",
+    "run": "bash -c 'source input.txt && result=$(echo \"scale=6; $x * $x + $y * $y\" | bc) && echo \"result = $result\" > output.txt'",
+    "output": {
+        "result": "grep 'result = ' output.txt | cut -d '=' -f2 | tr -d ' '"
+    }
+}
+
+result = fz.fzd(
+    input_path="input/",
+    input_variables={"x": "[-2;2]", "y": "[-2;2]"},
+    model=model,
+    output_expression="result",
+    algorithm="examples/algorithms/randomsampling.py",
+    algorithm_options={"nvalues": 20, "seed": 42}
+)
+
+print(result['summary'])
+df = result['XY']
+best = df.loc[df['result'].idxmin()]
+print(f"Best: x={best['x']:.4f}, y={best['y']:.4f}, result={best['result']:.6f}")
+```
+
+**Example 2: 1D optimization with Brent's method**
+
+```python
+result = fz.fzd(
+    input_path="input/",
+    input_variables={"x": "[0;2]"},
+    model=model_1d,
+    output_expression="result",
+    algorithm="examples/algorithms/brent.py",
+    algorithm_options={"max_iter": 20, "tol": 1e-3}
+)
+```
+
+**Example 3: Multi-dimensional optimization with BFGS**
+
+```python
+result = fz.fzd(
+    input_path="input/",
+    input_variables={"x": "[-2;2]", "y": "[-2;2]"},
+    model=model,
+    output_expression="result",
+    algorithm="examples/algorithms/bfgs.py",
+    algorithm_options={"max_iter": 20, "tol": 1e-4},
+    calculators=["sh://bash calc.sh"] * 4  # 4 parallel evaluators
+)
+```
+
+**Example 4: CLI usage**
+
+```bash
+# Random sampling
+fzd -i input/ -m perfectgas \
+  -v '{"x": "[-2;2]", "y": "[-2;2]"}' \
+  -e "result" \
+  -a examples/algorithms/randomsampling.py \
+  -o '{"nvalues": 20, "seed": 42}'
+
+# Also available as subcommand
+fz design -i input/ -m perfectgas \
+  -v '{"x": "[-2;2]"}' \
+  -e "result" \
+  -a examples/algorithms/brent.py
+```
+
+### Algorithm Interface
+
+Custom algorithms must implement a class with these methods:
+
+```python
+class MyAlgorithm:
+    def __init__(self, options):
+        """Initialize with algorithm-specific options dict."""
+
+    def get_initial_design(self, input_variables, output_variables):
+        """Return initial list of sample points (list of dicts)."""
+
+    def get_next_design(self, X, Y):
+        """Return next sample points or None to stop."""
+
+    def get_analysis(self, X, Y):
+        """Return analysis results (HTML string, dict, etc.)."""
+```
+
+### Use Cases
+
+- **Optimization**: Find input values that minimize/maximize an output
+- **Sensitivity analysis**: Adaptively explore parameter space
+- **Uncertainty quantification**: Monte Carlo sampling with convergence checks
+- **Root finding**: Find input values where output equals a target
+
 ## Function Comparison
 
 | Function | Input | Output | Use Case |
@@ -513,6 +654,8 @@ The returned DataFrame includes:
 | `fzc` | Template + values | Compiled files | Batch file generation |
 | `fzo` | Result directories | DataFrame | Parse existing results |
 | `fzr` | Template + values + calculator | DataFrame | Complete parametric run |
+| `fzd` | Template + ranges + algorithm | Dict (DataFrame + analysis) | Iterative optimization/sampling |
+| `fzl` | Patterns | Dict | List/validate models & calculators |
 
 ## Typical Workflows
 

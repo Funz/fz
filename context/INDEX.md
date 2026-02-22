@@ -60,6 +60,8 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | fzc (compile) | core-functions.md | "fzc - Compile Input Files" |
 | fzo (read output) | core-functions.md | "fzo - Read Output Files" |
 | fzr (run calculations) | core-functions.md | "fzr - Run Parametric Calculations" |
+| fzd (design of experiments) | core-functions.md | "fzd - Run Design of Experiments" |
+| fzl (list models/calculators) | core-functions.md | "fzl - List and Validate Models/Calculators" |
 | Function signatures | core-functions.md | Each function section → "Function Signature" |
 | Return values | core-functions.md | Each function section |
 | Function comparison | core-functions.md | "Function Comparison" |
@@ -150,6 +152,8 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | fzc CLI | quick-examples.md | "CLI Quick Examples" → "Example 2" |
 | fzr CLI | quick-examples.md | "CLI Quick Examples" → "Example 3" |
 | fzo CLI | quick-examples.md | "CLI Quick Examples" → "Example 4" |
+| fzd CLI | *(see README.md)* | "CLI Usage" → "fzd - Design of Experiments" |
+| fzl CLI | *(see README.md)* | "CLI Usage" → "fzl - List and Validate Models/Calculators" |
 | CLI reference | *(see README.md)* | "CLI Usage" |
 
 ## Troubleshooting
@@ -182,6 +186,8 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Use formulas to calculate values | formulas-and-interpreters.md |
 | Parse input variables | core-functions.md → "fzi" |
 | Run a parametric study | core-functions.md → "fzr" |
+| Run optimization/sampling | core-functions.md → "fzd" |
+| List available models | core-functions.md → "fzl" |
 | Create a model | model-definition.md |
 | Run calculations remotely | calculators.md → "Remote SSH Calculator" |
 | Speed up my calculations | parallel-and-caching.md |
@@ -224,6 +230,10 @@ Quick keyword search:
 - **UDP**: funz-protocol.md → "UDP Discovery"
 - **Shell path**: shell-path.md
 - **FZ_SHELL_PATH**: shell-path.md
+- **fzd**: core-functions.md → "fzd - Run Design of Experiments"
+- **fzl**: core-functions.md → "fzl - List and Validate Models/Calculators"
+- **Algorithm**: core-functions.md → "fzd", examples/fzd_example.md
+- **Optimization**: core-functions.md → "fzd", examples/fzd_example.md
 - **Examples**: quick-examples.md
 - **CLI**: quick-examples.md → "CLI Quick Examples"
 - **DataFrame**: core-functions.md → "fzr", "fzo"

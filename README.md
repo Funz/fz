@@ -21,6 +21,8 @@ A powerful Python package for parametric simulations and computational experimen
   - [fzo - Read Output Files](#fzo---read-output-files)
   - [fzl - List and Validate Models/Calculators](#fzl---list-and-validate-modelscalculators)
   - [fzr - Run Parametric Calculations](#fzr---run-parametric-calculations)
+  - [fzd - Design of Experiments](#fzd---design-of-experiments)
+  - [fz install / uninstall](#fz-install--uninstall)
 - [Core Functions](#core-functions)
 - [Model Definition](#model-definition)
   - [Variable Default Values](#variable-default-values)
@@ -70,13 +72,14 @@ A powerful Python package for parametric simulations and computational experimen
 - **⚠️ Error Reporting**: Protocol-specific error classification with descriptive messages recorded in results
 - **🖥️ Cross-Platform**: Works on Linux, macOS, and Windows (MSYS2/Git Bash) with configurable shell paths
 
-### Five Core Functions
+### Six Core Functions
 
 1. **`fzi`** - Parse **I**nput files to identify variables
 2. **`fzc`** - **C**ompile input files by substituting variable values
 3. **`fzo`** - Parse **O**utput files from calculations
 4. **`fzr`** - **R**un complete parametric calculations end-to-end
 5. **`fzd`** - Run iterative **D**esign of experiments with adaptive algorithms
+6. **`fzl`** - **L**ist and validate installed models and calculators
 
 ## Installation
 
@@ -92,7 +95,7 @@ pip install funz-fz
 pipx install funz-fz
 ```
 
-[pipx](https://pypa.github.io/pipx/) installs the package in an isolated environment while making the CLI commands (`fz`, `fzi`, `fzc`, `fzo`, `fzr`) available globally.
+[pipx](https://pypa.github.io/pipx/) installs the package in an isolated environment while making the CLI commands (`fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`) available globally.
 
 ### From Source
 
@@ -518,6 +521,67 @@ fzr ... --format markdown
 
 # HTML
 fzr ... --format html > results.html
+```
+
+### fzd - Design of Experiments
+
+Run iterative design of experiments with adaptive algorithms:
+
+```bash
+# Basic usage with random sampling
+fzd --input_dir input/ \
+  --model perfectgas \
+  --input_vars '{"x": "[-2;2]", "y": "[-2;2]"}' \
+  --output_expression "result" \
+  --algorithm examples/algorithms/randomsampling.py \
+  --options '{"nvalues": 20, "seed": 42}'
+
+# With multiple calculators for parallel evaluation
+fzd --input_dir input/ \
+  --model perfectgas \
+  --input_vars '{"x": "[-2;2]", "y": "[-2;2]"}' \
+  --output_expression "result" \
+  --algorithm examples/algorithms/bfgs.py \
+  --calculators '["sh://bash calc.sh", "sh://bash calc.sh"]' \
+  --options '{"max_iter": 20, "tol": 1e-4}' \
+  --results_dir optimization_results/
+```
+
+**Algorithm options from file:**
+
+```bash
+# Store options in a JSON file
+cat > algo_config.json << 'EOF'
+{"nvalues": 50, "seed": 42}
+EOF
+
+fzd -i input/ -m perfectgas \
+  -v '{"x": "[-2;2]", "y": "[-2;2]"}' \
+  -e "result" \
+  -a examples/algorithms/randomsampling.py \
+  -o algo_config.json
+```
+
+Also available as subcommand: `fz design ...`
+
+### fz install / uninstall
+
+Install models or algorithms from GitHub or local zip files:
+
+```bash
+# Install a model (to .fz/models/ in current project)
+fz install model perfectgas
+fz install model https://github.com/user/model-repo.git
+
+# Install globally (to ~/.fz/models/)
+fz install model perfectgas --global
+
+# Install an algorithm
+fz install algorithm https://github.com/user/algo-repo.git
+
+# Uninstall
+fz uninstall model perfectgas
+fz uninstall algorithm myalgo
 ```
 
 ### CLI Options Reference
@@ -3062,7 +3126,7 @@ Modular documentation in the `context/` directory:
 
 - **context/INDEX.md** - Documentation overview and navigation
 - **context/overview.md** - High-level FZ concepts and design
-- **context/core-functions.md** - API reference for fzi, fzc, fzo, fzr
+- **context/core-functions.md** - API reference for fzi, fzc, fzo, fzr, fzl, fzd
 - **context/calculators.md** - Calculator types, URIs, and configuration
 - **context/model-definition.md** - Model structure, aliases, and output parsing
 - **context/formulas-and-interpreters.md** - Formula evaluation (Python/R)
@@ -3075,8 +3139,10 @@ Modular documentation in the `context/` directory:
 Practical examples in the `examples/` directory:
 
 - **examples/examples.md** - Overview of all examples
+- **examples/fzd_example.md** - Iterative design of experiments (fzd) examples
+- **examples/dataframe_input.md** - DataFrame input for non-factorial designs
+- **examples/algorithm_options_example.md** - Algorithm options format guide
 - **examples/r_interpreter_example.md** - R interpreter setup and usage
-- **examples/variable_substitution.md** - Default values and variable syntax
 - **examples/shell_path_example.md** - FZ_SHELL_PATH configuration examples
 - **examples/java_funz_syntax_example.py** - Legacy Funz syntax compatibility
 - **examples/fzi_formulas_example.py** - Formula evaluation examples

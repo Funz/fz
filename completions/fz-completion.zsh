@@ -1,5 +1,5 @@
-#compdef fz fzi fzc fzo fzr fzl
-# Zsh completion script for fz, fzi, fzc, fzo, fzr, fzl commands
+#compdef fz fzi fzc fzo fzr fzl fzd
+# Zsh completion script for fz, fzi, fzc, fzo, fzr, fzl, fzd commands
 
 # Completion for fzi command
 _fzi() {
@@ -56,6 +56,21 @@ _fzl() {
         '--version[Show version]'
 }
 
+# Completion for fzd command
+_fzd() {
+    _arguments \
+        '(-i --input_dir)'{-i,--input_dir}'[Input directory path]:input directory:_directories' \
+        '(-v --input_vars)'{-v,--input_vars}'[Input variable ranges (JSON file or inline JSON)]:variables file:_files -g "*.json"' \
+        '(-m --model)'{-m,--model}'[Model definition (JSON file, inline JSON, or alias)]:model file:_files -g "*.json"' \
+        '(-e --output_expression)'{-e,--output_expression}'[Output expression to optimize]:expression:' \
+        '(-a --algorithm)'{-a,--algorithm}'[Algorithm file path]:algorithm file:_files -g "*.py"' \
+        '(-r --results_dir)'{-r,--results_dir}'[Results directory (default: results_fzd)]:results directory:_directories' \
+        '(-c --calculators)'{-c,--calculators}'[Calculator specifications]:calculators file:_files -g "*.json"' \
+        '(-o --options)'{-o,--options}'[Algorithm options (JSON file or inline JSON)]:options file:_files -g "*.json"' \
+        '(-h --help)'{-h,--help}'[Show help message]' \
+        '--version[Show version]'
+}
+
 # Completion for fz main command with subcommands
 _fz() {
     local curcontext="$curcontext" state line
@@ -75,7 +90,10 @@ _fz() {
                 'compile:Compile input with variable values'
                 'output:Parse output files'
                 'run:Run full parametric calculations'
+                'design:Iterative design of experiments with algorithms'
                 'list:List available models and calculators'
+                'install:Install a model or algorithm'
+                'uninstall:Uninstall a model or algorithm'
             )
             _describe -t commands 'fz command' subcommands
             ;;
@@ -126,6 +144,26 @@ _fz() {
                         '(-h --help)'{-h,--help}'[Show help message]' \
                         '--version[Show version]'
                     ;;
+                design)
+                    _arguments \
+                        '(-i --input_dir)'{-i,--input_dir}'[Input directory path]:input directory:_directories' \
+                        '(-v --input_vars)'{-v,--input_vars}'[Input variable ranges (JSON file or inline JSON)]:variables file:_files -g "*.json"' \
+                        '(-m --model)'{-m,--model}'[Model definition (JSON file, inline JSON, or alias)]:model file:_files -g "*.json"' \
+                        '(-e --output_expression)'{-e,--output_expression}'[Output expression to optimize]:expression:' \
+                        '(-a --algorithm)'{-a,--algorithm}'[Algorithm file path]:algorithm file:_files -g "*.py"' \
+                        '(-r --results_dir)'{-r,--results_dir}'[Results directory (default: results_fzd)]:results directory:_directories' \
+                        '(-c --calculators)'{-c,--calculators}'[Calculator specifications]:calculators file:_files -g "*.json"' \
+                        '(-o --options)'{-o,--options}'[Algorithm options (JSON file or inline JSON)]:options file:_files -g "*.json"' \
+                        '(-h --help)'{-h,--help}'[Show help message]' \
+                        '--version[Show version]'
+                    ;;
+                install|uninstall)
+                    _arguments \
+                        '1:type:(model algorithm)' \
+                        '2:source:_files' \
+                        '--global[Install/uninstall globally to ~/.fz/]' \
+                        '(-h --help)'{-h,--help}'[Show help message]'
+                    ;;
             esac
             ;;
     esac
@@ -138,3 +176,4 @@ compdef _fzc fzc
 compdef _fzo fzo
 compdef _fzr fzr
 compdef _fzl fzl
+compdef _fzd fzd
