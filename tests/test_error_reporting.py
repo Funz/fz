@@ -536,6 +536,153 @@ class TestClassifyErrorDispatch:
         assert "memory" in msg.lower()
 
 
+class TestClassifyErrorNegative:
+    """Negative tests: verify errors are NOT misclassified."""
+
+    # --- sh:// should never say "remote" ---
+
+    def test_sh_command_not_found_not_remote(self):
+        msg = classify_error("command not found", exit_code=127, command="bad_cmd", protocol="sh")
+        assert "remote" not in msg.lower()
+        assert "locally" in msg.lower()
+
+    def test_sh_permission_denied_not_remote(self):
+        msg = classify_error("Permission denied", exit_code=126, command="script.sh", protocol="sh")
+        assert "remote" not in msg.lower()
+
+    # --- ssh:// should never say "locally" ---
+
+    def test_ssh_command_not_found_not_local(self):
+        msg = classify_error("command not found", exit_code=127, command="bad_cmd", protocol="ssh")
+        assert "locally" not in msg.lower()
+        assert "remote" in msg.lower()
+
+    def test_ssh_permission_denied_not_local(self):
+        msg = classify_error("Permission denied", exit_code=126, command="script.sh", protocol="ssh")
+        assert "locally" not in msg.lower()
+        assert "remote" in msg.lower()
+
+    # --- slurm:// should never say "locally" ---
+
+    def test_slurm_command_not_found_not_local(self):
+        msg = classify_error("command not found", exit_code=127, command="bad_cmd", protocol="slurm")
+        assert "locally" not in msg.lower()
+        assert "remote" in msg.lower()
+
+    # --- OOM should NOT be misclassified as command not found ---
+
+    def test_oom_not_command_not_found(self):
+        msg = classify_error("Cannot allocate memory", exit_code=1, command="heavy_calc", protocol="sh")
+        assert "command not found" not in msg.lower()
+        assert "memory" in msg.lower()
+
+    def test_killed_not_command_not_found(self):
+        msg = classify_error("Killed", exit_code=137, command="big_calc", protocol="sh")
+        assert "command not found" not in msg.lower()
+
+    # --- Timeout should NOT be misclassified ---
+
+    def test_timeout_not_permission_denied(self):
+        msg = classify_error("", exit_code=124, command="slow_calc", protocol="sh")
+        assert "permission" not in msg.lower()
+        assert "timed out" in msg.lower() or "timeout" in msg.lower()
+
+    # --- Disk full should NOT be misclassified ---
+
+    def test_disk_full_not_command_not_found(self):
+        msg = classify_error("No space left on device", exit_code=1, command="writer.sh", protocol="sh")
+        assert "command not found" not in msg.lower()
+        assert "filesystem" in msg.lower() or "space" in msg.lower()
+
+    # --- Protocol classifiers should NOT capture unrelated errors ---
+
+    def test_sh_does_not_capture_oom(self):
+        assert _classify_sh_error("Cannot allocate memory", 1, "cmd") is None
+
+    def test_sh_does_not_capture_disk_full(self):
+        assert _classify_sh_error("No space left on device", 1, "cmd") is None
+
+    def test_sh_does_not_capture_timeout(self):
+        assert _classify_sh_error("", 124, "cmd") is None
+
+    def test_ssh_does_not_capture_oom(self):
+        assert _classify_ssh_error("Cannot allocate memory", 1, "cmd") is None
+
+    def test_ssh_does_not_capture_disk_full(self):
+        assert _classify_ssh_error("No space left on device", 1, "cmd") is None
+
+    def test_slurm_does_not_capture_oom(self):
+        assert _classify_slurm_error("Cannot allocate memory", 1, "cmd") is None
+
+    def test_funz_does_not_capture_oom(self):
+        assert _classify_funz_error("Cannot allocate memory", 1, "cmd") is None
+
+    def test_funz_does_not_capture_permission_denied(self):
+        assert _classify_funz_error("Permission denied", 126, "cmd") is None
+
+    # --- SLURM errors should NOT be classified by ssh classifier ---
+
+    def test_ssh_does_not_capture_slurm_partition(self):
+        assert _classify_ssh_error("Invalid partition name", 1, "srun cmd") is None
+
+    def test_ssh_does_not_capture_slurm_allocation(self):
+        assert _classify_ssh_error("Unable to allocate resources", 1, "srun cmd") is None
+
+    # --- Funz errors should NOT be classified by other protocol classifiers ---
+
+    def test_sh_does_not_capture_funz_calculator(self):
+        assert _classify_sh_error("No calculator found", None, "funz://...") is None
+
+    def test_ssh_does_not_capture_funz_reservation(self):
+        assert _classify_ssh_error("Failed to reserve calculator", None, "funz://...") is None
+
+    # --- Success should NOT have error fields ---
+
+    def test_info_txt_no_error_on_success(self, tmp_path):
+        """info.txt should NOT contain error= when state is done."""
+        from fz.history import write_info_file
+        from datetime import datetime
+        write_info_file(tmp_path, state="done", calculator="sh://echo",
+                        start_time=datetime(2025, 1, 1), end_time=datetime(2025, 1, 1))
+        content = (tmp_path / "info.txt").read_text()
+        assert "error=" not in content
+
+    def test_fzr_success_no_error_in_info(self, tmp_path):
+        """Successful fzr run should NOT have error in info.txt."""
+        from fz import fzr
+
+        input_file = tmp_path / "input.txt"
+        input_file.write_text("x = ${x}\n")
+
+        script = tmp_path / "good.sh"
+        script.write_text("#!/bin/bash\necho 'result = 42' > output.txt\nexit 0\n")
+        script.chmod(0o755)
+
+        results_dir = tmp_path / "results_success"
+        result = fzr(
+            str(input_file), {"x": [1]},
+            {"varprefix": "$", "delim": "{}", "commentline": "#",
+             "output": {"result": "grep 'result =' output.txt | cut -d'=' -f2 | tr -d ' '"}},
+            calculators=[f"sh://bash {script}"],
+            results_dir=str(results_dir),
+        )
+
+        # Verify success
+        assert result["status"].iloc[0] == "done"
+
+        # info.txt should NOT have error=
+        info_files = list(results_dir.rglob("info.txt"))
+        assert len(info_files) > 0
+        info_content = info_files[0].read_text()
+        assert "error=" not in info_content
+
+        # history.txt should NOT have "Error:" line
+        history_files = list(results_dir.rglob("history.txt"))
+        assert len(history_files) > 0
+        history_content = history_files[0].read_text()
+        assert "Error:" not in history_content
+
+
 # ===========================================================================
 # 2. sh:// (local shell) error reporting
 # ===========================================================================
