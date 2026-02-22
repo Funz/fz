@@ -684,6 +684,172 @@ class TestClassifyErrorNegative:
 
 
 # ===========================================================================
+# 1c. Windows-specific mock-based negative tests
+# ===========================================================================
+
+class TestWindowsShErrorReporting:
+    """Mock-based tests simulating Windows failure modes.
+
+    These tests use unittest.mock to simulate Windows-specific scenarios
+    (missing bash, line endings, chmod no-op, WinError codes) without
+    needing an actual Windows machine. They verify correct classification
+    AND that wrong labels are NOT applied.
+    """
+
+    # --- A. Missing bash on Windows ---
+
+    def test_windows_no_bash_reports_helpful_error(self):
+        """WinError 2 stderr should mention MSYS2 or FZ_SHELL_PATH."""
+        msg = _classify_sh_error(
+            "[WinError 2] The system cannot find the file specified",
+            1, "script.sh",
+        )
+        assert msg is not None
+        assert "msys2" in msg.lower() or "fz_shell_path" in msg.lower()
+
+    def test_windows_no_bash_does_not_say_permission(self):
+        """Missing bash should NOT be classified as permission denied."""
+        msg = _classify_sh_error(
+            "[WinError 2] The system cannot find the file specified",
+            1, "script.sh",
+        )
+        assert msg is not None
+        assert "permission denied" not in msg.lower()
+
+    def test_windows_no_bash_does_not_say_remote(self):
+        """Missing bash on Windows should NOT say remote."""
+        msg = classify_error(
+            "[WinError 2] The system cannot find the file specified",
+            exit_code=1, command="script.sh", protocol="sh",
+        )
+        assert "remote" not in msg.lower()
+
+    # --- B. Missing commands in PATH (MSYS2 installed but incomplete) ---
+
+    def test_windows_grep_not_found_reports_command_not_found(self):
+        """'grep' not recognized on Windows should say 'command not found locally'."""
+        msg = classify_error(
+            "'grep' is not recognized as an internal or external command",
+            exit_code=1, command="grep pattern file.txt", protocol="sh",
+        )
+        assert "command not found" in msg.lower() or "not found locally" in msg.lower()
+
+    def test_windows_awk_not_found_reports_command_not_found(self):
+        """'awk' not recognized on Windows should say 'command not found locally'."""
+        msg = classify_error(
+            "'awk' is not recognized as an internal or external command",
+            exit_code=1, command="awk '{print $1}' file.txt", protocol="sh",
+        )
+        assert "command not found" in msg.lower() or "not found locally" in msg.lower()
+
+    def test_windows_missing_command_does_not_say_line_ending(self):
+        """Missing command should NOT be classified as line ending error."""
+        msg = classify_error(
+            "'grep' is not recognized as an internal or external command",
+            exit_code=1, command="grep pattern file.txt", protocol="sh",
+        )
+        assert "line ending" not in msg.lower()
+
+    # --- C. Line endings (scripts created on Windows) ---
+
+    def test_windows_crlf_reports_line_ending_not_command_not_found(self):
+        """'\\r: command not found' should say 'line ending', NOT 'command not found locally'."""
+        msg = classify_error(
+            "\r: command not found", exit_code=127,
+            command="script.sh", protocol="sh",
+        )
+        assert "line ending" in msg.lower()
+        assert "command not found locally" not in msg.lower()
+
+    def test_windows_bad_interpreter_reports_line_ending_not_permission(self):
+        """'bad interpreter' should say 'line ending', NOT 'permission denied'."""
+        msg = classify_error(
+            "bad interpreter: No such file or directory", exit_code=126,
+            command="script.sh", protocol="sh",
+        )
+        assert "line ending" in msg.lower()
+        assert "permission denied" not in msg.lower()
+
+    # --- D. chmod no-op on Windows ---
+
+    @patch("fz.runners.platform.system", return_value="Windows")
+    def test_windows_exit_126_reports_chmod_noop(self, mock_platform):
+        """Exit code 126 on Windows should mention 'chmod +x is a no-op'."""
+        msg = _classify_sh_error("", 126, "./script.sh")
+        assert msg is not None
+        assert "chmod" in msg.lower() or "no-op" in msg.lower()
+        assert "bash" in msg.lower()
+
+    @patch("fz.runners.platform.system", return_value="Windows")
+    def test_windows_exit_126_does_not_say_remote(self, mock_platform):
+        """Exit 126 on Windows should NOT say 'remote'."""
+        msg = _classify_sh_error("", 126, "./script.sh")
+        assert msg is not None
+        assert "remote" not in msg.lower()
+
+    # --- E. WinError codes ---
+
+    def test_windows_winerror2_not_misclassified_as_syntax(self):
+        """WinError 2 should NOT be classified as syntax error."""
+        msg = _classify_sh_error(
+            "[WinError 2] The system cannot find the file specified",
+            1, "script.sh",
+        )
+        assert msg is not None
+        assert "syntax error" not in msg.lower()
+
+    def test_windows_winerror193_not_misclassified_as_oom(self):
+        """WinError 193 should NOT be classified as OOM."""
+        msg = classify_error(
+            "[WinError 193] %1 is not a valid Win32 application",
+            exit_code=1, command="script.sh", protocol="sh",
+        )
+        assert "memory" not in msg.lower()
+        assert "oom" not in msg.lower()
+
+    # --- F. End-to-end mock with run_local_calculation ---
+
+    @patch("fz.runners.platform.system", return_value="Windows")
+    @patch("fz.runners.run_command")
+    def test_run_local_calc_windows_no_bash_error_in_result(
+        self, mock_run_cmd, mock_platform, input_dir, simple_model
+    ):
+        """Mock Windows + no bash → result['error'] should be descriptive."""
+        mock_run_cmd.side_effect = FileNotFoundError(
+            "[WinError 2] The system cannot find the file specified"
+        )
+        result = run_local_calculation(
+            working_dir=input_dir,
+            command="script.sh",
+            model=simple_model,
+            timeout=10,
+            original_cwd=str(input_dir),
+            input_files_list=["input.txt"],
+        )
+        assert "error" in result
+        assert len(result["error"]) > 10
+
+    @patch("fz.runners.platform.system", return_value="Windows")
+    @patch("fz.runners.run_command")
+    def test_run_local_calc_windows_no_bash_not_done(
+        self, mock_run_cmd, mock_platform, input_dir, simple_model
+    ):
+        """Mock Windows + no bash → result['status'] should NOT be 'done'."""
+        mock_run_cmd.side_effect = FileNotFoundError(
+            "[WinError 2] The system cannot find the file specified"
+        )
+        result = run_local_calculation(
+            working_dir=input_dir,
+            command="script.sh",
+            model=simple_model,
+            timeout=10,
+            original_cwd=str(input_dir),
+            input_files_list=["input.txt"],
+        )
+        assert result["status"] != "done"
+
+
+# ===========================================================================
 # 2. sh:// (local shell) error reporting
 # ===========================================================================
 

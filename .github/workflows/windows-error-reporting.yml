@@ -1,0 +1,70 @@
+name: Windows Error Reporting
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  windows-with-msys2:
+    name: Windows + MSYS2 (full error reporting tests)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install MSYS2 with bash and Unix utilities
+      shell: pwsh
+      run: |
+        Write-Host "Installing MSYS2 with bash and Unix utilities..."
+        choco install msys2 -y --params="/NoUpdate"
+
+        $env:MSYSTEM = "MSYS"
+        C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
+        C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm bash grep gawk sed bc coreutils"
+
+        # Add MSYS2 bin directory to PATH
+        $env:PATH = "C:\msys64\usr\bin;$env:PATH"
+        echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "MSYS2 installation complete"
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pandas pytest getpass4
+
+    - name: Run all error reporting tests
+      run: |
+        pytest tests/test_error_reporting.py -v --tb=long
+
+  windows-without-msys2:
+    name: Windows without MSYS2 (mock-based tests only)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pandas pytest getpass4
+
+    - name: Run mock-based error reporting tests (no bash required)
+      run: |
+        pytest tests/test_error_reporting.py -v --tb=long -k "TestClassifyError or TestShClassifier or TestSshClassifier or TestSlurmClassifier or TestFunzClassifier or TestCommonClassifier or TestClassifyErrorDispatch or TestClassifyErrorNegative or TestWindowsShErrorReporting or TestCLIFormatOutput"
