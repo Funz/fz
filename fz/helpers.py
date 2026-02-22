@@ -617,6 +617,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                 if history:
                     retry_suffix = ", retrying..." if attempt < max_attempts - 1 else ""
                     history.append(f"Calculator {selected_calculator_uri} failed ({failure_info}){retry_suffix}")
+                    history.append(f"Error: {error_msg}")
                 last_error = calc_result
             else:
                 log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} returned None result")
@@ -1162,7 +1163,10 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     # Write history.txt and info.txt to result directory
     elapsed = time.time() - start_time
     final_status = result.get("status", "unknown")
+    final_error = result.get("error")
     history.append(f"Case finished (status: {final_status}, {elapsed:.2f}s)")
+    if final_error:
+        history.append(f"Error: {final_error}")
     try:
         history.write(result_dir)
         # Collect output values (non-metadata keys) for info.txt
@@ -1177,6 +1181,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             end_time=datetime.now(),
             input_variables=var_combo,
             output_values=output_vals,
+            error=final_error,
         )
     except Exception as e:
         log_warning(f"⚠️ [Thread {thread_id}] {case_name}: Could not write history/info files: {e}")

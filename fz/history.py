@@ -29,7 +29,8 @@ def write_info_file(directory: Path, *,
                     start_time: Optional[datetime] = None,
                     end_time: Optional[datetime] = None,
                     input_variables: Optional[dict] = None,
-                    output_values: Optional[dict] = None):
+                    output_values: Optional[dict] = None,
+                    error: Optional[str] = None):
     """
     Write a Java-Properties-style info.txt to *directory*.
 
@@ -43,10 +44,22 @@ def write_info_file(directory: Path, *,
         input.temp=100
         input.pressure=1
         output.result=42.0
+
+    When the calculation failed::
+
+        state=failed
+        calc=sh://nonexistent_command
+        error=Command not found locally: 'nonexistent_command'. ...
+        start=2025-02-20T14:30:01
+        end=2025-02-20T14:30:02
+        duration=1.23
     """
     lines = []
     lines.append(f"state={state}")
     lines.append(f"calc={calculator}")
+
+    if error:
+        lines.append(f"error={error}")
 
     if start_time is not None:
         lines.append(f"start={start_time.isoformat(timespec='seconds')}")

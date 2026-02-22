@@ -27,6 +27,11 @@ import pytest
 
 from fz.runners import (
     classify_error,
+    _classify_sh_error,
+    _classify_ssh_error,
+    _classify_slurm_error,
+    _classify_funz_error,
+    _classify_common_error,
     run_local_calculation,
     run_calculation,
 )
@@ -240,6 +245,295 @@ class TestClassifyError:
         """Detect 'failed to open' patterns."""
         msg = classify_error("failed to open input stream", exit_code=1, command="reader.sh")
         assert "not found" in msg.lower() or "input file" in msg.lower()
+
+
+# ===========================================================================
+# 1b. Protocol-specific classifier unit tests
+# ===========================================================================
+
+class TestShClassifier:
+    """Unit tests for the sh:// protocol-specific classifier."""
+
+    def test_command_not_found_unix(self):
+        msg = _classify_sh_error("bash: mycommand: command not found", 127, "mycommand")
+        assert msg is not None
+        assert "locally" in msg.lower()
+        assert "mycommand" in msg
+
+    def test_command_not_found_windows_not_recognized(self):
+        msg = _classify_sh_error("'mycommand' is not recognized as an internal command", 1, "mycommand")
+        assert msg is not None
+        assert "locally" in msg.lower()
+
+    def test_command_not_found_windows_cannot_find(self):
+        msg = _classify_sh_error("The system cannot find the path specified", 1, "mycommand")
+        assert msg is not None
+        assert "locally" in msg.lower()
+
+    def test_permission_denied_unix(self):
+        msg = _classify_sh_error("bash: ./script.sh: Permission denied", 126, "./script.sh")
+        assert msg is not None
+        assert "permission denied" in msg.lower()
+
+    def test_permission_denied_windows(self):
+        msg = _classify_sh_error("Access is denied", 1, "script.sh")
+        assert msg is not None
+        assert "permission denied" in msg.lower()
+
+    def test_windows_line_ending_cr(self):
+        """Windows \\r\\n line endings cause '\\r: command not found'."""
+        msg = _classify_sh_error("\\r: command not found", 127, "script.sh")
+        assert msg is not None
+        assert "line ending" in msg.lower()
+        assert "dos2unix" in msg.lower()
+
+    def test_windows_bad_interpreter(self):
+        """Scripts with \\r\\n may report 'bad interpreter'."""
+        msg = _classify_sh_error("bad interpreter: No such file or directory", 126, "script.sh")
+        assert msg is not None
+        assert "line ending" in msg.lower()
+
+    def test_windows_bash_not_found_winerror2(self):
+        """Windows WinError 2 means file not found (no bash)."""
+        msg = _classify_sh_error("[WinError 2] The system cannot find the file specified", 1, "script.sh")
+        assert msg is not None
+        assert "bash" in msg.lower() or "not found" in msg.lower()
+
+    def test_windows_winerror_193(self):
+        """WinError 193 means not a valid Win32 application."""
+        msg = _classify_sh_error("[WinError 193] %1 is not a valid Win32 application", 1, "script.sh")
+        assert msg is not None
+        assert "bash" in msg.lower() or "msys2" in msg.lower()
+
+    def test_syntax_error(self):
+        msg = _classify_sh_error("syntax error near unexpected token", 2, "broken.sh")
+        assert msg is not None
+        assert "syntax error" in msg.lower()
+
+    def test_exit_126_not_executable(self):
+        msg = _classify_sh_error("", 126, "./script.sh")
+        assert msg is not None
+        assert "not executable" in msg.lower()
+
+    def test_exit_127_command_not_found(self):
+        msg = _classify_sh_error("", 127, "missing_cmd")
+        assert msg is not None
+        assert "command not found" in msg.lower()
+
+    def test_unrelated_error_returns_none(self):
+        """Errors not specific to sh should return None for fallback."""
+        msg = _classify_sh_error("Out of memory", 1, "heavy_calc")
+        assert msg is None
+
+
+class TestSshClassifier:
+    """Unit tests for the ssh:// protocol-specific classifier."""
+
+    def test_connection_refused(self):
+        msg = _classify_ssh_error("Connection refused", 255, "ssh cmd")
+        assert msg is not None
+        assert "ssh connection error" in msg.lower()
+
+    def test_connection_timed_out(self):
+        msg = _classify_ssh_error("Connection timed out", 255, "ssh cmd")
+        assert msg is not None
+        assert "ssh connection error" in msg.lower()
+
+    def test_authentication_failed(self):
+        msg = _classify_ssh_error("Authentication failed", 255, "ssh cmd")
+        assert msg is not None
+        assert "authentication" in msg.lower()
+
+    def test_host_key_verification_failed(self):
+        msg = _classify_ssh_error("Host key verification failed", 255, "ssh cmd")
+        assert msg is not None
+        assert "host key" in msg.lower()
+        assert "known_hosts" in msg.lower()
+
+    def test_known_hosts_issue(self):
+        msg = _classify_ssh_error("offending key in known_hosts", 255, "ssh cmd")
+        assert msg is not None
+        assert "host key" in msg.lower()
+
+    def test_remote_command_not_found(self):
+        msg = _classify_ssh_error("bash: mycommand: command not found", 127, "mycommand")
+        assert msg is not None
+        assert "remote" in msg.lower()
+        assert "mycommand" in msg
+
+    def test_remote_permission_denied(self):
+        msg = _classify_ssh_error("Permission denied", 126, "./script.sh")
+        assert msg is not None
+        assert "remote" in msg.lower()
+
+    def test_sftp_error(self):
+        msg = _classify_ssh_error("SFTP file transfer failed", 1, "scp_cmd")
+        assert msg is not None
+        assert "sftp" in msg.lower()
+
+    def test_exit_127_remote(self):
+        msg = _classify_ssh_error("", 127, "missing_cmd")
+        assert msg is not None
+        assert "remote" in msg.lower()
+
+    def test_unrelated_error_returns_none(self):
+        msg = _classify_ssh_error("Out of memory", 1, "heavy_calc")
+        assert msg is None
+
+
+class TestSlurmClassifier:
+    """Unit tests for the slurm:// protocol-specific classifier."""
+
+    def test_invalid_partition(self):
+        msg = _classify_slurm_error("srun: error: Invalid partition name specified", 1, "srun --partition=bogus run.sh")
+        assert msg is not None
+        assert "partition" in msg.lower()
+        assert "sinfo" in msg.lower()
+
+    def test_invalid_account(self):
+        msg = _classify_slurm_error("Invalid account or account/partition combination", 1, "srun cmd")
+        assert msg is not None
+        assert "account" in msg.lower()
+
+    def test_unable_to_allocate(self):
+        msg = _classify_slurm_error("Unable to allocate resources", 1, "srun cmd")
+        assert msg is not None
+        assert "resource" in msg.lower() or "allocation" in msg.lower()
+
+    def test_qos_error(self):
+        msg = _classify_slurm_error("Invalid QOS specification", 1, "srun cmd")
+        assert msg is not None
+        assert "qos" in msg.lower()
+
+    def test_node_failure(self):
+        msg = _classify_slurm_error("Node failure on node001", 1, "srun cmd")
+        assert msg is not None
+        assert "node" in msg.lower()
+
+    def test_srun_error(self):
+        msg = _classify_slurm_error("srun: error: some error", 1, "srun cmd")
+        assert msg is not None
+        assert "slurm" in msg.lower()
+
+    def test_remote_command_not_found(self):
+        msg = _classify_slurm_error("bash: mycommand: command not found", 127, "mycommand")
+        assert msg is not None
+        assert "remote" in msg.lower()
+
+    def test_exit_127_remote(self):
+        msg = _classify_slurm_error("", 127, "missing_cmd")
+        assert msg is not None
+        assert "remote" in msg.lower()
+
+    def test_unrelated_error_returns_none(self):
+        msg = _classify_slurm_error("Out of memory", 1, "heavy_calc")
+        assert msg is None
+
+
+class TestFunzClassifier:
+    """Unit tests for the funz:// protocol-specific classifier."""
+
+    def test_no_calculator_found(self):
+        msg = _classify_funz_error("No calculator found on UDP port 5555", None, "funz://...")
+        assert msg is not None
+        assert "calculator" in msg.lower()
+
+    def test_udp_discovery_failed(self):
+        msg = _classify_funz_error("UDP discovery timeout", None, "funz://...")
+        assert msg is not None
+        assert "calculator" in msg.lower()
+
+    def test_reservation_failed(self):
+        msg = _classify_funz_error("Failed to reserve calculator", None, "funz://...")
+        assert msg is not None
+        assert "reservation" in msg.lower()
+
+    def test_case_creation_failed(self):
+        msg = _classify_funz_error("Failed to create new case", None, "funz://...")
+        assert msg is not None
+        assert "case" in msg.lower()
+
+    def test_code_not_available(self):
+        msg = _classify_funz_error("Code not available on calculator", None, "funz://...")
+        assert msg is not None
+        assert "code" in msg.lower()
+
+    def test_tcp_connection_refused(self):
+        msg = _classify_funz_error("Connection refused", None, "funz://...")
+        assert msg is not None
+        assert "tcp" in msg.lower() or "connection" in msg.lower()
+
+    def test_protocol_error(self):
+        msg = _classify_funz_error("Unexpected response from calculator", None, "funz://...")
+        assert msg is not None
+        assert "protocol" in msg.lower() or "response" in msg.lower()
+
+    def test_unrelated_error_returns_none(self):
+        msg = _classify_funz_error("Out of memory", 1, "heavy_calc")
+        assert msg is None
+
+
+class TestCommonClassifier:
+    """Unit tests for the common/fallback classifier."""
+
+    def test_out_of_memory(self):
+        msg = _classify_common_error("Cannot allocate memory", 1, "heavy_calc", "sh")
+        assert "memory" in msg.lower()
+
+    def test_disk_full(self):
+        msg = _classify_common_error("No space left on device", 1, "writer.sh", "sh")
+        assert "filesystem" in msg.lower() or "space" in msg.lower()
+
+    def test_timeout_exit_124(self):
+        msg = _classify_common_error("", 124, "slow_calc", "sh")
+        assert "timed out" in msg.lower()
+
+    def test_signal_termination(self):
+        msg = _classify_common_error("", -9, "long_calc", "sh")
+        assert "signal" in msg.lower()
+
+    def test_missing_input_file(self):
+        msg = _classify_common_error("cannot open 'data.csv': No such file or directory", 1, "process data.csv", "sh")
+        assert "input file not found" in msg.lower()
+
+    def test_missing_output_file(self):
+        msg = _classify_common_error("output file not found", 1, "calc.sh", "sh")
+        assert "missing output" in msg.lower()
+
+    def test_fallback_generic(self):
+        msg = _classify_common_error("some unusual error", 42, "weird.sh", "sh")
+        assert "42" in msg
+        assert "some unusual error" in msg
+
+
+class TestClassifyErrorDispatch:
+    """Test that classify_error dispatches to the right protocol classifier."""
+
+    def test_sh_dispatch(self):
+        """sh errors should go through _classify_sh_error first."""
+        msg = classify_error("\\r: command not found", exit_code=127, command="script.sh", protocol="sh")
+        assert "line ending" in msg.lower()
+
+    def test_ssh_dispatch(self):
+        """SSH errors should go through _classify_ssh_error first."""
+        msg = classify_error("Host key verification failed", exit_code=255, command="ssh cmd", protocol="ssh")
+        assert "host key" in msg.lower()
+        assert "known_hosts" in msg.lower()
+
+    def test_slurm_dispatch(self):
+        """SLURM errors should go through _classify_slurm_error first."""
+        msg = classify_error("Invalid QOS specification", exit_code=1, command="srun cmd", protocol="slurm")
+        assert "qos" in msg.lower()
+
+    def test_funz_dispatch(self):
+        """Funz errors should go through _classify_funz_error first."""
+        msg = classify_error("Failed to create new case", exit_code=None, command="funz://...", protocol="funz")
+        assert "case" in msg.lower()
+
+    def test_fallback_to_common(self):
+        """Unrecognized errors should fall through to common classifier."""
+        msg = classify_error("Cannot allocate memory", exit_code=1, command="heavy_calc", protocol="sh")
+        assert "memory" in msg.lower()
 
 
 # ===========================================================================
@@ -784,6 +1078,133 @@ class TestFzrErrorPropagation:
         all_errors = " ".join(str(e) for e in result["error"] if e)
         assert "CUSTOM_ERROR_MESSAGE_12345" in all_errors, (
             f"Custom stderr message should appear in error output, got: {all_errors}"
+        )
+
+
+# ===========================================================================
+# 6b. Error recording in history.txt and info.txt
+# ===========================================================================
+
+class TestErrorInHistoryAndInfo:
+    """Test that classified errors are written to history.txt and info.txt."""
+
+    def test_write_info_file_includes_error(self, tmp_path):
+        """write_info_file should include error= line when error is provided."""
+        from fz.history import write_info_file
+        from datetime import datetime
+
+        write_info_file(
+            tmp_path,
+            state="failed",
+            calculator="sh://nonexistent_command",
+            start_time=datetime(2025, 1, 1, 12, 0, 0),
+            end_time=datetime(2025, 1, 1, 12, 0, 1),
+            error="Command not found locally: 'nonexistent_command'.",
+        )
+
+        info_content = (tmp_path / "info.txt").read_text()
+        assert "state=failed" in info_content
+        assert "error=Command not found locally" in info_content
+        assert "calc=sh://nonexistent_command" in info_content
+
+    def test_write_info_file_no_error_when_done(self, tmp_path):
+        """write_info_file should NOT include error= line when error is None."""
+        from fz.history import write_info_file
+        from datetime import datetime
+
+        write_info_file(
+            tmp_path,
+            state="done",
+            calculator="sh://echo",
+            start_time=datetime(2025, 1, 1, 12, 0, 0),
+            end_time=datetime(2025, 1, 1, 12, 0, 1),
+        )
+
+        info_content = (tmp_path / "info.txt").read_text()
+        assert "state=done" in info_content
+        assert "error=" not in info_content
+
+    def test_case_history_records_error(self, tmp_path):
+        """CaseHistory should record error messages."""
+        from fz.history import CaseHistory
+
+        history = CaseHistory("test_case")
+        history.append("Case started")
+        history.append("Calculator sh://bad_cmd failed (status=failed, exit_code=127)")
+        history.append("Error: Command not found locally: 'bad_cmd'.")
+        history.append("Case finished (status: error, 0.50s)")
+        history.write(tmp_path)
+
+        content = (tmp_path / "history.txt").read_text()
+        assert "Command not found locally" in content
+        assert "bad_cmd" in content
+        assert "Case finished" in content
+
+    def test_fzr_error_recorded_in_info_txt(self):
+        """fzr should write error to info.txt in result directory when calculation fails."""
+        from fz import fzr
+
+        Path("input.txt").write_text("x = ${x}\n")
+
+        result = fzr(
+            "input.txt",
+            {"x": [1]},
+            {
+                "varprefix": "$",
+                "delim": "{}",
+                "commentline": "#",
+                "output": {"result": "cat output.txt"},
+            },
+            calculators=["sh://this_command_absolutely_does_not_exist_xyz123"],
+            results_dir="results_info_error",
+        )
+
+        # Find the result directory
+        results_path = Path("results_info_error")
+        assert results_path.exists(), "Results directory should exist"
+
+        # Find info.txt in case subdirectory
+        info_files = list(results_path.rglob("info.txt"))
+        assert len(info_files) > 0, "info.txt should exist in result directory"
+
+        info_content = info_files[0].read_text()
+        assert "state=" in info_content
+        assert "error=" in info_content
+        # The error should contain a descriptive message, not just an exit code
+        assert "not found" in info_content.lower() or "no such" in info_content.lower(), (
+            f"info.txt error should be descriptive, got: {info_content}"
+        )
+
+    def test_fzr_error_recorded_in_history_txt(self):
+        """fzr should write error to history.txt in result directory when calculation fails."""
+        from fz import fzr
+
+        Path("input.txt").write_text("x = ${x}\n")
+
+        result = fzr(
+            "input.txt",
+            {"x": [1]},
+            {
+                "varprefix": "$",
+                "delim": "{}",
+                "commentline": "#",
+                "output": {"result": "cat output.txt"},
+            },
+            calculators=["sh://this_command_absolutely_does_not_exist_xyz123"],
+            results_dir="results_history_error",
+        )
+
+        # Find history.txt in case subdirectory
+        results_path = Path("results_history_error")
+        history_files = list(results_path.rglob("history.txt"))
+        assert len(history_files) > 0, "history.txt should exist in result directory"
+
+        history_content = history_files[0].read_text()
+        assert "Error:" in history_content, (
+            f"history.txt should contain 'Error:' line, got: {history_content}"
+        )
+        assert "not found" in history_content.lower() or "no such" in history_content.lower(), (
+            f"history.txt error should be descriptive, got: {history_content}"
         )
 
 
