@@ -376,22 +376,24 @@ fz.fzi("t2d_breach.cas",
 
 ```python
 fz.fzr("t2d_breach.cas",
-input_variables={},{
-    "id": "Telemac",
-    "varprefix": "$",
-    "formulaprefix": "@",
-    "delim": "{}",
-    "commentline": "#",
-    "output": {
-        "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
-        "H": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_H.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_H.csv\")}))'"
-    }
-}, calculators="sh://bash .fz/calculators/Telemac.sh", results_dir="result")
+    input_variables={},
+    model={
+        "id": "Telemac",
+        "varprefix": "$",
+        "formulaprefix": "@",
+        "delim": "{}",
+        "commentline": "#",
+        "output": {
+            "S": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_S.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_S.csv\")}))'",
+            "H": "python -c 'import pandas;import glob;import json;print(json.dumps({f.split(\"_H.csv\")[0]:pandas.read_csv(f).to_dict() for f in glob.glob(\"*_H.csv\")}))'"
+        }
+    },
+    calculators="sh://bash .fz/calculators/Telemac.sh", results_dir="result")
 ```
 
 use cache and aliases for Telemac:
 ```python
-fz.fzr("t2d_breach.cas",input_variables={},"Telemac", calculators="*", results_dir="result")
+fz.fzr("t2d_breach.cas", input_variables={}, model="Telemac", calculators="*", results_dir="result")
 ```
 
 # test ssh

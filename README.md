@@ -67,6 +67,8 @@ A powerful Python package for parametric simulations and computational experimen
 - **🔍 Formula Evaluation**: Support for calculated parameters using Python or R expressions
 - **📁 Directory Management**: Automatic organization of inputs, outputs, and logs for each case
 - **🎯 Adaptive Algorithms**: Iterative design of experiments with intelligent sampling strategies (fzd)
+- **⚠️ Error Reporting**: Protocol-specific error classification with descriptive messages recorded in results
+- **🖥️ Cross-Platform**: Works on Linux, macOS, and Windows (MSYS2/Git Bash) with configurable shell paths
 
 ### Five Core Functions
 
@@ -2963,6 +2965,29 @@ os.environ['FZ_LOG_LEVEL'] = 'DEBUG'
 ```bash
 # Solution: Limit parallel workers
 export FZ_MAX_WORKERS=2
+```
+
+### Windows / Cross-Platform
+
+**Problem**: Shell commands fail on Windows
+```bash
+# Solution: Install MSYS2 and set FZ_SHELL_PATH to point to its binaries
+SET FZ_SHELL_PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin
+# See examples/shell_path_example.md for details
+```
+
+**Problem**: Line ending issues on Windows
+```bash
+# Solution: Write input files with Unix line endings (newline='\n')
+# FZ templates and shell scripts expect LF, not CRLF
+with open("input.txt", "w", newline='\n') as f:
+    f.write(content)
+```
+
+**Problem**: `chmod` has no effect on Windows
+```bash
+# This is expected — Windows does not support Unix file permissions.
+# Shell scripts run via sh:// do not need chmod on Windows.
 ```
 
 ### Debug Mode
