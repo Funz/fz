@@ -22,7 +22,7 @@ def _extract_python_blocks(md_path):
 
     Returns list of (index, code) tuples.
     """
-    text = md_path.read_text()
+    text = md_path.read_text(encoding="utf-8")
     all_blocks = re.findall(r"```(\w+)\n(.*?)\n```", text, re.DOTALL)
     python_blocks = []
     for i, (lang, code) in enumerate(all_blocks):

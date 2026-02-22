@@ -27,7 +27,7 @@ def _extract_python_blocks(readme_path):
     Returns list of (index, code) tuples where index is the 0-based
     position among all fenced code blocks.
     """
-    text = readme_path.read_text()
+    text = readme_path.read_text(encoding="utf-8")
     # Match fenced code blocks with language tag
     all_blocks = re.findall(r"```(\w+)\n(.*?)\n```", text, re.DOTALL)
     python_blocks = []
