@@ -2,6 +2,7 @@
 Case status spinner for fz package - visual progress indicator for running cases
 """
 import os
+import shutil
 import sys
 import threading
 import time
@@ -19,16 +20,10 @@ class CaseStatus(Enum):
 
 class CaseSpinner:
     """
-    A visual spinner that shows status of multiple cases in a single line
-
-    Symbols:
-    - □ (empty square): Case not yet started
-    - |/-\\ (rotating bar): Case currently running
-    - ✓ (check mark): Case completed successfully
-    - ✗ (cross mark): Case failed
+    A visual progress bar that shows completion percentage in a single line
 
     Example output:
-    [□□|/-\\✓✗] ETA: 2m 30s
+    ◢ [████████>░░░░░░░░░░░]  35% (7/20) ETA: 1m 45s
     """
 
     def __init__(self, num_cases: int, num_calculators: int = 1):
@@ -78,17 +73,17 @@ class CaseSpinner:
         if self.thread:
             self.thread.join(timeout=1.0)
 
-        # Render final status line to show "Total time:"
+        # Clear any previous output first, then render final or clear
+        if self.last_output:
+            sys.stdout.write('\r' + ' ' * len(self.last_output) + '\r')
+            sys.stdout.flush()
+
         if not clear:
             final_status = self._build_status_line()
             sys.stdout.write('\r' + final_status)
             sys.stdout.flush()
             self.last_output = final_status
-
-        if clear and self.last_output:
-            # Clear the line
-            sys.stdout.write('\r' + ' ' * len(self.last_output) + '\r')
-            sys.stdout.flush()
+        else:
             self.last_output = ""
 
     def update_status(self, case_index: int, status: CaseStatus):
@@ -122,19 +117,6 @@ class CaseSpinner:
                 duration = current_time - self.case_start_times[case_index]
                 self.case_durations.append(duration)
 
-    def _get_status_char(self, status: CaseStatus) -> str:
-        """Get the display character for a given status"""
-        if status == CaseStatus.PENDING:
-            return ' '
-        elif status == CaseStatus.RUNNING:
-            return self.spinner_chars[self.spinner_index % len(self.spinner_chars)]
-        elif status == CaseStatus.DONE:
-            return '■'
-        elif status == CaseStatus.FAILED:
-            return '□'
-        else:
-            return 'o'
-
     def _format_eta(self, seconds: float) -> str:
         """Format ETA in human-readable format"""
         if seconds < 60:
@@ -149,41 +131,57 @@ class CaseSpinner:
             return f"{hours}h {minutes}m"
 
     def _build_status_line(self) -> str:
-        """Build the status line showing all cases"""
+        """Build a fixed-width progress bar with percentage and ETA"""
         with self.lock:
-            # Build character array
-            chars = [self._get_status_char(status) for status in self.statuses]
+            # Count statuses
+            done = sum(1 for s in self.statuses if s == CaseStatus.DONE)
+            failed = sum(1 for s in self.statuses if s == CaseStatus.FAILED)
+            running = sum(1 for s in self.statuses if s == CaseStatus.RUNNING)
+            completed = done + failed
+            remaining = self.num_cases - completed
+            pct = completed * 100 // self.num_cases if self.num_cases > 0 else 100
 
-            # For single case, just show the spinner bar
-            if self.num_cases == 1:
-                status_line = f"[{''.join(chars)}]"
+            # Spinner character for visual feedback when cases are running
+            spinner = self.spinner_chars[self.spinner_index % len(self.spinner_chars)] if running > 0 else ' '
+
+            # Calculate ETA or Total time
+            if remaining > 0 and self.case_durations:
+                avg_duration = sum(self.case_durations) / len(self.case_durations)
+                eta_seconds = (avg_duration * remaining) / self.num_calculators
+                time_text = f"ETA: {self._format_eta(eta_seconds)}"
+            elif remaining > 0:
+                time_text = "ETA: ..."
             else:
-                # Count statuses
-                completed = sum(1 for s in self.statuses if s in (CaseStatus.DONE, CaseStatus.FAILED))
-                remaining = self.num_cases - completed
-
-                # Calculate ETA or Total time
-                if remaining > 0 and self.case_durations:
-                    # Use average duration of completed cases
-                    avg_duration = sum(self.case_durations) / len(self.case_durations)
-                    # Divide by number of calculators for parallel execution
-                    eta_seconds = (avg_duration * remaining) / self.num_calculators
-                    eta_text = f"ETA: {self._format_eta(eta_seconds)}"
-                elif remaining > 0:
-                    # No completed cases yet, show calculating
-                    eta_text = "ETA: ..."
+                if self.start_time is not None:
+                    total_time = time.time() - self.start_time
+                    time_text = f"Total: {self._format_eta(total_time)}"
                 else:
-                    # All cases completed - show total time
-                    if self.start_time is not None:
-                        total_time = time.time() - self.start_time
-                        eta_text = f"Total time: {self._format_eta(total_time)}"
-                    else:
-                        eta_text = "Done"
+                    time_text = "Done"
 
-                # Build final line
-                status_line = f"[{''.join(chars)}] {eta_text}"
+            # Build suffix: " 35% (7/20) ETA: 1m 45s"
+            if failed > 0:
+                suffix = f" {pct:3d}% ({done}+{failed}err/{self.num_cases}) {time_text}"
+            else:
+                suffix = f" {pct:3d}% ({completed}/{self.num_cases}) {time_text}"
 
-            return status_line
+            # Determine bar width from terminal, reserving space for brackets + spinner + suffix
+            try:
+                term_width = shutil.get_terminal_size().columns
+            except Exception:
+                term_width = 80
+            # Format: "S [=====>    ] suffix"  where S is spinner char
+            overhead = 2 + 1 + 1 + 2 + len(suffix)  # spinner + space + [ + ] + suffix
+            bar_width = max(10, min(40, term_width - overhead))
+
+            # Build the bar
+            filled = int(bar_width * completed / self.num_cases) if self.num_cases > 0 else bar_width
+            filled = min(filled, bar_width)
+            if remaining > 0 and filled < bar_width:
+                bar = '█' * filled + '>' + '░' * (bar_width - filled - 1)
+            else:
+                bar = '█' * filled + '░' * (bar_width - filled)
+
+            return f"{spinner} [{bar}]{suffix}"
 
     def _animate(self):
         """Animation loop that runs in background thread"""
@@ -191,8 +189,9 @@ class CaseSpinner:
             # Build and display status line
             status_line = self._build_status_line()
 
-            # Update display (overwrite previous line)
-            sys.stdout.write('\r' + status_line)
+            # Clear previous output and write new line
+            clear_len = max(len(self.last_output), len(status_line))
+            sys.stdout.write('\r' + ' ' * clear_len + '\r' + status_line)
             sys.stdout.flush()
             self.last_output = status_line
 
