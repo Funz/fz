@@ -1365,6 +1365,15 @@ def fzr(
     if not isinstance(input_variables, (dict, pd.DataFrame)):
         raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
 
+    # Reject duplicate rows in a DataFrame design: each row must be a distinct case
+    # (duplicate rows would map to the same temp directory and silently overwrite results)
+    if isinstance(input_variables, pd.DataFrame) and input_variables.duplicated().any():
+        dup_idx = input_variables[input_variables.duplicated(keep=False)].index.tolist()
+        raise ValueError(
+            f"input_variables DataFrame contains duplicate rows (indices {dup_idx}). "
+            "Each case must have a unique combination of input values."
+        )
+
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
 
@@ -1854,13 +1863,30 @@ def fzd(
                     # Also check renamed directory for cached results from previous runs
                     cache_paths.extend([f"cache://{renamed_results_dir / f'iter{j:03d}'}" for j in range(1, 100)])  # Check up to 99 iterations
 
+                # Deduplicate current_design: run each unique point only once
+                seen_keys: dict = {}
+                unique_design = []
+                index_map = []  # index_map[i] = row in unique_design for current_design[i]
+                for point in current_design:
+                    key = tuple(sorted(point.items()))
+                    if key not in seen_keys:
+                        seen_keys[key] = len(unique_design)
+                        unique_design.append(point)
+                    index_map.append(seen_keys[key])
+                n_dupes = len(current_design) - len(unique_design)
+                if n_dupes:
+                    log_info(f"  ({n_dupes} duplicate point(s) removed from batch; results will be reused)")
+
                 result_df = fzr(
                     str(input_dir),
-                    pd.DataFrame(current_design, columns=all_var_names),# All points in batch
+                    pd.DataFrame(unique_design, columns=all_var_names),
                     model,
                     results_dir=str(iteration_result_dir),
                     calculators=[*cache_paths, *calculators]  # Cache paths first, then actual calculators
                 )
+
+                # Expand result_df back to full current_design length (re-map duplicates)
+                result_df = result_df.iloc[index_map].reset_index(drop=True)
 
                 # Extract output values for each point
                 iteration_inputs = []
