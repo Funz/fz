@@ -1,5 +1,25 @@
 # FZ Release Notes
 
+## Version 1.0 (2026-04-27)
+
+### New Features
+
+#### `fzd` — Batch Deduplication
+- Duplicate design points proposed by an algorithm within the same iteration are now evaluated only once; results are re-mapped to all occurrences, preventing redundant computations.
+
+#### `fzd` — Cross-Iteration Caching
+- Results from previous iterations are automatically prepended as `cache://` entries before user-supplied calculators. A point evaluated in iteration 2 is never re-run in iteration 5.
+
+#### `fzd` — Re-Run Resume
+- If `analysis_dir` already exists when `fzd` starts it is renamed with a timestamp suffix (e.g., `analysis_2026-04-27_10-30-00`). The renamed directory's iteration subdirectories are added to the cache automatically, so a re-run with different options benefits from all prior computations.
+
+### Bug Fixes
+
+#### Formula variable prefix fix (`interpreter.py`)
+- `evaluate_formulas` previously hardcoded `$` when replacing variables inside `@{...}` expressions. It now correctly uses the model's configured `varprefix` (and `var_delim`), matching the behaviour of `evaluate_single_formula`.
+
+---
+
 ## Version 0.9.1 (2026-01-25)
 
 ### New Features

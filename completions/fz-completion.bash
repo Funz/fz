@@ -200,7 +200,9 @@ _fzd() {
             return 0
             ;;
         --algorithm|-a)
-            _fz_complete_files "${cur}"
+            local algo_names="randomsampling brent bfgs montecarlo_uniform"
+            COMPREPLY=($(compgen -W "${algo_names}" -- ${cur}))
+            COMPREPLY+=($(compgen -f -- ${cur}))
             return 0
             ;;
         --results_dir|-r)
@@ -208,7 +210,8 @@ _fzd() {
             return 0
             ;;
         --calculators|-c)
-            _fz_complete_files "${cur}"
+            COMPREPLY=($(compgen -W "sh:// ssh:// slurm:// funz:// cache://" -- ${cur}))
+            COMPREPLY+=($(compgen -f -- ${cur}))
             return 0
             ;;
         --options|-o)
@@ -387,7 +390,9 @@ _fz() {
                     return 0
                     ;;
                 --algorithm|-a)
-                    _fz_complete_files "${cur}"
+                    local algo_names="randomsampling brent bfgs montecarlo_uniform"
+                    COMPREPLY=($(compgen -W "${algo_names}" -- ${cur}))
+                    COMPREPLY+=($(compgen -f -- ${cur}))
                     return 0
                     ;;
                 --results_dir|-r)
@@ -395,7 +400,8 @@ _fz() {
                     return 0
                     ;;
                 --calculators|-c)
-                    _fz_complete_files "${cur}"
+                    COMPREPLY=($(compgen -W "sh:// ssh:// slurm:// funz:// cache://" -- ${cur}))
+                    COMPREPLY+=($(compgen -f -- ${cur}))
                     return 0
                     ;;
                 --options|-o)

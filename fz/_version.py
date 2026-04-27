@@ -5,6 +5,6 @@ This file is automatically updated by the CI workflow.
 DO NOT EDIT MANUALLY - changes will be overwritten.
 """
 
-__version__ = "0.9.1"
-__commit_date__ = "2026-01-25 18:25:30 +0100"
-__commit_hash__ = "5b42273"
+__version__ = "1.0"
+__commit_date__ = "2026-04-27"
+__commit_hash__ = ""

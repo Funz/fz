@@ -620,6 +620,47 @@ fz design -i input/ -m perfectgas \
   -a examples/algorithms/brent.py
 ```
 
+### Fixed vs. Range Variables
+
+`input_variables` distinguishes two kinds of values:
+
+- **Range** `"[min;max]"` (or `"[min,max]"`): handed to the algorithm to vary.
+- **Fixed** `"value"` (a plain number): never varied; merged into every design point as-is.
+
+```python
+# x and y are explored by the algorithm; z is fixed at 1.5 for every evaluation
+result = fz.fzd(
+    input_path="input/",
+    input_variables={"x": "[-2;2]", "y": "[-2;2]", "z": "1.5"},
+    ...
+)
+```
+
+### Batch Deduplication
+
+Within each iteration, duplicate design points are automatically removed before calling `fzr`. The results are re-mapped back so the algorithm receives the correct output for every point it requested, including duplicates.
+
+```
+# 3 points requested by algorithm, 2 are identical → only 2 evaluations run
+(1 duplicate point removed from batch; results will be reused)
+```
+
+### Automatic Caching Between Iterations
+
+`fzd` automatically prepends `cache://` entries for all previous iterations before the user-supplied calculators. This means a point evaluated in iteration 2 is never re-evaluated in iteration 5.
+
+If `analysis_dir` already exists when `fzd` starts, it is **renamed** with a timestamp suffix (e.g., `analysis_2026-04-27_10-30-00`) and its iteration subdirectories are also added to the cache. This allows a re-run with different algorithm options to benefit from all prior computations without overwriting them.
+
+```python
+# Re-running after a previous interrupted run: prior results are used as cache automatically
+result = fz.fzd(
+    input_path="input/",
+    input_variables={"x": "[-2;2]"},
+    ...
+    analysis_dir="my_analysis"   # if exists, renamed; its cache is still consulted
+)
+```
+
 ### Algorithm Interface
 
 Custom algorithms must implement a class with these methods:

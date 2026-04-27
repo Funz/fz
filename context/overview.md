@@ -10,13 +10,12 @@ FZ is a parametric scientific computing framework that automates running computa
 - **Remote execution**: Run calculations on remote servers via SSH
 - **Result management**: Organize and parse results into structured DataFrames
 
-## What's New in 0.9.1
+## What's New in 1.0
 
-- **`fzl` command**: List and validate installed models and calculators
-- **SLURM support**: New `slurm://` calculator for workload managers
-- **Funz server support**: New `funz://` calculator for legacy Java Funz servers
-- **R interpreter**: Formula evaluation with R statistical computing
-- **FZ_SHELL_PATH**: Custom binary path configuration (essential for Windows)
+- **fzd batch deduplication**: duplicate design points in a batch are evaluated once and results reused
+- **fzd cross-iteration caching**: points from previous iterations are never re-evaluated
+- **fzd re-run resume**: existing `analysis_dir` renamed with timestamp; its cache still consulted
+- **Formula variable prefix fix**: configurable `varprefix` now correctly applied inside `@{...}` formulas
 - **Variable defaults**: `${var~default}` syntax for default values
 - **Progress callbacks**: Real-time monitoring of calculation progress
 - **Old Funz syntax**: Backward compatibility with `?var` syntax

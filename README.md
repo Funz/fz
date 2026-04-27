@@ -5,7 +5,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/funz.svg)](https://pypi.org/project/funz/)
 -->
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)](https://github.com/Funz/fz/releases)
+[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/Funz/fz/releases)
 
 A powerful Python package for parametric simulations and computational experiments. FZ wraps your simulation codes to automatically run parametric studies, manage input/output files, handle parallel execution, and collect results in structured DataFrames.
 
@@ -823,40 +823,45 @@ Run iterative design of experiments with adaptive algorithms:
 
 ```bash
 # Basic usage with Monte Carlo algorithm
-fzd input.txt \
+fzd --input_dir input/ \
   --model perfectgas \
-  --variables '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": 1}' \
-  --calculator "sh://bash PerfectGazPressure.sh" \
-  --output-expression "pressure" \
+  --input_vars '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": "1"}' \
+  --calculators "sh://bash PerfectGazPressure.sh" \
+  --output_expression "pressure" \
   --algorithm examples/algorithms/montecarlo_uniform.py \
-  --algorithm-options '{"batch_sample_size": 20, "max_iterations": 10}' \
-  --analysis-dir fzd_results/
+  --options '{"batch_sample_size": 20, "max_iterations": 10}' \
+  --results_dir fzd_results/
 
 # With optimization algorithm (BFGS)
-fzd input.txt \
+fzd --input_dir input/ \
   --model perfectgas \
-  --variables '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": 1}' \
-  --calculator "sh://bash calc.sh" \
-  --output-expression "pressure" \
+  --input_vars '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": "1"}' \
+  --calculators "sh://bash calc.sh" \
+  --output_expression "pressure" \
   --algorithm examples/algorithms/bfgs.py \
-  --algorithm-options '{"minimize": true, "max_iterations": 50}' \
-  --analysis-dir optimization_results/
+  --options '{"minimize": true, "max_iterations": 50}' \
+  --results_dir optimization_results/
 
-# Fixed and variable inputs
-fzd input.txt \
+# Fixed and variable inputs (V_L fixed at 5.0, T_celsius explored by algorithm)
+fzd --input_dir input/ \
   --model perfectgas \
-  --variables '{"T_celsius": "[10;50]", "V_L": "5.0", "n_mol": 1}' \
-  --calculator "sh://bash calc.sh" \
-  --output-expression "pressure" \
+  --input_vars '{"T_celsius": "[10;50]", "V_L": "5.0", "n_mol": "1"}' \
+  --calculators "sh://bash calc.sh" \
+  --output_expression "pressure" \
   --algorithm examples/algorithms/brent.py \
-  --analysis-dir brent_results/
+  --results_dir brent_results/
 ```
 
+Short form: `fzd -i input/ -m perfectgas -v '...' -e "pressure" -a algo.py`
+
+Also available as subcommand: `fz design --input_dir input/ ...`
+
 **Key Differences from fzr**:
-- Variables use `"[min;max]"` for ranges (algorithm decides values) or `"value"` for fixed
-- Requires `--algorithm` parameter with path to algorithm file
-- Optionally accepts `--algorithm-options` as JSON dict
-- Returns DataFrame with all sampled points and analysis results
+- `--input_vars` uses `"[min;max]"` for ranges (algorithm decides values) or `"value"` (string) for fixed
+- Requires `--algorithm` with algorithm name (`randomsampling`, `brent`, `bfgs`, ...) or path to `.py` file
+- Algorithm options via `--options` (JSON dict or file)
+- Results directory via `--results_dir` (default: `results_fzd`); if it already exists it is renamed with a timestamp and its cached results are still reused
+- Duplicate design points within a batch are automatically deduplicated and results reused
 
 ### Environment Variables for CLI
 
@@ -1084,14 +1089,14 @@ print(results['summary'])  # Algorithm completion summary
 - `examples/algorithms/brent.py` - Brent's 1D optimization (requires scipy)
 
 **Parameters**:
-- `input_file`: Input file or directory path
-- `input_variables`: Dict with `"[min;max]"` for ranges or `"value"` for fixed
+- `input_path`: Input file or directory path
+- `input_variables`: Dict where `"[min;max]"` entries are varied by the algorithm and plain `"value"` entries are fixed at that value for every evaluation
 - `model`: Model definition (dict or alias)
 - `output_expression`: Expression to evaluate from outputs (e.g., `"pressure"` or `"out1 + out2 * 2"`)
-- `algorithm`: Path to algorithm Python file
+- `algorithm`: Algorithm name (`randomsampling`, `brent`, `bfgs`, ...) or path to `.py` file
 - `calculators`: Calculator URI(s) - string or list
-- `algorithm_options`: Dict of algorithm-specific options
-- `analysis_dir`: Analysis results directory
+- `algorithm_options`: Dict, JSON string, or JSON file path with algorithm-specific options
+- `analysis_dir`: Analysis results directory (default: `"analysis"`); if it already exists it is renamed with a timestamp and its cached results are still reused automatically
 
 **Returns**: Dict with:
 - `XY`: pandas DataFrame with all input and output values
@@ -1100,6 +1105,11 @@ print(results['summary'])  # Algorithm completion summary
 - `iterations`: Number of iterations completed
 - `total_evaluations`: Total number of function evaluations
 - `summary`: Human-readable summary text
+
+**Automatic behaviors**:
+- **Batch deduplication**: duplicate points proposed by the algorithm in the same iteration are evaluated only once; results are re-mapped to all occurrences
+- **Cross-iteration caching**: results from previous iterations are automatically reused — a point evaluated in iteration 2 is never re-run in iteration 5
+- **Re-run resume**: if `analysis_dir` already exists it is renamed with a timestamp; all its iteration subdirectories are still consulted as cache, so a re-run with different options benefits from all prior computations
 
 ### Input Variables: Factorial vs Non-Factorial Designs
 

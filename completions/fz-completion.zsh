@@ -63,9 +63,9 @@ _fzd() {
         '(-v --input_vars)'{-v,--input_vars}'[Input variable ranges (JSON file or inline JSON)]:variables file:_files -g "*.json"' \
         '(-m --model)'{-m,--model}'[Model definition (JSON file, inline JSON, or alias)]:model file:_files -g "*.json"' \
         '(-e --output_expression)'{-e,--output_expression}'[Output expression to optimize]:expression:' \
-        '(-a --algorithm)'{-a,--algorithm}'[Algorithm file path]:algorithm file:_files -g "*.py"' \
+        '(-a --algorithm)'{-a,--algorithm}'[Algorithm name or file path]:algorithm:(randomsampling brent bfgs montecarlo_uniform)' \
         '(-r --results_dir)'{-r,--results_dir}'[Results directory (default: results_fzd)]:results directory:_directories' \
-        '(-c --calculators)'{-c,--calculators}'[Calculator specifications]:calculators file:_files -g "*.json"' \
+        '(-c --calculators)'{-c,--calculators}'[Calculator URI or JSON file]:calculator:(sh:// ssh:// slurm:// funz:// cache://)' \
         '(-o --options)'{-o,--options}'[Algorithm options (JSON file or inline JSON)]:options file:_files -g "*.json"' \
         '(-h --help)'{-h,--help}'[Show help message]' \
         '--version[Show version]'
@@ -150,9 +150,9 @@ _fz() {
                         '(-v --input_vars)'{-v,--input_vars}'[Input variable ranges (JSON file or inline JSON)]:variables file:_files -g "*.json"' \
                         '(-m --model)'{-m,--model}'[Model definition (JSON file, inline JSON, or alias)]:model file:_files -g "*.json"' \
                         '(-e --output_expression)'{-e,--output_expression}'[Output expression to optimize]:expression:' \
-                        '(-a --algorithm)'{-a,--algorithm}'[Algorithm file path]:algorithm file:_files -g "*.py"' \
+                        '(-a --algorithm)'{-a,--algorithm}'[Algorithm name or file path]:algorithm:(randomsampling brent bfgs montecarlo_uniform)' \
                         '(-r --results_dir)'{-r,--results_dir}'[Results directory (default: results_fzd)]:results directory:_directories' \
-                        '(-c --calculators)'{-c,--calculators}'[Calculator specifications]:calculators file:_files -g "*.json"' \
+                        '(-c --calculators)'{-c,--calculators}'[Calculator URI or JSON file]:calculator:(sh:// ssh:// slurm:// funz:// cache://)' \
                         '(-o --options)'{-o,--options}'[Algorithm options (JSON file or inline JSON)]:options file:_files -g "*.json"' \
                         '(-h --help)'{-h,--help}'[Show help message]' \
                         '--version[Show version]'

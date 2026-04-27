@@ -61,6 +61,10 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | fzo (read output) | core-functions.md | "fzo - Read Output Files" |
 | fzr (run calculations) | core-functions.md | "fzr - Run Parametric Calculations" |
 | fzd (design of experiments) | core-functions.md | "fzd - Run Design of Experiments" |
+| fzd fixed vs range variables | core-functions.md | "fzd" → "Fixed vs. Range Variables" |
+| fzd batch deduplication | core-functions.md | "fzd" → "Batch Deduplication" |
+| fzd auto caching between iterations | core-functions.md | "fzd" → "Automatic Caching Between Iterations" |
+| fzd analysis content formats | fzd_content_format.md | "Supported Formats" |
 | fzl (list models/calculators) | core-functions.md | "fzl - List and Validate Models/Calculators" |
 | Function signatures | core-functions.md | Each function section → "Function Signature" |
 | Return values | core-functions.md | Each function section |
@@ -234,6 +238,9 @@ Quick keyword search:
 - **fzl**: core-functions.md → "fzl - List and Validate Models/Calculators"
 - **Algorithm**: core-functions.md → "fzd", examples/fzd_example.md
 - **Optimization**: core-functions.md → "fzd", examples/fzd_example.md
+- **Fixed variable**: core-functions.md → "fzd" → "Fixed vs. Range Variables"
+- **Deduplication**: core-functions.md → "fzd" → "Batch Deduplication"
+- **fzd content format**: fzd_content_format.md
 - **Examples**: quick-examples.md
 - **CLI**: quick-examples.md → "CLI Quick Examples"
 - **DataFrame**: core-functions.md → "fzr", "fzo"
