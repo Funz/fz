@@ -684,6 +684,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
     # Formula delimiters: use formula_delim if set, else delim if set, else default to {}
     delim = model.get("formula_delim", model.get("delim", "{}"))
     commentline = _get_comment_char(model)
+    varprefix = _get_var_prefix(model)
+    var_delim = model.get("var_delim", model.get("delim", "()"))
 
     # Only validate delim if it will be used (when we have delimiters)
     if len(delim) != 2 and len(delim) != 0:
@@ -768,7 +770,10 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
 
                 # Replace variables in formula with their values
                 for var, val in input_variables.items():
-                    var_pattern = rf'\${re.escape(var)}\b'
+                    if len(var_delim) == 2:
+                        var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(var_delim[0])}{re.escape(var)}{re.escape(var_delim[1])}'
+                        formula = re.sub(var_pattern_delim, str(val), formula)
+                    var_pattern = rf'{re.escape(varprefix)}{re.escape(var)}\b'
                     formula = re.sub(var_pattern, str(val), formula)
 
                 result = eval(formula, env)
@@ -865,10 +870,13 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
                     format_spec = format_spec.strip()
                 
                 # Replace variables in formula with their values (R uses variable names directly)
-                # So we just remove the $ prefix for R
+                # So we just remove the varprefix for R
                 r_formula = formula
                 for var in input_variables.keys():
-                    var_pattern = rf'\${re.escape(var)}\b'
+                    if len(var_delim) == 2:
+                        var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(var_delim[0])}{re.escape(var)}{re.escape(var_delim[1])}'
+                        r_formula = re.sub(var_pattern_delim, var, r_formula)
+                    var_pattern = rf'{re.escape(varprefix)}{re.escape(var)}\b'
                     r_formula = re.sub(var_pattern, var, r_formula)
 
                 # Evaluate using R
