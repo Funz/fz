@@ -166,7 +166,8 @@ def format_output(data, format_type='markdown'):
         import pandas as pd
         if isinstance(data, pd.DataFrame):
             if format_type == 'json':
-                return data.to_json(orient='records', indent=2)
+                import json
+                return json.dumps(data.to_dict(orient='records'), default=str, indent=2)
             elif format_type == 'csv':
                 return data.to_csv(index=False)
             elif format_type == 'html':

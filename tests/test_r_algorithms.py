@@ -14,12 +14,12 @@ import pytest
 import sys
 from pathlib import Path
 
-# Try to import rpy2
+# Try to import rpy2 (catches both ImportError and ffi/init errors from R version mismatches)
 try:
     import rpy2
     import rpy2.robjects
     HAS_RPY2 = True
-except ImportError:
+except Exception:
     HAS_RPY2 = False
 
 # Skip all tests in this module if rpy2 is not available
