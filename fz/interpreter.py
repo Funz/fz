@@ -498,8 +498,8 @@ def evaluate_static_objects(static_lines: List[str], interpreter: str = "python"
         try:
             from rpy2 import robjects as ro
             from rpy2.robjects import conversion, default_converter
-        except ImportError:
-            print("Warning: rpy2 not installed, cannot evaluate R static objects")
+        except Exception:
+            print("Warning: rpy2 not available, cannot evaluate R static objects")
             return {}
 
         # Use textwrap.dedent for proper dedenting
@@ -599,7 +599,7 @@ def evaluate_single_formula(formula: str, model: Dict, input_variables: Dict, in
         try:
             from rpy2 import robjects
             from rpy2.robjects import r
-        except ImportError:
+        except Exception:
             return None
 
         # Set R variables
@@ -802,8 +802,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
         try:
             from rpy2 import robjects
             from rpy2.robjects import r
-        except ImportError:
-            print("Warning: rpy2 package not installed. Install with: pip install rpy2")
+        except Exception:
+            print("Warning: rpy2 not available. Install with: pip install rpy2")
             print("Skipping formula evaluation")
             return content
 
