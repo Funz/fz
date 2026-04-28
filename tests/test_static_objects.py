@@ -443,9 +443,10 @@ def test_fzi_static_objects_with_R_interpreter():
     """Test that static objects work correctly with R interpreter"""
     try:
         import rpy2
-    except ImportError:
+        import rpy2.robjects
+    except Exception:
         import pytest
-        pytest.skip("rpy2 not installed")
+        pytest.skip("rpy2 not installed or not functional")
     
     model = {
         "var_prefix": "$",

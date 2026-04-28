@@ -324,8 +324,9 @@ class TestAlgorithmPluginWithRAlgorithms:
         """Test loading R algorithm by plugin name"""
         try:
             import rpy2
-        except ImportError:
-            pytest.skip("rpy2 not available")
+            import rpy2.robjects
+        except Exception:
+            pytest.skip("rpy2 not available or not functional")
 
         # Create .fz/algorithms/ directory
         algo_dir = Path(temp_test_dir) / ".fz" / "algorithms"

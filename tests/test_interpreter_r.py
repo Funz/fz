@@ -6,11 +6,12 @@ from fz.interpreter import evaluate_formulas
 
 
 def _check_rpy2_available():
-    """Helper function to check if rpy2 is installed"""
+    """Helper function to check if rpy2 is installed and functional"""
     try:
         import rpy2
+        import rpy2.robjects
         return True
-    except ImportError:
+    except Exception:
         return False
 
 

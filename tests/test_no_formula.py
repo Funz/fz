@@ -397,8 +397,9 @@ def test_formula_with_r_interpreter_not_installed():
         # If rpy2 is not installed, should handle gracefully
         try:
             import rpy2
+            import rpy2.robjects
             pytest.skip("rpy2 is installed, test not applicable")
-        except ImportError:
+        except Exception:
             pass
 
         result = fzc(
