@@ -6,6 +6,7 @@ including the --format option for output formatting.
 """
 import json
 import os
+import re
 import platform
 import shutil
 import subprocess
@@ -166,7 +167,7 @@ class TestFziCommand:
         result = run_fz_cli_function('fzi_main', ['--version'])
         assert result.returncode == 0
         output = result.stdout + result.stderr
-        assert "0." in output  # Version number
+        assert re.search(r'\d+\.\d+', output)  # Version number
 
     def test_fzi_json_format(self, sample_input_file, sample_model, temp_workspace):
         """Test fzi with JSON format"""
@@ -350,7 +351,7 @@ class TestFzMainCommand:
         result = run_fz_cli_function('main', ['--version'])
         assert result.returncode == 0
         output = result.stdout + result.stderr
-        assert "0." in output
+        assert re.search(r'\d+\.\d+', output)  # Version number
 
     def test_fz_input_subcommand(self, sample_input_file, sample_model, temp_workspace):
         """Test fz input subcommand"""
