@@ -42,6 +42,7 @@ A powerful Python package for parametric simulations and computational experimen
   - [Output Type Casting](#output-type-casting)
   - [Progress Callbacks](#progress-callbacks)
 - [Complete Examples](#complete-examples)
+  - [Interactive Jupyter Notebooks](#interactive-jupyter-notebooks)
 - [Writing Custom Algorithms for fzd](#writing-custom-algorithms-for-fzd)
 - [Configuration](#configuration)
   - [Environment Variables](#environment-variables)
@@ -1842,6 +1843,18 @@ results = fz.fzr(..., callbacks=[logger_callback, metrics_callback])
 ```
 
 ## Complete Examples
+
+### Interactive Jupyter Notebooks
+
+Explore fz features hands-on with these notebooks — open directly in Google Colab, no local install needed:
+
+| Notebook | Topic | Colab |
+|----------|-------|-------|
+| 01 Getting Started | fzl, fzi, fzc, fzo, fzr — Perfect Gas PV=nRT | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/01_getting_started.ipynb) |
+| 02 Variable Syntax & Formulas | All syntax styles, `@{}` formulas, `#@` context | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/02_variable_syntax_and_formulas.ipynb) |
+| 03 Parametric Studies (fzr) | Grid inputs, DataFrame inputs, callbacks, parallel calculators | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/03_parametric_studies_fzr.ipynb) |
+| 04 Design of Experiments (fzd) | Random sampling, Brent 1D minimization, BFGS 2D, Monte Carlo | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/04_design_of_experiments_fzd.ipynb) |
+| 05 Caching & Advanced | Cache reuse, multi-output, logging, coarse-to-fine DOE | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/05_caching_and_advanced.ipynb) |
 
 ### Example 1: Perfect Gas Pressure Study
 
