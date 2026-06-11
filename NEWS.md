@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### CLI argument aliases (README forms now work)
+
+- Input/output paths can be passed positionally: `fzi input.txt -m mymodel`.
+- New flag aliases matching the documented forms: `--variables` (= `--input_variables`),
+  `--calculator` (= `--calculators`, now repeatable), `--results` (= `--results_dir`),
+  `--output` (= `--output_dir`).
+- Inline model definition without `--model`: `--varprefix`, `--formulaprefix`, `--delim`,
+  `--commentline`, `--interpreter`, and repeatable `--output-cmd NAME=COMMAND`. When
+  combined with `--model`, the inline flags override the loaded model definition.
+- All canonical flags and short options are unchanged; `--model` is no longer required
+  (defaults: varprefix `$`, formulaprefix `@`, delim `{}`, commentline `#`).
+
 ### CLI hardening for scripting and AI agents
 
 - Log messages (`FZ_LOG_LEVEL`) and progress output now go to **stderr** instead of

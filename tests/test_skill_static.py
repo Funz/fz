@@ -82,15 +82,16 @@ class TestSkillCodeDrift:
 
     def test_documented_cli_flags_exist(self):
         """Every --flag mentioned in the skill is a real argparse option"""
-        real_flags = set(re.findall(r'add_argument\(\s*"(--[a-z_]+)"', CLI_SRC))
-        real_flags |= {
-            short
-            for short in re.findall(r'add_argument\(\s*"--[a-z_]+",\s*"(-[a-z])"', CLI_SRC)
-        }
+        # Any double-quoted long flag in cli.py is an argparse option string
+        # (including aliases like --variables given as secondary option strings)
+        real_flags = set(re.findall(r'"(--[a-z][a-z_-]*)"', CLI_SRC))
+        real_flags |= set(re.findall(r'"(-[a-z])"', CLI_SRC))
         real_flags |= {"--help", "--version"}
         documented = set()
         for md in SKILL_FILES:
-            documented |= set(re.findall(r"(?<!-)(--[a-z_]+)", md.read_text(encoding="utf-8")))
+            documented |= set(
+                re.findall(r"(?<!-)(--[a-z][a-z_-]*)", md.read_text(encoding="utf-8"))
+            )
         unknown = documented - real_flags
         assert not unknown, f"skill documents CLI flags that do not exist: {sorted(unknown)}"
 

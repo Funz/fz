@@ -150,6 +150,115 @@ def parse_algorithm_options(opts_str):
     """Parse algorithm options from JSON string or JSON file"""
     return parse_argument(opts_str, alias_type=None)
 
+
+# Shared argument groups for the standalone commands and `fz` subcommands.
+# They accept both the canonical flags (--input_variables, --calculators,
+# --results_dir, --output_dir) and the documented aliases (--variables,
+# --calculator, --results, --output), plus positional paths and inline model
+# definition without --model.
+
+_MODEL_FIELD_ARGS = ("varprefix", "formulaprefix", "delim", "commentline", "interpreter")
+_DEFAULT_MODEL = {"varprefix": "$", "formulaprefix": "@", "delim": "{}", "commentline": "#"}
+
+
+def _add_input_path_args(parser):
+    parser.add_argument("input_path_pos", nargs="?", default=None, metavar="input_path",
+                        help="Input file or directory")
+    parser.add_argument("--input_path", "-i", default=None,
+                        help="Input file or directory (alternative to positional)")
+
+
+def _add_output_path_args(parser):
+    parser.add_argument("output_path_pos", nargs="?", default=None, metavar="output_path",
+                        help="Output file or directory")
+    parser.add_argument("--output_path", "-o", default=None,
+                        help="Output file or directory (alternative to positional)")
+
+
+def _resolve_path(parser, flag_value, pos_value, name):
+    if flag_value and pos_value and flag_value != pos_value:
+        parser.error(f"{name} given twice: positional '{pos_value}' and --{name} '{flag_value}'")
+    value = flag_value or pos_value
+    if not value:
+        parser.error(f"{name} is required (positional or --{name})")
+    return value
+
+
+def _add_model_args(parser):
+    parser.add_argument("--model", "-m", default=None,
+                        help="Model definition (JSON file, inline JSON, or alias)")
+    parser.add_argument("--varprefix", default=None, help="Variable prefix (default: $)")
+    parser.add_argument("--formulaprefix", default=None, help="Formula prefix (default: @)")
+    parser.add_argument("--delim", default=None,
+                        help="Variable/formula delimiters (default: {})")
+    parser.add_argument("--commentline", default=None,
+                        help="Comment line character (default: #)")
+    parser.add_argument("--interpreter", default=None,
+                        help="Formula interpreter: python or R")
+    parser.add_argument("--output-cmd", dest="output_cmd", action="append", default=None,
+                        metavar="NAME=COMMAND",
+                        help='Output parsing command, e.g. result="cat output.txt" (repeatable)')
+
+
+def _resolve_model(parser, args):
+    """Build the model from --model and/or the inline definition flags"""
+    inline = {field: getattr(args, field) for field in _MODEL_FIELD_ARGS
+              if getattr(args, field, None) is not None}
+    output_cmds = {}
+    for spec in (getattr(args, "output_cmd", None) or []):
+        if "=" not in spec:
+            parser.error(f"--output-cmd expects NAME=COMMAND, got '{spec}'")
+        name, cmd = spec.split("=", 1)
+        output_cmds[name.strip()] = cmd
+
+    if args.model:
+        model = parse_model(args.model)
+        # Inline flags refine an existing model definition
+        if isinstance(model, dict) and (inline or output_cmds):
+            model = dict(model)
+            model.update(inline)
+            if output_cmds:
+                merged = dict(model.get("output", {}))
+                merged.update(output_cmds)
+                model["output"] = merged
+        return model
+
+    model = dict(_DEFAULT_MODEL)
+    model.update(inline)
+    if output_cmds:
+        model["output"] = output_cmds
+    return model
+
+
+def _add_variables_arg(parser, required=True):
+    parser.add_argument("--input_variables", "--variables", "-v", dest="input_variables",
+                        required=required, help="Variable values (JSON file or inline JSON)")
+
+
+def _add_calculators_arg(parser):
+    parser.add_argument("--calculators", "--calculator", "-c", dest="calculators",
+                        action="append", default=None,
+                        help="Calculator URI, alias, JSON file, or JSON list (repeatable)")
+
+
+def _resolve_calculators(args):
+    if not args.calculators:
+        return None
+    calculators = []
+    for item in args.calculators:
+        parsed = parse_calculators(item)
+        if isinstance(parsed, list):
+            calculators.extend(parsed)
+        elif parsed is not None:
+            calculators.append(parsed)
+    return calculators
+
+
+def _add_format_arg(parser):
+    parser.add_argument("--format", "-f", default="markdown",
+                        choices=["json", "csv", "html", "markdown", "table"],
+                        help="Output format (default: markdown)")
+
 def format_output(data, format_type='markdown'):
     """
     Format output data in various formats
@@ -397,17 +506,16 @@ def fzi_main():
     """Entry point for fzi command"""
     parser = argparse.ArgumentParser(description="fzi - Parse input to find variables")
     parser.add_argument("--version", action="version", version=f"fzi {get_version()}")
-    parser.add_argument("--input_path", "-i", required=True, help="Input file or directory")
-    parser.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser.add_argument("--format", "-f", default="markdown",
-                        choices=["json", "csv", "html", "markdown", "table"],
-                        help="Output format (default: markdown)")
+    _add_input_path_args(parser)
+    _add_model_args(parser)
+    _add_format_arg(parser)
 
     args = parser.parse_args()
 
     try:
-        model = parse_model(args.model)
-        result = fzi_func(args.input_path, model)
+        input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
+        model = _resolve_model(parser, args)
+        result = fzi_func(input_path, model)
         print(format_output(result, args.format))
         return 0
     except TypeError as e:
@@ -429,17 +537,19 @@ def fzc_main():
     """Entry point for fzc command"""
     parser = argparse.ArgumentParser(description="fzc - Compile input with variable values")
     parser.add_argument("--version", action="version", version=f"fzc {get_version()}")
-    parser.add_argument("--input_path", "-i", required=True, help="Input file or directory")
-    parser.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser.add_argument("--input_variables", "-v", required=True, help="Variable values (JSON file or inline JSON)")
-    parser.add_argument("--output_dir", "-o", default="output", help="Output directory (default: output)")
+    _add_input_path_args(parser)
+    _add_model_args(parser)
+    _add_variables_arg(parser)
+    parser.add_argument("--output_dir", "--output", "-o", dest="output_dir", default="output",
+                        help="Output directory (default: output)")
 
     args = parser.parse_args()
 
     try:
-        model = parse_model(args.model)
+        input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
+        model = _resolve_model(parser, args)
         variables = parse_variables(args.input_variables)
-        fzc_func(args.input_path, variables, model, output_dir=args.output_dir)
+        fzc_func(input_path, variables, model, output_dir=args.output_dir)
         print(f"Compiled input saved to {args.output_dir}")
         return 0
     except TypeError as e:
@@ -461,17 +571,16 @@ def fzo_main():
     """Entry point for fzo command"""
     parser = argparse.ArgumentParser(description="fzo - Parse output files")
     parser.add_argument("--version", action="version", version=f"fzo {get_version()}")
-    parser.add_argument("--output_path", "-o", required=True, help="Output file or directory")
-    parser.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser.add_argument("--format", "-f", default="markdown",
-                        choices=["json", "csv", "html", "markdown", "table"],
-                        help="Output format (default: markdown)")
+    _add_output_path_args(parser)
+    _add_model_args(parser)
+    _add_format_arg(parser)
 
     args = parser.parse_args()
 
     try:
-        model = parse_model(args.model)
-        result = fzo_func(args.output_path, model)
+        output_path = _resolve_path(parser, args.output_path, args.output_path_pos, "output_path")
+        model = _resolve_model(parser, args)
+        result = fzo_func(output_path, model)
         print(format_output(result, args.format))
         return 0
     except TypeError as e:
@@ -493,23 +602,23 @@ def fzr_main():
     """Entry point for fzr command"""
     parser = argparse.ArgumentParser(description="fzr - Run full parametric calculations")
     parser.add_argument("--version", action="version", version=f"fzr {get_version()}")
-    parser.add_argument("--input_path", "-i", required=True, help="Input file or directory")
-    parser.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser.add_argument("--input_variables", "-v", required=True, help="Variable values (JSON file or inline JSON)")
-    parser.add_argument("--results_dir", "-r", default="results", help="Results directory (default: results)")
-    parser.add_argument("--calculators", "-c", help="Calculator specifications (JSON file or inline JSON)")
-    parser.add_argument("--format", "-f", default="markdown",
-                        choices=["json", "csv", "html", "markdown", "table"],
-                        help="Output format (default: markdown)")
+    _add_input_path_args(parser)
+    _add_model_args(parser)
+    _add_variables_arg(parser)
+    parser.add_argument("--results_dir", "--results", "-r", dest="results_dir", default="results",
+                        help="Results directory (default: results)")
+    _add_calculators_arg(parser)
+    _add_format_arg(parser)
 
     args = parser.parse_args()
 
     try:
-        model = parse_model(args.model)
+        input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
+        model = _resolve_model(parser, args)
         variables = parse_variables(args.input_variables)
-        calculators = parse_calculators(args.calculators) if args.calculators else None
+        calculators = _resolve_calculators(args)
 
-        result = fzr_func(args.input_path, variables, model,
+        result = fzr_func(input_path, variables, model,
                     results_dir=args.results_dir,
                     calculators=calculators)
         print(format_output(result, args.format))
@@ -602,37 +711,33 @@ def main():
 
     # input command (fzi)
     parser_input = subparsers.add_parser("input", help="Parse input to find variables")
-    parser_input.add_argument("--input_path", "-i", required=True, help="Input file or directory")
-    parser_input.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser_input.add_argument("--format", "-f", default="markdown",
-                              choices=["json", "csv", "html", "markdown", "table"],
-                              help="Output format (default: markdown)")
+    _add_input_path_args(parser_input)
+    _add_model_args(parser_input)
+    _add_format_arg(parser_input)
 
     # compile command (fzc)
     parser_compile = subparsers.add_parser("compile", help="Compile input with variable values")
-    parser_compile.add_argument("--input_path", "-i", required=True, help="Input file or directory")
-    parser_compile.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser_compile.add_argument("--input_variables", "-v", required=True, help="Variable values (JSON file or inline JSON)")
-    parser_compile.add_argument("--output_dir", "-o", default="output", help="Output directory (default: output)")
+    _add_input_path_args(parser_compile)
+    _add_model_args(parser_compile)
+    _add_variables_arg(parser_compile)
+    parser_compile.add_argument("--output_dir", "--output", "-o", dest="output_dir",
+                                default="output", help="Output directory (default: output)")
 
     # output command (fzo)
     parser_output = subparsers.add_parser("output", help="Parse output files")
-    parser_output.add_argument("--output_path", "-o", required=True, help="Output file or directory")
-    parser_output.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser_output.add_argument("--format", "-f", default="markdown",
-                               choices=["json", "csv", "html", "markdown", "table"],
-                               help="Output format (default: markdown)")
+    _add_output_path_args(parser_output)
+    _add_model_args(parser_output)
+    _add_format_arg(parser_output)
 
     # run command (fzr)
     parser_run = subparsers.add_parser("run", help="Run full parametric calculations")
-    parser_run.add_argument("--input_path", "-i", required=True, help="Input file or directory")
-    parser_run.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
-    parser_run.add_argument("--input_variables", "-v", required=True, help="Variable values (JSON file or inline JSON)")
-    parser_run.add_argument("--results_dir", "-r", default="results", help="Results directory (default: results)")
-    parser_run.add_argument("--calculators", "-c", help="Calculator specifications (JSON file or inline JSON)")
-    parser_run.add_argument("--format", "-f", default="markdown",
-                            choices=["json", "csv", "html", "markdown", "table"],
-                            help="Output format (default: markdown)")
+    _add_input_path_args(parser_run)
+    _add_model_args(parser_run)
+    _add_variables_arg(parser_run)
+    parser_run.add_argument("--results_dir", "--results", "-r", dest="results_dir",
+                            default="results", help="Results directory (default: results)")
+    _add_calculators_arg(parser_run)
+    _add_format_arg(parser_run)
 
     # design command (fzd)
     parser_design = subparsers.add_parser("design", help="Iterative design of experiments with algorithms")
@@ -697,27 +802,31 @@ def main():
 
     try:
         if args.command == "input":
-            model = parse_model(args.model)
-            result = fzi_func(args.input_path, model)
+            input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
+            model = _resolve_model(parser, args)
+            result = fzi_func(input_path, model)
             print(format_output(result, args.format))
 
         elif args.command == "compile":
-            model = parse_model(args.model)
+            input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
+            model = _resolve_model(parser, args)
             variables = parse_variables(args.input_variables)
-            fzc_func(args.input_path, variables, model, output_dir=args.output_dir)
+            fzc_func(input_path, variables, model, output_dir=args.output_dir)
             print(f"Compiled input saved to {args.output_dir}")
 
         elif args.command == "output":
-            model = parse_model(args.model)
-            result = fzo_func(args.output_path, model)
+            output_path = _resolve_path(parser, args.output_path, args.output_path_pos, "output_path")
+            model = _resolve_model(parser, args)
+            result = fzo_func(output_path, model)
             print(format_output(result, args.format))
 
         elif args.command == "run":
-            model = parse_model(args.model)
+            input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
+            model = _resolve_model(parser, args)
             variables = parse_variables(args.input_variables)
-            calculators = parse_calculators(args.calculators) if args.calculators else None
+            calculators = _resolve_calculators(args)
 
-            result = fzr_func(args.input_path, variables, model,
+            result = fzr_func(input_path, variables, model,
                         results_dir=args.results_dir,
                         calculators=calculators)
             print(format_output(result, args.format))
