@@ -1,0 +1,64 @@
+name: Skill Tests
+
+# Validates the agent skill in skills/fz/:
+# - static: format and code-drift checks (free, deterministic, blocking)
+# - e2e: headless Claude Code drives the skill on a sample simulation
+#   (needs ANTHROPIC_API_KEY secret; costs tokens; mildly nondeterministic,
+#   so advisory rather than release-blocking)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'skills/**'
+      - 'tests/test_skill_*.py'
+      - 'fz/cli.py'
+      - '.github/workflows/skill-tests.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'skills/**'
+      - 'tests/test_skill_*.py'
+  workflow_dispatch:
+
+jobs:
+  static:
+    name: Static validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install fz
+        run: |
+          pip install -e .
+          pip install pytest
+      - name: Run static skill tests
+        run: pytest tests/test_skill_static.py -v
+
+  e2e:
+    name: End-to-end (headless Claude Code)
+    runs-on: ubuntu-latest
+    needs: static
+    # e2e costs API tokens: run on manual dispatch and pushes to main only
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Install fz
+        run: |
+          pip install -e .
+          pip install pytest
+      - name: Run skill e2e tests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        # tests skip themselves cleanly if the secret is not configured
+        run: pytest tests/test_skill_e2e.py -v -m requires_claude

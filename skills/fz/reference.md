@@ -95,23 +95,24 @@ Every Python function has a CLI twin: `fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`
 (also available as subcommands: `fz run ...`, `fz design ...`). `fz install model|algorithm
 <name|git-url>` installs aliases into `.fz/` (`--global` for `~/.fz/`).
 
-Common options:
+Flags per command (all flags, no positional arguments):
 
 ```
---model M                 model alias | path to .json | inline JSON
---variables V             inline JSON | path to .json file
---calculator URI          repeatable; alias | URI | inline JSON
---format F                json | csv | table | markdown | html
---varprefix / --formulaprefix / --delim / --commentline    inline model definition
---output-cmd name="cmd"   inline output parser (repeatable)
---results DIR             (fzr) results directory
+fzi  --input_path/-i  --model/-m  --format/-f
+fzc  --input_path/-i  --model/-m  --input_variables/-v  --output_dir/-o
+fzo  --output_path/-o --model/-m  --format/-f
+fzr  --input_path/-i  --model/-m  --input_variables/-v  --results_dir/-r
+     --calculators/-c  --format/-f
+fzl  --models/-m  --calculators/-c  --check  --format/-f
+fzd  --input_dir/-i  --input_vars/-v  --model/-m  --output_expression/-e
+     --algorithm/-a  --results_dir/-r  --calculators/-c  --options/-o
 ```
 
-`--model`, `--variables`, `--calculator` auto-detect their format: alias (bare name) →
-JSON file (ends in `.json`) → inline JSON (starts with `{`).
-
-fzd-specific: `--input_dir/-i`, `--input_vars/-v` (JSON with `"[min;max]"` ranges),
-`--output_expression/-e`, `--algorithm/-a`, `--options/-o`, `--results_dir`.
+- `--format` accepts: `json`, `csv`, `html`, `markdown`, `table`.
+- `--model`, `--input_variables`, `--calculators` auto-detect their format: alias (bare
+  name) → JSON file path (ends in `.json`) → inline JSON. Multiple calculators are passed
+  as one inline JSON list: `--calculators '["cache://run1", "sh://bash calc.sh"]'`.
+- `--input_vars` (fzd) takes JSON with `"[min;max]"` range strings for varied variables.
 
 Stream discipline: results go to stdout; logs (`FZ_LOG_LEVEL`), progress bar, and error
 messages go to stderr (the progress bar is disabled when stderr is not a TTY). Exit codes:

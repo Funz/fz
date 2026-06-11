@@ -23,7 +23,11 @@ pytest tests/test_core.py -k name     # single test
 
 - `pytest.ini` uses `--strict-markers`: register any new marker there. Existing markers:
   `slow`, `integration`, `manual`, `requires_docker`, `requires_omc`, `requires_ssh`,
-  `requires_paramiko`.
+  `requires_paramiko`, `requires_claude`.
+- The agent skill is tested: `tests/test_skill_static.py` (always runs; checks the skill's
+  claims — CLI flags, env vars, defaults, signatures — against the code, so CLI changes can
+  fail it legitimately: update `skills/fz/` accordingly) and `tests/test_skill_e2e.py`
+  (headless Claude Code; skipped without the `claude` CLI + `ANTHROPIC_API_KEY`).
 - An autouse fixture in `tests/conftest.py` runs **every test in a fresh temp directory
   under `./tmp`** and restores the cwd afterwards. Don't rely on repo-relative paths
   inside tests; reference test data via absolute paths or fixtures.

@@ -88,18 +88,18 @@ possible. For reusability, save as `.fz/models/perfectgas.json` (project) or
 
 ```bash
 # 3. Variables found? (returns variables as keys, None values)
-fzi input.txt --model perfectgas --format json
+fzi --input_path input.txt --model perfectgas --format json
 
 # 4. Compilation correct for one case?
-fzc input.txt --model perfectgas \
-    --variables '{"n_mol": 1, "T_celsius": 20, "V_L": 10}' --output compiled/
+fzc --input_path input.txt --model perfectgas \
+    --input_variables '{"n_mol": 1, "T_celsius": 20, "V_L": 10}' --output_dir compiled/
 cat compiled/input.txt
 
 # 5. Simulation runs on the compiled input?
 (cd compiled && bash /path/to/PerfectGazPressure.sh input.txt)
 
 # 6. Outputs parse correctly?
-fzo compiled/ --model perfectgas --format json
+fzo --output_path compiled/ --model perfectgas --format json
 ```
 
 Python equivalents: `fz.fzi(input_path, model)`, `fz.fzc(input_path, input_variables,
@@ -120,10 +120,10 @@ results = fz.fzr(
 ```
 
 ```bash
-fzr input.txt --model perfectgas \
-    --variables '{"T_celsius": [10, 20, 30, 40], "V_L": [1, 2, 5], "n_mol": 1.0}' \
-    --calculator "sh://bash PerfectGazPressure.sh" \
-    --results results/ --format json
+fzr --input_path input.txt --model perfectgas \
+    --input_variables '{"T_celsius": [10, 20, 30, 40], "V_L": [1, 2, 5], "n_mol": 1.0}' \
+    --calculators "sh://bash PerfectGazPressure.sh" \
+    --results_dir results/ --format json
 ```
 
 - A **dict** of lists ⇒ full factorial design (Cartesian product of all values).
@@ -151,10 +151,9 @@ Calculator URIs; pass one or a list (a list runs cases in parallel, round-robin)
 Interrupt-and-resume / incremental extension of a study:
 
 ```bash
-fzr input.txt --model m --variables '...' \
-    --calculator "cache://results_run1" \
-    --calculator "sh://bash calc.sh" \
-    --results results_run2/
+fzr --input_path input.txt --model m --input_variables '...' \
+    --calculators '["cache://results_run1", "sh://bash calc.sh"]' \
+    --results_dir results_run2/
 # only cases absent from results_run1 are computed
 ```
 
@@ -192,7 +191,8 @@ read [algorithms.md](algorithms.md).
   Exit codes are non-zero on errors, and `fzr` exits 1 when no case succeeded.
 - fz requires bash: native on Linux/macOS; MSYS2/Git Bash on Windows (`FZ_SHELL_PATH`).
 - In `output` parsing commands, awk field references like `$3` must survive shell quoting:
-  in JSON model files write them normally; in inline `--output-cmd` arguments escape as `\$3`.
+  in JSON model files write them normally; inside a single-quoted inline `--model` JSON
+  argument they are safe as-is, but never wrap them in double quotes on the shell.
 - `fzr` argument order in Python is `(input_path, input_variables, model, results_dir=...,
   calculators=...)` — use keyword arguments to stay safe.
 - Concurrency: repeat the same calculator URI N times (or set `FZ_MAX_WORKERS`) to run N
