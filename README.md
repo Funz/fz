@@ -3178,6 +3178,9 @@ The skill contains:
 - **skills/fz/reference.md** - Condensed API/CLI reference, JSON schemas, environment variables
 - **skills/fz/algorithms.md** - Interface for writing custom fzd algorithms
 
+See **[skills/howto.md](skills/howto.md)** for a complete walkthrough with example prompts
+(parametric studies, SSH execution, cache reuse, optimization, headless usage).
+
 ## Documentation
 
 ### Main Documentation
