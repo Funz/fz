@@ -13,8 +13,14 @@ from pathlib import Path
 from test_cli_commands import run_fz_cli_function
 
 
+def _write_file(path, content):
+    # Path.write_text(newline=...) needs Python 3.10+; open() works on 3.9
+    with Path(path).open("w", newline="\n") as f:
+        f.write(content)
+
+
 def _write_input(content="x=$x\n"):
-    Path("input.txt").write_text(content, newline="\n")
+    _write_file("input.txt", content)
 
 
 class TestPositionalPaths:
@@ -28,7 +34,7 @@ class TestPositionalPaths:
 
     def test_fzo_positional_output(self):
         Path("odir").mkdir()
-        (Path("odir") / "output.txt").write_text("42\n", newline="\n")
+        _write_file(Path("odir") / "output.txt", "42\n")
         result = run_fz_cli_function("fzo_main", [
             "odir", "--output-cmd", "y=cat output.txt", "--format", "json",
         ])
@@ -63,7 +69,7 @@ class TestFlagAliases:
 
     def test_fzr_repeatable_calculator_and_results_alias(self):
         _write_input()
-        Path("calc.sh").write_text("#!/bin/bash\necho 42 > output.txt\n", newline="\n")
+        _write_file("calc.sh", "#!/bin/bash\necho 42 > output.txt\n")
         result = run_fz_cli_function("fzr_main", [
             "input.txt",
             "--model", '{"varprefix": "$", "output": {"y": "cat output.txt"}}',
@@ -110,8 +116,8 @@ class TestInlineModel:
 
     def test_output_cmd_merges_into_model(self):
         Path("odir").mkdir()
-        (Path("odir") / "output.txt").write_text("7\n", newline="\n")
-        (Path("odir") / "other.txt").write_text("8\n", newline="\n")
+        _write_file(Path("odir") / "output.txt", "7\n")
+        _write_file(Path("odir") / "other.txt", "8\n")
         result = run_fz_cli_function("fzo_main", [
             "odir", "--model", '{"output": {"a": "cat output.txt"}}',
             "--output-cmd", "b=cat other.txt", "--format", "json",
