@@ -75,13 +75,13 @@ class CaseSpinner:
 
         # Clear any previous output first, then render final or clear
         if self.last_output:
-            sys.stdout.write('\r' + ' ' * len(self.last_output) + '\r')
-            sys.stdout.flush()
+            sys.stderr.write('\r' + ' ' * len(self.last_output) + '\r')
+            sys.stderr.flush()
 
         if not clear:
             final_status = self._build_status_line()
-            sys.stdout.write('\r' + final_status)
-            sys.stdout.flush()
+            sys.stderr.write('\r' + final_status)
+            sys.stderr.flush()
             self.last_output = final_status
         else:
             self.last_output = ""
@@ -191,8 +191,8 @@ class CaseSpinner:
 
             # Clear previous output and write new line
             clear_len = max(len(self.last_output), len(status_line))
-            sys.stdout.write('\r' + ' ' * clear_len + '\r' + status_line)
-            sys.stdout.flush()
+            sys.stderr.write('\r' + ' ' * clear_len + '\r' + status_line)
+            sys.stderr.flush()
             self.last_output = status_line
 
             # Increment spinner animation
@@ -208,13 +208,12 @@ class CaseSpinner:
         Returns:
             True if spinner should be enabled
         """
-        # # Disable if not a TTY
-        # if not sys.stdout.isatty():
-        #     return False
-        # 
-        # # Disable if only 0 or 1 case (not useful)
-        # if self.num_cases <= 1:
-        #     return False
+        # Disable if stderr is not a TTY (piped/redirected output)
+        try:
+            if not sys.stderr.isatty():
+                return False
+        except Exception:
+            return False
 
         # Check if we're in a CI environment (common CI env vars)
         ci_vars = ['CI', 'CONTINUOUS_INTEGRATION', 'TRAVIS', 'CIRCLECI', 'JENKINS', 'GITHUB_ACTIONS']
@@ -236,4 +235,4 @@ class CaseSpinner:
             # Stop but don't clear - keep the final status visible
             self.stop(clear=False)
             # Print final newline to move to next line
-            print()
+            print(file=sys.stderr)

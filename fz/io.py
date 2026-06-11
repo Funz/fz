@@ -85,7 +85,7 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None) -> No
 
                 except Exception as e:
                     # Skip files that can't be read, but log the issue
-                    print(f"Warning: Could not hash file {file_path}: {e}")
+                    log_warning(f"Could not hash file {file_path}: {e}")
 
     # Process remaining files in alphabetical order
     remaining_files = [f for f in all_files if f not in processed_files]
@@ -106,7 +106,7 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None) -> No
 
         except Exception as e:
             # Skip files that can't be read, but log the issue
-            print(f"Warning: Could not hash file {file_path}: {e}")
+            log_warning(f"Could not hash file {file_path}: {e}")
 
     # Write hash file
     with open(hash_file, 'w') as f:
@@ -139,10 +139,10 @@ def resolve_cache_paths(cache_pattern: str) -> List[Path]:
             glob_matches = glob.glob(cache_pattern)
             glob_paths = [Path(p) for p in glob_matches if Path(p).is_dir()]
             if glob_paths:
-                print(f"Cache pattern '{cache_pattern}' matched {len(glob_paths)} directories via glob")
+                log_info(f"Cache pattern '{cache_pattern}' matched {len(glob_paths)} directories via glob")
                 return sorted(glob_paths)
         except Exception as e:
-            print(f"Glob pattern matching failed: {e}")
+            log_warning(f"Glob pattern matching failed: {e}")
 
         # Try regex pattern on directory names in parent directory
         try:
@@ -161,13 +161,13 @@ def resolve_cache_paths(cache_pattern: str) -> List[Path]:
                         regex_matches.append(item)
 
                 if regex_matches:
-                    print(f"Cache pattern '{cache_pattern}' matched {len(regex_matches)} directories via regex")
+                    log_info(f"Cache pattern '{cache_pattern}' matched {len(regex_matches)} directories via regex")
                     return sorted(regex_matches)
         except Exception as e:
-            print(f"Regex pattern matching failed: {e}")
+            log_warning(f"Regex pattern matching failed: {e}")
 
     # If no pattern matches found, return empty list
-    print(f"Cache pattern '{cache_pattern}' did not match any directories")
+    log_info(f"Cache pattern '{cache_pattern}' did not match any directories")
     return []
 
 
@@ -183,17 +183,17 @@ def find_cache_match(cache_base_path: Path, current_hash_file: Path) -> Optional
         Path to matching cache subdirectory, or None if no match found
     """
     if not current_hash_file.exists():
-        print(f"Current hash file not found: {current_hash_file}")
+        log_info(f"Current hash file not found: {current_hash_file}")
         return None
 
     try:
         current_hash = current_hash_file.read_text().strip()
     except Exception as e:
-        print(f"Could not read current hash file: {e}")
+        log_warning(f"Could not read current hash file: {e}")
         return None
 
     if not cache_base_path.exists() or not cache_base_path.is_dir():
-        print(f"Cache base path does not exist or is not a directory: {cache_base_path}")
+        log_info(f"Cache base path does not exist or is not a directory: {cache_base_path}")
         return None
 
     # First check the base path itself for .fz_hash file
@@ -202,10 +202,10 @@ def find_cache_match(cache_base_path: Path, current_hash_file: Path) -> Optional
         try:
             cache_hash = base_hash_file.read_text().strip()
             if cache_hash == current_hash:
-                print(f"Cache match found in base path: {cache_base_path}")
+                log_info(f"Cache match found in base path: {cache_base_path}")
                 return cache_base_path
         except Exception as e:
-            print(f"Could not read cache hash file {base_hash_file}: {e}")
+            log_warning(f"Could not read cache hash file {base_hash_file}: {e}")
 
     # Then search through all subdirectories in cache
     for cache_subdir in cache_base_path.iterdir():
@@ -219,10 +219,10 @@ def find_cache_match(cache_base_path: Path, current_hash_file: Path) -> Optional
         try:
             cache_hash = cache_hash_file.read_text().strip()
             if cache_hash == current_hash:
-                print(f"Cache match found in subdirectory: {cache_subdir}")
+                log_info(f"Cache match found in subdirectory: {cache_subdir}")
                 return cache_subdir
         except Exception as e:
-            print(f"Could not read cache hash file {cache_hash_file}: {e}")
+            log_warning(f"Could not read cache hash file {cache_hash_file}: {e}")
             continue
 
     log_info(f"No cache match found in {cache_base_path} or its subdirectories")

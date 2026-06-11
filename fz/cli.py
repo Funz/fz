@@ -513,6 +513,12 @@ def fzr_main():
                     results_dir=args.results_dir,
                     calculators=calculators)
         print(format_output(result, args.format))
+        # Exit non-zero when no case succeeded, so shell scripts and agents
+        # can detect total failure without parsing the per-case status column
+        if "status" in result:
+            statuses = list(result["status"])
+            if statuses and not any(s == "done" for s in statuses):
+                return 1
         return 0
     except TypeError as e:
         # TypeError messages already printed by decorator

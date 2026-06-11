@@ -600,6 +600,22 @@ fz uninstall algorithm myalgo
 --format FORMAT           Output format: json, table, csv, markdown, html
 ```
 
+#### Exit Codes and Output Streams
+
+CLI commands are script-friendly: results are printed to **stdout**, while log messages
+(`FZ_LOG_LEVEL`), the progress bar, and error messages go to **stderr**. The progress bar
+is automatically disabled when stderr is not a terminal (piped/redirected output or CI).
+
+```bash
+# stdout contains only the JSON results; logs and progress stay on stderr
+fzr input.txt --model perfectgas --variables '{"x": [1, 2]}' \
+    --calculator "sh://bash calc.sh" --format json > results.json 2> run.log
+```
+
+Exit codes: `0` on success, non-zero on errors (invalid arguments, missing files, ...).
+`fzr` also exits with `1` when **no case succeeded**; partial success exits `0` with
+per-case details in the `status` column.
+
 #### Argument Formats
 
 FZ CLI commands support three flexible formats for specifying models, calculators, and variables:

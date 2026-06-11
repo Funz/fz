@@ -188,7 +188,8 @@ read [algorithms.md](algorithms.md).
 ## Tips for agents
 
 - Always prefer `--format json` (or `csv`) on CLI commands for parseable output; default
-  output is a human table. Errors go to stderr with non-zero exit codes.
+  output is a human table. Data goes to stdout; logs, progress, and errors go to stderr.
+  Exit codes are non-zero on errors, and `fzr` exits 1 when no case succeeded.
 - fz requires bash: native on Linux/macOS; MSYS2/Git Bash on Windows (`FZ_SHELL_PATH`).
 - In `output` parsing commands, awk field references like `$3` must survive shell quoting:
   in JSON model files write them normally; in inline `--output-cmd` arguments escape as `\$3`.

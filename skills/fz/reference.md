@@ -113,7 +113,10 @@ JSON file (ends in `.json`) → inline JSON (starts with `{`).
 fzd-specific: `--input_dir/-i`, `--input_vars/-v` (JSON with `"[min;max]"` ranges),
 `--output_expression/-e`, `--algorithm/-a`, `--options/-o`, `--results_dir`.
 
-Exit code is non-zero on failure; use `--format json` for machine-readable output.
+Stream discipline: results go to stdout; logs (`FZ_LOG_LEVEL`), progress bar, and error
+messages go to stderr (the progress bar is disabled when stderr is not a TTY). Exit codes:
+non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
+`--format json` for machine-readable output.
 
 ## Model JSON schema
 

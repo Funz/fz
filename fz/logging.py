@@ -6,6 +6,7 @@ Uses environment variable FZ_LOG_LEVEL or function calls to set verbosity.
 """
 
 import os
+import sys
 from enum import Enum
 from typing import Optional, Union
 
@@ -83,31 +84,31 @@ def should_log(level: LogLevel) -> bool:
 def log_error(message: str) -> None:
     """Log an error message (always shown unless completely disabled)"""
     if should_log(LogLevel.ERROR):
-        print(message)
+        print(message, file=sys.stderr)
 
 
 def log_warning(message: str) -> None:
     """Log a warning message"""
     if should_log(LogLevel.WARNING):
-        print("  " + message)
+        print("  " + message, file=sys.stderr)
 
 
 def log_info(message: str) -> None:
     """Log an info message"""
     if should_log(LogLevel.INFO):
-        print("    " + message)
+        print("    " + message, file=sys.stderr)
 
 
 def log_debug(message: str) -> None:
     """Log a debug message"""
     if should_log(LogLevel.DEBUG):
-        print("      " + message)
+        print("      " + message, file=sys.stderr)
 
 
 def log_progress(message: str) -> None:
     """Log a progress message (shows at all levels except QUIET)"""
     if _current_log_level != LogLevel.QUIET:
-        print(message)
+        print(message, file=sys.stderr)
 
 
 # Initialize from environment on module import

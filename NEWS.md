@@ -1,5 +1,23 @@
 # FZ Release Notes
 
+## Unreleased
+
+### CLI hardening for scripting and AI agents
+
+- Log messages (`FZ_LOG_LEVEL`) and progress output now go to **stderr** instead of
+  stdout, so `fzr ... --format json > results.json` produces clean, parseable data.
+- The progress bar/spinner now writes to stderr and is automatically disabled when
+  stderr is not a TTY (piped or redirected output), in addition to CI environments.
+- `fzr` now exits with code 1 when **no case succeeded** (all cases `error`/`failed`/
+  `interrupted`), so shell scripts can detect total failure without parsing output.
+  Partial success still exits 0; per-case status remains in the `status` column.
+
+### Documentation
+
+- New Agent Skill in `skills/fz/` for AI coding agents (Claude Code and compatible),
+  with a condensed API/CLI reference and fzd algorithm guide.
+- New `llms.txt` documentation index and `CLAUDE.md` contributor guide.
+
 ## Version 1.0 (2026-04-27)
 
 ### New Features
