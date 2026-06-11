@@ -1,0 +1,45 @@
+# fz
+
+> fz (PyPI: funz-fz) is a Python framework for parametric scientific computing: it wraps
+> any simulation code that reads input files and writes output files, runs parameter
+> studies in parallel (local shell, SSH, SLURM, legacy Funz servers), and parses results
+> into pandas DataFrames. Six core functions, each with a CLI twin: fzi (parse input
+> variables), fzc (compile inputs), fzo (parse outputs), fzr (run parametric study),
+> fzl (list models/calculators), fzd (adaptive design of experiments).
+
+Key concepts: input files are parameterized with `$var` markers and `@{formula}`
+expressions; a *model* (JSON/dict) defines the parsing syntax and shell commands that
+extract outputs; *calculators* (URIs like `sh://cmd`, `ssh://user@host/cmd`,
+`slurm://:partition/cmd`, `cache://path`) define where cases run.
+
+## Reference
+
+- [Condensed API/CLI reference](skills/fz/reference.md): function signatures, model and
+  calculator JSON schemas, calculator URI grammar, environment variables, input syntax
+- [Agent workflow guide](skills/fz/SKILL.md): step-by-step process to wrap a simulation
+  code and run a study, with verification at each step
+- [Custom fzd algorithms](skills/fz/algorithms.md): interface for adaptive
+  design-of-experiments / optimization algorithms
+
+## Documentation
+
+- [README](README.md): complete user guide with examples
+- [Core functions](context/core-functions.md): fzi, fzc, fzo, fzr, fzl, fzd in detail
+- [Input syntax guide](context/syntax-guide.md): variables, formulas, defaults
+- [Model definition](context/model-definition.md): model structure, aliases, output parsing
+- [Calculators](context/calculators.md): calculator types, URIs, configuration
+- [Formulas and interpreters](context/formulas-and-interpreters.md): Python/R formula evaluation
+- [Parallelism and caching](context/parallel-and-caching.md): performance strategies
+- [Quick examples](context/quick-examples.md): common usage patterns
+
+## Examples
+
+- [Examples overview](examples/examples.md): example models and studies
+- [fzd examples](examples/fzd_example.md): design of experiments walkthroughs
+- [DataFrame input](examples/dataframe_input.md): non-factorial designs
+
+## Optional
+
+- [Release notes](NEWS.md)
+- [Funz protocol](context/funz-protocol.md): legacy Java Funz server protocol
+- [Shell path configuration](context/shell-path.md): bash on Windows (FZ_SHELL_PATH)

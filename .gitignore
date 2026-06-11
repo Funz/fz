@@ -18,6 +18,7 @@ build
 **.pyc
 *.txt
 !tests/test_data/**/*.txt
+!llms.txt
 *.sh
 .coverage
 results*/
