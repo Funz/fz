@@ -310,5 +310,4 @@ None in this release.
 
 For detailed information, see:
 - README.md - User guide and examples
-- claude/ - Developer documentation and session notes
 - context/ - Modular documentation by topic
