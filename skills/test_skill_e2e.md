@@ -154,7 +154,49 @@ jq -e '
    | fabs) < 0.001' verify.json && echo "PASS: wrapper works on unseen point"
 ```
 
-## 5. Clean up
+## 5. Level 3 — inverse problem with the brent algorithm (fzd)
+
+The last capability the skill teaches: adaptive design of experiments. Given a target
+pressure, the agent must find the temperature producing it, using `fzd` with the brent
+1D-optimization algorithm — on the wrapper it built in Level 2. The exact answer is
+analytic (T = P·V/(nR) − 273.15 ≈ 27.5476 °C for P = 2 500 000), so the check is
+deterministic.
+
+Provide the algorithm (as `fz install algorithm brent` would):
+
+```bash
+mkdir -p .fz/algorithms
+cp "$FZ_REPO/examples/algorithms/brent.py" .fz/algorithms/
+```
+
+```bash
+claude -p "Using the fz skill, solve this inverse problem with fz's
+design-of-experiments tool (fzd) and the installed brent algorithm
+(.fz/algorithms/brent.py): for the simulation wrapped by the installed fz model
+'PerfectGas' (input file input.txt, runner 'bash calc.sh'), find the temperature
+T_celsius in [0;100] at which the pressure equals 2500000, with V_L fixed to 1 and
+n_mol fixed to 1. Hint: minimize a squared-difference output expression. The reported
+T_celsius must be accurate to within 0.1 degrees C: let the algorithm converge (enough
+iterations, small tolerance) and check the achieved pressure against the target before
+reporting. When done, write solution.json containing the keys T_celsius (the solution)
+and pressure (the pressure reached at that temperature)." \
+  --output-format stream-json --verbose \
+  --max-turns 80 --model "$MODEL" \
+  --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill" < /dev/null > transcript3.jsonl
+```
+
+Check the solution against the analytic answer (0.5 °C tolerance — 5× looser than what
+the prompt demands):
+
+```bash
+jq -e '
+  (2500000 * 0.001 / 8.314 - 273.15) as $t_exact
+  | ((.T_celsius - $t_exact) | fabs) < 0.5
+    and (((.pressure - 2500000) / 2500000) | fabs) < 0.01' solution.json \
+  && echo "PASS: inverse problem solved"
+```
+
+## 6. Clean up
 
 ```bash
 cd / && rm -rf "$SANDBOX"
@@ -165,9 +207,9 @@ cd / && rm -rf "$SANDBOX"
 - **Assert on artifacts, not prose**: the agent's wording varies between runs; the
   existence and numerical content of `results.json` (and the case directories fz creates
   under `results/`) do not.
-- Expect ~10 s for Level 1 and ~1–2 min for Level 2 with haiku (it has to inspect
-  calc.sh, write the model and calculator alias, and run the study); a few cents of
-  tokens.
+- Expect ~10 s for Level 1, ~1–3 min for Level 2 (it has to inspect calc.sh, write the
+  model and calculator alias, and run the study), and ~3–15 min for Level 3 (iterative
+  optimization with convergence checking) with haiku; a few cents of tokens.
 - If Level 2 fails, look inside the sandbox before deleting it: `results/*/out.txt`,
   `err.txt` and `log.txt` show what each fz case actually did, and `transcript2.jsonl`
   shows what the agent tried.

@@ -107,12 +107,32 @@ def run_claude(prompt, max_turns, cwd):
         "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep,Skill",
     ]
     return subprocess.run(
-        cmd, capture_output=True, text=True, timeout=900, cwd=cwd, env=env
+        cmd, capture_output=True, text=True, timeout=1800, cwd=cwd, env=env
     )
 
 
 def expected_pressure(n_mol, t_celsius, v_l):
     return n_mol * GAS_CONSTANT * (t_celsius + 273.15) / (v_l / 1000.0)
+
+
+def install_wrapper(sandbox: Path):
+    """Pre-install a working wrapper (as level 2 produces) plus the brent algorithm"""
+    (sandbox / ".fz/models").mkdir(parents=True)
+    (sandbox / ".fz/models/PerfectGas.json").write_text(json.dumps({
+        "id": "PerfectGas",
+        "varprefix": "$",
+        "formulaprefix": "@",
+        "delim": "{}",
+        "commentline": "#",
+        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"},
+    }))
+    (sandbox / ".fz/calculators").mkdir(parents=True)
+    (sandbox / ".fz/calculators/localhost_PerfectGas.json").write_text(json.dumps({
+        "uri": "sh://",
+        "models": {"PerfectGas": "bash calc.sh"},
+    }))
+    (sandbox / ".fz/algorithms").mkdir(parents=True)
+    shutil.copy(REPO / "examples/algorithms/brent.py", sandbox / ".fz/algorithms/brent.py")
 
 
 def test_skill_activation(tmp_path, claude_ready):
@@ -213,3 +233,48 @@ def test_skill_implement_wrapper(tmp_path, claude_ready, monkeypatch):
     assert abs(pressure - expected) / expected < 1e-3, (
         f"wrapper verify run: pressure {pressure} != {expected}"
     )
+
+
+def test_skill_inverse_problem_brent(tmp_path, claude_ready):
+    """Level 3: inverse problem via fzd + brent — given a target pressure, find T.
+
+    The wrapper and the brent algorithm are pre-installed (levels 1-2 cover
+    authoring them); what is tested here is using fz's design-of-experiments
+    tool with an installed algorithm to solve an inversion. The exact answer
+    is known analytically, so the assertion is deterministic.
+    """
+    setup_sandbox(tmp_path)
+    install_wrapper(tmp_path)
+    target = 2_500_000.0
+    t_exact = target * (1 / 1000.0) / GAS_CONSTANT - 273.15  # ~27.55 °C
+
+    result = run_claude(
+        "Using the fz skill, solve this inverse problem with fz's design-of-experiments "
+        "tool (fzd) and the installed brent algorithm (.fz/algorithms/brent.py): for the "
+        "simulation wrapped by the installed fz model 'PerfectGas' (input file input.txt, "
+        f"runner 'bash calc.sh'), find the temperature T_celsius in [0;100] at which the "
+        f"pressure equals {target:.0f}, with V_L fixed to 1 and n_mol fixed to 1. "
+        "Hint: minimize a squared-difference output expression. The reported "
+        "T_celsius must be accurate to within 0.1 degrees C: let the algorithm "
+        "converge (enough iterations, small tolerance) and check the achieved "
+        "pressure against the target before reporting. When done, write "
+        "solution.json containing the keys T_celsius (the solution) and pressure "
+        "(the pressure reached at that temperature).",
+        max_turns=80,
+        cwd=tmp_path,
+    )
+    assert result.returncode == 0, f"claude failed: {result.stderr[-2000:]}"
+
+    solution_file = tmp_path / "solution.json"
+    assert solution_file.exists(), "agent did not produce solution.json"
+    solution = json.loads(solution_file.read_text(encoding="utf-8"))
+
+    t_found = float(solution["T_celsius"])
+    assert abs(t_found - t_exact) < 0.5, (
+        f"T_celsius {t_found} not within 0.5°C of exact solution {t_exact:.4f}"
+    )
+    # physics consistency: the pressure at the reported T must hit the target
+    p_at_t = expected_pressure(1, t_found, 1)
+    assert abs(p_at_t - target) / target < 0.005
+    # and the agent's reported pressure must be the actually computed one
+    assert abs(float(solution["pressure"]) - target) / target < 0.01
