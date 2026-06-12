@@ -43,7 +43,9 @@ cp -r "$FZ_REPO/skills/fz" .claude/skills/
 ```
 
 The simulation: an input file parameterized with fz syntax (`$var` variables, `@{...}`
-formulas), a solver script, and a model alias telling fz how to parse the output.
+formulas) and a solver script. Deliberately **no fz model is provided** — defining it
+(variable syntax, output parsing command) is part of what the agent must do, guided by
+the skill (SKILL.md step 2 / wrapper.md), and part of what this test verifies.
 
 ```bash
 # input file: 3 variables, 2 compile-time formulas
@@ -60,19 +62,6 @@ cat > calc.sh <<'EOF'
 source $1
 python3 -c "print('pressure =', $n_mol*8.314*$T_kelvin/$V_m3)" > output.txt
 EOF
-
-# model alias: variable syntax + how to extract the pressure
-mkdir -p .fz/models
-cat > .fz/models/perfectgas.json <<'EOF'
-{
-  "varprefix": "$",
-  "formulaprefix": "@",
-  "delim": "{}",
-  "commentline": "#",
-  "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"},
-  "id": "perfectgas"
-}
-EOF
 ```
 
 ## 2. Level 1 — skill activation
@@ -84,7 +73,7 @@ blocks on a permission prompt.
 
 ```bash
 claude -p "Using the fz skill, find which input variables input.txt contains
-(the fz model alias is 'perfectgas') and list their names." \
+and list their names. It uses the default fz parameterization syntax." \
   --output-format stream-json --verbose \
   --max-turns 10 --model "$MODEL" \
   --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill" < /dev/null > transcript.jsonl
@@ -102,15 +91,19 @@ echo "PASS: all variables identified"
 ## 3. Level 2 — end-to-end parametric study
 
 Give the agent the full task and let it choose its path; we only check the artifact it
-must produce. 2×2 = 4 cases, physics known exactly, so the assertions are deterministic
-even though the agent's reasoning is not.
+must produce. The agent has to read `calc.sh`, define the fz model itself (variable
+syntax + an output command parsing `output.txt`), and only then run the study. 2×2 = 4
+cases, physics known exactly, so the assertions are deterministic even though the agent's
+reasoning is not.
 
 ```bash
-claude -p "Using the fz skill, run a parametric study of the simulation launched by
-'bash calc.sh' (fz model alias: 'perfectgas', input file: input.txt) over
-T_celsius in [10, 20] and V_L in [1, 2] with n_mol fixed to 1.
-Then write the results to a file named results.json as a JSON list of
-records, one per case, each with keys T_celsius, V_L, n_mol, pressure, status." \
+claude -p "Using the fz skill, wrap the simulation in this directory with fz and run a
+parametric study. The simulation is launched by 'bash calc.sh <input file>'; the
+parameterized input file is input.txt; read calc.sh to see what output it writes and
+define the fz model yourself (no model is provided). Run the study over
+T_celsius in [10, 20] and V_L in [1, 2] with n_mol fixed to 1, then write the results
+to a file named results.json as a JSON list of records, one per case, each with keys
+T_celsius, V_L, n_mol, pressure, status." \
   --output-format stream-json --verbose \
   --max-turns 40 --model "$MODEL" \
   --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill" < /dev/null > transcript2.jsonl
@@ -145,7 +138,8 @@ cd / && rm -rf "$SANDBOX"
 - **Assert on artifacts, not prose**: the agent's wording varies between runs; the
   existence and numerical content of `results.json` (and the case directories fz creates
   under `results/`) do not.
-- Expect ~10 s for Level 1 and ~40 s for Level 2 with haiku; a few cents of tokens.
+- Expect ~10 s for Level 1 and ~60 s for Level 2 with haiku (it also has to inspect
+  calc.sh and write the model); a few cents of tokens.
 - If Level 2 fails, look inside the sandbox before deleting it: `results/*/out.txt`,
   `err.txt` and `log.txt` show what each fz case actually did, and `transcript2.jsonl`
   shows what the agent tried.

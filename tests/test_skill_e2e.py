@@ -74,6 +74,10 @@ def setup_sandbox(sandbox: Path):
     The sandbox must live outside the fz repository (pytest's tmp_path does),
     otherwise the spawned claude session resolves the enclosing fz repo as its
     project and ignores the sandbox's .claude/skills.
+
+    Deliberately NO fz model is provided: defining it (variable syntax, output
+    parsing command) is part of what the agent must do, guided by the skill
+    (SKILL.md step 2 / wrapper.md).
     """
     shutil.copytree(SKILL_SRC, sandbox / ".claude/skills/fz")
 
@@ -89,15 +93,6 @@ def setup_sandbox(sandbox: Path):
         'python3 -c "print(\'pressure =\', '
         f'$n_mol*{GAS_CONSTANT}*$T_kelvin/$V_m3)" > output.txt\n'
     )
-    (sandbox / ".fz/models").mkdir(parents=True)
-    (sandbox / ".fz/models/perfectgas.json").write_text(json.dumps({
-        "varprefix": "$",
-        "formulaprefix": "@",
-        "delim": "{}",
-        "commentline": "#",
-        "output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"},
-        "id": "perfectgas",
-    }))
 
 
 def run_claude(prompt, max_turns, cwd):
@@ -125,7 +120,7 @@ def test_skill_activation(tmp_path, claude_ready):
     setup_sandbox(tmp_path)
     result = run_claude(
         "Using the fz skill, find which input variables input.txt contains "
-        "(the fz model alias is 'perfectgas') and list their names.",
+        "and list their names. It uses the default fz parameterization syntax.",
         max_turns=10,
         cwd=tmp_path,
     )
@@ -146,11 +141,13 @@ def test_skill_end_to_end_study(tmp_path, claude_ready):
     setup_sandbox(tmp_path)
     cases = [(10, 1), (10, 2), (20, 1), (20, 2)]
     result = run_claude(
-        "Using the fz skill, run a parametric study of the simulation launched by "
-        "'bash calc.sh' (fz model alias: 'perfectgas', input file: input.txt) over "
-        "T_celsius in [10, 20] and V_L in [1, 2] with n_mol fixed to 1. "
-        "Then write the results to a file named results.json as a JSON list of "
-        "records, one per case, each with keys T_celsius, V_L, n_mol, pressure, status.",
+        "Using the fz skill, wrap the simulation in this directory with fz and run a "
+        "parametric study. The simulation is launched by 'bash calc.sh <input file>'; "
+        "the parameterized input file is input.txt; read calc.sh to see what output it "
+        "writes and define the fz model yourself (no model is provided). Run the study "
+        "over T_celsius in [10, 20] and V_L in [1, 2] with n_mol fixed to 1, then write "
+        "the results to a file named results.json as a JSON list of records, one per "
+        "case, each with keys T_celsius, V_L, n_mol, pressure, status.",
         max_turns=40,
         cwd=tmp_path,
     )
