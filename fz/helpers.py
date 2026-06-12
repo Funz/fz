@@ -520,15 +520,18 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
 
     attempted_calculator_ids = []
     last_error = None
+    hard_failure_count = 0    # counts real (non-UDP-miss) failures
+    funz_udp_cycle_count = 0  # counts complete cycles where every calculator had a UDP miss
+    total_attempts = 0        # total tries, for logging
 
     # Get max retry attempts from configuration
     config = get_config()
-    max_attempts = config.max_retries
+    max_hard_failures = config.max_retries
 
     # Get calculator manager instance
     calc_mgr = get_calculator_manager()
 
-    for attempt in range(max_attempts):
+    while hard_failure_count < max_hard_failures:
         # Check for interrupt before each attempt
         if is_interrupted():
             log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Interrupted before calculator attempt")
@@ -537,14 +540,15 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                 "error": "Execution interrupted by user",
                 "calculator_uri": "interrupted"
             }, "interrupted"
+
         # Select calculator using thread-safe manager, avoiding previously attempted ones
         available_calc_ids = [calc_id for calc_id in non_cache_calculator_ids if calc_id not in attempted_calculator_ids]
         if not available_calc_ids:
-            # All calculators have been tried, pick from the original list
+            # All calculators have been tried in this cycle; start a new cycle
+            attempted_calculator_ids = []
             available_calc_ids = non_cache_calculator_ids
 
         # Use thread-safe calculator manager to get an available calculator
-        # Always use the same case_index for all retry attempts to maintain consistent calculator selection
         selected_calculator_id = calc_mgr.get_available_calculator(
             available_calc_ids, thread_id, case_index
         )
@@ -571,7 +575,8 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                     break
 
         attempted_calculator_ids.append(selected_calculator_id)
-        attempt_label = "retry" if attempt > 0 else "primary"
+        total_attempts += 1
+        attempt_label = "retry" if total_attempts > 1 else "primary"
         selected_calculator_uri = calc_mgr.get_original_uri(selected_calculator_id)
         if history:
             history.append(f"Trying calculator: {selected_calculator_uri}")
@@ -596,14 +601,14 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                 elapsed = time.time() - start_time
                 calc_type = "LOCAL" if used_calculator.startswith("sh://") else "REMOTE" if used_calculator.startswith("ssh://") else "CALCULATOR"
                 success_label = f"✓ [Thread {thread_id}] Case {case_index}: {calc_type} ({used_calculator}) ({elapsed:.2f}s)"
-                if attempt > 0:
-                    success_label += f" [RETRY SUCCESS after {attempt} failed attempts]"
+                if total_attempts > 1:
+                    success_label += f" [RETRY SUCCESS after {total_attempts - 1} failed attempts]"
                 log_info(success_label)
                 # Release the calculator when successful
                 calc_mgr.release_calculator(selected_calculator_id, thread_id)
                 return calc_result, selected_calculator_id
 
-            # Calculation failed - prepare for potential retry
+            # Calculation failed — classify the failure
             if calc_result:
                 error_msg = calc_result.get("error", "Calculation failed")
                 exit_code = calc_result.get("exit_code")
@@ -613,22 +618,67 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                 if exit_code is not None:
                     failure_info += f", exit_code={exit_code}"
 
-                log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} failed ({failure_info}): {error_msg}")
-                if history:
-                    retry_suffix = ", retrying..." if attempt < max_attempts - 1 else ""
-                    history.append(f"Calculator {selected_calculator_uri} failed ({failure_info}){retry_suffix}")
-                    history.append(f"Error: {error_msg}")
-                last_error = calc_result
+                # A funz:// UDP-discovery timeout means the server is simply not
+                # available yet — this is not a real computation failure.  Switch
+                # to the next calculator without consuming a retry slot.
+                is_funz_udp_miss = (
+                    selected_calculator_uri.startswith("funz://") and
+                    "No calculator found on UDP port" in error_msg
+                )
+
+                # Release the calculator before any potential sleep
+                calc_mgr.release_calculator(selected_calculator_id, thread_id)
+
+                if is_funz_udp_miss:
+                    log_info(
+                        f"⏳ [Thread {thread_id}] Case {case_index}: Funz calculator {selected_calculator_uri} "
+                        f"not available (UDP timeout), switching to another calculator..."
+                    )
+                    if history:
+                        history.append(
+                            f"Funz calculator {selected_calculator_uri} unavailable (UDP timeout), switching..."
+                        )
+                    last_error = calc_result
+
+                    # If every unique calculator in this cycle was a funz UDP miss,
+                    # all funz servers are down — wait with backoff before retrying.
+                    remaining_untried = [c for c in non_cache_calculator_ids if c not in attempted_calculator_ids]
+                    if not remaining_untried:
+                        all_are_funz = all(
+                            calc_mgr.get_original_uri(c).startswith("funz://")
+                            for c in non_cache_calculator_ids
+                        )
+                        if all_are_funz:
+                            funz_udp_cycle_count += 1
+                            wait_secs = min(funz_udp_cycle_count * 2.0, 30.0)
+                            log_info(
+                                f"⏳ [Thread {thread_id}] Case {case_index}: All Funz calculators unavailable, "
+                                f"waiting {wait_secs:.0f}s before retrying (cycle {funz_udp_cycle_count})..."
+                            )
+                            time.sleep(wait_secs)
+                            attempted_calculator_ids = []  # reset for next cycle
+                else:
+                    funz_udp_cycle_count = 0  # a real failure resets the UDP-miss cycle counter
+                    hard_failure_count += 1
+                    log_warning(
+                        f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} "
+                        f"failed ({failure_info}): {error_msg}"
+                    )
+                    if history:
+                        retry_suffix = ", retrying..." if hard_failure_count < max_hard_failures else ""
+                        history.append(f"Calculator {selected_calculator_uri} failed ({failure_info}){retry_suffix}")
+                        history.append(f"Error: {error_msg}")
+                    last_error = calc_result
             else:
                 log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} returned None result")
+                hard_failure_count += 1
                 last_error = {
                     "status": "error",
                     "error": "Calculator returned None result",
                     "calculator_uri": selected_calculator_uri
                 }
-
-            # Release the calculator after failed calculation
-            calc_mgr.release_calculator(selected_calculator_id, thread_id)
+                # Release the calculator after failed calculation
+                calc_mgr.release_calculator(selected_calculator_id, thread_id)
 
         except Exception as e:
             import traceback
@@ -636,6 +686,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
             error_msg = str(e)
             log_error(f"❌ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} failed with exception after {elapsed:.2f}s: {error_msg}")
 
+            hard_failure_count += 1
             last_error = {
                 "status": "error",
                 "error": error_msg,
@@ -652,18 +703,23 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
             # Release the calculator after exception
             calc_mgr.release_calculator(selected_calculator_id, thread_id)
 
-        # If we have more attempts available, continue to retry
-        if attempt < max_attempts - 1:
-            log_debug(f"🔄 [Thread {thread_id}] Case {case_index}: Will retry with different calculator...")
+        if hard_failure_count > 0 and hard_failure_count < max_hard_failures:
+            log_debug(
+                f"🔄 [Thread {thread_id}] Case {case_index}: Will retry with different calculator "
+                f"({hard_failure_count}/{max_hard_failures} hard failures so far)..."
+            )
 
-    # All attempts failed
+    # All hard failure attempts exhausted
     final_error = last_error or {
         "status": "error",
         "error": "All calculators failed",
         "calculator_uri": "multiple_failed"
     }
 
-    log_error(f"❌ [Thread {thread_id}] Case {case_index}: All {len(attempted_calculator_ids)} calculator attempts failed")
+    log_error(
+        f"❌ [Thread {thread_id}] Case {case_index}: {hard_failure_count} calculator failures "
+        f"exceeded limit ({max_hard_failures})"
+    )
     # Convert calculator IDs back to URIs for logging
     attempted_uris = [calc_mgr.get_original_uri(calc_id) for calc_id in attempted_calculator_ids]
     log_error(f"❌ [Thread {thread_id}] Case {case_index}: Attempted calculators: {attempted_uris}")
