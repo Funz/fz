@@ -37,7 +37,10 @@
 ### Documentation
 
 - New Agent Skill in `skills/fz/` for AI coding agents (Claude Code and compatible),
-  with a condensed API/CLI reference and fzd algorithm guide.
+  with a condensed API/CLI reference, fzd algorithm guide, and wrapper implementation
+  guide (`wrapper.md`).
+- The repo is now a Claude Code plugin marketplace (`.claude-plugin/`): install the skill
+  from inside Claude Code with `/plugin marketplace add Funz/fz` + `/plugin install fz@funz`.
 - New `llms.txt` documentation index and `CLAUDE.md` contributor guide.
 
 ## Version 1.0 (2026-04-27)

@@ -3156,7 +3156,16 @@ AI coding agents (Claude Code, and other agents supporting the skills format) th
 workflow: parameterizing input files, defining models, choosing calculators, and running
 parametric studies.
 
-To use it with Claude Code, copy (or symlink) the skill into your project or user skills
+**Easiest (Claude Code plugin)** — install straight from Claude Code, no shell needed:
+
+```
+/plugin marketplace add Funz/fz
+/plugin install fz@funz
+```
+
+The skill then loads automatically in every project, and updates with the marketplace.
+
+**Manual install** — copy (or symlink) the skill into your project or user skills
 directory:
 
 ```bash

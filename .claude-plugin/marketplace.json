@@ -1,0 +1,19 @@
+{
+  "name": "funz",
+  "owner": {
+    "name": "Funz",
+    "url": "https://github.com/Funz"
+  },
+  "metadata": {
+    "description": "Funz tools for parametric scientific computing",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "fz",
+      "source": "./",
+      "description": "fz Agent Skill: wrap simulation codes and run parametric studies (sweeps, SSH/SLURM execution, design of experiments, wrapper authoring)",
+      "category": "scientific-computing"
+    }
+  ]
+}

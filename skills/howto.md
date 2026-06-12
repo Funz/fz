@@ -7,7 +7,14 @@ use it.
 
 ## 1. Install the skill
 
-**User-level** (recommended — available in all your projects):
+**As a Claude Code plugin** (recommended — two slash-commands, auto-updating):
+
+```
+/plugin marketplace add Funz/fz
+/plugin install fz@funz
+```
+
+**User-level copy** (available in all your projects):
 
 ```bash
 mkdir -p ~/.claude/skills
