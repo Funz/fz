@@ -14,6 +14,16 @@
 - All canonical flags and short options are unchanged; `--model` is no longer required
   (defaults: varprefix `$`, formulaprefix `@`, delim `{}`, commentline `#`).
 
+### Calculator discovery fixes
+
+- `fzd` with `calculators` omitted now auto-discovers installed calculator aliases bound
+  to the model id, exactly like `fzr`. Previously it resolved calculators before reading
+  the model id, producing an empty `sh://` command and failing every case.
+- `fzr` (and thus `--calculators <alias>` on the CLI) now accepts calculator dicts; bare
+  alias names resolved from `.fz/calculators/` were previously rejected with a TypeError.
+- `fzd` docstring corrected: `analysis_dir` defaults to `"analysis"` (the CLI uses
+  `results_fzd`).
+
 ### CLI hardening for scripting and AI agents
 
 - Log messages (`FZ_LOG_LEVEL`) and progress output now go to **stderr** instead of

@@ -18,22 +18,58 @@ fz wraps any simulation code that reads input files and writes output files, so 
 run as a parametric study: variables in input files are substituted for each case, cases run
 in parallel (locally, SSH, SLURM), and outputs are parsed back into a pandas DataFrame.
 
-Install: `pip install funz-fz` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`
-plus the `fz` Python package).
+Install: `pip install 'funz-fz>=1.0'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
+`fzd` plus the `fz` Python package; `fz install` requires 1.0+). On PEP 668
+externally-managed systems (`error: externally-managed-environment`), use a venv:
+`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=1.0'`.
 
 ## The workflow
 
 Wrapping a simulation always follows the same steps. Do them in order and verify each one
 before moving to the next — this isolates errors cheaply instead of debugging a full run.
 
+0. **Check for an official wrapper**: `fz install model <code>` may give you steps 1–2
+   for free.
 1. **Parameterize the input file(s)**: replace numerical values with `$var` markers.
 2. **Define the model**: a small dict/JSON saying how to recognize variables and how to
-   parse outputs.
+   parse outputs — only if step 0 found no wrapper.
 3. **Verify parsing**: `fzi` must report exactly the variables you expect.
 4. **Verify compilation**: `fzc` with one set of values; inspect the compiled file.
 5. **Run one case manually**: execute the simulation command on the compiled file.
 6. **Verify output parsing**: `fzo` on the directory containing the outputs.
 7. **Run the study**: `fzr` with the full variable grid and calculator(s).
+
+### 0. Check for an existing wrapper first
+
+Funz publishes ready-made wrappers for common simulation codes (Modelica, MORET, …) as
+GitHub repos named `fz-<code>` under the Funz organization — browse
+<https://github.com/orgs/Funz/repositories?q=fz-> for the list. Install one with:
+
+```bash
+fz install model modelica        # name → https://github.com/Funz/fz-modelica
+fz list --check --format json    # verify what got installed
+```
+
+This drops into the project's `.fz/` directory (add `--global` for `~/.fz/`):
+
+- `.fz/models/<Code>.json` — the model definition (variable syntax + output parsers);
+  refer to it by bare alias, e.g. `--model Modelica`.
+- `.fz/calculators/<Code>.sh` — a runner script that executes the simulation code.
+- `.fz/calculators/localhost_<Code>.json` — a local calculator alias wired to that script.
+  In `fzr` it is auto-discovered: omit `calculators` and the installed alias matching the
+  model id is used. **fz 1.0 (current PyPI) caveats**: bare alias names are NOT accepted
+  by `--calculators`, and `fzd` does NOT auto-discover — omitting `calculators` there
+  silently runs an empty `sh://` command and every case fails; pass calculators explicitly
+  to `fzd`, e.g. a URI with an absolute script path:
+  `calculators="sh://bash /abs/path/.fz/calculators/<Code>.sh"` (absolute, because
+  calculator commands run inside each case directory). Both limitations are fixed in
+  newer fz (git main / next release): `fzd` auto-discovers like `fzr`, and
+  `--calculators <alias>` works.
+
+With a wrapper installed, skip to step 1 just to add `$var` markers to your input file,
+then verify with steps 3–6 as usual. Write a custom model (step 2) only when no wrapper
+exists for your code — and if it should be reusable or published as `fz-<code>`, follow
+[wrapper.md](wrapper.md).
 
 ### 1. Parameterize input files
 
@@ -131,6 +167,10 @@ fzr --input_path input.txt --model perfectgas \
   constrained combinations, or designs imported from CSV).
 - Returns a DataFrame with one row per case: variable columns, output columns, and
   metadata columns `status` (`done`/`error`/`cached`), `calculator`, `error`, `command`.
+- List-valued outputs (e.g. time series) become list columns — one whole trajectory per
+  row. The Modelica wrapper, for instance, yields `res_<Model>_time`, `res_<Model>_T`, …
+  per case; plot directly with
+  `for _, row in results.iterrows(): plt.plot(row["res_M_time"], row["res_M_T"])`.
 - Each case directory under `results/` keeps compiled inputs, outputs, `out.txt`,
   `err.txt`, `log.txt` — read these to diagnose failed cases.
 - Failed cases are retried automatically on another calculator (default 5 attempts,
@@ -159,7 +199,9 @@ fzr --input_path input.txt --model m --input_variables '...' \
 
 Calculator aliases live in `.fz/calculators/<name>.json` with the command per model id:
 `{"uri": "ssh://user@cluster", "models": {"perfectgas": "bash /path/calc.sh"}}`.
-Run `fzl --check --format json` to list and validate installed models/calculators.
+Run `fz list --check --format json` (alias `fzl`) to list and validate installed
+models/calculators — prefer the `fz <subcommand>` forms, which survive stale or
+partially-installed standalone scripts.
 
 ## Design of experiments / optimization (fzd)
 
@@ -180,6 +222,30 @@ results["XY"]       # DataFrame of all evaluated points
 results["summary"]  # text summary (e.g. optimum found)
 ```
 
+Like model wrappers, **algorithms can be installed** from the Funz GitHub organization —
+prefer this over writing one when the question goes beyond a plain sweep (optimization,
+calibration/inversion, uncertainty propagation, sensitivity analysis, adaptive sampling):
+
+```bash
+fz install algorithm brent        # name → https://github.com/Funz/fz-brent
+```
+
+Algorithm repos share the `fz-<name>` naming with model wrappers — browse
+<https://github.com/orgs/Funz/repositories?q=fz-> for both (as of 2026-06: `fz-brent`,
+`fz-gradientdescent`, `fz-PSO`; the `algorithm-*` repos are legacy Java-Funz). The fz repo
+itself also ships ready-to-use algorithms in `examples/algorithms/` (`montecarlo_uniform`,
+`randomsampling`, `bfgs`, `brent`) — copy one into `.fz/algorithms/`:
+
+```bash
+curl -s https://raw.githubusercontent.com/Funz/fz/main/examples/algorithms/montecarlo_uniform.py \
+  -o .fz/algorithms/montecarlo_uniform.py
+```
+
+Installed algorithms land in `.fz/algorithms/` (`--global` for `~/.fz/`) and are referenced
+by bare name (or glob): `algorithm="montecarlo_uniform"`. Check the `#options:` and
+`#require:` header lines of the algorithm file for its options and Python dependencies
+(e.g. montecarlo_uniform needs scipy).
+
 Points already evaluated are cached across iterations and across re-runs. To write a custom
 algorithm (a Python class with `get_initial_design` / `get_next_design` / `get_analysis`),
 read [algorithms.md](algorithms.md).
@@ -190,6 +256,9 @@ read [algorithms.md](algorithms.md).
   output is a human table. Data goes to stdout; logs, progress, and errors go to stderr.
   Exit codes are non-zero on errors, and `fzr` exits 1 when no case succeeded.
 - fz requires bash: native on Linux/macOS; MSYS2/Git Bash on Windows (`FZ_SHELL_PATH`).
+- Installed wrappers may invoke `python` (not `python3`) in their `output` commands and
+  import pandas — if output parsing returns nothing, run fz with a suitable interpreter
+  first on PATH: `PATH=$PWD/.venv/bin:$PATH fz output ...` (same for `fzr`).
 - In `output` parsing commands, awk field references like `$3` must survive shell quoting:
   in JSON model files write them normally; inside a single-quoted inline `--model` JSON
   argument they are safe as-is, but never wrap them in double quotes on the shell.
