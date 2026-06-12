@@ -1325,7 +1325,7 @@ def fzr(
     input_variables: Union[Dict, "pandas.DataFrame"],
     model: Union[str, Dict],
     results_dir: str = "results",
-    calculators: Union[str, List[str]] = None,
+    calculators: Union[str, Dict, List[Union[str, Dict]]] = None,
     callbacks: Optional[Dict[str, callable]] = None,
     timeout: int = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
@@ -1378,12 +1378,12 @@ def fzr(
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
 
     if calculators is not None:
-        if not isinstance(calculators, (str, list)):
-            raise TypeError(f"calculators must be a string or list, got {type(calculators).__name__}")
+        if not isinstance(calculators, (str, list, dict)):
+            raise TypeError(f"calculators must be a string, dict, or list, got {type(calculators).__name__}")
         if isinstance(calculators, list):
             for i, calc in enumerate(calculators):
-                if not isinstance(calc, str):
-                    raise TypeError(f"calculators[{i}] must be a string, got {type(calc).__name__}")
+                if not isinstance(calc, (str, dict)):
+                    raise TypeError(f"calculators[{i}] must be a string or dict, got {type(calc).__name__}")
 
     # Validate callbacks parameter
     if callbacks is not None:
@@ -1728,12 +1728,14 @@ def fzd(
         model: Model definition dict or alias string
         output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2"
         algorithm: Path to algorithm Python file (e.g., "algorithms/montecarlo.py")
-        calculators: Calculator specifications (default: ["sh://"])
+        calculators: Calculator specifications. If omitted, installed calculator
+            aliases supporting the model id are auto-discovered (like fzr);
+            falls back to ["sh://"] when none are found.
         algorithm_options: Algorithm-specific options. Can be:
             - Dict: {"batch_size": 10, "max_iter": 100}
             - JSON string: '{"batch_size": 10, "max_iter": 100}'
             - JSON file path: "options.json"
-        analysis_dir: Analysis results directory (default: "results_fzd")
+        analysis_dir: Analysis results directory (default: "analysis"; the CLI uses "results_fzd")
 
     Returns:
         Dict with algorithm results including:
@@ -1790,11 +1792,13 @@ def fzd(
     try:
         model = _resolve_model(model)
 
-        # Parse calculator argument (handles JSON string, file, or alias)
-        calculators = _resolve_calculators_arg(calculators)
-
-        # Get model ID for calculator resolution
+        # Get model ID first: passing it to _resolve_calculators_arg lets an
+        # omitted calculators argument auto-discover installed calculator
+        # aliases bound to this model, exactly like fzr does
         model_id = model.get("id") if isinstance(model, dict) else None
+
+        # Parse calculator argument (handles JSON string, file, or alias)
+        calculators = _resolve_calculators_arg(calculators, model_name=model_id)
         calculators = resolve_calculators(calculators, model_id)
 
         # Convert to absolute paths

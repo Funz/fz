@@ -85,6 +85,30 @@ class TestFlagAliases:
         assert all(r["status"] == "done" for r in records)
         assert Path("myresults").exists()
 
+    def test_calculators_accepts_bare_alias(self):
+        """--calculators <alias> resolves .fz/calculators/<alias>.json"""
+        _write_input()
+        _write_file("calc.sh", "#!/bin/bash\necho 42 > output.txt\n")
+        Path(".fz/models").mkdir(parents=True)
+        _write_file(".fz/models/pg.json", json.dumps({
+            "id": "pg", "varprefix": "$", "output": {"y": "cat output.txt"},
+        }))
+        Path(".fz/calculators").mkdir(parents=True)
+        _write_file(".fz/calculators/loc.json", json.dumps({
+            "uri": "sh://", "models": {"pg": "bash calc.sh"},
+        }))
+        result = run_fz_cli_function("fzr_main", [
+            "input.txt", "--model", "pg",
+            "--variables", '{"x": [1]}',
+            "--calculators", "loc",
+            "--results", "res_alias",
+            "--format", "json",
+        ])
+        assert result.returncode == 0, result.stderr
+        records = json.loads(result.stdout)
+        assert records[0]["status"] == "done"
+        assert records[0]["y"] == 42
+
     def test_canonical_flags_still_work(self):
         _write_input()
         result = run_fz_cli_function("fzc_main", [
