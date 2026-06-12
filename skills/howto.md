@@ -97,7 +97,8 @@ to results.json" \
 
 `tests/test_skill_e2e.py` in the fz repository does exactly this against a miniature
 simulation and asserts the produced results are physically correct — read it for a
-complete, working reference.
+complete, working reference, or follow [test_skill_e2e.md](test_skill_e2e.md) for the
+same test as explained, copy-pasteable shell commands.
 
 ## What's in the skill
 
