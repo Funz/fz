@@ -102,11 +102,14 @@ rm -f PID
 
 ## 3. The local calculator alias
 
+The runner script alone is NOT enough — fz discovers calculators through **JSON alias
+files** only. The wrapper is incomplete without `.fz/calculators/localhost_MyCode.json`:
+
 ```json
 {
     "uri": "sh://",
     "models": {
-        "MyCode": ".fz/calculators/MyCode.sh"
+        "MyCode": "bash .fz/calculators/MyCode.sh"
     }
 }
 ```
@@ -115,6 +118,12 @@ rm -f PID
 file installed, `fzr --model MyCode ...` without `--calculators` finds and uses it
 automatically. Users add their own `ssh://`/`slurm://` aliases with the same `models` key
 for remote execution.
+
+**Definition of done** — the wrapper is finished only when both hold:
+
+1. `fz list --check --format json` shows the model AND a calculator supporting it;
+2. `fzr --model MyCode ...` **without any `--calculators` argument** runs a case
+   successfully (proves alias discovery works, not just a hand-built `sh://` URI).
 
 ## 4. Test it like a user would
 

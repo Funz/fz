@@ -136,23 +136,35 @@ def test_skill_activation(tmp_path, claude_ready):
         assert var in transcript, f"variable {var} not found in transcript"
 
 
-def test_skill_end_to_end_study(tmp_path, claude_ready):
-    """Level 2: full parametric study driven by the skill; assert on artifacts"""
+def test_skill_implement_wrapper(tmp_path, claude_ready, monkeypatch):
+    """Level 2: the agent implements a reusable fz wrapper and we test it.
+
+    The agent must follow the skill's wrapper guide (wrapper.md): create the
+    model under .fz/models/ and a calculator alias under .fz/calculators/,
+    verify them, and run a study. We then assert on its artifacts AND run fzr
+    ourselves through the wrapper on a parameter point the agent never used —
+    proving the wrapper generalizes instead of hardcoding the asked cases.
+    """
     setup_sandbox(tmp_path)
     cases = [(10, 1), (10, 2), (20, 1), (20, 2)]
     result = run_claude(
-        "Using the fz skill, wrap the simulation in this directory with fz and run a "
-        "parametric study. The simulation is launched by 'bash calc.sh <input file>'; "
-        "the parameterized input file is input.txt; read calc.sh to see what output it "
-        "writes and define the fz model yourself (no model is provided). Run the study "
-        "over T_celsius in [10, 20] and V_L in [1, 2] with n_mol fixed to 1, then write "
-        "the results to a file named results.json as a JSON list of records, one per "
-        "case, each with keys T_celsius, V_L, n_mol, pressure, status.",
-        max_turns=40,
+        "Using the fz skill, implement a reusable fz wrapper for the simulation in "
+        "this directory, following the skill's wrapper implementation guide. The "
+        "simulation is launched by 'bash calc.sh <input file>'; the parameterized "
+        "input file is input.txt; read calc.sh to see what output it writes (no fz "
+        "model is provided — define it yourself). Create the model as "
+        ".fz/models/PerfectGas.json (id 'PerfectGas') and a local calculator alias "
+        "under .fz/calculators/ wired to it. Then test your wrapper by running a "
+        "parametric study over T_celsius in [10, 20] and V_L in [1, 2] with n_mol "
+        "fixed to 1, and write the results to a file named results.json as a JSON "
+        "list of records, one per case, each with keys T_celsius, V_L, n_mol, "
+        "pressure, status.",
+        max_turns=80,
         cwd=tmp_path,
     )
     assert result.returncode == 0, f"claude failed: {result.stderr[-2000:]}"
 
+    # 1. The agent's own study produced correct artifacts
     results_file = tmp_path / "results.json"
     assert results_file.exists(), "agent did not produce results.json"
     records = json.loads(results_file.read_text(encoding="utf-8"))
@@ -167,3 +179,37 @@ def test_skill_end_to_end_study(tmp_path, claude_ready):
         assert abs(float(rec["pressure"]) - expected) / expected < 1e-3, (
             f"case T={t_celsius}, V={v_l}: pressure {rec['pressure']} != {expected}"
         )
+
+    # 2. The wrapper has the documented structure: a model with an id and
+    #    output parsers, and a calculator alias wired to that id
+    model_files = sorted((tmp_path / ".fz" / "models").glob("*.json"))
+    assert model_files, "agent did not create a model under .fz/models/"
+    model = json.loads(model_files[0].read_text(encoding="utf-8"))
+    assert model.get("id"), "wrapper model has no 'id' (required to bind calculators)"
+    assert model.get("output"), "wrapper model has no 'output' parsers"
+
+    calc_files = sorted((tmp_path / ".fz" / "calculators").glob("*.json"))
+    wired = [
+        c for c in calc_files
+        if model["id"] in json.loads(c.read_text(encoding="utf-8")).get("models", {})
+    ]
+    assert wired, f"no calculator alias maps model id '{model['id']}'"
+
+    # 3. The wrapper actually works, independently of the agent's own run:
+    #    fzr through the installed alias (calculator auto-discovered) on a
+    #    parameter point the agent never computed
+    import fz
+
+    monkeypatch.chdir(tmp_path)
+    verify = fz.fzr(
+        "input.txt",
+        {"T_celsius": [30], "V_L": [4], "n_mol": 2},
+        model_files[0].stem,
+        results_dir="verify_results",
+    )
+    assert list(verify["status"]) == ["done"], f"wrapper verify run failed: {verify}"
+    pressure = float(list(verify["pressure"])[0])
+    expected = expected_pressure(2, 30, 4)
+    assert abs(pressure - expected) / expected < 1e-3, (
+        f"wrapper verify run: pressure {pressure} != {expected}"
+    )
