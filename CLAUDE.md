@@ -27,7 +27,9 @@ pytest tests/test_core.py -k name     # single test
 - The agent skill is tested: `tests/test_skill_static.py` (always runs; checks the skill's
   claims — CLI flags, env vars, defaults, signatures — against the code, so CLI changes can
   fail it legitimately: update `skills/fz/` accordingly) and `tests/test_skill_e2e.py`
-  (headless Claude Code; skipped without the `claude` CLI + `ANTHROPIC_API_KEY`).
+  (headless Claude Code; skipped unless the `claude` CLI is installed and a cheap probe
+  shows it can answer — works with `ANTHROPIC_API_KEY` or CLI login; `FZ_SKILL_E2E=0`
+  forces a skip).
 - An autouse fixture in `tests/conftest.py` runs **every test in a fresh temp directory
   under `./tmp`** and restores the cwd afterwards. Don't rely on repo-relative paths
   inside tests; reference test data via absolute paths or fixtures.

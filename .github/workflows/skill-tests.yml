@@ -60,5 +60,6 @@ jobs:
       - name: Run skill e2e tests
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        # tests skip themselves cleanly if the secret is not configured
+        # tests probe the claude CLI first and skip themselves cleanly when it
+        # cannot answer (e.g. no API key secret configured and no login)
         run: pytest tests/test_skill_e2e.py -v -m requires_claude

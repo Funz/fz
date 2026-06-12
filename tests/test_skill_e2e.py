@@ -5,12 +5,15 @@ These tests launch a headless Claude Code session in a sandbox containing the
 skill and a small deterministic simulation (perfect gas pressure), then assert
 on the artifacts the agent leaves behind — never on its prose.
 
-They are skipped unless:
-- the `claude` CLI is installed, and
-- ANTHROPIC_API_KEY is set (or FZ_SKILL_E2E=1 to use the CLI's own credentials).
+They are skipped when the `claude` CLI is not installed or not functional: a cheap
+one-shot probe (one tiny haiku call) checks that claude can actually answer — it works
+with ANTHROPIC_API_KEY as well as with the CLI's own login credentials. Set
+FZ_SKILL_E2E=0 to skip unconditionally (e.g. to avoid token usage in local full-suite
+runs).
 
 Cost/model can be tuned with FZ_SKILL_TEST_MODEL (default: claude-haiku-4-5).
 """
+import functools
 import json
 import os
 import shutil
@@ -24,7 +27,6 @@ REPO = Path(__file__).resolve().parent.parent
 SKILL_SRC = REPO / "skills" / "fz"
 
 CLAUDE = shutil.which("claude")
-ENABLED = bool(os.environ.get("ANTHROPIC_API_KEY")) or os.environ.get("FZ_SKILL_E2E") == "1"
 MODEL = os.environ.get("FZ_SKILL_TEST_MODEL", "claude-haiku-4-5")
 
 pytestmark = [
@@ -32,9 +34,36 @@ pytestmark = [
     pytest.mark.slow,
     pytest.mark.skipif(CLAUDE is None, reason="claude CLI not installed"),
     pytest.mark.skipif(
-        not ENABLED, reason="set ANTHROPIC_API_KEY or FZ_SKILL_E2E=1 to run skill e2e tests"
+        os.environ.get("FZ_SKILL_E2E") == "0", reason="skill e2e disabled (FZ_SKILL_E2E=0)"
     ),
 ]
+
+
+@functools.lru_cache(maxsize=1)
+def _claude_probe():
+    """One-shot functional check of the claude CLI (cached for the session).
+
+    Runs lazily (from a fixture, not at import) so collecting or deselecting
+    these tests never triggers an API call.
+    """
+    try:
+        result = subprocess.run(
+            [CLAUDE, "-p", "Reply with exactly: OK", "--model", MODEL, "--max-turns", "1"],
+            capture_output=True, text=True, timeout=120,
+        )
+    except Exception as exc:
+        return False, f"claude probe failed to run: {exc}"
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout)[-300:]
+        return False, f"claude probe exited {result.returncode}: {detail}"
+    return True, ""
+
+
+@pytest.fixture
+def claude_ready():
+    ok, reason = _claude_probe()
+    if not ok:
+        pytest.skip(reason)
 
 GAS_CONSTANT = 8.314
 
@@ -91,7 +120,7 @@ def expected_pressure(n_mol, t_celsius, v_l):
     return n_mol * GAS_CONSTANT * (t_celsius + 273.15) / (v_l / 1000.0)
 
 
-def test_skill_activation(tmp_path):
+def test_skill_activation(tmp_path, claude_ready):
     """Level 1: the skill is discovered and used for an fz question"""
     setup_sandbox(tmp_path)
     result = run_claude(
@@ -112,7 +141,7 @@ def test_skill_activation(tmp_path):
         assert var in transcript, f"variable {var} not found in transcript"
 
 
-def test_skill_end_to_end_study(tmp_path):
+def test_skill_end_to_end_study(tmp_path, claude_ready):
     """Level 2: full parametric study driven by the skill; assert on artifacts"""
     setup_sandbox(tmp_path)
     cases = [(10, 1), (10, 2), (20, 1), (20, 2)]
