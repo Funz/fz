@@ -157,16 +157,16 @@ def test_skill_activation(tmp_path, claude_ready):
 
 
 def test_skill_implement_wrapper(tmp_path, claude_ready, monkeypatch):
-    """Level 2: the agent implements a reusable fz wrapper and we test it.
+    """Level 2: the agent implements a reusable fz wrapper and we certify it.
 
     The agent must follow the skill's wrapper guide (wrapper.md): create the
     model under .fz/models/ and a calculator alias under .fz/calculators/,
-    verify them, and run a study. We then assert on its artifacts AND run fzr
-    ourselves through the wrapper on a parameter point the agent never used —
-    proving the wrapper generalizes instead of hardcoding the asked cases.
+    then verify them per the guide's definition of done. We assert the wrapper
+    structure AND run fzr ourselves through it on a parameter point the agent
+    never used — only a wrapper certified here is worth relying on for actual
+    studies (levels 3-4 run on a stable, pre-installed equivalent).
     """
     setup_sandbox(tmp_path)
-    cases = [(10, 1), (10, 2), (20, 1), (20, 2)]
     result = run_claude(
         "Using the fz skill, implement a reusable fz wrapper for the simulation in "
         "this directory, following the skill's wrapper implementation guide. The "
@@ -174,33 +174,15 @@ def test_skill_implement_wrapper(tmp_path, claude_ready, monkeypatch):
         "input file is input.txt; read calc.sh to see what output it writes (no fz "
         "model is provided — define it yourself). Create the model as "
         ".fz/models/PerfectGas.json (id 'PerfectGas') and a local calculator alias "
-        "under .fz/calculators/ wired to it. Then test your wrapper by running a "
-        "parametric study over T_celsius in [10, 20] and V_L in [1, 2] with n_mol "
-        "fixed to 1, and write the results to a file named results.json as a JSON "
-        "list of records, one per case, each with keys T_celsius, V_L, n_mol, "
-        "pressure, status.",
-        max_turns=80,
+        "under .fz/calculators/ wired to it. Verify your wrapper per the guide's "
+        "definition of done (fz list --check, and a successful single-case run "
+        "without any --calculators argument) before declaring it finished.",
+        max_turns=60,
         cwd=tmp_path,
     )
     assert result.returncode == 0, f"claude failed: {result.stderr[-2000:]}"
 
-    # 1. The agent's own study produced correct artifacts
-    results_file = tmp_path / "results.json"
-    assert results_file.exists(), "agent did not produce results.json"
-    records = json.loads(results_file.read_text(encoding="utf-8"))
-    assert len(records) == len(cases), f"expected {len(cases)} cases, got {len(records)}"
-
-    by_case = {(round(float(r["T_celsius"])), round(float(r["V_L"]))): r for r in records}
-    for t_celsius, v_l in cases:
-        assert (t_celsius, v_l) in by_case, f"case T={t_celsius}, V={v_l} missing"
-        rec = by_case[(t_celsius, v_l)]
-        assert rec["status"] == "done"
-        expected = expected_pressure(1, t_celsius, v_l)
-        assert abs(float(rec["pressure"]) - expected) / expected < 1e-3, (
-            f"case T={t_celsius}, V={v_l}: pressure {rec['pressure']} != {expected}"
-        )
-
-    # 2. The wrapper has the documented structure: a model with an id and
+    # 1. The wrapper has the documented structure: a model with an id and
     #    output parsers, and a calculator alias wired to that id
     model_files = sorted((tmp_path / ".fz" / "models").glob("*.json"))
     assert model_files, "agent did not create a model under .fz/models/"
@@ -215,7 +197,7 @@ def test_skill_implement_wrapper(tmp_path, claude_ready, monkeypatch):
     ]
     assert wired, f"no calculator alias maps model id '{model['id']}'"
 
-    # 3. The wrapper actually works, independently of the agent's own run:
+    # 2. The wrapper actually works, independently of the agent's own run:
     #    fzr through the installed alias (calculator auto-discovered) on a
     #    parameter point the agent never computed
     import fz
@@ -235,11 +217,49 @@ def test_skill_implement_wrapper(tmp_path, claude_ready, monkeypatch):
     )
 
 
-def test_skill_inverse_problem_brent(tmp_path, claude_ready):
-    """Level 3: inverse problem via fzd + brent — given a target pressure, find T.
+def test_skill_parametric_study(tmp_path, claude_ready):
+    """Level 3: parametric study on a stable, pre-installed wrapper.
 
-    The wrapper and the brent algorithm are pre-installed (levels 1-2 cover
-    authoring them); what is tested here is using fz's design-of-experiments
+    Wrapper authoring is level 2's job; here the agent must only USE the
+    installed wrapper correctly: factorial study, results collected and
+    exported. Assertions are on the artifact, physics known exactly.
+    """
+    setup_sandbox(tmp_path)
+    install_wrapper(tmp_path)
+    cases = [(10, 1), (10, 2), (20, 1), (20, 2)]
+    result = run_claude(
+        "Using the fz skill, run a parametric study with the installed fz wrapper "
+        "(model alias 'PerfectGas'; the parameterized input file is input.txt). "
+        "Run all combinations of T_celsius in [10, 20] and V_L in [1, 2] with "
+        "n_mol fixed to 1, and write the results to a file named results.json as "
+        "a JSON list of records, one per case, each with keys T_celsius, V_L, "
+        "n_mol, pressure, status.",
+        max_turns=40,
+        cwd=tmp_path,
+    )
+    assert result.returncode == 0, f"claude failed: {result.stderr[-2000:]}"
+
+    results_file = tmp_path / "results.json"
+    assert results_file.exists(), "agent did not produce results.json"
+    records = json.loads(results_file.read_text(encoding="utf-8"))
+    assert len(records) == len(cases), f"expected {len(cases)} cases, got {len(records)}"
+
+    by_case = {(round(float(r["T_celsius"])), round(float(r["V_L"]))): r for r in records}
+    for t_celsius, v_l in cases:
+        assert (t_celsius, v_l) in by_case, f"case T={t_celsius}, V={v_l} missing"
+        rec = by_case[(t_celsius, v_l)]
+        assert rec["status"] == "done"
+        expected = expected_pressure(1, t_celsius, v_l)
+        assert abs(float(rec["pressure"]) - expected) / expected < 1e-3, (
+            f"case T={t_celsius}, V={v_l}: pressure {rec['pressure']} != {expected}"
+        )
+
+
+def test_skill_inverse_problem_brent(tmp_path, claude_ready):
+    """Level 4: inverse problem via fzd + brent — given a target pressure, find T.
+
+    Runs on the same stable, pre-installed wrapper as level 3 (authoring is
+    level 2's job); what is tested here is using fz's design-of-experiments
     tool with an installed algorithm to solve an inversion. The exact answer
     is known analytically, so the assertion is deterministic.
     """

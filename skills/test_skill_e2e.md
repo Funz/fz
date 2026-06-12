@@ -88,12 +88,13 @@ done
 echo "PASS: all variables identified"
 ```
 
-## 3. Level 2 — implement the wrapper and run a study
+## 3. Level 2 — implement the wrapper
 
-The real test of the skill's wrapper guide (`wrapper.md`): the agent must read `calc.sh`,
-implement a reusable fz wrapper — model under `.fz/models/`, calculator alias under
-`.fz/calculators/` wired to it — and prove it works with a study. 2×2 = 4 cases, physics
-known exactly, so the assertions are deterministic even though the agent's reasoning is not.
+The real test of the skill's wrapper guide (`wrapper.md`): the agent must read `calc.sh`
+and implement a reusable fz wrapper — model under `.fz/models/`, calculator alias under
+`.fz/calculators/` wired to it — and verify it per the guide's definition of done. No
+study yet: the wrapper gets certified first (§4), and only then do the actual studies
+(§5, §6) rely on it.
 
 ```bash
 claude -p "Using the fz skill, implement a reusable fz wrapper for the simulation in
@@ -101,16 +102,60 @@ this directory, following the skill's wrapper implementation guide. The simulati
 launched by 'bash calc.sh <input file>'; the parameterized input file is input.txt;
 read calc.sh to see what output it writes (no fz model is provided — define it
 yourself). Create the model as .fz/models/PerfectGas.json (id 'PerfectGas') and a
-local calculator alias under .fz/calculators/ wired to it. Then test your wrapper by
-running a parametric study over T_celsius in [10, 20] and V_L in [1, 2] with n_mol
-fixed to 1, and write the results to a file named results.json as a JSON list of
-records, one per case, each with keys T_celsius, V_L, n_mol, pressure, status." \
+local calculator alias under .fz/calculators/ wired to it. Verify your wrapper per the
+guide's definition of done (fz list --check, and a successful single-case run without
+any --calculators argument) before declaring it finished." \
   --output-format stream-json --verbose \
-  --max-turns 80 --model "$MODEL" \
+  --max-turns 60 --model "$MODEL" \
   --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill" < /dev/null > transcript2.jsonl
 ```
 
-First, the agent's own study must have produced correct artifacts:
+The wrapper must have the documented structure — a model with an `id` and `output`
+parsers, and a calculator alias mapping that id:
+
+```bash
+jq -e '.id == "PerfectGas" and (.output | length > 0)' .fz/models/PerfectGas.json \
+  && echo "PASS: model structure"
+cat .fz/calculators/*.json | jq -es 'any(.[]; .models | has("PerfectGas"))' \
+  && echo "PASS: calculator wired to the model"
+```
+
+## 4. Certify the wrapper yourself
+
+The strongest check, and the gate before using the wrapper for real work: run fzr
+**through the agent's wrapper** on a parameter point the agent never computed
+(n_mol=2, T=30, V=4). This proves the wrapper generalizes instead of hardcoding what it
+was shown. No `--calculators`: the installed alias is auto-discovered from the model id.
+
+```bash
+fzr --input_path input.txt --model PerfectGas \
+    --input_variables '{"T_celsius": [30], "V_L": [4], "n_mol": 2}' \
+    --results_dir verify_results --format json < /dev/null > verify.json
+
+# expected: P = 2 * 8.314 * 303.15 / 0.004
+jq -e '
+  .[0].status == "done" and
+  ((.[0].pressure - (2 * 8.314 * 303.15 / 0.004)) / (2 * 8.314 * 303.15 / 0.004)
+   | fabs) < 0.001' verify.json && echo "PASS: wrapper works on unseen point"
+```
+
+From here on, the wrapper is a stable, certified component — the remaining levels test
+*using* it, not building it.
+
+## 5. Level 3 — parametric study on the certified wrapper
+
+```bash
+claude -p "Using the fz skill, run a parametric study with the installed fz wrapper
+(model alias 'PerfectGas'; the parameterized input file is input.txt). Run all
+combinations of T_celsius in [10, 20] and V_L in [1, 2] with n_mol fixed to 1, and
+write the results to a file named results.json as a JSON list of records, one per
+case, each with keys T_celsius, V_L, n_mol, pressure, status." \
+  --output-format stream-json --verbose \
+  --max-turns 40 --model "$MODEL" \
+  --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill" < /dev/null > transcript3.jsonl
+```
+
+2×2 = 4 cases, physics known exactly:
 
 ```bash
 # the file exists and is valid JSON with 4 case records, all done
@@ -125,40 +170,11 @@ jq -e '
   )' results.json && echo "PASS: pressures physically correct"
 ```
 
-And the wrapper must have the documented structure — a model with an `id` and `output`
-parsers, and a calculator alias mapping that id:
-
-```bash
-jq -e '.id == "PerfectGas" and (.output | length > 0)' .fz/models/PerfectGas.json \
-  && echo "PASS: model structure"
-cat .fz/calculators/*.json | jq -es 'any(.[]; .models | has("PerfectGas"))' \
-  && echo "PASS: calculator wired to the model"
-```
-
-## 4. Test the wrapper yourself
-
-The strongest check: run fzr **through the agent's wrapper** on a parameter point the
-agent never computed (n_mol=2, T=30, V=4 — its study fixed n_mol=1). This proves the
-wrapper generalizes instead of hardcoding the asked cases. No `--calculators`: the
-installed alias is auto-discovered from the model id.
-
-```bash
-fzr --input_path input.txt --model PerfectGas \
-    --input_variables '{"T_celsius": [30], "V_L": [4], "n_mol": 2}' \
-    --results_dir verify_results --format json < /dev/null > verify.json
-
-# expected: P = 2 * 8.314 * 303.15 / 0.004
-jq -e '
-  .[0].status == "done" and
-  ((.[0].pressure - (2 * 8.314 * 303.15 / 0.004)) / (2 * 8.314 * 303.15 / 0.004)
-   | fabs) < 0.001' verify.json && echo "PASS: wrapper works on unseen point"
-```
-
-## 5. Level 3 — inverse problem with the brent algorithm (fzd)
+## 6. Level 4 — inverse problem with the brent algorithm (fzd)
 
 The last capability the skill teaches: adaptive design of experiments. Given a target
 pressure, the agent must find the temperature producing it, using `fzd` with the brent
-1D-optimization algorithm — on the wrapper it built in Level 2. The exact answer is
+1D-optimization algorithm — still on the certified wrapper. The exact answer is
 analytic (T = P·V/(nR) − 273.15 ≈ 27.5476 °C for P = 2 500 000), so the check is
 deterministic.
 
@@ -182,7 +198,7 @@ reporting. When done, write solution.json containing the keys T_celsius (the sol
 and pressure (the pressure reached at that temperature)." \
   --output-format stream-json --verbose \
   --max-turns 80 --model "$MODEL" \
-  --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill" < /dev/null > transcript3.jsonl
+  --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill" < /dev/null > transcript4.jsonl
 ```
 
 Check the solution against the analytic answer (0.5 °C tolerance — 5× looser than what
@@ -196,7 +212,7 @@ jq -e '
   && echo "PASS: inverse problem solved"
 ```
 
-## 6. Clean up
+## 7. Clean up
 
 ```bash
 cd / && rm -rf "$SANDBOX"
@@ -207,9 +223,10 @@ cd / && rm -rf "$SANDBOX"
 - **Assert on artifacts, not prose**: the agent's wording varies between runs; the
   existence and numerical content of `results.json` (and the case directories fz creates
   under `results/`) do not.
-- Expect ~10 s for Level 1, ~1–3 min for Level 2 (it has to inspect calc.sh, write the
-  model and calculator alias, and run the study), and ~3–15 min for Level 3 (iterative
-  optimization with convergence checking) with haiku; a few cents of tokens.
+- Expect ~10 s for Level 1, ~1–2 min for Level 2 (inspect calc.sh, write the model and
+  calculator alias, verify), ~1 min for Level 3 (study on the certified wrapper), and
+  ~3–15 min for Level 4 (iterative optimization with convergence checking) with haiku;
+  a few cents of tokens.
 - If Level 2 fails, look inside the sandbox before deleting it: `results/*/out.txt`,
   `err.txt` and `log.txt` show what each fz case actually did, and `transcript2.jsonl`
   shows what the agent tried.
