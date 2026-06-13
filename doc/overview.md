@@ -32,7 +32,9 @@ Use FZ when you need to:
 4. **Scale calculations**: Execute on local machines, HPC clusters, or both
 5. **Resume interrupted runs**: Gracefully handle Ctrl+C and resume using cache
 
-## Four Core Functions
+## Core Functions
+
+fz exposes six core functions, each with a CLI twin of the same name:
 
 ```python
 import fz
@@ -57,7 +59,18 @@ results = fz.fzr(
     results_dir="results"
 )
 # Returns: DataFrame with all results
+
+# 5. fzl - List and validate installed models / calculators
+fz.fzl()
+
+# 6. fzd - Adaptive design of experiments (optimization, sampling, inverse problems)
+results = fz.fzd("input.txt", {"x": "[0;10]"}, model, "result",
+                 algorithm="brent", calculators="sh://bash calc.sh")
 ```
+
+See [Core functions](core-functions.md) for full signatures, and
+[Installing models and algorithms](installing-models.md) to obtain ready-made wrappers
+and `fzd` algorithms.
 
 ## Quick Example
 

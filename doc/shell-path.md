@@ -421,7 +421,7 @@ jobs:
 ## See Also
 
 - **Shell path example**: `examples/shell_path_example.md`
-- **Configuration guide**: `context/overview.md`
-- **Calculator types**: `context/calculators.md`
+- **Configuration guide**: `doc/overview.md`
+- **Calculator types**: `doc/calculators.md`
 - **Source code**: `fz/shell_path.py`
 - **Tests**: `tests/test_shell_path.py`

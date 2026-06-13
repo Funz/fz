@@ -24,13 +24,14 @@ extract outputs; *calculators* (URIs like `sh://cmd`, `ssh://user@host/cmd`,
 ## Documentation
 
 - [README](README.md): complete user guide with examples
-- [Core functions](context/core-functions.md): fzi, fzc, fzo, fzr, fzl, fzd in detail
-- [Input syntax guide](context/syntax-guide.md): variables, formulas, defaults
-- [Model definition](context/model-definition.md): model structure, aliases, output parsing
-- [Calculators](context/calculators.md): calculator types, URIs, configuration
-- [Formulas and interpreters](context/formulas-and-interpreters.md): Python/R formula evaluation
-- [Parallelism and caching](context/parallel-and-caching.md): performance strategies
-- [Quick examples](context/quick-examples.md): common usage patterns
+- [Core functions](doc/core-functions.md): fzi, fzc, fzo, fzr, fzl, fzd in detail
+- [Installing models and algorithms](doc/installing-models.md): fz install model|algorithm, the fz-<code> convention
+- [Input syntax guide](doc/syntax-guide.md): variables, formulas, defaults
+- [Model definition](doc/model-definition.md): model structure, aliases, output parsing
+- [Calculators](doc/calculators.md): calculator types, URIs, configuration
+- [Formulas and interpreters](doc/formulas-and-interpreters.md): Python/R formula evaluation
+- [Parallelism and caching](doc/parallel-and-caching.md): performance strategies
+- [Quick examples](doc/quick-examples.md): common usage patterns
 
 ## Examples
 
@@ -41,5 +42,5 @@ extract outputs; *calculators* (URIs like `sh://cmd`, `ssh://user@host/cmd`,
 ## Optional
 
 - [Release notes](NEWS.md)
-- [Funz protocol](context/funz-protocol.md): legacy Java Funz server protocol
-- [Shell path configuration](context/shell-path.md): bash on Windows (FZ_SHELL_PATH)
+- [Funz protocol](doc/funz-protocol.md): legacy Java Funz server protocol
+- [Shell path configuration](doc/shell-path.md): bash on Windows (FZ_SHELL_PATH)

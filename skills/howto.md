@@ -104,4 +104,4 @@ same test as explained, copy-pasteable shell commands.
 
 - [fz/SKILL.md](fz/SKILL.md) — the workflow guide loaded by the agent when relevant
 - [fz/reference.md](fz/reference.md) — condensed API/CLI reference and JSON schemas
-- [fz/algorithms.md](fz/algorithms.md) — how to write custom `fzd` algorithms
+- [fz/algorithm-wrapper.md](fz/algorithm-wrapper.md) — how to write custom `fzd` algorithms

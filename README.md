@@ -1550,7 +1550,7 @@ results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
 - Broadcasts UDP message on port 19001
 - Servers respond with their host, port, and supported codes
 - Useful for dynamic calculator allocation in cluster environments
-- See `context/funz-protocol.md` for detailed protocol documentation
+- See `doc/funz-protocol.md` for detailed protocol documentation
 
 **Protocol**:
 - Text-based TCP socket communication
@@ -2430,7 +2430,7 @@ model = {
 # C:\msys64\usr\bin\grep.exe 'pressure' output.txt | C:\msys64\usr\bin\awk.exe '{print $2}'
 ```
 
-See `context/shell-path.md` and `examples/shell_path_example.md` for detailed documentation.
+See `doc/shell-path.md` and `examples/shell_path_example.md` for detailed documentation.
 
 ### Timeout Configuration
 
@@ -3185,7 +3185,7 @@ The skill contains:
 
 - **skills/fz/SKILL.md** - Step-by-step workflow for wrapping a simulation code
 - **skills/fz/reference.md** - Condensed API/CLI reference, JSON schemas, environment variables
-- **skills/fz/algorithms.md** - Interface for writing custom fzd algorithms
+- **skills/fz/algorithm-wrapper.md** - Interface for writing custom fzd algorithms
 
 See **[skills/howto.md](skills/howto.md)** for a complete walkthrough with example prompts
 (parametric studies, SSH execution, cache reuse, optimization, headless usage).
@@ -3196,22 +3196,23 @@ See **[skills/howto.md](skills/howto.md)** for a complete walkthrough with examp
 
 - **README.md** (this file) - Complete user guide with examples
 - **NEWS.md** - Release notes and changelog (version 0.9.1 and later)
-- **context/funz-protocol.md** - Funz protocol and UDP discovery documentation
-- **context/shell-path.md** - FZ_SHELL_PATH configuration details
+- **doc/funz-protocol.md** - Funz protocol and UDP discovery documentation
+- **doc/shell-path.md** - FZ_SHELL_PATH configuration details
 
 ### Context Documentation
 
-Modular documentation in the `context/` directory:
+Modular documentation in the `doc/` directory:
 
-- **context/INDEX.md** - Documentation overview and navigation
-- **context/overview.md** - High-level FZ concepts and design
-- **context/core-functions.md** - API reference for fzi, fzc, fzo, fzr, fzl, fzd
-- **context/calculators.md** - Calculator types, URIs, and configuration
-- **context/model-definition.md** - Model structure, aliases, and output parsing
-- **context/formulas-and-interpreters.md** - Formula evaluation (Python/R)
-- **context/syntax-guide.md** - Input template syntax reference
-- **context/parallel-and-caching.md** - Performance optimization strategies
-- **context/quick-examples.md** - Common usage patterns and snippets
+- **doc/INDEX.md** - Documentation overview and navigation
+- **doc/overview.md** - High-level FZ concepts and design
+- **doc/core-functions.md** - API reference for fzi, fzc, fzo, fzr, fzl, fzd
+- **doc/installing-models.md** - Installing models and algorithms (`fz install`)
+- **doc/calculators.md** - Calculator types, URIs, and configuration
+- **doc/model-definition.md** - Model structure, aliases, and output parsing
+- **doc/formulas-and-interpreters.md** - Formula evaluation (Python/R)
+- **doc/syntax-guide.md** - Input template syntax reference
+- **doc/parallel-and-caching.md** - Performance optimization strategies
+- **doc/quick-examples.md** - Common usage patterns and snippets
 
 ### Examples
 

@@ -9,7 +9,7 @@ codes to run parameter studies locally, over SSH, or on SLURM. Python rewrite of
   `cli.py` (entry points `fz`, `fzi`, ... defined in pyproject.toml), `runners.py`
   (sh/ssh/slurm/funz/cache calculators), `interpreter.py` (variable/formula parsing,
   Python and R evaluation), `io.py`, `config.py` (env vars), `installer.py` (`fz install`).
-- `tests/` — pytest suite. `context/` — modular user docs. `skills/fz/` — Agent Skill
+- `tests/` — pytest suite. `doc/` — modular user docs. `skills/fz/` — Agent Skill
   (workflow + condensed reference). `examples/` — example models, algorithms, notebooks.
 - `fz/_version.py` is stamped by CI (`scripts/stamp_version.py`) — never edit manually.
 
@@ -68,7 +68,7 @@ R-dependent code or tests.
   Python signatures consistent — every core function has a CLI twin with the same
   semantics, and CLI output must stay parseable with `--format json`.
 - When changing the public API or CLI flags, update **all three** doc surfaces:
-  `README.md`, `context/`, and `skills/fz/reference.md` (the agent skill ships to users).
+  `README.md`, `doc/`, and `skills/fz/reference.md` (the agent skill ships to users).
 - Default values live in `fz/config.py` and are env-overridable (`FZ_LOG_LEVEL`,
   `FZ_MAX_WORKERS`, `FZ_MAX_RETRIES` (default 5), `FZ_SSH_*`, `FZ_SHELL_PATH`).
 - User-facing release notes go in `NEWS.md`.

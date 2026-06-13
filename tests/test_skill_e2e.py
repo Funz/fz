@@ -77,7 +77,7 @@ def setup_sandbox(sandbox: Path):
 
     Deliberately NO fz model is provided: defining it (variable syntax, output
     parsing command) is part of what the agent must do, guided by the skill
-    (SKILL.md step 2 / wrapper.md).
+    (SKILL.md step 2 / code-wrapper.md).
     """
     shutil.copytree(SKILL_SRC, sandbox / ".claude/skills/fz")
 
@@ -159,7 +159,7 @@ def test_skill_activation(tmp_path, claude_ready):
 def test_skill_implement_wrapper(tmp_path, claude_ready, monkeypatch):
     """Level 2: the agent implements a reusable fz wrapper and we certify it.
 
-    The agent must follow the skill's wrapper guide (wrapper.md): create the
+    The agent must follow the skill's wrapper guide (code-wrapper.md): create the
     model under .fz/models/ and a calculator alias under .fz/calculators/,
     then verify them per the guide's definition of done. We assert the wrapper
     structure AND run fzr ourselves through it on a parameter point the agent
