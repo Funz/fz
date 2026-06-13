@@ -100,8 +100,18 @@ simulation and asserts the produced results are physically correct — read it f
 complete, working reference, or follow [test_skill_e2e.md](test_skill_e2e.md) for the
 same test as explained, copy-pasteable shell commands.
 
+## Worked examples
+
+End-to-end walkthroughs of solving a real problem with the skill (natural-language ask +
+the path the agent follows, with checkable outcomes):
+
+- [examples/newton-cooling-calibration.md](examples/newton-cooling-calibration.md) —
+  calibrate a Newton's-law-of-cooling model: the agent discovers the Modelica wrapper and
+  the brent algorithm to solve a 1-parameter inverse problem.
+
 ## What's in the skill
 
 - [fz/SKILL.md](fz/SKILL.md) — the workflow guide loaded by the agent when relevant
 - [fz/reference.md](fz/reference.md) — condensed API/CLI reference and JSON schemas
-- [fz/algorithm-wrapper.md](fz/algorithm-wrapper.md) — how to write custom `fzd` algorithms
+- [fz/algorithm-wrapper.md](fz/algorithm-wrapper.md) — write and package custom `fzd` algorithms
+- [fz/code-wrapper.md](fz/code-wrapper.md) — package a reusable `fz-<code>` simulation wrapper
