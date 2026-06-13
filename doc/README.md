@@ -16,7 +16,7 @@ These context files are designed to:
 ### 1. `overview.md` - Framework Introduction
 High-level overview of FZ including:
 - What FZ is and when to use it
-- The four core functions (fzi, fzc, fzo, fzr)
+- The six core functions (fzi, fzc, fzo, fzr, fzl, fzd)
 - Key concepts and typical workflows
 - Common patterns for different scenarios
 
@@ -32,15 +32,26 @@ Detailed syntax reference for:
 **Use when**: Writing input templates or working with formulas
 
 ### 3. `core-functions.md` - API Reference
-Comprehensive guide to the four main functions:
+Comprehensive guide to the six core functions:
 - `fzi()` - Parse input variables
 - `fzc()` - Compile input files
 - `fzo()` - Read output files
 - `fzr()` - Run parametric calculations
+- `fzl()` - List and validate installed models / calculators
+- `fzd()` - Adaptive design of experiments
 - Function signatures, parameters, and return values
 - Examples for each function
 
 **Use when**: Using FZ API functions in Python code
+
+### 3b. `installing-models.md` - Installing Models and Algorithms
+How to obtain ready-made wrappers and `fzd` algorithms:
+- `fz install model|algorithm` and `fz uninstall` (CLI)
+- `install_model`/`install_algorithm`/`list_installed_*` (Python API)
+- Source resolution (short name, GitHub URL, local zip) and the `fz-<code>` convention
+- Project-local vs `--global` install locations
+
+**Use when**: Wrapping a known code, or adding an optimization/sampling algorithm
 
 ### 4. `model-definition.md` - Model Configuration
 Complete model definition guide covering:
@@ -56,6 +67,8 @@ Complete model definition guide covering:
 Guide to all calculator types:
 - `sh://` - Local shell execution
 - `ssh://` - Remote SSH execution
+- `slurm://` - SLURM workload manager
+- `funz://` - Legacy Funz server
 - `cache://` - Cached result reuse
 - Calculator aliases and configuration
 - Parallel execution and fallback chains
@@ -138,17 +151,21 @@ Task: How do I speed up my parametric study with 1000 cases?
 ## File Organization
 
 ```
-context/
+doc/
 ├── README.md                           # This file
 ├── INDEX.md                            # Table of contents with sections
 ├── overview.md                         # High-level framework introduction
 ├── syntax-guide.md                     # Variable and formula syntax
-├── core-functions.md                   # API reference (fzi, fzc, fzo, fzr)
+├── core-functions.md                   # API reference (fzi, fzc, fzo, fzr, fzl, fzd)
+├── installing-models.md                # Installing models and algorithms
 ├── model-definition.md                 # Model configuration guide
 ├── calculators.md                      # Calculator types and configuration
 ├── formulas-and-interpreters.md        # Formula evaluation (Python/R)
-├── parallel-and-caching.md            # Parallel execution and caching
-└── quick-examples.md                   # Common patterns and examples
+├── parallel-and-caching.md             # Parallel execution and caching
+├── fzd_content_format.md               # fzd analysis content formats
+├── quick-examples.md                   # Common patterns and examples
+├── funz-protocol.md                    # Legacy Funz server protocol
+└── shell-path.md                       # FZ_SHELL_PATH configuration
 ```
 
 ## Updating This Documentation
@@ -178,6 +195,6 @@ To improve this documentation:
 
 ## Version
 
-These context files are for **FZ version 0.9.0+**
+These docs are for **fz version 1.0+**
 
-Last updated: 2025-01-XX
+Last updated: 2026-06-13

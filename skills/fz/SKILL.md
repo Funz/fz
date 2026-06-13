@@ -69,7 +69,7 @@ This drops into the project's `.fz/` directory (add `--global` for `~/.fz/`):
 With a wrapper installed, skip to step 1 just to add `$var` markers to your input file,
 then verify with steps 3–6 as usual. Write a custom model (step 2) only when no wrapper
 exists for your code — and if it should be reusable or published as `fz-<code>`, follow
-[wrapper.md](wrapper.md).
+[code-wrapper.md](code-wrapper.md).
 
 ### 1. Parameterize input files
 
@@ -248,7 +248,7 @@ by bare name (or glob): `algorithm="montecarlo_uniform"`. Check the `#options:` 
 
 Points already evaluated are cached across iterations and across re-runs. To write a custom
 algorithm (a Python class with `get_initial_design` / `get_next_design` / `get_analysis`),
-read [algorithms.md](algorithms.md).
+read [algorithm-wrapper.md](algorithm-wrapper.md).
 
 ## Tips for agents
 

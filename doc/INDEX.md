@@ -5,6 +5,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Installing Models & Algorithms](#installing-models--algorithms)
 - [Variable Substitution](#variable-substitution)
 - [Formula Evaluation](#formula-evaluation)
 - [Core Functions](#core-functions)
@@ -23,9 +24,20 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | What is FZ? | overview.md | "What is FZ?" |
 | When to use FZ | overview.md | "When to Use FZ" |
 | Quick example | overview.md | "Quick Example" |
-| Four core functions | overview.md | "Four Core Functions" |
+| Core functions | overview.md | "Core Functions" |
 | Typical workflow | overview.md | "Typical Workflow" |
 | Installation | *(see README.md)* | - |
+
+## Installing Models & Algorithms
+
+| Topic | File | Section |
+|-------|------|---------|
+| Install a model | installing-models.md | "CLI" / "Python API" |
+| Install an fzd algorithm | installing-models.md | "CLI" / "Python API" |
+| Uninstall a model/algorithm | installing-models.md | "CLI" |
+| Source resolution (name/URL/zip) | installing-models.md | "Source resolution" |
+| `fz-<code>` repository convention | installing-models.md | "Source resolution" |
+| Project-local vs global install | installing-models.md | "Install location and discovery" |
 
 ## Variable Substitution
 
@@ -186,6 +198,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Task | Start Here |
 |------|-----------|
 | Get started with FZ | overview.md |
+| Install a ready-made model or algorithm | installing-models.md |
 | Write an input template | syntax-guide.md |
 | Use formulas to calculate values | formulas-and-interpreters.md |
 | Parse input variables | core-functions.md → "fzi" |
@@ -221,6 +234,9 @@ Quick reference index for finding specific topics in the FZ context documentatio
 Quick keyword search:
 
 - **Variables**: syntax-guide.md
+- **Install**: installing-models.md
+- **fz install**: installing-models.md → "CLI"
+- **Algorithm install**: installing-models.md
 - **Formulas**: syntax-guide.md, formulas-and-interpreters.md
 - **Python**: formulas-and-interpreters.md
 - **R**: formulas-and-interpreters.md

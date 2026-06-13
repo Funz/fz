@@ -51,7 +51,7 @@ class TestSkillFormat:
     def test_skill_files_exist(self):
         assert SKILL_MD.exists()
         assert (SKILL_DIR / "reference.md").exists()
-        assert (SKILL_DIR / "algorithms.md").exists()
+        assert (SKILL_DIR / "algorithm-wrapper.md").exists()
 
     def test_name_matches_directory(self):
         name = re.search(r"^name:\s*(\S+)", _frontmatter(), re.M)

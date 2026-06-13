@@ -153,8 +153,8 @@ fz, bash, and the simulation code).
 - README: what the wrapper expects installed (the code itself, env vars like
   `MYCODE_BIN`), the variables syntax chosen, the outputs provided, and a copy-paste
   quickstart (`fz install model <code>` + one `fzr` line).
-- Same convention for algorithm packages: `fz-<name>` with `.fz/algorithms/<name>.py`,
-  installed via `fz install algorithm <name>`.
+- fzd algorithms follow the same `fz-<name>` packaging convention — see
+  [algorithm-wrapper.md](algorithm-wrapper.md).
 
 ## Existing wrappers to imitate
 

@@ -45,7 +45,7 @@ cp -r "$FZ_REPO/skills/fz" .claude/skills/
 The simulation: an input file parameterized with fz syntax (`$var` variables, `@{...}`
 formulas) and a solver script. Deliberately **no fz model is provided** — defining it
 (variable syntax, output parsing command) is part of what the agent must do, guided by
-the skill (SKILL.md step 2 / wrapper.md), and part of what this test verifies.
+the skill (SKILL.md step 2 / code-wrapper.md), and part of what this test verifies.
 
 ```bash
 # input file: 3 variables, 2 compile-time formulas
@@ -90,7 +90,7 @@ echo "PASS: all variables identified"
 
 ## 3. Level 2 — implement the wrapper
 
-The real test of the skill's wrapper guide (`wrapper.md`): the agent must read `calc.sh`
+The real test of the skill's wrapper guide (`code-wrapper.md`): the agent must read `calc.sh`
 and implement a reusable fz wrapper — model under `.fz/models/`, calculator alias under
 `.fz/calculators/` wired to it — and verify it per the guide's definition of done. No
 study yet: the wrapper gets certified first (§4), and only then do the actual studies
