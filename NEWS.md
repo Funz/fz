@@ -24,6 +24,16 @@
 - `fzd` docstring corrected: `analysis_dir` defaults to `"analysis"` (the CLI uses
   `results_fzd`).
 
+### fzd CLI execution fix
+
+- The `fzd` command and the `fz design` subcommand were unusable: both passed
+  `results_dir=` and the algorithm options as `**kwargs` to core `fzd()`, which accepts
+  `analysis_dir` and `algorithm_options` instead — so every invocation failed immediately
+  with `TypeError: fzd() got an unexpected keyword argument 'results_dir'`. Both call
+  sites now map to the correct parameters. Added regression tests that exercise the `fzd`
+  CLI and the `fz design` subcommand (only the Python API was covered before, which is why
+  this shipped).
+
 ### CLI hardening for scripting and AI agents
 
 - Log messages (`FZ_LOG_LEVEL`) and progress output now go to **stderr** instead of
