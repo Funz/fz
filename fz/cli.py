@@ -648,8 +648,11 @@ def fzd_main():
     """Entry point for fzd command"""
     parser = argparse.ArgumentParser(description="fzd - Iterative design of experiments with algorithms")
     parser.add_argument("--version", action="version", version=f"fzd {get_version()}")
-    parser.add_argument("--input_dir", "-i", required=True, help="Input directory path")
-    parser.add_argument("--input_vars", "-v", required=True, help="Input variable ranges (JSON file or inline JSON)")
+    parser.add_argument("--input_dir", "--input_path", "-i", dest="input_dir", required=True,
+                        help="Input file or directory (alias: --input_path, to match fzi/fzc/fzr)")
+    parser.add_argument("--input_vars", "--input_variables", "--variables", "-v", dest="input_vars",
+                        required=True,
+                        help="Input variable ranges (JSON file or inline JSON); aliases: --input_variables, --variables")
     parser.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
     parser.add_argument("--output_expression", "-e", required=True, help="Output expression to minimize (e.g., 'out1 + out2 * 2')")
     parser.add_argument("--algorithm", "-a", required=True, help="Algorithm name (randomsampling, brent, bfgs, ...)")
@@ -741,8 +744,11 @@ def main():
 
     # design command (fzd)
     parser_design = subparsers.add_parser("design", help="Iterative design of experiments with algorithms")
-    parser_design.add_argument("--input_dir", "-i", required=True, help="Input directory path")
-    parser_design.add_argument("--input_vars", "-v", required=True, help="Input variable ranges (JSON file or inline JSON)")
+    parser_design.add_argument("--input_dir", "--input_path", "-i", dest="input_dir", required=True,
+                               help="Input file or directory (alias: --input_path, to match fzi/fzc/fzr)")
+    parser_design.add_argument("--input_vars", "--input_variables", "--variables", "-v", dest="input_vars",
+                               required=True,
+                               help="Input variable ranges (JSON file or inline JSON); aliases: --input_variables, --variables")
     parser_design.add_argument("--model", "-m", required=True, help="Model definition (JSON file, inline JSON, or alias)")
     parser_design.add_argument("--output_expression", "-e", required=True, help="Output expression to minimize (e.g., 'out1 + out2 * 2')")
     parser_design.add_argument("--algorithm", "-a", required=True, help="Algorithm name (randomsampling, brent, bfgs, ...)")
