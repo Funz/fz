@@ -431,5 +431,49 @@ def test_multiple_input_files_with_variables():
         f"Expected {expected_cases} cases, got {actual_cases}"
     assert all_cases_verified, "Not all cases verified successfully"
 
+def test_directory_input_with_subdirectories():
+    """Regression: a directory-tree input must reach the calculator with its
+    subdirectories intact, and output subdirectories must be copied back.
+
+    fz staged result->temp and temp->result by copying only top-level *files*
+    (`if item.is_file()`), silently dropping subdirectories. Any code whose input
+    is a directory tree (e.g. an OpenFOAM case with system/, constant/, 0/) then
+    failed: the calculator ran without its input subdirs, and outputs written into
+    a subdirectory never reached the output parser. Both copies now recurse.
+    """
+    from fz import fzr
+
+    case = Path.cwd() / "case_tree"
+    (case / "data").mkdir(parents=True)
+    # top-level entry file + a parameterized file inside a subdirectory
+    (case / "input.txt").write_text("x = ${x}\n")
+    (case / "data" / "factor.txt").write_text("${x}\n")
+
+    # Runner lives OUTSIDE the input dir so it is not itself parameterized/staged.
+    # It reads the subdir INPUT (must be staged in) and writes into a NEW output
+    # subdirectory (must be copied back for the parser to see it).
+    runner = Path.cwd() / "runner.sh"
+    runner.write_text("#!/bin/bash\nmkdir -p out && cat data/factor.txt > out/result.txt\n")
+
+    model = {
+        "varprefix": "$",
+        "delim": "{}",
+        "output": {"result": "cat out/result.txt"},
+    }
+
+    result = fzr(
+        input_path=str(case),
+        input_variables={"x": [2, 5]},
+        model=model,
+        calculators=f"sh://bash {runner}",
+        results_dir=str(Path.cwd() / "res_tree"),
+    )
+
+    assert set(result["status"]) == {"done"}, f"statuses: {list(result['status'])}"
+    by_x = {x: r for x, r in zip(result["x"], result["result"])}
+    assert by_x == {2: 2, 5: 5}, f"expected results from subdir I/O, got {by_x}"
+
+
 if __name__ == "__main__":
     test_multiple_input_files_with_variables()
+    test_directory_input_with_subdirectories()

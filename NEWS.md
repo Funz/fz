@@ -24,6 +24,15 @@
 - `fzd` docstring corrected: `analysis_dir` defaults to `"analysis"` (the CLI uses
   `results_fzd`).
 
+### Directory-tree inputs reach the calculator intact
+
+- Per-case staging now copies subdirectories recursively in **both** directions
+  (compiled inputs → run dir, and run outputs → results dir). Previously only top-level
+  files were copied, so any code whose input is a directory tree (e.g. an OpenFOAM case
+  with `system/`, `constant/`, `0/`) ran without its subdirectories and any output written
+  into a subdirectory never reached the output parser. Added a regression test that runs a
+  case with an input subdirectory and an output subdirectory.
+
 ### fzd CLI execution fix
 
 - The `fzd` command and the `fz design` subcommand were unusable: both passed
