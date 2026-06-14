@@ -111,11 +111,13 @@ fzd  --input_dir/-i  --input_vars/-v  --model/-m  --output_expression/-e
      --algorithm/-a  --results_dir/-r  --calculators/-c  --options/-o
 ```
 
-> **`fzd` flag divergence (easy to trip on):** unlike `fzi`/`fzc`/`fzr`, `fzd` names the
-> input flags `--input_dir`/`-i` and `--input_vars`/`-v` (not `--input_path`/
-> `--input_variables`), takes algorithm options via `--options`/`-o`, and has **no
-> `--format`** — it prints a convergence summary and writes the design/analysis under
-> `--results_dir`. `--input_dir` accepts a single file as well as a directory.
+> **`fzd` flag divergence (easy to trip on):** `fzd`'s canonical input flags are
+> `--input_dir`/`-i` and `--input_vars`/`-v` (in newer fz — git main / next release — it
+> also accepts the `fzi`/`fzc`/`fzr` names `--input_path` and `--input_variables` as
+> aliases; fz 1.0 on PyPI takes only the canonical names). It takes algorithm options via
+> `--options`/`-o`, and has **no `--format`** — it prints a convergence summary and writes
+> the design/analysis under `--results_dir`. `--input_dir` accepts a single file as well as
+> a directory.
 
 - In fz 1.0 (current PyPI release), paths must be given via flag
   (`fzi --input_path input.txt -m mymodel`) and only the canonical flag names below work.
