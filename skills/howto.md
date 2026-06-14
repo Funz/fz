@@ -108,6 +108,9 @@ the path the agent follows, with checkable outcomes):
 - [examples/newton-cooling-calibration.md](examples/newton-cooling-calibration.md) —
   calibrate a Newton's-law-of-cooling model: the agent discovers the Modelica wrapper and
   the brent algorithm to solve a 1-parameter inverse problem.
+- [examples/openfoam-dambreak-random-sampling.md](examples/openfoam-dambreak-random-sampling.md) —
+  random-sample the obstacle height in an OpenFOAM dam break: the agent builds *both* the
+  code wrapper and the sampling algorithm from scratch (the "no official wrapper" path).
 
 ## What's in the skill
 

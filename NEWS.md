@@ -46,9 +46,16 @@
 
 ### Documentation
 
+- Two worked skill examples in `skills/examples/`: a Newton-cooling calibration (reuse the
+  Modelica wrapper + brent algorithm) and an OpenFOAM dam-break random-sampling study
+  (author the wrapper *and* the algorithm from scratch). The latter is validated end to end
+  against OpenFOAM v2412.
+- Skill guidance hardened from running those examples: model-vs-calculator distinction,
+  directory-tree (case-based) codes, locale-safe (`LC_ALL=C`) output parsing, runner-script
+  invocation gotchas, the `fzd` flag divergence, and a common-failures table.
 - New Agent Skill in `skills/fz/` for AI coding agents (Claude Code and compatible),
-  with a condensed API/CLI reference, fzd algorithm guide, and wrapper implementation
-  guide (`wrapper.md`).
+  with a condensed API/CLI reference, fzd algorithm guide, and code-wrapper guide
+  (`code-wrapper.md`).
 - The repo is now a Claude Code plugin marketplace (`.claude-plugin/`): install the skill
   from inside Claude Code with `/plugin marketplace add Funz/fz` + `/plugin install fz@funz`.
 - New `llms.txt` documentation index and `CLAUDE.md` contributor guide.

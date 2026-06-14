@@ -69,6 +69,10 @@ Rules and choices:
   a JSON dict/list (as `trajectory` above) gives structured columns in the results DataFrame.
 - Prefer `python3` over `python` in output commands, and keep dependencies minimal —
   these commands run on the user's machine, not yours.
+- Make numeric extraction **locale-independent**: prefix the command with `LC_ALL=C`.
+  Under a non-English locale (comma decimal), `sort -g` mis-orders period/scientific-notation
+  numbers and can return a wrong "max"; prefer a one-pass `awk` max/min, e.g.
+  `LC_ALL=C awk '!/^#/ && NF {if ($2+0>m) m=$2+0} END {print m}' out/series.dat`.
 
 ## 2. The runner script
 
@@ -100,6 +104,14 @@ rm -f PID
 [ $status -eq 0 ] && [ -f out/results.log ] || exit 1
 ```
 
+Two invocation gotchas when the runner calls a *bundled* script (e.g. the code's own
+`Allrun`/`Allclean`):
+
+- The executable bit is not guaranteed to survive staging — invoke bundled scripts as
+  `bash ./script`, not `./script`.
+- Use `bash ./script` (with `./`), not `bash script`: a script whose first line self-cds
+  with `cd "${0%/*}"` becomes `cd script` (no slash to strip) and aborts.
+
 ## 3. The local calculator alias
 
 The runner script alone is NOT enough — fz discovers calculators through **JSON alias
@@ -118,6 +130,24 @@ files** only. The wrapper is incomplete without `.fz/calculators/localhost_MyCod
 file installed, `fzr --model MyCode ...` without `--calculators` finds and uses it
 automatically. Users add their own `ssh://`/`slurm://` aliases with the same `models` key
 for remote execution.
+
+## Directory-tree (case-based) codes
+
+Some codes (OpenFOAM, Telemac, …) take a whole **case directory** (`system/`, `constant/`,
+`0/`, …) rather than one file. The wrapper pattern is the same, with three adjustments:
+
+- Point `input_path` at the case directory. Parameterize whichever file(s) hold the values
+  (e.g. an OpenFOAM `system/blockMeshDict`); fz compiles every file in the tree.
+- The runner runs **inside the per-case copy of the tree** — it can `cd` in and call the
+  code's own driver (`bash ./Allrun`), and read/write subdirectories freely.
+- The output parser reads the result *and any output subdirectory* the run produced
+  (e.g. `postProcessing/.../*.dat`).
+
+Requires recursive staging of case subdirectories, which is fz from git main / the next
+release; fz 1.0 on PyPI stages only top-level files into the run directory, so a case with
+subdirectories will fail there. The
+[OpenFOAM dam-break example](../examples/openfoam-dambreak-random-sampling.md) is a complete
+worked wrapper of this kind.
 
 **Definition of done** — the wrapper is finished only when both hold:
 
