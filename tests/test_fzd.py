@@ -2,7 +2,9 @@
 Tests for fzd (iterative design of experiments with algorithms)
 """
 
+import json
 import os
+import subprocess
 import sys
 import tempfile
 import shutil
@@ -147,6 +149,60 @@ class TestFzdIntegration:
         assert "y" in result["XY"].columns
         assert "result" in result["XY"].columns  # output_expression as column name
         assert algo_path in result["algorithm"]  # algorithm field contains the path
+
+    def test_fzd_cli_runs(self, simple_model, monkeypatch):
+        """Regression: the `fzd` CLI must actually run a design.
+
+        fzd_main() called core fzd() with results_dir=/**options, but fzd()
+        accepts analysis_dir/algorithm_options — so every invocation raised
+        TypeError ('unexpected keyword argument results_dir'). No fzd CLI
+        execution test existed, so the break shipped. This covers entry point 1
+        (the standalone `fzd` command, fz.cli:fzd_main).
+        """
+        if shutil.which("bc") is None:
+            pytest.skip("bc command not available")
+
+        input_dir, model = simple_model
+        algo_path = str(Path(__file__).parent.parent / "examples" / "algorithms" / "randomsampling.py")
+        analysis_dir = Path(input_dir).parent / "fzd_cli_out"
+
+        from fz import cli
+        monkeypatch.setattr(sys, "argv", [
+            "fzd",
+            "-i", str(input_dir),
+            "-m", json.dumps(model),
+            "-v", json.dumps({"x": "[0;1]", "y": "[0;1]"}),
+            "-e", "result",
+            "-a", algo_path,
+            "-o", json.dumps({"nvalues": 3, "seed": 42}),  # exercises --options
+            "-r", str(analysis_dir),                        # exercises --results_dir
+        ])
+        rc = cli.fzd_main()
+        assert rc == 0
+
+    def test_fz_design_cli_runs(self, simple_model):
+        """Regression: the `fz design` subcommand must run too (entry point 2).
+
+        Same bug as test_fzd_cli_runs, separate call site in fz.cli:main.
+        """
+        if shutil.which("bc") is None:
+            pytest.skip("bc command not available")
+
+        input_dir, model = simple_model
+        algo_path = str(Path(__file__).parent.parent / "examples" / "algorithms" / "randomsampling.py")
+        analysis_dir = Path(input_dir).parent / "design_cli_out"
+
+        result = subprocess.run([
+            sys.executable, "-m", "fz.cli", "design",
+            "-i", str(input_dir),
+            "-m", json.dumps(model),
+            "-v", json.dumps({"x": "[0;1]", "y": "[0;1]"}),
+            "-e", "result",
+            "-a", algo_path,
+            "-o", json.dumps({"nvalues": 3, "seed": 42}),
+            "-r", str(analysis_dir),
+        ], capture_output=True, text=True)
+        assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
 
     # Removed test_fzd_requires_pandas - pandas is now a required dependency
 

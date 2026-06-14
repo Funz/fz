@@ -672,9 +672,9 @@ def fzd_main():
             model,
             args.output_expression,
             args.algorithm,
-            results_dir=args.results_dir,
             calculators=calculators,
-            **(algo_options if isinstance(algo_options, dict) else {})
+            algorithm_options=(algo_options if isinstance(algo_options, dict) else {}),
+            analysis_dir=args.results_dir,
         )
 
         # Print summary
@@ -853,9 +853,9 @@ def main():
                 model,
                 args.output_expression,
                 args.algorithm,
-                results_dir=args.results_dir,
                 calculators=calculators,
-                **algo_options
+                algorithm_options=algo_options,
+                analysis_dir=args.results_dir,
             )
 
             # Print summary
