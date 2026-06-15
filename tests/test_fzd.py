@@ -180,6 +180,33 @@ class TestFzdIntegration:
         rc = cli.fzd_main()
         assert rc == 0
 
+    def test_fzd_cli_input_path_aliases(self, simple_model, monkeypatch):
+        """fzd accepts the fzi/fzc/fzr input flag names as aliases.
+
+        Historically fzd named these `--input_dir`/`--input_vars` only, which
+        broke muscle memory. It now also accepts `--input_path`/`--input_variables`
+        (same dest), so a study reads identically across all commands.
+        """
+        if shutil.which("bc") is None:
+            pytest.skip("bc command not available")
+
+        input_dir, model = simple_model
+        algo_path = str(Path(__file__).parent.parent / "examples" / "algorithms" / "randomsampling.py")
+
+        from fz import cli
+        monkeypatch.setattr(sys, "argv", [
+            "fzd",
+            "--input_path", str(input_dir),                 # alias of --input_dir
+            "-m", json.dumps(model),
+            "--input_variables", json.dumps({"x": "[0;1]", "y": "[0;1]"}),  # alias of --input_vars
+            "-e", "result",
+            "-a", algo_path,
+            "-o", json.dumps({"nvalues": 3, "seed": 42}),
+            "-r", str(Path(input_dir).parent / "fzd_alias_out"),
+        ])
+        rc = cli.fzd_main()
+        assert rc == 0
+
     def test_fz_design_cli_runs(self, simple_model):
         """Regression: the `fz design` subcommand must run too (entry point 2).
 

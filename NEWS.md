@@ -43,6 +43,14 @@
   CLI and the `fz design` subcommand (only the Python API was covered before, which is why
   this shipped).
 
+### fzd input-flag aliases (consistency with fzi/fzc/fzr)
+
+- `fzd` and `fz design` now accept `--input_path` (alias of `--input_dir`) and
+  `--input_variables`/`--variables` (aliases of `--input_vars`), so the input flags read
+  the same across all commands. The original `--input_dir`/`--input_vars` and `-i`/`-v`
+  still work. (`fzd` still has no `--format`: it prints a convergence summary and writes
+  the design/analysis under `--results_dir`.)
+
 ### CLI hardening for scripting and AI agents
 
 - Log messages (`FZ_LOG_LEVEL`) and progress output now go to **stderr** instead of
