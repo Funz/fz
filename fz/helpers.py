@@ -1003,12 +1003,20 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                     file_names = [f.name for f in all_files if f.is_file()]
                     log_debug(f"🔍 [Thread {thread_id}] {case_name}: Files in tmp_dir before copying: {file_names}")
 
-                    # Copy each file from the already-retrieved list
+                    # Copy each item from the already-retrieved list
                     for item in all_files:
+                        dest_file = result_dir / item.name
                         try:
-                            if item.is_file() and item.name != ".fz_hash":  # Don't overwrite our hash
-                                dest_file = result_dir / item.name
-
+                            if item.name == ".fz_hash":  # Don't overwrite our hash
+                                files_skipped += 1
+                            elif item.is_dir():
+                                # Recursively copy output subdirectories back (e.g. an
+                                # OpenFOAM case's time dirs and postProcessing/), so output
+                                # parsers run against the full case, not just top-level files.
+                                shutil.copytree(item, dest_file, dirs_exist_ok=True)
+                                files_copied += 1
+                                log_debug(f"📁 [Thread {thread_id}] {case_name}: Copied dir {item.name}: {item} → {dest_file}")
+                            elif item.is_file():
                                 # Additional validation: ensure we're copying to the right place
                                 if not dest_file.parent == result_dir:
                                     log_error(f"❌ [Thread {thread_id}] {case_name}: DIRECTORY MISMATCH! dest_file.parent={dest_file.parent}, expected result_dir={result_dir}")
@@ -1643,16 +1651,23 @@ def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resu
 
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        # Copy files from result directory to temp directory (excluding .fz_hash)
+        # Copy files from result directory to temp directory (excluding .fz_hash).
+        # Subdirectories are copied recursively so directory-tree inputs (e.g. an
+        # OpenFOAM case with system/, constant/, 0/) reach the calculator intact.
         try:
             if result_dir.exists():
                 files_copied = 0
                 for item in result_dir.iterdir():
-                    if item.is_file() and item.name != ".fz_hash":
+                    if item.name == ".fz_hash":
+                        continue
+                    if item.is_dir():
+                        shutil.copytree(item, tmp_dir / item.name, dirs_exist_ok=True)
+                        files_copied += 1
+                    elif item.is_file():
                         shutil.copy2(item, tmp_dir)
                         files_copied += 1
 
-                log_debug(f"Prepared temp directory: {tmp_dir} ({files_copied} files copied from {result_dir})")
+                log_debug(f"Prepared temp directory: {tmp_dir} ({files_copied} items copied from {result_dir})")
         except Exception as e:
             log_warning(f"Warning: Could not copy files to temp directory for case {var_combo}: {e}")
 
