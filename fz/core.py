@@ -1488,6 +1488,22 @@ def fzr(
         else:
             has_input_variables = bool(input_variables)
 
+        # Resolve relative cache:// paths to absolute before spawning threads.
+        # run_local_calculation() calls os.chdir() in worker threads; since CWD is
+        # process-wide, a relative cache:// path resolved via Path(...).exists() in
+        # one thread may fail while another thread has changed the CWD.
+        resolved_calculators = []
+        for calc in calculators:
+            if calc.startswith("cache://"):
+                cache_rel = calc[8:]
+                cache_path = Path(cache_rel)
+                if not cache_path.is_absolute():
+                    cache_path = Path(original_cwd) / cache_path
+                resolved_calculators.append(f"cache://{cache_path.resolve()}")
+            else:
+                resolved_calculators.append(calc)
+        calculators = resolved_calculators
+
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
             input_path, model, input_variables, var_combinations, results_dir
