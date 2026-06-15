@@ -91,7 +91,7 @@ def list_models(global_list=False):
     return list_installed_models(global_list=global_list)
 
 
-__version__ = "1.0"
+__version__ = "1.1"
 __all__ = [
     "fzi", "fzc", "fzo", "fzr", "fzl", "fzd",
     "install", "uninstall", "list_models",

@@ -19,9 +19,9 @@ comes back empty: build the binding yourself, verify it cheaply, then run the st
 > an 8-sample study completes in ~30 s and yields a peak water height varying ~0.08–0.18 m
 > with obstacle height. OpenFOAM-internal names (paths, the `blockMeshDict` obstacle level,
 > the function-object column) are still **distribution/version dependent** — confirm them
-> in your install. Two `fz` framework fixes were needed for a directory-tree code like
-> OpenFOAM to run at all (recursive staging of case subdirectories into and out of the run
-> directory); use a build that includes them.
+> in your install. A directory-tree code like OpenFOAM needs **fz ≥ 1.1** to run at all
+> (1.1 added recursive staging of case subdirectories into and out of the run directory,
+> plus the `fzd` CLI/auto-discovery fixes this study relies on).
 
 ## The engineering problem
 
@@ -37,7 +37,7 @@ downstream location.
 - **OpenFOAM** installed and its environment **sourced** (`blockMesh`, `setFields`, and the
   solver — `interFoam` or `foamRun` depending on your distribution — on PATH). The tutorial
   case ships under `$FOAM_TUTORIALS/multiphase/interFoam/laminar/damBreak/damBreak`.
-- `fz` on PATH (`pip install 'funz-fz>=1.0'`) and the **fz skill** installed (see
+- `fz` on PATH (`pip install 'funz-fz>=1.1'`) and the **fz skill** installed (see
   [../howto.md](../howto.md)).
 - `claude` CLI, logged in or `ANTHROPIC_API_KEY` set.
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## Version 1.1 (2026-06-15)
+
 ### CLI argument aliases (README forms now work)
 
 - Input/output paths can be passed positionally: `fzi input.txt -m mymodel`.

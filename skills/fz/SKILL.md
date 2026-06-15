@@ -18,10 +18,12 @@ fz wraps any simulation code that reads input files and writes output files, so 
 run as a parametric study: variables in input files are substituted for each case, cases run
 in parallel (locally, SSH, SLURM), and outputs are parsed back into a pandas DataFrame.
 
-Install: `pip install 'funz-fz>=1.0'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
-`fzd` plus the `fz` Python package; `fz install` requires 1.0+). On PEP 668
-externally-managed systems (`error: externally-managed-environment`), use a venv:
-`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=1.0'`.
+Install: `pip install 'funz-fz>=1.1'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
+`fzd` plus the `fz` Python package). 1.1 is recommended — it fixes `fzd` on the CLI,
+auto-discovers calculators for `fzd`, and stages directory-tree (case) inputs intact;
+1.0 lacks these. On PEP 668 externally-managed systems
+(`error: externally-managed-environment`), use a venv:
+`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=1.1'`.
 
 ## The workflow
 
@@ -45,7 +47,7 @@ tree. Codes like OpenFOAM or Telemac take a *case directory* (`system/`, `consta
 and the calculator runs inside the per-case copy with the tree intact. Authoring such a
 wrapper has extra gotchas (prefix collisions, directory I/O, locale) — see
 [code-wrapper.md](code-wrapper.md). (Recursive staging of case subdirectories requires
-fz from git main / the next release; fz 1.0 on PyPI stages only top-level files.)
+fz ≥ 1.1; fz 1.0 stages only top-level files.)
 
 ### 0. Check for an existing wrapper first
 
@@ -64,15 +66,13 @@ This drops into the project's `.fz/` directory (add `--global` for `~/.fz/`):
   refer to it by bare alias, e.g. `--model Modelica`.
 - `.fz/calculators/<Code>.sh` — a runner script that executes the simulation code.
 - `.fz/calculators/localhost_<Code>.json` — a local calculator alias wired to that script.
-  In `fzr` it is auto-discovered: omit `calculators` and the installed alias matching the
-  model id is used. **fz 1.0 (current PyPI) caveats**: bare alias names are NOT accepted
-  by `--calculators`, and `fzd` does NOT auto-discover — omitting `calculators` there
-  silently runs an empty `sh://` command and every case fails; pass calculators explicitly
-  to `fzd`, e.g. a URI with an absolute script path:
-  `calculators="sh://bash /abs/path/.fz/calculators/<Code>.sh"` (absolute, because
-  calculator commands run inside each case directory). Both limitations are fixed in
-  newer fz (git main / next release): `fzd` auto-discovers like `fzr`, and
-  `--calculators <alias>` works.
+  In both `fzr` and `fzd` (fz ≥ 1.1) it is auto-discovered: omit `calculators` and the
+  installed alias matching the model id is used; `--calculators <alias>` also accepts a bare
+  alias name. **On fz 1.0** neither held — bare alias names were rejected by `--calculators`
+  and `fzd` did not auto-discover (omitting `calculators` ran an empty `sh://` and every
+  case failed), so on 1.0 you must pass `fzd` calculators explicitly, e.g. a URI with an
+  absolute script path: `calculators="sh://bash /abs/path/.fz/calculators/<Code>.sh"`
+  (absolute, because calculator commands run inside each case directory).
 
 With a wrapper installed, skip to step 1 just to add `$var` markers to your input file,
 then verify with steps 3–6 as usual. Write a custom model (step 2) only when no wrapper
@@ -299,7 +299,7 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
 | All cases `failed`, `N calculator failures` | The calculator command itself errors — read the case's `err.txt`/`log.txt`. |
 | Output column is `null` but case is `done` | Output command matched nothing: wrong path/field, missing subdir output (see directory codes), locale (`LC_ALL=C`), or `python` vs `python3`. |
 | `fzi` lists extra/unexpected variables | `varprefix` collides with the code's own syntax — change it. |
-| `fzd` runs an empty `sh://` / every case fails | On fz 1.0 PyPI, `fzd` doesn't auto-discover calculators — pass them explicitly (fixed in git main). |
+| `fzd` runs an empty `sh://` / every case fails | fz 1.0 only: `fzd` didn't auto-discover calculators — pass them explicitly, or upgrade to fz ≥ 1.1. |
 
 ## Worked examples
 

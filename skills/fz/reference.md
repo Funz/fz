@@ -112,26 +112,24 @@ fzd  --input_dir/-i  --input_vars/-v  --model/-m  --output_expression/-e
 ```
 
 > **`fzd` flag divergence (easy to trip on):** `fzd`'s canonical input flags are
-> `--input_dir`/`-i` and `--input_vars`/`-v` (in newer fz — git main / next release — it
-> also accepts the `fzi`/`fzc`/`fzr` names `--input_path` and `--input_variables` as
-> aliases; fz 1.0 on PyPI takes only the canonical names). It takes algorithm options via
-> `--options`/`-o`, and has **no `--format`** — it prints a convergence summary and writes
-> the design/analysis under `--results_dir`. `--input_dir` accepts a single file as well as
-> a directory.
+> `--input_dir`/`-i` and `--input_vars`/`-v` (fz ≥ 1.1 also accepts the `fzi`/`fzc`/`fzr`
+> names `--input_path` and `--input_variables` as aliases; fz 1.0 took only the canonical
+> names). It takes algorithm options via `--options`/`-o`, and has **no `--format`** — it
+> prints a convergence summary and writes the design/analysis under `--results_dir`.
+> `--input_dir` accepts a single file as well as a directory.
 
-- In fz 1.0 (current PyPI release), paths must be given via flag
-  (`fzi --input_path input.txt -m mymodel`) and only the canonical flag names below work.
-  Newer fz (git main / next release) additionally accepts positional paths
-  (`fzi input.txt -m mymodel`) and the aliases `--variables` = `--input_variables`,
-  `--calculator` = `--calculators` (repeatable), `--results` = `--results_dir`,
-  `--output` = `--output_dir`. The canonical flags work everywhere — prefer them.
+- Paths can be given positionally (`fzi input.txt -m mymodel`) or via flag
+  (`fzi --input_path input.txt -m mymodel`), and these aliases work: `--variables` =
+  `--input_variables`, `--calculator` = `--calculators` (repeatable), `--results` =
+  `--results_dir`, `--output` = `--output_dir`. (fz 1.0 required the canonical flag names
+  and had no positional form; the canonical flags work everywhere — prefer them.)
 - `--format` accepts: `json`, `csv`, `html`, `markdown`, `table`.
 - `--model` and `--input_variables` auto-detect their format: alias (bare name) → JSON
   file path (ends in `.json`) → inline JSON. `--calculators` takes a URI, JSON file path,
-  or inline JSON — in fz 1.0 NOT a bare alias name (newer fz accepts aliases too); omit it
-  entirely to auto-discover installed calculator aliases matching the model id (fzr always;
-  fzd only in newer fz — in 1.0 pass fzd calculators explicitly). Multiple calculators may
-  also be one inline JSON list: `--calculators '["cache://run1", "sh://bash calc.sh"]'`.
+  a bare alias name, or an inline JSON list (`'["cache://run1", "sh://bash calc.sh"]'`);
+  omit it entirely to auto-discover installed calculator aliases matching the model id
+  (both `fzr` and `fzd` in fz ≥ 1.1). (fz 1.0: `--calculators` rejected bare alias names
+  and `fzd` did not auto-discover — pass `fzd` calculators explicitly there.)
 - Inline model definition (instead of, or overriding, `--model`): `--varprefix`,
   `--formulaprefix`, `--delim`, `--commentline`, `--interpreter`, and repeatable
   `--output-cmd NAME=COMMAND` for output parsers.

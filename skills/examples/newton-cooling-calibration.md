@@ -33,7 +33,7 @@ zero. (The analytic answer, for checking: `T(t) = T_env + (T0−T_env)·e^{−kt
 
 ## Prerequisites
 
-- `fz` on PATH (`pip install 'funz-fz>=1.0'`).
+- `fz` on PATH (`pip install 'funz-fz>=1.1'`; the CLI `fzd` used here is fixed in 1.1).
 - The **fz skill** installed (see [../howto.md](../howto.md)).
 - **OpenModelica** (`omc` on PATH) — the Modelica wrapper shells out to it.
   Ubuntu/Debian: `sudo apt-get install openmodelica`; macOS: `brew install openmodelica`.
