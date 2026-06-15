@@ -39,6 +39,14 @@ before moving to the next — this isolates errors cheaply instead of debugging 
 6. **Verify output parsing**: `fzo` on the directory containing the outputs.
 7. **Run the study**: `fzr` with the full variable grid and calculator(s).
 
+**Single file vs. a case directory.** `input_path` can be one file or a whole directory
+tree. Codes like OpenFOAM or Telemac take a *case directory* (`system/`, `constant/`, `0/`,
+…); point `input_path` at the directory, parameterize whichever file(s) hold the values,
+and the calculator runs inside the per-case copy with the tree intact. Authoring such a
+wrapper has extra gotchas (prefix collisions, directory I/O, locale) — see
+[code-wrapper.md](code-wrapper.md). (Recursive staging of case subdirectories requires
+fz from git main / the next release; fz 1.0 on PyPI stages only top-level files.)
+
 ### 0. Check for an existing wrapper first
 
 Funz publishes ready-made wrappers for common simulation codes (Modelica, MORET, …) as
@@ -120,11 +128,19 @@ Output command results are auto-cast to Python literals (int, float, list, dict)
 possible. For reusability, save as `.fz/models/perfectgas.json` (project) or
 `~/.fz/models/perfectgas.json` (global) and refer to it by alias: `model="perfectgas"`.
 
+> **A model never says how to *run* the code.** It declares only the input syntax and the
+> output parsers. *Where and how* the simulation executes is the calculator's job (see
+> "Calculators" below). There is no `run` field in a model. If you forget the calculator,
+> fz falls back to `sh://` and tries to execute the input file itself — the tell-tale
+> symptom is `Permission denied ... ./input.txt`.
+
 ### 3–6. Verify each step before the full run
 
 ```bash
 # 3. Variables found? (returns variables as keys, None values)
 fzi --input_path input.txt --model perfectgas --format json
+# Must list EXACTLY your variables. Stray names (e.g. the code's own $-macros) mean your
+# varprefix collides with the code's syntax — change it (e.g. varprefix="%") and re-check.
 
 # 4. Compilation correct for one case?
 fzc --input_path input.txt --model perfectgas \
@@ -262,6 +278,10 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
 - In `output` parsing commands, awk field references like `$3` must survive shell quoting:
   in JSON model files write them normally; inside a single-quoted inline `--model` JSON
   argument they are safe as-is, but never wrap them in double quotes on the shell.
+- Make numeric `output` commands **locale-independent**: prefix with `LC_ALL=C`. On a
+  non-English locale, tools like `sort -g` use a comma decimal and silently mis-order
+  period/scientific-notation values (returning a wrong "max"); computing min/max in `awk`
+  (one pass) is more robust than `sort | head/tail`.
 - `fzr` argument order in Python is `(input_path, input_variables, model, results_dir=...,
   calculators=...)` — use keyword arguments to stay safe.
 - Concurrency: repeat the same calculator URI N times (or set `FZ_MAX_WORKERS`) to run N
@@ -270,3 +290,25 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
   per-case `out.txt`/`err.txt`; on interrupt, partial results survive and `cache://` resumes.
 - Full API and CLI details, environment variables, and the model/calculator JSON schemas:
   see [reference.md](reference.md).
+
+## Common failures (read err.txt/log.txt in the case dir first)
+
+| Symptom | Likely cause |
+|---------|--------------|
+| `Permission denied ... ./input.txt` | No calculator given; fz tried to execute the input. Add a calculator (`sh://bash runner.sh`). |
+| All cases `failed`, `N calculator failures` | The calculator command itself errors — read the case's `err.txt`/`log.txt`. |
+| Output column is `null` but case is `done` | Output command matched nothing: wrong path/field, missing subdir output (see directory codes), locale (`LC_ALL=C`), or `python` vs `python3`. |
+| `fzi` lists extra/unexpected variables | `varprefix` collides with the code's own syntax — change it. |
+| `fzd` runs an empty `sh://` / every case fails | On fz 1.0 PyPI, `fzd` doesn't auto-discover calculators — pass them explicitly (fixed in git main). |
+
+## Worked examples
+
+Two end-to-end walkthroughs (natural-language ask + the path the agent follows, with
+checkable outcomes), one per archetype:
+
+- [../examples/newton-cooling-calibration.md](../examples/newton-cooling-calibration.md) —
+  **reuse ready-made packages**: discover the Modelica wrapper + brent algorithm to solve
+  an inverse problem.
+- [../examples/openfoam-dambreak-random-sampling.md](../examples/openfoam-dambreak-random-sampling.md) —
+  **build from scratch**: author an OpenFOAM (directory-case) wrapper and a custom
+  random-sampling algorithm when no `fz-*` package exists.
