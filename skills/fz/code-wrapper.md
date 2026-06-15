@@ -143,9 +143,8 @@ Some codes (OpenFOAM, Telemac, …) take a whole **case directory** (`system/`, 
 - The output parser reads the result *and any output subdirectory* the run produced
   (e.g. `postProcessing/.../*.dat`).
 
-Requires recursive staging of case subdirectories, which is fz from git main / the next
-release; fz 1.0 on PyPI stages only top-level files into the run directory, so a case with
-subdirectories will fail there. The
+Requires recursive staging of case subdirectories — fz ≥ 1.1; fz 1.0 stages only top-level
+files into the run directory, so a case with subdirectories fails there. The
 [OpenFOAM dam-break example](../examples/openfoam-dambreak-random-sampling.md) is a complete
 worked wrapper of this kind.
 
