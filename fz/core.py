@@ -1783,24 +1783,27 @@ def _evaluate_function_model_point(model_func, point, output_expression):
 
 
 def _run_function_model_design(model_func, design_points, output_expression, max_workers):
-    """Evaluate design_points against model_func in parallel; returns list of (output_data, output_value, error)."""
-    import concurrent.futures
+    """Evaluate design_points against model_func, one at a time, in the calling thread.
 
-    results = [None] * len(design_points)
-
-    def _worker(point):
+    Always sequential (a plain loop, like R's lapply), regardless of
+    max_workers: concurrent.futures.ThreadPoolExecutor always dispatches to a
+    *worker* thread, even with max_workers=1 — never the calling thread. That
+    breaks model_func callables that are only safe to call from the thread
+    that created them, such as an R closure bridged in via reticulate, which
+    crashes the host process if invoked from any thread other than the main
+    one. There is no way to distinguish such callables from an ordinary,
+    thread-safe Python function, so we always run sequentially to stay safe
+    for both. max_workers is accepted for API compatibility but currently has
+    no effect on execution.
+    """
+    def _call(point):
         try:
             output_data, output_value = _evaluate_function_model_point(model_func, point, output_expression)
             return output_data, output_value, None
         except Exception as e:
             return None, None, str(e)
 
-    workers = max(1, int(max_workers) if max_workers else 1)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        future_to_index = {executor.submit(_worker, point): i for i, point in enumerate(design_points)}
-        for future in concurrent.futures.as_completed(future_to_index):
-            results[future_to_index[future]] = future.result()
-    return results
+    return [_call(point) for point in design_points]
 
 
 def _save_function_model_iteration_csv(iteration_result_dir, all_var_names, unique_design, unique_results):
@@ -1849,8 +1852,12 @@ def fzd(
        - output_expression may be None, in which case the value of the first
          key of the function's return value is used (or the return value
          itself if it's a plain scalar)
-       - calculators must be an int: the number of function calls run in
-         parallel (via a thread pool) within this Python session
+       - calculators must be an int (defaults to 1), accepted for API
+         compatibility; function calls are always run sequentially, one at a
+         time in the calling thread — never via a thread pool. This is
+         required for model callables that are only safe to call from that
+         thread (e.g. an R function bridged in via reticulate), which cannot
+         be reliably distinguished from an ordinary thread-safe function
        - analysis_dir behaves as usual, except the per-iteration directory
          only contains a CSV of the function's inputs/outputs (no case dirs)
 
@@ -1864,8 +1871,9 @@ def fzd(
         calculators: Calculator specifications. If omitted, installed calculator
             aliases supporting the model id are auto-discovered (like fzr);
             falls back to ["sh://"] when none are found.
-            When model is a callable, this must be an int: the number of
-            parallel function calls (defaults to 1).
+            When model is a callable, this must be an int (defaults to 1),
+            accepted for API compatibility but currently has no effect:
+            calls always run sequentially (see above).
         algorithm_options: Algorithm-specific options. Can be:
             - Dict: {"batch_size": 10, "max_iter": 100}
             - JSON string: '{"batch_size": 10, "max_iter": 100}'
