@@ -19,7 +19,7 @@ from .shell import run_command, replace_commands_in_string
 import getpass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Union, Any, Optional, Tuple
+from typing import Dict, List, Union, Any, Optional, Tuple, Callable
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -2652,6 +2652,111 @@ EOF
     return {"status": "done", "stdout": stdout_data, "stderr": stderr_data}
 
 
+def _parse_funz_broadcast(data: bytes) -> Optional[Dict[str, Any]]:
+    """
+    Parse a Funz calculator UDP broadcast message.
+
+    Format (newline-separated), per the actual Java source
+    (org.funz.calculator.network.Host.buildPacket()):
+
+        0: calculator name
+        1: TCP port
+        2: start timestamp ("since", unused here)
+        3: operating system
+        4: activity - "idle" if free (org.funz.Protocol.IDLE_STATE),
+           "unavailable" or "already reserved ..." otherwise
+        5: number of codes that follow
+        6+: one calculator code per line
+
+    Returns None if the message is too short/malformed to be a valid
+    Funz broadcast.
+    """
+    try:
+        text = data.decode("utf-8", errors="replace")
+    except Exception:
+        return None
+    lines = text.strip("\r\n").split("\n")
+    if len(lines) < 6:
+        return None
+    try:
+        tcp_port = int(lines[1].strip())
+    except ValueError:
+        return None
+    try:
+        ncodes = int(lines[5].strip())
+    except ValueError:
+        return None
+    codes = [line.strip() for line in lines[6 : 6 + ncodes] if line.strip()]
+    activity = lines[4].strip()
+    return {
+        "name": lines[0].strip(),
+        "tcp_port": tcp_port,
+        "os": lines[3].strip(),
+        "activity": activity,
+        "idle": activity.lower().startswith("idle"),
+        "codes": codes,
+    }
+
+
+def discover_funz_servers(
+    udp_port: int,
+    listen_duration: float = 10.0,
+    stop_when: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Discover Funz calculator servers broadcasting on a UDP port.
+
+    Binds to `udp_port` and listens for up to `listen_duration` seconds,
+    collecting every distinct calculator seen during that window (a
+    calculator broadcasts periodically, e.g. every ~10s, so a single
+    receive is not enough to reliably see all servers on the network).
+    Servers are deduplicated by (host, tcp_port), keeping their most
+    recent broadcast.
+
+    Args:
+        udp_port: UDP port to listen on for calculator broadcasts.
+        listen_duration: how long to listen, in seconds. Should cover at
+            least one full broadcast cycle (default 10s); increase it if
+            calculators/the network broadcast more slowly.
+        stop_when: optional predicate called with each newly discovered
+            server dict; if it returns True, discovery returns immediately
+            instead of waiting out the full window (e.g. to stop as soon
+            as a server offering a specific code is found).
+
+    Returns:
+        List of dicts, one per distinct calculator server:
+        {"host", "tcp_port", "name", "os", "activity", "idle", "codes"}.
+        Raises OSError if the UDP port cannot be bound.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("", udp_port))
+
+    servers: Dict[Tuple[str, int], Dict[str, Any]] = {}
+    deadline = time.monotonic() + listen_duration
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            sock.settimeout(remaining)
+            try:
+                data, addr = sock.recvfrom(4096)
+            except socket.timeout:
+                break
+            parsed = _parse_funz_broadcast(data)
+            if parsed is None:
+                continue
+            server = {**parsed, "host": addr[0]}
+            key = (addr[0], parsed["tcp_port"])
+            servers[key] = server
+            if stop_when is not None and stop_when(server):
+                break
+    finally:
+        sock.close()
+    return list(servers.values())
+
+
 def run_funz_calculation(
     working_dir: Path,
     funz_uri: str,
@@ -2762,47 +2867,40 @@ def run_funz_calculation(
 
         # Discover TCP port via UDP broadcast
         try:
-            log_debug(f"Creating UDP socket to listen on port {udp_port}")
-            udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            udp_sock.bind(('', udp_port))
-            udp_sock.settimeout(10)  # 10 second timeout for UDP discovery
+            log_debug(f"Listening for Funz calculator broadcasts on UDP port {udp_port}")
+            servers = discover_funz_servers(
+                udp_port,
+                listen_duration=10,
+                stop_when=lambda s: s["idle"] and code in s["codes"],
+            )
+            log_debug(f"Discovered servers: {servers}")
 
-            log_debug(f"Waiting for UDP broadcast from calculator...")
-            data, addr = udp_sock.recvfrom(1024)
-            udp_sock.close()
+            if not servers:
+                log_error(f"❌ UDP discovery timeout - no calculator found on port {udp_port}")
+                return {"status": "error", "error": f"No calculator found on UDP port {udp_port}"}
 
-            # Parse UDP broadcast data
-            # Format (lines):
-            # 0: calculator name
-            # 1: TCP port
-            # 2: secret
-            # 3: OS
-            # 4: status
-            # 5+: available codes
-            lines = data.decode('utf-8').strip().split('\n')
-            log_debug(f"Received UDP broadcast from {addr}:")
-            for i, line in enumerate(lines):
-                log_debug(f"  Line {i}: {line}")
+            # Prefer a server that is idle and offers the requested code, then
+            # any server offering the code, then fall back to the first one seen.
+            server = next(
+                (s for s in servers if s["idle"] and code in s["codes"]),
+                next(
+                    (s for s in servers if code in s["codes"]),
+                    servers[0],
+                ),
+            )
 
-            if len(lines) < 2:
-                return {"status": "error", "error": "Invalid UDP broadcast format"}
-
-            tcp_port = int(lines[1])
-            calculator_name = lines[0]
-            available_codes = lines[6:] if len(lines) > 6 else []
+            tcp_port = server["tcp_port"]
+            calculator_name = server["name"]
+            available_codes = server["codes"]
 
             log_info(f"✅ Discovered calculator '{calculator_name}' at {host}:{tcp_port}")
-            log_debug(f"Available codes: {available_codes}")
+            log_debug(f"Available codes: {available_codes}, activity: {server['activity']}")
 
             # Verify requested code is available
             if code not in available_codes:
                 log_warning(f"⚠️  Requested code '{code}' not in available codes: {available_codes}")
 
-        except socket.timeout:
-            log_error(f"❌ UDP discovery timeout - no calculator found on port {udp_port}")
-            return {"status": "error", "error": f"No calculator found on UDP port {udp_port}"}
-        except Exception as e:
+        except OSError as e:
             log_error(f"❌ UDP discovery failed: {e}")
             return {"status": "error", "error": f"UDP discovery failed: {str(e)}"}
 

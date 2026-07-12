@@ -34,6 +34,7 @@ from .installer import (
     uninstall_algorithm,
     list_installed_algorithms,
 )
+from .runners import discover_funz_servers
 
 
 def install(model, global_install=False):
@@ -101,4 +102,5 @@ __all__ = [
     "set_log_level", "get_log_level",
     "get_config", "reload_config", "print_config",
     "set_interpreter", "get_interpreter",
+    "discover_funz_servers",
 ]

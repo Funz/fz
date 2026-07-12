@@ -1529,20 +1529,25 @@ calculators = [
 FZ supports automatic Funz server discovery via UDP broadcast:
 
 ```python
-from fz.runners import discover_funz_servers
+from fz import discover_funz_servers
 
-# Discover all available Funz servers on the network
-servers = discover_funz_servers(timeout=5)
+# Listen on UDP port 19001 for 10s and collect every distinct calculator seen
+servers = discover_funz_servers(udp_port=19001, listen_duration=10)
 
 # Returns list of discovered servers:
 # [
-#   {'host': '192.168.1.100', 'port': 5555, 'code': 'R'},
-#   {'host': '192.168.1.101', 'port': 5555, 'code': 'Python'},
+#   {'host': '192.168.1.100', 'tcp_port': 5555, 'name': 'calc1',
+#    'os': 'Linux 6.1', 'activity': 'idle', 'idle': True, 'codes': ['R']},
+#   {'host': '192.168.1.101', 'tcp_port': 5555, 'name': 'calc2',
+#    'os': 'Linux 6.1', 'activity': 'idle', 'idle': True, 'codes': ['Python']},
 #   ...
 # ]
 
-# Use discovered servers
-calculators = [f"funz://{s['host']}:{s['port']}/{s['code']}" for s in servers]
+# Use idle servers offering "R"
+calculators = [
+    f"funz://{s['host']}:{s['tcp_port']}/R"
+    for s in servers if s["idle"] and "R" in s["codes"]
+]
 results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
 ```
 

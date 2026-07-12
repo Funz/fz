@@ -47,26 +47,31 @@ calculators = [
 
 ### UDP Broadcast Format
 
-The server broadcasts a newline-separated message:
+The server broadcasts a newline-separated message. This format is taken
+directly from the Java source
+(`org.funz.calculator.network.Host.buildPacket()`), not from the protocol
+description alone — fields not documented in `org.funz.Protocol` were
+verified against that implementation:
 
 ```
 Line 0: Calculator name
 Line 1: TCP port
-Line 2: Secret code (authentication)
+Line 2: Start timestamp ("since", not used by fz)
 Line 3: Operating system
-Line 4: Status
-Line 5: (reserved)
-Line 6+: Available codes (one per line)
+Line 4: Activity - "idle" if free (org.funz.Protocol.IDLE_STATE),
+        "unavailable" or "already reserved ..." otherwise
+Line 5: Number of codes that follow
+Line 6+: Available codes (one per line, as many lines as line 5's value)
 ```
 
 **Example broadcast:**
 ```
 MyCalculator
 5555
-secret123
-Linux
-available
-
+1699999999000
+Linux 6.1
+idle
+4
 R
 Python
 Modelica
@@ -92,20 +97,29 @@ results = fz.fzr(
 #### Manual Discovery
 
 ```python
-from fz.runners import discover_funz_servers
+from fz import discover_funz_servers
 
-# Discover all servers on port 19001
-servers = discover_funz_servers(udp_port=19001, timeout=5)
+# Listen for 10s and return every distinct calculator seen broadcasting
+# on port 19001 (a calculator broadcasts periodically, e.g. every ~10s,
+# so the listening window must cover at least one full cycle)
+servers = discover_funz_servers(udp_port=19001, listen_duration=10)
 
-# Returns:
+# Returns one dict per server, e.g.:
 # [
-#   {'host': '192.168.1.100', 'port': 5555, 'code': 'R', 'name': 'calc1'},
-#   {'host': '192.168.1.101', 'port': 5555, 'code': 'Python', 'name': 'calc2'},
+#   {'host': '192.168.1.100', 'tcp_port': 5555, 'name': 'calc1',
+#    'os': 'Linux 6.1', 'activity': 'idle', 'idle': True,
+#    'codes': ['R', 'Python']},
+#   {'host': '192.168.1.101', 'tcp_port': 5555, 'name': 'calc2',
+#    'os': 'Linux 6.1', 'activity': 'already reserved by bob', 'idle': False,
+#    'codes': ['Python']},
 #   ...
 # ]
 
-# Use discovered servers
-calculators = [f"funz://{s['host']}:{s['port']}/{s['code']}" for s in servers]
+# Build calculator URIs from the idle servers offering "R"
+calculators = [
+    f"funz://{s['host']}:{s['tcp_port']}/R"
+    for s in servers if s["idle"] and "R" in s["codes"]
+]
 results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
 ```
 
@@ -453,23 +467,16 @@ java -jar funz-calculator.jar -port 5555 -udp 19001 -code R
 - `-udp`: UDP broadcast port for discovery
 - `-code`: Calculator code (R, Python, shell, etc.)
 
-### Python Mock Server (Testing)
+### Testing Against a Real Calculator
 
-For testing, use the mock server from tests:
+`tests/test_funz_protocol.py` is an integration test suite that talks to an
+actual running Java Funz calculator server rather than a mock — there is no
+bundled mock server. Point it at a live calculator via environment
+variables before running it:
 
-```python
-# tests/test_funz_protocol.py
-from tests.test_funz_protocol import MockFunzServer
-
-# Start mock server
-server = MockFunzServer(tcp_port=5555, udp_port=19001, code="shell")
-server.start()
-
-try:
-    # Run calculations
-    results = fz.fzr(..., calculators="funz://:19001/shell")
-finally:
-    server.stop()
+```bash
+export FUNZ_UDP_PORT=5555   # UDP broadcast port of the running calculator
+pytest tests/test_funz_protocol.py
 ```
 
 ## Network Configuration
@@ -551,38 +558,43 @@ nc -u -l 19001
 
 ## Advanced Usage
 
-### Custom Discovery Function
+### Discovering Across Multiple Ports
 
 ```python
-def discover_servers_on_network(base_port=19001, num_ports=10):
-    """Discover all Funz servers on network."""
-    from fz.runners import discover_funz_servers
+from fz import discover_funz_servers
 
+def discover_servers_on_network(base_port=19001, num_ports=10, listen_duration=10):
+    """Discover Funz servers broadcasting on any of a range of UDP ports."""
     servers = []
     for port in range(base_port, base_port + num_ports):
         try:
-            found = discover_funz_servers(udp_port=port, timeout=2)
-            servers.extend(found)
-        except:
-            pass
-
+            servers.extend(discover_funz_servers(port, listen_duration=listen_duration))
+        except OSError:
+            pass  # port not bindable (in use, no permission, ...)
     return servers
 
-# Use in FZ
 servers = discover_servers_on_network()
-calculators = [f"funz://{s['host']}:{s['port']}/{s['code']}" for s in servers]
+calculators = [
+    f"funz://{s['host']}:{s['tcp_port']}/{code}"
+    for s in servers if s["idle"]
+    for code in s["codes"]
+]
 ```
 
 ### Load Balancing
 
 ```python
 from collections import defaultdict
+from fz import discover_funz_servers
 
 def group_calculators_by_code(servers):
-    """Group servers by calculator code."""
+    """Group idle servers' calculator URIs by code."""
     by_code = defaultdict(list)
     for s in servers:
-        by_code[s['code']].append(f"funz://{s['host']}:{s['port']}/{s['code']}")
+        if not s["idle"]:
+            continue
+        for code in s["codes"]:
+            by_code[code].append(f"funz://{s['host']}:{s['tcp_port']}/{code}")
     return dict(by_code)
 
 servers = discover_funz_servers(udp_port=19001)
@@ -590,25 +602,6 @@ by_code = group_calculators_by_code(servers)
 
 # Use all R servers
 results = fz.fzr(..., calculators=by_code['R'])
-```
-
-### Health Checking
-
-```python
-def check_server_health(funz_uri, timeout=5):
-    """Check if Funz server is responsive."""
-    import socket
-
-    try:
-        # Try UDP discovery
-        # (implementation details in fz/runners.py)
-        return True
-    except:
-        return False
-
-# Filter healthy servers
-servers = discover_funz_servers(udp_port=19001)
-healthy = [s for s in servers if check_server_health(f"funz://{s['host']}:{s['port']}/{s['code']}")]
 ```
 
 ## Protocol Sequence Diagram
