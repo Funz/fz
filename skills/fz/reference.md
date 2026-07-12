@@ -63,12 +63,12 @@ fz.fzr(input_path: str,
 ### fz.fzd — adaptive design of experiments
 
 ```python
-fz.fzd(input_path: str,
+fz.fzd(input_path: str | None,
        input_variables: dict[str, str],     # "[min;max]" varied, "value" fixed
-       model: str | dict,
-       output_expression: str,              # e.g. "pressure" or "out1 + 2*out2"
+       model: str | dict | Callable,
+       output_expression: str | None,       # e.g. "pressure" or "out1 + 2*out2"
        algorithm: str,                      # name or path to .py algorithm
-       calculators: str | list[str] = None,
+       calculators: str | list[str] | int = None,
        algorithm_options: dict | str = None,  # dict, JSON string, or JSON file path
        analysis_dir: str = "analysis") -> dict   # CLI default: results_fzd
 ```
@@ -76,6 +76,15 @@ fz.fzd(input_path: str,
 Returns `{"XY": DataFrame, "analysis": ..., "iterations": int,
 "total_evaluations": int, "summary": str}`. Duplicate points within a batch are
 deduplicated; previously evaluated points are cached across iterations and re-runs.
+
+**Direct Python function model** (Python API only, no CLI equivalent): pass a
+callable as `model` instead of a dict/alias. Then `input_path` must be `None`;
+`input_variables` keys must match the function's parameters; `output_expression`
+may be `None` (defaults to the first value of the function's return — scalar,
+first list/tuple item, or first dict/namedtuple key); `calculators` must be an
+`int` — the number of parallel calls run via a thread pool in-process (no
+sh/ssh/slurm calculators involved). Each iteration's directory then contains
+only a `values.csv` of that iteration's function inputs/outputs (no case dirs).
 
 ### fz.fzl — list and validate models/calculators
 

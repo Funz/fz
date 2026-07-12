@@ -15,7 +15,7 @@ import signal
 import sys
 import platform
 from pathlib import Path
-from typing import Dict, List, Union, Any, Optional, TYPE_CHECKING
+from typing import Dict, List, Union, Any, Optional, Callable, TYPE_CHECKING
 
 # Configure UTF-8 encoding for Windows to handle emoji output
 if platform.system() == "Windows":
@@ -1707,13 +1707,130 @@ def _get_analysis(
     return result
 
 
+def _function_model_arg_names(func):
+    """Return (positional/keyword arg names, has_var_keyword) for a callable, or (None, True) if unintrospectable."""
+    import inspect
+    try:
+        sig = inspect.signature(func)
+    except (TypeError, ValueError):
+        return None, True
+
+    names = []
+    has_kwargs = False
+    for name, param in sig.parameters.items():
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            has_kwargs = True
+        elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+            continue
+        else:
+            names.append(name)
+    return names, has_kwargs
+
+
+def _normalize_function_model_result(result) -> Dict[str, Any]:
+    """Turn a target function's return value into a name->value output dict."""
+    if isinstance(result, dict):
+        return dict(result)
+    if hasattr(result, "_asdict"):  # namedtuple
+        return dict(result._asdict())
+    if isinstance(result, (list, tuple)):
+        return {f"output{i + 1}": v for i, v in enumerate(result)}
+    return {"output": result}
+
+
+def _call_function_model(func, point):
+    """Call func with a design point, passing positional-only parameters positionally."""
+    import inspect
+    try:
+        sig = inspect.signature(func)
+    except (TypeError, ValueError):
+        return func(**point)
+
+    args = []
+    kwargs = {}
+    consumed = set()
+    has_var_kwargs = False
+    for name, param in sig.parameters.items():
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            has_var_kwargs = True
+            continue
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            continue
+        if name in point:
+            if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+                args.append(point[name])
+            else:
+                kwargs[name] = point[name]
+            consumed.add(name)
+
+    if has_var_kwargs:
+        for k, v in point.items():
+            if k not in consumed:
+                kwargs[k] = v
+
+    return func(*args, **kwargs)
+
+
+def _evaluate_function_model_point(model_func, point, output_expression):
+    """Call the target function with a single design point and extract the output value."""
+    result = _call_function_model(model_func, point)
+    output_data = _normalize_function_model_result(result)
+    if output_expression:
+        output_value = evaluate_output_expression(output_expression, output_data)
+    else:
+        output_value = next(iter(output_data.values()))
+    return output_data, output_value
+
+
+def _run_function_model_design(model_func, design_points, output_expression, max_workers):
+    """Evaluate design_points against model_func in parallel; returns list of (output_data, output_value, error)."""
+    import concurrent.futures
+
+    results = [None] * len(design_points)
+
+    def _worker(point):
+        try:
+            output_data, output_value = _evaluate_function_model_point(model_func, point, output_expression)
+            return output_data, output_value, None
+        except Exception as e:
+            return None, None, str(e)
+
+    workers = max(1, int(max_workers) if max_workers else 1)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        future_to_index = {executor.submit(_worker, point): i for i, point in enumerate(design_points)}
+        for future in concurrent.futures.as_completed(future_to_index):
+            results[future_to_index[future]] = future.result()
+    return results
+
+
+def _save_function_model_iteration_csv(iteration_result_dir, all_var_names, unique_design, unique_results):
+    """Write a CSV of the target function's inputs/outputs for one fzd iteration."""
+    output_keys = []
+    for output_data, _, _ in unique_results:
+        if output_data:
+            for k in output_data.keys():
+                if k not in output_keys:
+                    output_keys.append(k)
+
+    csv_path = Path(iteration_result_dir) / "values.csv"
+    with open(csv_path, 'w') as f:
+        header = list(all_var_names) + output_keys + ["status", "error"]
+        f.write(','.join(header) + '\n')
+        for point, (output_data, _output_value, error) in zip(unique_design, unique_results):
+            row = [str(point.get(v, "")) for v in all_var_names]
+            row += [str(output_data.get(k, "")) if output_data else "" for k in output_keys]
+            row.append("done" if error is None else "failed")
+            row.append((error or "").replace(",", ";"))
+            f.write(','.join(row) + '\n')
+
+
 def fzd(
-    input_path: str,
+    input_path: Optional[str],
     input_variables: Dict[str, str],
-    model: Union[str, Dict],
-    output_expression: str,
+    model: Union[str, Dict, Callable],
+    output_expression: Optional[str],
     algorithm: str,
-    calculators: Union[str, List[str]] = None,
+    calculators: Union[str, List[str], int] = None,
     algorithm_options: Union[Dict[str, Any], str] = None,
     analysis_dir: str = "analysis"
 ) -> Dict[str, Any]:
@@ -1722,15 +1839,33 @@ def fzd(
 
     Requires pandas to be installed.
 
+    Two modes are supported:
+
+    1. File-based model (default): model is a model alias/dict/JSON, and
+       input_path points to the input file/directory fzr uses to run cases.
+    2. Direct Python function model: model is a callable. In this mode:
+       - input_path must be None (no input files are involved)
+       - input_variables keys must match the function's parameter names
+       - output_expression may be None, in which case the value of the first
+         key of the function's return value is used (or the return value
+         itself if it's a plain scalar)
+       - calculators must be an int: the number of function calls run in
+         parallel (via a thread pool) within this Python session
+       - analysis_dir behaves as usual, except the per-iteration directory
+         only contains a CSV of the function's inputs/outputs (no case dirs)
+
     Args:
-        input_path: Path to input file or directory
+        input_path: Path to input file or directory (None when model is a callable)
         input_variables: Input variables to vary, as dict of strings {"var1": "[min;max]", ...}
-        model: Model definition dict or alias string
-        output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2"
+        model: Model definition dict or alias string, or a Python callable
+        output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2".
+            When model is a callable, may be None to default to the first output value.
         algorithm: Path to algorithm Python file (e.g., "algorithms/montecarlo.py")
         calculators: Calculator specifications. If omitted, installed calculator
             aliases supporting the model id are auto-discovered (like fzr);
             falls back to ["sh://"] when none are found.
+            When model is a callable, this must be an int: the number of
+            parallel function calls (defaults to 1).
         algorithm_options: Algorithm-specific options. Can be:
             - Dict: {"batch_size": 10, "max_iter": 100}
             - JSON string: '{"batch_size": 10, "max_iter": 100}'
@@ -1790,40 +1925,77 @@ def fzd(
 
     
     try:
-        model = _resolve_model(model)
+        is_function_model = callable(model) and not isinstance(model, (str, dict))
 
-        # Get model ID first: passing it to _resolve_calculators_arg lets an
-        # omitted calculators argument auto-discover installed calculator
-        # aliases bound to this model, exactly like fzr does
-        model_id = model.get("id") if isinstance(model, dict) else None
+        if is_function_model:
+            if input_path is not None:
+                raise ValueError("input_path must be None when model is a Python callable")
 
-        # Parse calculator argument (handles JSON string, file, or alias)
-        calculators = _resolve_calculators_arg(calculators, model_name=model_id)
-        calculators = resolve_calculators(calculators, model_id)
+            arg_names, has_var_kwargs = _function_model_arg_names(model)
+            if arg_names is not None and not has_var_kwargs:
+                unknown_vars = [v for v in input_variables if v not in arg_names]
+                if unknown_vars:
+                    model_name = getattr(model, "__name__", repr(model))
+                    raise ValueError(
+                        f"Input variable(s) {unknown_vars} are not arguments of "
+                        f"target function '{model_name}' (arguments: {arg_names})"
+                    )
 
-        # Convert to absolute paths
-        input_dir = Path(input_path).resolve()
-        results_dir = Path(analysis_dir).resolve()
+            if calculators is None:
+                function_workers = 1
+            elif isinstance(calculators, int):
+                function_workers = calculators
+            else:
+                raise TypeError("calculators must be an int (number of parallel calls) when model is a Python callable")
 
-        # Ensure analysis directory is unique (rename existing with timestamp)
-        results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
+            model_func = model
 
-        # Parse input variable ranges and fixed values
-        parsed_input_vars = parse_input_vars(input_variables)  # Only variables with ranges
-        fixed_input_vars = parse_fixed_vars(input_variables)   # Fixed (unique) values
+            results_dir = Path(analysis_dir).resolve()
+            results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
 
-        # Log what we're doing
-        if fixed_input_vars:
-            log_info(f"🔒 Fixed variables: {', '.join(f'{k}={v}' for k, v in fixed_input_vars.items())}")
-        if parsed_input_vars:
-            log_info(f"🔄 Variable ranges: {', '.join(f'{k}={v}' for k, v in parsed_input_vars.items())}")
+            parsed_input_vars = parse_input_vars(input_variables)
+            fixed_input_vars = parse_fixed_vars(input_variables)
 
-        # Extract output variable names from the model
-        output_spec = model.get("output", {})
-        output_var_names = list(output_spec.keys())
+            if fixed_input_vars:
+                log_info(f"🔒 Fixed variables: {', '.join(f'{k}={v}' for k, v in fixed_input_vars.items())}")
+            if parsed_input_vars:
+                log_info(f"🔄 Variable ranges: {', '.join(f'{k}={v}' for k, v in parsed_input_vars.items())}")
 
-        if not output_var_names:
-            raise ValueError("Model must specify output variables in 'output' field")
+        else:
+            model = _resolve_model(model)
+
+            # Get model ID first: passing it to _resolve_calculators_arg lets an
+            # omitted calculators argument auto-discover installed calculator
+            # aliases bound to this model, exactly like fzr does
+            model_id = model.get("id") if isinstance(model, dict) else None
+
+            # Parse calculator argument (handles JSON string, file, or alias)
+            calculators = _resolve_calculators_arg(calculators, model_name=model_id)
+            calculators = resolve_calculators(calculators, model_id)
+
+            # Convert to absolute paths
+            input_dir = Path(input_path).resolve()
+            results_dir = Path(analysis_dir).resolve()
+
+            # Ensure analysis directory is unique (rename existing with timestamp)
+            results_dir, renamed_results_dir = ensure_unique_directory(results_dir)
+
+            # Parse input variable ranges and fixed values
+            parsed_input_vars = parse_input_vars(input_variables)  # Only variables with ranges
+            fixed_input_vars = parse_fixed_vars(input_variables)   # Fixed (unique) values
+
+            # Log what we're doing
+            if fixed_input_vars:
+                log_info(f"🔒 Fixed variables: {', '.join(f'{k}={v}' for k, v in fixed_input_vars.items())}")
+            if parsed_input_vars:
+                log_info(f"🔄 Variable ranges: {', '.join(f'{k}={v}' for k, v in parsed_input_vars.items())}")
+
+            # Extract output variable names from the model
+            output_spec = model.get("output", {})
+            output_var_names = list(output_spec.keys())
+
+            if not output_var_names:
+                raise ValueError("Model must specify output variables in 'output' field")
 
         # Load algorithm with options
         algorithm_options = _resolve_algorithm_options(algorithm_options)
@@ -1831,7 +2003,7 @@ def fzd(
 
         # Get initial design from algorithm (only for variable inputs)
         log_info(f"🎯 Starting {algorithm} algorithm...")
-        initial_design_vars = algo_instance.get_initial_design(parsed_input_vars, output_expression)
+        initial_design_vars = algo_instance.get_initial_design(parsed_input_vars, output_expression or "output")
 
         # Merge fixed values with algorithm-generated design
         initial_design = []
@@ -1856,16 +2028,11 @@ def fzd(
             iteration_result_dir = results_dir / f"iter{iteration:03d}"
             iteration_result_dir.mkdir(parents=True, exist_ok=True)
 
-            # Run fzr for all points in parallel using calculators
+            # Run fzr (or the target function) for all points in parallel using calculators
             try:
                 log_info(f"  Running {len(current_design)} cases in parallel...")
                 # Create DataFrame with all variables (both variable and fixed)
                 all_var_names = list(parsed_input_vars.keys()) + list(fixed_input_vars.keys())
-                # Build cache paths: include current iterations and renamed directory if it exists
-                cache_paths = [f"cache://{results_dir / f'iter{j:03d}'}" for j in range(1, iteration)]
-                if renamed_results_dir is not None:
-                    # Also check renamed directory for cached results from previous runs
-                    cache_paths.extend([f"cache://{renamed_results_dir / f'iter{j:03d}'}" for j in range(1, 100)])  # Check up to 99 iterations
 
                 # Deduplicate current_design: run each unique point only once
                 seen_keys: dict = {}
@@ -1881,62 +2048,88 @@ def fzd(
                 if n_dupes:
                     log_info(f"  ({n_dupes} duplicate point(s) removed from batch; results will be reused)")
 
-                result_df = fzr(
-                    str(input_dir),
-                    pd.DataFrame(unique_design, columns=all_var_names),
-                    model,
-                    results_dir=str(iteration_result_dir),
-                    calculators=[*cache_paths, *calculators]  # Cache paths first, then actual calculators
-                )
-
-                # Expand result_df back to full current_design length (re-map duplicates)
-                result_df = result_df.iloc[index_map].reset_index(drop=True)
-
-                # Extract output values for each point
                 iteration_inputs = []
                 iteration_outputs = []
 
-                # result_df is a DataFrame (pandas is required for fzd)
-                for i, point in enumerate(current_design):
-                    iteration_inputs.append(point)
+                if is_function_model:
+                    unique_results = _run_function_model_design(
+                        model_func, unique_design, output_expression, function_workers
+                    )
+                    _save_function_model_iteration_csv(
+                        iteration_result_dir, all_var_names, unique_design, unique_results
+                    )
 
-                    if i < len(result_df):
-                        row = result_df.iloc[i]
-                        output_data = row #{key: row.get(key, None) for key in output_var_names}
+                    for i, point in enumerate(current_design):
+                        iteration_inputs.append(point)
+                        output_data, output_value, error = unique_results[index_map[i]]
 
-                        # Check if the case itself failed (status != 'done')
-                        case_status = row.get("status") if "status" in row.index else None
-                        case_error = row.get("error") if "error" in row.index else None
-
-                        if case_status is not None and case_status != "done":
-                            # Case failed — report the error from the runner
-                            error_desc = case_error if case_error else f"Calculation failed (status: {case_status})"
-                            log_warning(f"  Point {i+1}: {point} → FAILED: {error_desc}")
+                        if error is not None:
+                            log_warning(f"  Point {i+1}: {point} → FAILED: {error}")
                             iteration_outputs.append(None)
                             continue
 
-                        # Evaluate output expression
-                        try:
-                            output_value = evaluate_output_expression(
-                                output_expression,
-                                output_data
-                            )
-                            log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
-                            iteration_outputs.append(output_value)
-                        except Exception as e:
-                            # Include the runner error if available for better diagnostics
-                            error_info = str(e)
-                            if case_error:
-                                error_info += f" (calculation error: {case_error})"
-                            available_vars = ', '.join(f"'{k}'" for k in output_data.keys())
-                            log_warning(
-                                f"  Point {i+1}: Failed to evaluate expression '{output_expression}': {error_info}\n"
-                                f"    Available output variables: {available_vars}"
-                            )
+                        log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
+                        iteration_outputs.append(output_value)
+
+                else:
+                    # Build cache paths: include current iterations and renamed directory if it exists
+                    cache_paths = [f"cache://{results_dir / f'iter{j:03d}'}" for j in range(1, iteration)]
+                    if renamed_results_dir is not None:
+                        # Also check renamed directory for cached results from previous runs
+                        cache_paths.extend([f"cache://{renamed_results_dir / f'iter{j:03d}'}" for j in range(1, 100)])  # Check up to 99 iterations
+
+                    result_df = fzr(
+                        str(input_dir),
+                        pd.DataFrame(unique_design, columns=all_var_names),
+                        model,
+                        results_dir=str(iteration_result_dir),
+                        calculators=[*cache_paths, *calculators]  # Cache paths first, then actual calculators
+                    )
+
+                    # Expand result_df back to full current_design length (re-map duplicates)
+                    result_df = result_df.iloc[index_map].reset_index(drop=True)
+
+                    # result_df is a DataFrame (pandas is required for fzd)
+                    for i, point in enumerate(current_design):
+                        iteration_inputs.append(point)
+
+                        if i < len(result_df):
+                            row = result_df.iloc[i]
+                            output_data = row #{key: row.get(key, None) for key in output_var_names}
+
+                            # Check if the case itself failed (status != 'done')
+                            case_status = row.get("status") if "status" in row.index else None
+                            case_error = row.get("error") if "error" in row.index else None
+
+                            if case_status is not None and case_status != "done":
+                                # Case failed — report the error from the runner
+                                error_desc = case_error if case_error else f"Calculation failed (status: {case_status})"
+                                log_warning(f"  Point {i+1}: {point} → FAILED: {error_desc}")
+                                iteration_outputs.append(None)
+                                continue
+
+                            # Evaluate output expression
+                            try:
+                                output_value = evaluate_output_expression(
+                                    output_expression,
+                                    output_data
+                                )
+                                log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
+                                iteration_outputs.append(output_value)
+                            except Exception as e:
+                                # Include the runner error if available for better diagnostics
+                                error_info = str(e)
+                                if case_error:
+                                    error_info += f" (calculation error: {case_error})"
+                                available_vars = ', '.join(f"'{k}'" for k in output_data.keys())
+                                log_warning(
+                                    f"  Point {i+1}: Failed to evaluate expression '{output_expression}': {error_info}\n"
+                                    f"    Available output variables: {available_vars}"
+                                )
+                                iteration_outputs.append(None)
+                        else:
+                            log_warning(f"  Point {i+1}: No results")
                             iteration_outputs.append(None)
-                    else:
-                        log_warning(f"  Point {i+1}: No results")
-                        iteration_outputs.append(None)
 
             except Exception as e:
                 log_error(f"  ❌ Error evaluating batch: {e}")
@@ -2086,7 +2279,7 @@ def fzd(
         # Get final analysis results
         result = get_analysis(
             algo_instance, all_input_vars, all_output_values,
-            output_expression, algorithm, iteration, results_dir
+            output_expression or "output", algorithm, iteration, results_dir
         )
 
         return result

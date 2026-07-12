@@ -528,12 +528,12 @@ result = fz.fzd(
 ```
 
 **Parameters**:
-- `input_path` (str): Path to input file or directory
+- `input_path` (str or None): Path to input file or directory (must be `None` when `model` is a Python callable)
 - `input_variables` (dict): Variable ranges as `{"var": "[min;max]"}` or fixed values as `{"var": "value"}`
-- `model` (dict or str): Model definition or alias
-- `output_expression` (str): Expression to evaluate from outputs (e.g., `"pressure"` or `"r1 + r2 * 2"`)
+- `model` (dict, str, or callable): Model definition, alias, or a Python function (see below)
+- `output_expression` (str or None): Expression to evaluate from outputs (e.g., `"pressure"` or `"r1 + r2 * 2"`); may be `None` only when `model` is a callable
 - `algorithm` (str): Path to algorithm Python file
-- `calculators` (str or list): Calculator URI(s) (default: `["sh://"]`)
+- `calculators` (str, list, or int): Calculator URI(s) (default: `["sh://"]`); when `model` is a callable, must be an `int` giving the number of parallel calls (default: `1`)
 - `algorithm_options` (dict, str, or None): Algorithm-specific options (dict, JSON string, or JSON file path)
 - `analysis_dir` (str): Analysis results directory (default: `"analysis"`)
 
@@ -544,6 +544,42 @@ result = fz.fzd(
 - `iterations`: Number of iterations completed
 - `total_evaluations`: Total number of function evaluations
 - `summary`: Human-readable summary text
+
+### Direct Python Function Model
+
+Instead of a file-based model, `model` can be a Python callable. In this mode:
+
+- `input_path` must be `None` — there are no input files.
+- `input_variables` keys must match the function's parameter names (validated
+  before running, unless the function accepts `**kwargs`).
+- `output_expression` may be `None`; the value used is then the first entry of
+  the function's return value (its return value directly if it's a scalar, the
+  first item if it returns a list/tuple, or the first key's value if it
+  returns a dict/namedtuple).
+- `calculators` must be an `int`: the number of function calls run in
+  parallel, via a thread pool, within the current Python session (no
+  subprocess/SSH/SLURM calculators involved).
+- `analysis_dir` behaves as usual (`X_N.csv`, `Y_N.csv`, `results_N.html`,
+  final analysis), except each iteration's directory (`iterNNN/`) only
+  contains a `values.csv` of that iteration's function inputs/outputs — no
+  per-case run directories, since there's no file-based execution.
+
+```python
+import fz
+
+def rosenbrock(x, y):
+    return {"result": (1 - x) ** 2 + 100 * (y - x ** 2) ** 2}
+
+result = fz.fzd(
+    input_path=None,
+    input_variables={"x": "[-2;2]", "y": "[-2;2]"},
+    model=rosenbrock,
+    output_expression="result",
+    algorithm="examples/algorithms/bfgs.py",
+    calculators=4,  # 4 parallel calls to rosenbrock()
+    algorithm_options={"max_iter": 20, "tol": 1e-4}
+)
+```
 
 ### Examples
 
