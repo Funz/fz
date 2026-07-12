@@ -558,7 +558,11 @@ Instead of a file-based model, `model` can be a Python callable. In this mode:
   returns a dict/namedtuple).
 - `calculators` must be an `int`: the number of function calls run in
   parallel, via a thread pool, within the current Python session (no
-  subprocess/SSH/SLURM calculators involved).
+  subprocess/SSH/SLURM calculators involved). With `calculators=1` (the
+  default), calls run sequentially in the calling thread rather than through
+  a thread pool — this matters for model functions that are only safe to
+  call from that thread, such as an embedded interpreter callback (e.g. an R
+  function bridged in via `reticulate`).
 - `analysis_dir` behaves as usual (`X_N.csv`, `Y_N.csv`, `results_N.html`,
   final analysis), except each iteration's directory (`iterNNN/`) only
   contains a `values.csv` of that iteration's function inputs/outputs — no

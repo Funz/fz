@@ -1784,11 +1784,7 @@ def _evaluate_function_model_point(model_func, point, output_expression):
 
 def _run_function_model_design(model_func, design_points, output_expression, max_workers):
     """Evaluate design_points against model_func in parallel; returns list of (output_data, output_value, error)."""
-    import concurrent.futures
-
-    results = [None] * len(design_points)
-
-    def _worker(point):
+    def _call(point):
         try:
             output_data, output_value = _evaluate_function_model_point(model_func, point, output_expression)
             return output_data, output_value, None
@@ -1796,8 +1792,22 @@ def _run_function_model_design(model_func, design_points, output_expression, max
             return None, None, str(e)
 
     workers = max(1, int(max_workers) if max_workers else 1)
+
+    if workers == 1:
+        # Run sequentially in the calling thread rather than a thread pool.
+        # ThreadPoolExecutor always dispatches to a *worker* thread, even with
+        # max_workers=1 — never the calling thread. That breaks model_func
+        # callables that are only safe to call from the thread that created
+        # them (e.g. an R closure bridged in via reticulate, which crashes
+        # the host process if invoked from any thread other than the main
+        # one). Since single-worker execution has no parallelism to gain
+        # from a thread pool anyway, call directly instead.
+        return [_call(point) for point in design_points]
+
+    import concurrent.futures
+    results = [None] * len(design_points)
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        future_to_index = {executor.submit(_worker, point): i for i, point in enumerate(design_points)}
+        future_to_index = {executor.submit(_call, point): i for i, point in enumerate(design_points)}
         for future in concurrent.futures.as_completed(future_to_index):
             results[future_to_index[future]] = future.result()
     return results
