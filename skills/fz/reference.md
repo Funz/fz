@@ -82,8 +82,10 @@ callable as `model` instead of a dict/alias. Then `input_path` must be `None`;
 `input_variables` keys must match the function's parameters; `output_expression`
 may be `None` (defaults to the first value of the function's return — scalar,
 first list/tuple item, or first dict/namedtuple key); `calculators` must be an
-`int` — the number of parallel calls run via a thread pool in-process (no
-sh/ssh/slurm calculators involved). Each iteration's directory then contains
+`int` (default `1`), accepted for API compatibility — calls always run
+sequentially in-process, never in parallel, so the model function is safe to
+call even if it's only usable from the calling thread (e.g. an R function
+bridged in via reticulate). Each iteration's directory then contains
 only a `values.csv` of that iteration's function inputs/outputs (no case dirs).
 
 ### fz.fzl — list and validate models/calculators

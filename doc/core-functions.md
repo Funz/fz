@@ -533,7 +533,7 @@ result = fz.fzd(
 - `model` (dict, str, or callable): Model definition, alias, or a Python function (see below)
 - `output_expression` (str or None): Expression to evaluate from outputs (e.g., `"pressure"` or `"r1 + r2 * 2"`); may be `None` only when `model` is a callable
 - `algorithm` (str): Path to algorithm Python file
-- `calculators` (str, list, or int): Calculator URI(s) (default: `["sh://"]`); when `model` is a callable, must be an `int` giving the number of parallel calls (default: `1`)
+- `calculators` (str, list, or int): Calculator URI(s) (default: `["sh://"]`); when `model` is a callable, must be an `int` (default: `1`), accepted for API compatibility — calls are always run sequentially, never in parallel (see below)
 - `algorithm_options` (dict, str, or None): Algorithm-specific options (dict, JSON string, or JSON file path)
 - `analysis_dir` (str): Analysis results directory (default: `"analysis"`)
 
@@ -556,13 +556,14 @@ Instead of a file-based model, `model` can be a Python callable. In this mode:
   the function's return value (its return value directly if it's a scalar, the
   first item if it returns a list/tuple, or the first key's value if it
   returns a dict/namedtuple).
-- `calculators` must be an `int`: the number of function calls run in
-  parallel, via a thread pool, within the current Python session (no
-  subprocess/SSH/SLURM calculators involved). With `calculators=1` (the
-  default), calls run sequentially in the calling thread rather than through
-  a thread pool — this matters for model functions that are only safe to
-  call from that thread, such as an embedded interpreter callback (e.g. an R
-  function bridged in via `reticulate`).
+- `calculators` must be an `int` (default `1`), accepted for API
+  compatibility. Function-model calls are always run sequentially, one at a
+  time in the calling thread (like a plain loop), regardless of the value of
+  `calculators` — never through a thread pool. This is required for model
+  functions that are only safe to call from that thread, such as an embedded
+  interpreter callback (e.g. an R function bridged in via `reticulate`), and
+  there is no reliable way to tell those apart from an ordinary thread-safe
+  Python function.
 - `analysis_dir` behaves as usual (`X_N.csv`, `Y_N.csv`, `results_N.html`,
   final analysis), except each iteration's directory (`iterNNN/`) only
   contains a `values.csv` of that iteration's function inputs/outputs — no
