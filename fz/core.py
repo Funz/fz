@@ -313,17 +313,25 @@ def _parse_argument(arg, alias_type=None):
 # Calculator-related functions imported later where needed
 
 
-def check_bash_availability_on_windows():
+def check_bash_availability_on_windows(strict: bool = True):
     """
     Check if bash is available on Windows.
 
-    On Windows, fz requires bash to be available for running shell commands
-    and evaluating output expressions. This function checks for bash availability
-    in FZ_SHELL_PATH or common installation locations and raises an error with
-    installation instructions if not found.
+    On Windows, fz requires bash for running legacy shell commands and
+    shell-based output expressions. Native Python output extraction
+    ("python:" expressions and callables, see fz/outparsers.py) does NOT
+    require bash. This function checks for bash availability in
+    FZ_SHELL_PATH or common installation locations.
+
+    Args:
+        strict: If True (default), raise a RuntimeError with installation
+            instructions when bash is not found. If False, only log a
+            warning — used at import time so that fz remains usable on
+            Windows without bash for shell-free workflows.
 
     Raises:
-        RuntimeError: If running on Windows and bash is not found
+        RuntimeError: If running on Windows, bash is not found, and strict
+            is True
     """
     if platform.system() != "Windows":
         # Only check on Windows
@@ -367,7 +375,17 @@ def check_bash_availability_on_windows():
             "TIP: Set FZ_SHELL_PATH environment variable to override system PATH and\n"
             "     ensure fz uses the correct bash and utilities.\n"
         )
-        raise RuntimeError(error_msg)
+        if strict:
+            raise RuntimeError(error_msg)
+        log_warning(
+            "Warning: bash is not available on Windows. Legacy shell-command "
+            "output expressions and sh:// calculators will fail; native "
+            "Python outputs ('python:' expressions and callables) remain "
+            "fully functional. See the fz documentation for bash "
+            "installation instructions (MSYS2, Git for Windows, WSL or "
+            "Cygwin) or use FZ_SHELL_PATH."
+        )
+        return
 
     # bash found - log the path for debugging
     log_debug(f"✓ Bash found on Windows: {bash_path}")
@@ -1161,6 +1179,15 @@ def fzo(
 
     model = _resolve_model(model)
     output_spec = model.get("output", {})
+
+    # If any output uses a legacy shell command (not a native Python
+    # expression/callable), bash must be available on Windows. Check once,
+    # at use time, with the full installation instructions.
+    if any(
+        isinstance(spec, str) and not is_python_expression(spec)
+        for spec in output_spec.values()
+    ):
+        check_bash_availability_on_windows(strict=True)
 
     # Resolve output_path as glob pattern (may match multiple directories)
     output_paths = resolve_cache_paths(output_path)

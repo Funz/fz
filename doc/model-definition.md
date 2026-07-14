@@ -172,7 +172,8 @@ model = {
 
 Available helpers in expressions: `read(path)`, `lines(path)`, `line(path, n)`,
 `grep(pattern, path, group=None, all=False, cast=True)`, `json_file(path)`,
-`csv_file(path, column=None)`, plus the modules `re`, `json`, `math`,
+`csv_file(path, column=None)`, `hdf5_file(path, dataset=None)` (requires the
+optional `h5py` package), plus the modules `re`, `json`, `math`,
 `statistics`, `np` (numpy), `pd` (pandas) and `Path`. All relative paths
 resolve against the result directory. `grep` returns the first capture group
 (or whole match), cast to int/float when possible; `all=True` returns every

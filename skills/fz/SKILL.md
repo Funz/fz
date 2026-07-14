@@ -133,7 +133,8 @@ with `python:` are evaluated as Python expressions in the result directory (no b
 locale or quoting pitfalls, portable to Windows). Helpers available: `read(path)`,
 `lines(path)`, `line(path, n)`, `grep(pattern, path, all=False)` (returns first capture
 group, cast to number when possible), `json_file(path)`, `csv_file(path, column=None)`,
-plus `re`, `json`, `math`, `statistics`, `np`, `pd`, `Path`:
+`hdf5_file(path, dataset=None)` (optional `h5py` dependency), plus `re`, `json`,
+`math`, `statistics`, `np`, `pd`, `Path`:
 
 ```python
 "output": {

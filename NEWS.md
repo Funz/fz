@@ -12,6 +12,14 @@
   fully portable on Windows without `FZ_SHELL_PATH`.
 - From the Python API, output values can also be callables receiving the case
   result directory as a `pathlib.Path`.
+- `hdf5_file(path, dataset=None)` helper for HDF5 results (optional `h5py`
+  dependency); values are converted to native Python types.
+- fz is now importable on Windows without bash: the import-time check warns
+  instead of raising. Shell-dependent features (legacy shell-command outputs,
+  `sh://` calculators) raise a helpful error with installation instructions
+  at use time; shell-free workflows need no bash at all. A dedicated CI
+  workflow (`shell-free-outputs.yml`) runs the Python-output tests on a bare
+  Windows runner with Git-Bash removed from PATH.
 - Legacy shell-command outputs are unchanged and can be mixed freely with
   Python outputs in the same model. The `python:` prefix also works with
   `fzo --output-cmd NAME="python: ..."` on the CLI.

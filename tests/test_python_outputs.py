@@ -100,6 +100,36 @@ def test_helper_csv_file_column(output_dir):
     assert h["csv_file"]("data.csv", column="T") == [90, 55, 40]
 
 
+def test_helper_hdf5_file(output_dir):
+    h5py = pytest.importorskip("h5py")
+    np = pytest.importorskip("numpy")
+    with h5py.File(output_dir / "res.h5", "w") as f:
+        f["energy"] = 42.5
+        f["results/T"] = np.array([90.0, 55.0, 40.0])
+        f["label"] = b"converged"
+
+    h = make_helpers(output_dir)
+    # top-level keys when no dataset given
+    assert sorted(h["hdf5_file"]("res.h5")) == ["energy", "label", "results"]
+    # scalar dataset -> native float
+    energy = h["hdf5_file"]("res.h5", "energy")
+    assert energy == pytest.approx(42.5) and isinstance(energy, float)
+    # array dataset (nested path) -> plain list
+    assert h["hdf5_file"]("res.h5", "results/T") == [90.0, 55.0, 40.0]
+    # bytes -> str
+    assert h["hdf5_file"]("res.h5", "label") == "converged"
+
+
+def test_evaluate_expression_with_hdf5(output_dir):
+    h5py = pytest.importorskip("h5py")
+    with h5py.File(output_dir / "res.h5", "w") as f:
+        f["results/T"] = [90.0, 55.0, 40.0]
+    value = evaluate_python_output(
+        "python: min(hdf5_file('res.h5', 'results/T'))", output_dir
+    )
+    assert value == pytest.approx(40.0)
+
+
 # ---------------------------------------------------------------------------
 # Expression / callable evaluation
 # ---------------------------------------------------------------------------
@@ -161,3 +191,40 @@ def test_fzo_python_output_error_is_reported(output_dir):
     assert row["missing"] is None or (row["missing"] != row["missing"])  # None/NaN
     assert "_output_error" in result.columns
     assert "missing" in str(row["_output_error"])
+
+
+# ---------------------------------------------------------------------------
+# Windows-without-bash behavior (simulated on any platform)
+# ---------------------------------------------------------------------------
+
+def _simulate_windows_without_bash(monkeypatch):
+    import platform
+    import fz.shell
+    import fz.core
+    monkeypatch.setattr(platform, "system", lambda: "Windows")
+    monkeypatch.setattr(fz.shell, "get_windows_bash_executable", lambda: None)
+    monkeypatch.setattr(fz.core, "platform", platform)
+
+
+def test_check_bash_non_strict_does_not_raise(monkeypatch):
+    from fz.core import check_bash_availability_on_windows
+    _simulate_windows_without_bash(monkeypatch)
+    # strict (default) raises with installation instructions
+    with pytest.raises(RuntimeError, match="bash is not available"):
+        check_bash_availability_on_windows()
+    # non-strict (import-time behavior) only warns
+    check_bash_availability_on_windows(strict=False)
+
+
+def test_fzo_python_only_model_works_without_bash(output_dir, monkeypatch):
+    _simulate_windows_without_bash(monkeypatch)
+    model = {"output": {"energy": "python: json_file('result.json')['energy']"}}
+    result = fzo(str(output_dir), model)
+    assert result.iloc[0]["energy"] == pytest.approx(42.5)
+
+
+def test_fzo_shell_model_raises_helpfully_without_bash(output_dir, monkeypatch):
+    _simulate_windows_without_bash(monkeypatch)
+    model = {"output": {"anything": "cat output.txt"}}
+    with pytest.raises(RuntimeError, match="bash is not available"):
+        fzo(str(output_dir), model)

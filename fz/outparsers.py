@@ -156,6 +156,48 @@ def make_helpers(base_dir: Union[str, Path]) -> Dict[str, Any]:
             return df[column].tolist()
         return df
 
+    def hdf5_file(path: Union[str, Path], dataset: Optional[str] = None) -> Any:
+        """
+        Read a dataset from an HDF5 file (requires the optional ``h5py``
+        dependency: ``pip install h5py``).
+
+        Args:
+            path: HDF5 file, relative to the case output directory.
+            dataset: Dataset name or path within the file (e.g.
+                ``"results/temperature"``). When omitted, returns the list of
+                top-level keys, which is convenient for exploration.
+
+        Returns:
+            The dataset content converted to native Python types (scalars,
+            lists, str) for clean DataFrame/JSON round-trips, or the list of
+            top-level keys when ``dataset`` is None.
+        """
+        try:
+            import h5py
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "The hdf5_file() output helper requires the optional 'h5py' "
+                "package: pip install h5py"
+            ) from exc
+
+        with h5py.File(_resolve(path), "r") as f:
+            if dataset is None:
+                return list(f.keys())
+            data = f[dataset][()]
+
+        # Convert to native Python types
+        import numpy as np
+
+        if isinstance(data, np.ndarray):
+            data = data.tolist()
+        elif isinstance(data, np.generic):
+            data = data.item()
+        if isinstance(data, bytes):
+            data = data.decode()
+        elif isinstance(data, list):
+            data = [d.decode() if isinstance(d, bytes) else d for d in data]
+        return data
+
     helpers: Dict[str, Any] = {
         # helper functions
         "read": read,
@@ -164,6 +206,7 @@ def make_helpers(base_dir: Union[str, Path]) -> Dict[str, Any]:
         "grep": grep,
         "json_file": json_file,
         "csv_file": csv_file,
+        "hdf5_file": hdf5_file,
         # convenient modules / names
         "re": _re,
         "json": _json,

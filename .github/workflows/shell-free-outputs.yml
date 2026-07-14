@@ -1,0 +1,71 @@
+name: Shell-free outputs (Windows, no bash)
+
+# Proves that native Python output extraction ("python:" expressions and
+# callables) works on a bare Windows runner WITHOUT MSYS2, Git-Bash or
+# FZ_SHELL_PATH — unlike the main CI, which installs MSYS2 for the legacy
+# shell-command outputs. Any accidental shell dependency in this code path
+# will fail here.
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test-shell-free:
+    name: Python outputs on bare ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python-version: ['3.11']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    # Deliberately NO system dependencies step: no MSYS2, no bash, no
+    # coreutils. Only Python packages are installed.
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest h5py
+
+    - name: Ensure FZ_SHELL_PATH is not set
+      shell: python
+      run: |
+        import os, sys
+        if os.environ.get("FZ_SHELL_PATH"):
+            sys.exit("FZ_SHELL_PATH must not be set for this workflow")
+        print("OK: FZ_SHELL_PATH not set")
+
+    - name: Hide Git-Bash from PATH (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # windows-latest ships Git for Windows (which bundles bash.exe).
+        # Remove those directories from PATH so any hidden shell dependency
+        # in the python-output code path fails loudly.
+        $filtered = ($env:PATH -split ';') | Where-Object { $_ -notmatch 'Git' -and $_ -notmatch 'msys' -and $_ -notmatch 'cygwin' }
+        $newPath = $filtered -join ';'
+        Add-Content -Path $env:GITHUB_ENV -Value "PATH=$newPath"
+
+    - name: Verify bash is unavailable (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $bash = Get-Command bash -ErrorAction SilentlyContinue
+        if ($bash) { Write-Error "bash is still reachable at $($bash.Source)"; exit 1 }
+        Write-Host "OK: bash not reachable"
+
+    - name: Run shell-free output tests
+      run: pytest tests/test_python_outputs.py -v --tb=short
