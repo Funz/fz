@@ -151,6 +151,39 @@ model = {
 - Custom scripts: `python extract.py`, `bash parse.sh`
 - Pipes and redirection supported: `grep ... | awk ...`
 
+**Native Python extraction (no shell required)**:
+
+Output values can also be native Python expressions (prefix `python:`) or,
+from the Python API, callables. No bash/grep/awk needed — fully portable,
+including on Windows without `FZ_SHELL_PATH`:
+
+```python
+model = {
+    "output": {
+        # "python:" expression, evaluated in the result directory
+        "pressure": "python: grep(r'Pressure: (\\S+)', 'output.txt')",
+        "energy":   "python: json_file('results.json')['energy']",
+        "max_temp": "python: max(csv_file('temps.csv', column='T'))",
+        # Callable (Python API only): receives the result directory as a Path
+        "T_final":  lambda d: float((d / "final.txt").read_text()),
+    }
+}
+```
+
+Available helpers in expressions: `read(path)`, `lines(path)`, `line(path, n)`,
+`grep(pattern, path, group=None, all=False, cast=True)`, `json_file(path)`,
+`csv_file(path, column=None)`, plus the modules `re`, `json`, `math`,
+`statistics`, `np` (numpy), `pd` (pandas) and `Path`. All relative paths
+resolve against the result directory. `grep` returns the first capture group
+(or whole match), cast to int/float when possible; `all=True` returns every
+match as a list.
+
+The `python:` prefix also works from the CLI:
+
+```bash
+fzo output/ --model mymodel --output-cmd pressure="python: grep(r'Pressure: (\S+)', 'output.txt')"
+```
+
 ### id (optional)
 
 Unique identifier for the model, useful for documentation and logging.

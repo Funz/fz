@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Native Python output extraction (no shell required)
+
+- Model `output` values can now be native Python expressions, marked with the
+  `python:` prefix, e.g. `"pressure": "python: grep(r'pressure = (\S+)', 'output.txt')"`.
+  Expressions are evaluated in the case result directory with built-in helpers
+  (`read`, `lines`, `line`, `grep`, `json_file`, `csv_file`) and the `re`,
+  `json`, `math`, `statistics`, `np`, `pd` modules — no bash/grep/awk needed,
+  fully portable on Windows without `FZ_SHELL_PATH`.
+- From the Python API, output values can also be callables receiving the case
+  result directory as a `pathlib.Path`.
+- Legacy shell-command outputs are unchanged and can be mixed freely with
+  Python outputs in the same model. The `python:` prefix also works with
+  `fzo --output-cmd NAME="python: ..."` on the CLI.
+
 ## Version 1.1 (2026-06-15)
 
 ### CLI argument aliases (README forms now work)

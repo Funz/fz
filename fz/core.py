@@ -76,6 +76,7 @@ from .helpers import (
     prepare_temp_directories,
 )
 from .shell import run_command, replace_commands_in_string
+from .outparsers import is_python_expression, evaluate_python_output
 from .io import (
     flatten_dict_columns,
     get_analysis,
@@ -1192,6 +1193,14 @@ def fzo(
         output_errors = []  # Collect output parsing errors for this directory
         for key, command in output_spec.items():
             try:
+                # Native Python output extraction: callable, or "python:" expression
+                # (no shell involved — portable across platforms)
+                if callable(command) or is_python_expression(command):
+                    row[key] = evaluate_python_output(
+                        command, output_path_single.absolute()
+                    )
+                    continue
+
                 # Apply shell path resolution to command if FZ_SHELL_PATH is set
                 resolved_command = replace_commands_in_string(command)
 

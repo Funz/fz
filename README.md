@@ -198,6 +198,8 @@ model = {
     "commentline": "#",
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
+        # or, shell-free (portable, no bash/FZ_SHELL_PATH needed):
+        # "pressure": "python: grep(r'pressure = (\\S+)', 'output.txt')"
     }
 }
 
