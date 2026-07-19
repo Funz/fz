@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Native shell-free output extraction: python://, jq://, yq://, xpath://
+
+- Model `output` values can now be native Python expressions, marked with the
+  `python://` prefix, e.g. `"pressure": "python://grep(r'pressure = (\S+)', 'output.txt')"`.
+  Expressions are evaluated in the case result directory with built-in helpers
+  (`read`, `lines`, `line`, `grep`, `json_file`, `csv_file`) and the `re`,
+  `json`, `math`, `statistics`, `np`, `pd` modules — no bash/grep/awk needed,
+  fully portable on Windows without `FZ_SHELL_PATH`.
+- New `jq://` output prefix for JSON extraction with the
+  [jq](https://jqlang.org/) command-line tool, e.g.
+  `"energy": "jq://.energy results.json"`. Requires the `jq` executable on
+  `PATH`; no bash/shell otherwise involved.
+- New `yq://` output prefix for YAML (and, via extension auto-detection,
+  JSON/XML/TOML) extraction with the [mikefarah/yq](https://github.com/mikefarah/yq)
+  command-line tool, e.g. `"version": "yq://.metadata.version config.yaml"`.
+  Requires the `yq` executable on `PATH`; no bash/shell otherwise involved.
+- New `xpath://` output prefix for XML extraction with `xmllint --xpath`
+  (libxml2), e.g. `"pressure": "xpath://'//pressure/text()' output.xml"`.
+  Requires the `xmllint` executable on `PATH`; no bash/shell otherwise
+  involved. The matched text is cast to int/float when possible, like `grep`.
+- New `bash://` output prefix to explicitly mark a legacy shell-command
+  output, alongside the implicit default (a plain string with no recognized
+  prefix is still treated as a shell command, unchanged, for backward
+  compatibility). All five forms (`bash://`/implicit, `python://`, `jq://`,
+  `yq://`, `xpath://`, plus Python callables) can be freely mixed in the
+  same model.
+- From the Python API, output values can also be callables receiving the case
+  result directory as a `pathlib.Path`.
+- `hdf5_file(path, dataset=None)` helper for HDF5 results (optional `h5py`
+  dependency); values are converted to native Python types.
+- fz is now importable on Windows without bash: the import-time check warns
+  instead of raising. Only genuinely shell-dependent features (legacy
+  shell-command outputs, `sh://` calculators) raise a helpful error with
+  installation instructions at use time; shell-free workflows (`python://`,
+  `jq://`, `yq://`, `xpath://`) need no bash at all. A dedicated CI workflow
+  (`shell-free-outputs.yml`) exercises these output kinds cross-platform,
+  including Windows, without provisioning bash.
+- The `python://` prefix also works with `fzo --output-cmd NAME="python://..."`
+  on the CLI (as do `jq://`, `yq://`, `xpath://` and `bash://`).
+
 ## Version 1.1 (2026-06-15)
 
 ### CLI argument aliases (README forms now work)

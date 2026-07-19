@@ -1,0 +1,118 @@
+name: Shell-free outputs (python://, jq://, yq://, xpath://)
+
+# Proves that native output extraction ("python://" expressions/callables,
+# "jq://", "yq://" and "xpath://" filters) works cross-platform, including
+# on Windows, WITHOUT relying on bash — unlike the main CI, which installs
+# MSYS2 for the legacy shell-command ("bash://" / implicit-default)
+# outputs.
+#
+# Note: earlier revisions of this workflow tried to additionally *prove*
+# bash is unreachable, by stripping Git-Bash/MSYS2/Cygwin from PATH on the
+# Windows runner and hard-failing if `bash` was still found. That check
+# turned out to be unreliable on GitHub's windows-latest image (bash stays
+# reachable through paths this doesn't control, e.g. WSL's bash.exe shim),
+# and it isn't actually needed to demonstrate the point of this workflow:
+# the python://, jq://, yq:// and xpath:// code paths never invoke a shell
+# regardless of what happens to be on PATH (they use subprocess without
+# shell=True, or Python's own eval), which is what tests/test_python_outputs.py
+# verifies directly — including the simulated "Windows without bash"
+# scenarios, which monkeypatch platform detection rather than depend on the
+# real environment. So we simply don't set FZ_SHELL_PATH and don't install
+# MSYS2/Git-Bash on Windows here, without trying to force bash's absence.
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test-shell-free:
+    name: Shell-free outputs on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python-version: ['3.11']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    # Deliberately no MSYS2/Git-Bash install step: this workflow does not
+    # provision bash. Only Python packages, plus the small set of external
+    # CLI tools needed by jq://, yq:// and xpath:// outputs, are installed.
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest h5py
+
+    - name: Ensure FZ_SHELL_PATH is not set
+      shell: python
+      run: |
+        import os, sys
+        if os.environ.get("FZ_SHELL_PATH"):
+            sys.exit("FZ_SHELL_PATH must not be set for this workflow")
+        print("OK: FZ_SHELL_PATH not set")
+
+    # jq is preinstalled on all three GitHub-hosted runner images; this is
+    # a defensive fallback in case that ever changes.
+    - name: Ensure jq is available
+      shell: bash
+      run: |
+        if ! command -v jq >/dev/null 2>&1; then
+          echo "jq not found, installing a static release binary"
+          case "${{ runner.os }}" in
+            Linux)   url="https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64" ;;
+            macOS)   url="https://github.com/jqlang/jq/releases/latest/download/jq-macos-amd64" ;;
+            Windows) url="https://github.com/jqlang/jq/releases/latest/download/jq-windows-amd64.exe" ;;
+          esac
+          bin="jq"; [ "${{ runner.os }}" = "Windows" ] && bin="jq.exe"
+          curl -sL -o "$bin" "$url" && chmod +x "$bin"
+          # GITHUB_PATH entries must be in the OS-native path format, since
+          # later steps without an explicit "shell: bash" run under pwsh on
+          # Windows. Git-Bash's "pwd -W" prints the Windows-style path
+          # (e.g. D:/a/fz/fz); plain "pwd" (POSIX style, e.g. /d/a/fz/fz)
+          # would silently fail to resolve for pwsh steps.
+          echo "$(pwd -W 2>/dev/null || pwd)" >> "$GITHUB_PATH"
+        fi
+        jq --version
+
+    # mikefarah/yq is not preinstalled everywhere; fetch the static binary.
+    - name: Install yq (mikefarah/yq)
+      shell: bash
+      run: |
+        case "${{ runner.os }}" in
+          Linux)   url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" ;;
+          macOS)   url="https://github.com/mikefarah/yq/releases/latest/download/yq_darwin_amd64" ;;
+          Windows) url="https://github.com/mikefarah/yq/releases/latest/download/yq_windows_amd64.exe" ;;
+        esac
+        bin="yq"; [ "${{ runner.os }}" = "Windows" ] && bin="yq.exe"
+        curl -sL -o "$bin" "$url" && chmod +x "$bin"
+        # See the jq step above for why "pwd -W" (native Windows path) is
+        # required here instead of plain "pwd" (POSIX-style, e.g. via
+        # Git-Bash on Windows) — GITHUB_PATH is consumed by later pwsh steps.
+        echo "$(pwd -W 2>/dev/null || pwd)" >> "$GITHUB_PATH"
+
+    - name: Verify yq is on PATH
+      shell: bash
+      run: yq --version
+
+    # xmllint (libxml2) ships by default on ubuntu-latest and macos-latest.
+    # It is not reliably available on windows-latest without MSYS2/Cygwin,
+    # so xpath:// tests self-skip there (requires_xmllint marker) rather
+    # than pulling in a shell-oriented toolchain for this workflow.
+    - name: Check xmllint availability
+      shell: bash
+      run: command -v xmllint && xmllint --version || echo "xmllint not available on this runner; xpath:// tests will skip"
+
+    - name: Run shell-free output tests
+      run: pytest tests/test_python_outputs.py -v --tb=short

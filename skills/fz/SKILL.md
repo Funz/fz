@@ -128,6 +128,32 @@ Output command results are auto-cast to Python literals (int, float, list, dict)
 possible. For reusability, save as `.fz/models/perfectgas.json` (project) or
 `~/.fz/models/perfectgas.json` (global) and refer to it by alias: `model="perfectgas"`.
 
+**Prefer shell-free native outputs** when authoring new models: values prefixed with
+`python://` are evaluated as Python expressions in the result directory (no bash, no
+locale or quoting pitfalls, portable to Windows). Helpers available: `read(path)`,
+`lines(path)`, `line(path, n)`, `grep(pattern, path, all=False)` (returns first capture
+group, cast to number when possible), `json_file(path)`, `csv_file(path, column=None)`,
+`hdf5_file(path, dataset=None)` (optional `h5py` dependency), plus `re`, `json`,
+`math`, `statistics`, `np`, `pd`, `Path`:
+
+```python
+"output": {
+    "pressure": "python://grep(r'pressure = (\\S+)', 'output.txt')",
+    "T_max":    "python://max(csv_file('temps.csv', column='T'))"
+}
+```
+
+For JSON results, `jq://` filters are also shell-free-ish: they only require the `jq`
+executable (no bash), e.g. `"pressure": "jq://.pressure output.json"`. Same idea for
+YAML/JSON/XML/TOML with `yq://` (requires `yq`, mikefarah/yq), e.g.
+`"version": "yq://.metadata.version config.yaml"`, and for XML with `xpath://`
+(requires `xmllint`), e.g. `"pressure": "xpath://'//pressure/text()' output.xml"`.
+
+From the Python API, an output value can also be a callable taking the result directory
+as a `pathlib.Path`. Legacy shell-command strings remain fully supported (implicit
+default, or explicit `bash://` prefix) and can be mixed with `python://`/`jq://` outputs
+in the same model.
+
 > **A model never says how to *run* the code.** It declares only the input syntax and the
 > output parsers. *Where and how* the simulation executes is the calculator's job (see
 > "Calculators" below). There is no `run` field in a model. If you forget the calculator,
