@@ -76,7 +76,17 @@ from .helpers import (
     prepare_temp_directories,
 )
 from .shell import run_command, replace_commands_in_string
-from .outparsers import is_python_expression, evaluate_python_output
+from .outparsers import (
+    is_python_expression,
+    evaluate_python_output,
+    is_jq_expression,
+    evaluate_jq_output,
+    is_yq_expression,
+    evaluate_yq_output,
+    is_xpath_expression,
+    evaluate_xpath_output,
+    strip_bash_prefix,
+)
 from .io import (
     flatten_dict_columns,
     get_analysis,
@@ -317,10 +327,12 @@ def check_bash_availability_on_windows(strict: bool = True):
     """
     Check if bash is available on Windows.
 
-    On Windows, fz requires bash for running legacy shell commands and
-    shell-based output expressions. Native Python output extraction
-    ("python:" expressions and callables, see fz/outparsers.py) does NOT
-    require bash. This function checks for bash availability in
+    On Windows, fz requires bash for running legacy shell commands
+    (implicit default, or explicit "bash://" prefix). Native output
+    extraction via "python://" expressions/callables, "jq://", "yq://" and
+    "xpath://" filters (see fz/outparsers.py) does NOT require bash — each
+    only needs its own executable (jq, yq, xmllint respectively) for the
+    non-Python forms. This function checks for bash availability in
     FZ_SHELL_PATH or common installation locations.
 
     Args:
@@ -379,11 +391,13 @@ def check_bash_availability_on_windows(strict: bool = True):
             raise RuntimeError(error_msg)
         log_warning(
             "Warning: bash is not available on Windows. Legacy shell-command "
-            "output expressions and sh:// calculators will fail; native "
-            "Python outputs ('python:' expressions and callables) remain "
-            "fully functional. See the fz documentation for bash "
-            "installation instructions (MSYS2, Git for Windows, WSL or "
-            "Cygwin) or use FZ_SHELL_PATH."
+            "output expressions (implicit default, or explicit 'bash://' "
+            "prefix) and sh:// calculators will fail; native 'python://' "
+            "outputs (expressions and callables), 'jq://', 'yq://' and "
+            "'xpath://' outputs (each requiring their own executable: jq, "
+            "yq, xmllint) remain fully functional. See the fz documentation "
+            "for bash installation instructions (MSYS2, Git for Windows, "
+            "WSL or Cygwin) or use FZ_SHELL_PATH."
         )
         return
 
@@ -1184,7 +1198,11 @@ def fzo(
     # expression/callable), bash must be available on Windows. Check once,
     # at use time, with the full installation instructions.
     if any(
-        isinstance(spec, str) and not is_python_expression(spec)
+        isinstance(spec, str)
+        and not is_python_expression(spec)
+        and not is_jq_expression(spec)
+        and not is_yq_expression(spec)
+        and not is_xpath_expression(spec)
         for spec in output_spec.values()
     ):
         check_bash_availability_on_windows(strict=True)
@@ -1220,7 +1238,7 @@ def fzo(
         output_errors = []  # Collect output parsing errors for this directory
         for key, command in output_spec.items():
             try:
-                # Native Python output extraction: callable, or "python:" expression
+                # Native Python output extraction: callable, or "python://" expression
                 # (no shell involved — portable across platforms)
                 if callable(command) or is_python_expression(command):
                     row[key] = evaluate_python_output(
@@ -1228,8 +1246,33 @@ def fzo(
                     )
                     continue
 
-                # Apply shell path resolution to command if FZ_SHELL_PATH is set
-                resolved_command = replace_commands_in_string(command)
+                # Native jq output extraction: "jq://" expression (requires the
+                # jq executable, no shell/bash involved)
+                if is_jq_expression(command):
+                    row[key] = evaluate_jq_output(
+                        command, output_path_single.absolute()
+                    )
+                    continue
+
+                # Native yq output extraction: "yq://" expression (requires the
+                # yq executable, no shell/bash involved)
+                if is_yq_expression(command):
+                    row[key] = evaluate_yq_output(
+                        command, output_path_single.absolute()
+                    )
+                    continue
+
+                # Native XPath output extraction: "xpath://" expression
+                # (requires the xmllint executable, no shell/bash involved)
+                if is_xpath_expression(command):
+                    row[key] = evaluate_xpath_output(
+                        command, output_path_single.absolute()
+                    )
+                    continue
+
+                # Legacy shell command, implicit default or explicit "bash://"
+                # prefix. Apply shell path resolution if FZ_SHELL_PATH is set.
+                resolved_command = replace_commands_in_string(strip_bash_prefix(command))
 
                 # Execute shell command from the matched output directory
                 result = run_command(

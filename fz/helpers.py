@@ -306,9 +306,10 @@ def _validate_model(model: Dict) -> None:
                 raise TypeError(f"Model output keys must be strings, got {type(key).__name__}")
             if not isinstance(value, str) and not callable(value):
                 raise TypeError(
-                    f"Model output values must be strings (shell command or "
-                    f"'python:' expression) or callables, got "
-                    f"{type(value).__name__} for key '{key}'"
+                    f"Model output values must be strings (shell command, "
+                    f"optionally prefixed with 'bash://', or a 'python://', "
+                    f"'jq://', 'yq://' or 'xpath://' expression) or "
+                    f"callables, got {type(value).__name__} for key '{key}'"
                 )
 
     # Validate interpreter if present

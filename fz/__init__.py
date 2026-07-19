@@ -14,8 +14,9 @@ from .core import fzi, fzc, fzo, fzr, fzl, fzd, check_bash_availability_on_windo
 
 # Check bash availability on Windows at import time (non-strict: warn only).
 # fz remains importable and fully usable for shell-free workflows (native
-# "python:" output expressions, function models); shell-dependent features
-# raise a helpful error at use time instead.
+# "python://", "jq://", "yq://" and "xpath://" output expressions, function
+# models); shell-dependent features raise a helpful error at use time
+# instead.
 check_bash_availability_on_windows(strict=False)
 from .logging import (
     set_log_level,

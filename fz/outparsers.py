@@ -1,28 +1,74 @@
 """
-Native Python output extraction for fz models.
+Native output extraction for fz models.
 
-This module allows model "output" entries to be evaluated as Python
-expressions (or callables) instead of shell command pipelines, removing the
-dependency on external tools like grep/awk/sed and making output extraction
-fully portable across platforms (no bash / FZ_SHELL_PATH required).
+This module allows model "output" entries to be evaluated by an extraction
+engine other than a shell pipeline, removing (for the ``python://``,
+``jq://``, ``yq://`` and ``xpath://`` forms) the dependency on bash and
+making output extraction portable across platforms (no bash / FZ_SHELL_PATH
+required).
 
-Three forms are supported for the values of ``model["output"]``:
+Six forms are supported for the values of ``model["output"]``:
 
-1. Shell command string (legacy, unchanged)::
+1. Shell command string, implicit default (legacy, unchanged) or explicitly
+   marked with the ``bash://`` prefix::
 
        {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}
+       {"pressure": "bash://grep 'pressure = ' output.txt | awk '{print $3}'"}
 
-2. Python expression string, marked with the ``python:`` prefix::
+   Both lines above are equivalent: a plain string with no recognized
+   prefix is treated as a shell command for backward compatibility. The
+   ``bash://`` prefix lets you say so explicitly, alongside the other
+   prefixed forms in the same model. Shell-command outputs require bash
+   (and Unix utilities) to be available, including on Windows.
 
-       {"pressure": "python: grep(r'pressure = (\\S+)', 'output.txt')"}
+2. Python expression string, marked with the ``python://`` prefix::
+
+       {"pressure": "python://grep(r'pressure = (\\S+)', 'output.txt')"}
 
    The expression is evaluated with the case output directory as base
    directory. A small set of helper functions is available in the
    expression namespace (see :func:`make_helpers`), plus the ``re``,
    ``json``, ``math``, ``statistics`` modules, ``Path``, and — when
-   installed — ``np`` (numpy) and ``pd`` (pandas).
+   installed — ``np`` (numpy) and ``pd`` (pandas). No shell is involved.
 
-3. Python callable (Python API only). The callable receives the case output
+3. jq expression string, marked with the ``jq://`` prefix, for extracting
+   JSON values with the jq command-line tool (https://jqlang.org/)::
+
+       {"energy": "jq://.energy results.json"}
+
+   The part after the prefix is a jq filter followed by the file to read
+   (relative to the case output directory), parsed like a shell command
+   line (so quoting the filter is optional but allowed). The ``jq``
+   executable must be installed and available on ``PATH``; no bash/shell
+   is otherwise required.
+
+4. yq expression string, marked with the ``yq://`` prefix, for extracting
+   values from YAML (and, since yq auto-detects by extension, JSON, XML or
+   TOML) with the mikefarah/yq command-line tool
+   (https://github.com/mikefarah/yq)::
+
+       {"version": "yq://.metadata.version config.yaml"}
+
+   Same syntax as ``jq://`` (filter then file, shell-style parsed). The
+   ``yq`` executable must be installed and available on ``PATH``; no
+   bash/shell is otherwise required. Note: this refers to the Go-based
+   mikefarah/yq (the ``jq``-like YAML processor); the unrelated
+   Python-based kislyuk/yq package uses different flags and is not what
+   this prefix targets.
+
+5. XPath expression string, marked with the ``xpath://`` prefix, for
+   extracting values from XML files with ``xmllint --xpath``
+   (part of libxml2, https://gitlab.gnome.org/GNOME/libxml2)::
+
+       {"pressure": "xpath://'//result/pressure/text()' output.xml"}
+
+   Same syntax as ``jq://`` (expression then file, shell-style parsed).
+   The ``xmllint`` executable must be installed and available on ``PATH``;
+   no bash/shell is otherwise required. The result is the raw text matched
+   by the XPath expression, cast to int/float when possible (like
+   :func:`grep`'s default casting).
+
+6. Python callable (Python API only). The callable receives the case output
    directory as a ``pathlib.Path`` and returns the parsed value::
 
        {"pressure": lambda d: float((d / "pressure.txt").read_text())}
@@ -36,26 +82,121 @@ authored by the user. Do not evaluate model files from untrusted sources.
 import json as _json
 import math as _math
 import re as _re
+import shlex as _shlex
+import shutil as _shutil
 import statistics as _statistics
+import subprocess as _subprocess
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
 from .logging import log_debug
 
 #: Prefix marking a model output entry as a native Python expression
-PYTHON_OUTPUT_PREFIX = "python:"
+PYTHON_OUTPUT_PREFIX = "python://"
+
+#: Prefix marking a model output entry as a jq filter (requires the ``jq``
+#: executable to be installed on the system)
+JQ_OUTPUT_PREFIX = "jq://"
+
+#: Prefix marking a model output entry as a yq filter (requires the
+#: mikefarah/yq executable to be installed on the system)
+YQ_OUTPUT_PREFIX = "yq://"
+
+#: Prefix marking a model output entry as an XPath expression (requires the
+#: ``xmllint`` executable, from libxml2, to be installed on the system)
+XPATH_OUTPUT_PREFIX = "xpath://"
+
+#: Prefix explicitly marking a model output entry as a shell command. This
+#: is the implicit default for any output string without a recognized
+#: prefix, kept for backward compatibility; ``bash://`` lets you say so
+#: explicitly when mixing output kinds in the same model.
+BASH_OUTPUT_PREFIX = "bash://"
 
 
 def is_python_expression(spec: Any) -> bool:
-    """Return True if an output spec string is a Python expression."""
+    """Return True if an output spec string is a ``python://`` expression."""
     return isinstance(spec, str) and spec.lstrip().lower().startswith(
         PYTHON_OUTPUT_PREFIX
     )
 
 
 def strip_python_prefix(spec: str) -> str:
-    """Remove the ``python:`` prefix from an output spec string."""
+    """Remove the ``python://`` prefix from an output spec string."""
     return spec.lstrip()[len(PYTHON_OUTPUT_PREFIX):].strip()
+
+
+def is_jq_expression(spec: Any) -> bool:
+    """Return True if an output spec string is a ``jq://`` filter."""
+    return isinstance(spec, str) and spec.lstrip().lower().startswith(
+        JQ_OUTPUT_PREFIX
+    )
+
+
+def strip_jq_prefix(spec: str) -> str:
+    """Remove the ``jq://`` prefix from an output spec string."""
+    return spec.lstrip()[len(JQ_OUTPUT_PREFIX):].strip()
+
+
+def is_yq_expression(spec: Any) -> bool:
+    """Return True if an output spec string is a ``yq://`` filter."""
+    return isinstance(spec, str) and spec.lstrip().lower().startswith(
+        YQ_OUTPUT_PREFIX
+    )
+
+
+def strip_yq_prefix(spec: str) -> str:
+    """Remove the ``yq://`` prefix from an output spec string."""
+    return spec.lstrip()[len(YQ_OUTPUT_PREFIX):].strip()
+
+
+def is_xpath_expression(spec: Any) -> bool:
+    """Return True if an output spec string is an ``xpath://`` expression."""
+    return isinstance(spec, str) and spec.lstrip().lower().startswith(
+        XPATH_OUTPUT_PREFIX
+    )
+
+
+def strip_xpath_prefix(spec: str) -> str:
+    """Remove the ``xpath://`` prefix from an output spec string."""
+    return spec.lstrip()[len(XPATH_OUTPUT_PREFIX):].strip()
+
+
+def is_bash_expression(spec: Any) -> bool:
+    """
+    Return True if an output spec string is a shell command: either
+    explicitly marked with ``bash://``, or a plain string with no
+    recognized prefix (the implicit legacy default).
+    """
+    if not isinstance(spec, str):
+        return False
+    if (
+        is_python_expression(spec)
+        or is_jq_expression(spec)
+        or is_yq_expression(spec)
+        or is_xpath_expression(spec)
+    ):
+        return False
+    return True
+
+
+def strip_bash_prefix(spec: str) -> str:
+    """Remove an explicit ``bash://`` prefix, if present, from a spec string."""
+    stripped = spec.lstrip()
+    if stripped.lower().startswith(BASH_OUTPUT_PREFIX):
+        return stripped[len(BASH_OUTPUT_PREFIX):].strip()
+    return spec
+
+
+def _cast_numeric(value: str) -> Any:
+    """Cast a string to int/float when possible, otherwise return it as-is."""
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        return value
 
 
 def make_helpers(base_dir: Union[str, Path]) -> Dict[str, Any]:
@@ -122,16 +263,7 @@ def make_helpers(base_dir: Union[str, Path]) -> Dict[str, Any]:
             group = 1 if regex.groups >= 1 else 0
 
         def _cast(value: str) -> Any:
-            if not cast:
-                return value
-            try:
-                return int(value)
-            except ValueError:
-                pass
-            try:
-                return float(value)
-            except ValueError:
-                return value
+            return _cast_numeric(value) if cast else value
 
         if all:
             return [_cast(m.group(group)) for m in regex.finditer(content)]
@@ -275,3 +407,186 @@ def evaluate_python_output(
         pass
 
     return value
+
+
+def evaluate_jq_output(
+    spec: str,
+    output_dir: Union[str, Path],
+) -> Any:
+    """
+    Evaluate a ``jq://`` output spec for one case output directory using the
+    system ``jq`` executable.
+
+    Args:
+        spec: A ``jq://``-prefixed spec string, or a bare ``"<filter> <file>"``
+            string (prefix already stripped). The filter and file are parsed
+            shell-style (``shlex``), so quoting the filter is optional but
+            allowed, e.g. ``"jq://.energy results.json"`` or
+            ``"jq://'.a.b[0]' results.json"``. The file is resolved relative
+            to the case output directory.
+        output_dir: The case output directory.
+
+    Returns:
+        The JSON value produced by ``jq``, decoded to native Python types
+        (str/int/float/bool/None/list/dict) via ``json.loads`` of jq's
+        (non-raw) output.
+
+    Raises:
+        RuntimeError: If the ``jq`` executable is not found on PATH.
+        ValueError: If the spec does not include both a filter and a file.
+        subprocess.CalledProcessError: If ``jq`` exits with a non-zero
+            status (e.g. invalid filter or malformed JSON input).
+    """
+    if _shutil.which("jq") is None:
+        raise RuntimeError(
+            "The 'jq://' output prefix requires the 'jq' executable to be "
+            "installed and available on PATH. See https://jqlang.org/download/ "
+            "for installation instructions."
+        )
+
+    out_dir = Path(output_dir)
+    expr = strip_jq_prefix(spec) if is_jq_expression(spec) else spec
+    tokens = _shlex.split(expr)
+    if len(tokens) < 2:
+        raise ValueError(
+            "Invalid 'jq://' output spec: expected a filter followed by a "
+            f"file, got {spec!r}"
+        )
+    jq_filter, file_arg = tokens[0], tokens[-1]
+    file_path = Path(file_arg)
+    if not file_path.is_absolute():
+        file_path = out_dir / file_path
+
+    log_debug(f"Evaluating jq output filter: {jq_filter} on {file_path}")
+    result = _subprocess.run(
+        ["jq", jq_filter, str(file_path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise _subprocess.CalledProcessError(
+            result.returncode, ["jq", jq_filter, str(file_path)],
+            output=result.stdout, stderr=result.stderr,
+        )
+
+    return _json.loads(result.stdout.strip())
+
+
+def evaluate_yq_output(
+    spec: str,
+    output_dir: Union[str, Path],
+) -> Any:
+    """
+    Evaluate a ``yq://`` output spec for one case output directory using the
+    system ``yq`` executable (mikefarah/yq — a jq-like processor for YAML,
+    and, via extension auto-detection, JSON/XML/TOML too).
+
+    Args:
+        spec: A ``yq://``-prefixed spec string, or a bare ``"<filter> <file>"``
+            string (prefix already stripped). Same shell-style parsing as
+            :func:`evaluate_jq_output`, e.g. ``"yq://.metadata.version
+            config.yaml"``. The file is resolved relative to the case
+            output directory.
+        output_dir: The case output directory.
+
+    Returns:
+        The value produced by ``yq`` (invoked with ``-o=json`` for a
+        consistent, unambiguous result), decoded to native Python types via
+        ``json.loads``.
+
+    Raises:
+        RuntimeError: If the ``yq`` executable is not found on PATH.
+        ValueError: If the spec does not include both a filter and a file.
+        subprocess.CalledProcessError: If ``yq`` exits with a non-zero
+            status (e.g. invalid filter or malformed input).
+    """
+    if _shutil.which("yq") is None:
+        raise RuntimeError(
+            "The 'yq://' output prefix requires the 'yq' executable "
+            "(mikefarah/yq) to be installed and available on PATH. See "
+            "https://github.com/mikefarah/yq#install for installation "
+            "instructions."
+        )
+
+    out_dir = Path(output_dir)
+    expr = strip_yq_prefix(spec) if is_yq_expression(spec) else spec
+    tokens = _shlex.split(expr)
+    if len(tokens) < 2:
+        raise ValueError(
+            "Invalid 'yq://' output spec: expected a filter followed by a "
+            f"file, got {spec!r}"
+        )
+    yq_filter, file_arg = tokens[0], tokens[-1]
+    file_path = Path(file_arg)
+    if not file_path.is_absolute():
+        file_path = out_dir / file_path
+
+    log_debug(f"Evaluating yq output filter: {yq_filter} on {file_path}")
+    cmd = ["yq", "-o=json", yq_filter, str(file_path)]
+    result = _subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise _subprocess.CalledProcessError(
+            result.returncode, cmd, output=result.stdout, stderr=result.stderr,
+        )
+
+    return _json.loads(result.stdout.strip())
+
+
+def evaluate_xpath_output(
+    spec: str,
+    output_dir: Union[str, Path],
+) -> Any:
+    """
+    Evaluate an ``xpath://`` output spec for one case output directory using
+    the system ``xmllint`` executable (``xmllint --xpath``, part of
+    libxml2).
+
+    Args:
+        spec: An ``xpath://``-prefixed spec string, or a bare
+            ``"<expression> <file>"`` string (prefix already stripped).
+            Same shell-style parsing as :func:`evaluate_jq_output`, e.g.
+            ``"xpath://'//result/pressure/text()' output.xml"``. The file
+            is resolved relative to the case output directory.
+        output_dir: The case output directory.
+
+    Returns:
+        The raw text matched by the XPath expression, cast to int/float
+        when possible (same casting as :func:`grep`'s default), otherwise
+        returned as a string.
+
+    Raises:
+        RuntimeError: If the ``xmllint`` executable is not found on PATH.
+        ValueError: If the spec does not include both an expression and a
+            file.
+        subprocess.CalledProcessError: If ``xmllint`` exits with a
+            non-zero status (e.g. invalid expression, no match, or
+            malformed XML).
+    """
+    if _shutil.which("xmllint") is None:
+        raise RuntimeError(
+            "The 'xpath://' output prefix requires the 'xmllint' "
+            "executable (libxml2) to be installed and available on PATH."
+        )
+
+    out_dir = Path(output_dir)
+    expr = strip_xpath_prefix(spec) if is_xpath_expression(spec) else spec
+    tokens = _shlex.split(expr)
+    if len(tokens) < 2:
+        raise ValueError(
+            "Invalid 'xpath://' output spec: expected an XPath expression "
+            f"followed by a file, got {spec!r}"
+        )
+    xpath_expr, file_arg = tokens[0], tokens[-1]
+    file_path = Path(file_arg)
+    if not file_path.is_absolute():
+        file_path = out_dir / file_path
+
+    log_debug(f"Evaluating xpath output expression: {xpath_expr} on {file_path}")
+    cmd = ["xmllint", "--xpath", xpath_expr, str(file_path)]
+    result = _subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise _subprocess.CalledProcessError(
+            result.returncode, cmd, output=result.stdout, stderr=result.stderr,
+        )
+
+    return _cast_numeric(result.stdout.strip())
