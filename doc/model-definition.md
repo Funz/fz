@@ -150,20 +150,24 @@ model = {
 - Standard shell commands: `grep`, `awk`, `sed`, `cat`, `head`, `tail`
 - Custom scripts: `python extract.py`, `bash parse.sh`
 - Pipes and redirection supported: `grep ... | awk ...`
+- This is the implicit default for any output string without a recognized
+  prefix (see below); it can also be marked explicitly with `bash://`, e.g.
+  `"pressure": "bash://grep 'Pressure:' output.txt | awk '{print $2}'"`.
+  Shell-command outputs require bash (and Unix utilities) on Windows.
 
 **Native Python extraction (no shell required)**:
 
-Output values can also be native Python expressions (prefix `python:`) or,
+Output values can also be native Python expressions (prefix `python://`) or,
 from the Python API, callables. No bash/grep/awk needed — fully portable,
 including on Windows without `FZ_SHELL_PATH`:
 
 ```python
 model = {
     "output": {
-        # "python:" expression, evaluated in the result directory
-        "pressure": "python: grep(r'Pressure: (\\S+)', 'output.txt')",
-        "energy":   "python: json_file('results.json')['energy']",
-        "max_temp": "python: max(csv_file('temps.csv', column='T'))",
+        # "python://" expression, evaluated in the result directory
+        "pressure": "python://grep(r'Pressure: (\\S+)', 'output.txt')",
+        "energy":   "python://json_file('results.json')['energy']",
+        "max_temp": "python://max(csv_file('temps.csv', column='T'))",
         # Callable (Python API only): receives the result directory as a Path
         "T_final":  lambda d: float((d / "final.txt").read_text()),
     }
@@ -179,10 +183,63 @@ resolve against the result directory. `grep` returns the first capture group
 (or whole match), cast to int/float when possible; `all=True` returns every
 match as a list.
 
-The `python:` prefix also works from the CLI:
+The `python://` prefix also works from the CLI:
 
 ```bash
-fzo output/ --model mymodel --output-cmd pressure="python: grep(r'Pressure: (\S+)', 'output.txt')"
+fzo output/ --model mymodel --output-cmd pressure="python://grep(r'Pressure: (\S+)', 'output.txt')"
+```
+
+**JSON extraction with jq (no shell required)**:
+
+Output values can also be [jq](https://jqlang.org/) filters, prefixed with
+`jq://`: a filter followed by the JSON file to read (relative to the result
+directory). This requires the `jq` executable to be installed and on
+`PATH`, but no bash/shell is otherwise involved:
+
+```python
+model = {
+    "output": {
+        "energy": "jq://.energy results.json",
+        "t_max":  "jq://'.temperatures | max' results.json",
+    }
+}
+```
+
+The result is parsed as JSON, so scalars, lists and objects all come back
+as native Python types.
+
+**YAML (or JSON/XML/TOML) extraction with yq (no shell required)**:
+
+Output values can also be [yq](https://github.com/mikefarah/yq) filters
+(the Go-based mikefarah/yq, not the unrelated Python jq-wrapper of the same
+name), prefixed with `yq://`: same syntax as `jq://`, a filter followed by
+the file to read. `yq` auto-detects the input format from the file
+extension, so this also works for JSON, XML and TOML files, not just YAML.
+Requires the `yq` executable on `PATH`; no bash/shell otherwise involved:
+
+```python
+model = {
+    "output": {
+        "version":  "yq://.metadata.version config.yaml",
+        "pressure": "yq://.results.pressure config.yaml",
+    }
+}
+```
+
+**XML extraction with XPath (no shell required)**:
+
+Output values can also be XPath expressions, prefixed with `xpath://`
+(evaluated with `xmllint --xpath`, part of libxml2): an expression followed
+by the XML file to read. Requires the `xmllint` executable on `PATH`; no
+bash/shell otherwise involved. The matched text is cast to int/float when
+possible, like `grep`:
+
+```python
+model = {
+    "output": {
+        "pressure": "xpath://'//result/pressure/text()' output.xml",
+    }
+}
 ```
 
 ### id (optional)

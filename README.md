@@ -199,7 +199,13 @@ model = {
     "output": {
         "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
         # or, shell-free (portable, no bash/FZ_SHELL_PATH needed):
-        # "pressure": "python: grep(r'pressure = (\\S+)', 'output.txt')"
+        # "pressure": "python://grep(r'pressure = (\\S+)', 'output.txt')"
+        # or, for JSON results, using jq (requires the jq executable):
+        # "pressure": "jq://.pressure output.json"
+        # or, for YAML/JSON/XML/TOML results, using yq (requires yq):
+        # "pressure": "yq://.pressure output.yaml"
+        # or, for XML results, using XPath (requires xmllint):
+        # "pressure": "xpath://'//pressure/text()' output.xml"
     }
 }
 
