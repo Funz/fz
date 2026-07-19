@@ -77,7 +77,12 @@ jobs:
           esac
           bin="jq"; [ "${{ runner.os }}" = "Windows" ] && bin="jq.exe"
           curl -sL -o "$bin" "$url" && chmod +x "$bin"
-          echo "$PWD" >> "$GITHUB_PATH"
+          # GITHUB_PATH entries must be in the OS-native path format, since
+          # later steps without an explicit "shell: bash" run under pwsh on
+          # Windows. Git-Bash's "pwd -W" prints the Windows-style path
+          # (e.g. D:/a/fz/fz); plain "pwd" (POSIX style, e.g. /d/a/fz/fz)
+          # would silently fail to resolve for pwsh steps.
+          echo "$(pwd -W 2>/dev/null || pwd)" >> "$GITHUB_PATH"
         fi
         jq --version
 
@@ -92,7 +97,14 @@ jobs:
         esac
         bin="yq"; [ "${{ runner.os }}" = "Windows" ] && bin="yq.exe"
         curl -sL -o "$bin" "$url" && chmod +x "$bin"
-        echo "$PWD" >> "$GITHUB_PATH"
+        # See the jq step above for why "pwd -W" (native Windows path) is
+        # required here instead of plain "pwd" (POSIX-style, e.g. via
+        # Git-Bash on Windows) — GITHUB_PATH is consumed by later pwsh steps.
+        echo "$(pwd -W 2>/dev/null || pwd)" >> "$GITHUB_PATH"
+
+    - name: Verify yq is on PATH
+      shell: bash
+      run: yq --version
 
     # xmllint (libxml2) ships by default on ubuntu-latest and macos-latest.
     # It is not reliably available on windows-latest without MSYS2/Cygwin,
