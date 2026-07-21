@@ -552,7 +552,11 @@ def evaluate_xpath_output(
     Returns:
         The raw text matched by the XPath expression, cast to int/float
         when possible (same casting as :func:`grep`'s default), otherwise
-        returned as a string.
+        returned as a string. If the expression selects a node-set with
+        more than one node (a vector output — e.g. ``//result/value/text()``
+        matching several ``<value>`` elements), a list of per-node values
+        (each cast individually) is returned instead of a single
+        concatenated string.
 
     Raises:
         RuntimeError: If the ``xmllint`` executable is not found on PATH.
@@ -581,10 +585,49 @@ def evaluate_xpath_output(
     if not file_path.is_absolute():
         file_path = out_dir / file_path
 
+    def _run_xpath(one_expr: str) -> _subprocess.CompletedProcess:
+        cmd = ["xmllint", "--xpath", one_expr, str(file_path)]
+        return _subprocess.run(cmd, capture_output=True, text=True)
+
+    # First, find out whether the expression selects a node-set, and if so
+    # how many nodes it matches. xmllint concatenates the serialized text
+    # of every matched node with no separator we can rely on, so a naive
+    # single call cannot distinguish "one node" from "several nodes whose
+    # text happens to contain no digits/whitespace" reliably. Wrapping the
+    # expression in count(...) tells us unambiguously: it succeeds (with an
+    # integer result) only when the expression evaluates to a node-set,
+    # and fails with "Invalid type" when it already returns a scalar
+    # (string/number/boolean, e.g. from count()/sum()/string() themselves).
     log_debug(f"Evaluating xpath output expression: {xpath_expr} on {file_path}")
-    cmd = ["xmllint", "--xpath", xpath_expr, str(file_path)]
-    result = _subprocess.run(cmd, capture_output=True, text=True)
+    count_result = _run_xpath(f"count({xpath_expr})")
+    node_count: Optional[int] = None
+    if count_result.returncode == 0:
+        try:
+            node_count = int(count_result.stdout.strip())
+        except ValueError:
+            node_count = None
+
+    if node_count is not None and node_count > 1:
+        # Vector output: fetch and cast each matched node individually so
+        # embedded whitespace/newlines in node text can never corrupt the
+        # split, unlike naively splitting the concatenated output.
+        values = []
+        for i in range(1, node_count + 1):
+            indexed_result = _run_xpath(f"({xpath_expr})[{i}]")
+            if indexed_result.returncode != 0:
+                cmd = ["xmllint", "--xpath", f"({xpath_expr})[{i}]", str(file_path)]
+                raise _subprocess.CalledProcessError(
+                    indexed_result.returncode, cmd,
+                    output=indexed_result.stdout, stderr=indexed_result.stderr,
+                )
+            values.append(_cast_numeric(indexed_result.stdout.strip()))
+        return values
+
+    # Scalar path (0 or 1 matched node, or an expression that already
+    # evaluates to a scalar) — unchanged, backward-compatible behavior.
+    result = _run_xpath(xpath_expr)
     if result.returncode != 0:
+        cmd = ["xmllint", "--xpath", xpath_expr, str(file_path)]
         raise _subprocess.CalledProcessError(
             result.returncode, cmd, output=result.stdout, stderr=result.stderr,
         )

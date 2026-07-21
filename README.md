@@ -1811,6 +1811,36 @@ results = fz.fzo("output_dir", model)
 4. Keep as string
 5. Single-element arrays → scalar
 
+### Vector (array) Outputs
+
+An output entry does not have to be a single number: `python://`, `jq://`,
+`yq://` and plain shell commands can all return a full list (a time series, a
+per-node profile, a spectrum...), which lands in the results DataFrame as one
+Python list per case — `fzr`/`fzo` never flatten, truncate or pad vector
+outputs, and cases are free to produce vectors of different lengths:
+
+```python
+model = {
+    "output": {
+        # whole JSON array file -> plain Python list
+        "T_series": "python://json_file('series.json')",
+        # every regex match -> list
+        "T_series_grep": "python://grep(r'T=(\S+)', 'log.txt', all=True)",
+        # jq/yq filter selecting an array
+        "T_series_jq": "jq://.temperatures results.json",
+        # xpath:// returns a list too when the expression matches more
+        # than one XML node (e.g. several <value> siblings)
+        "T_series_xpath": "xpath://'//value/text()' output.xml",
+    }
+}
+```
+
+Note the single-element-array simplification above (rule 5) only applies to
+the legacy plain-shell-command form; it does not apply to `python://`,
+`jq://`, `yq://` or `xpath://` outputs, so a length-1 vector stays a
+one-element list with those forms. See `examples/vector_outputs_example.md`
+and `doc/model-definition.md` ("output" → "Vector / array outputs") for more.
+
 ### Progress Callbacks
 
 Monitor execution progress in real-time with custom callback functions:
@@ -3234,6 +3264,7 @@ Practical examples in the `examples/` directory:
 - **examples/examples.md** - Overview of all examples
 - **examples/fzd_example.md** - Iterative design of experiments (fzd) examples
 - **examples/dataframe_input.md** - DataFrame input for non-factorial designs
+- **examples/vector_outputs_example.md** - Vector/array-valued outputs with fzr and fzo
 - **examples/algorithm_options_example.md** - Algorithm options format guide
 - **examples/r_interpreter_example.md** - R interpreter setup and usage
 - **examples/shell_path_example.md** - FZ_SHELL_PATH configuration examples

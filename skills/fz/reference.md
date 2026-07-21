@@ -38,7 +38,14 @@ fz.fzo(output_path: str, model: str | dict) -> pandas.DataFrame
 Runs each `model["output"]` command in every directory matched by `output_path` (plain
 path or glob like `results/*`). Returns one row per directory. Directory names following
 `key=val,key=val` are parsed back into variable columns. Results are auto-cast (int,
-float, list, dict) when possible.
+float, list, dict) when possible. An output entry may resolve to a **list** (vector
+output: time series, per-node profile, ...) via `python://grep(..., all=True)`,
+`csv_file(column=...)`, `hdf5_file(dataset=...)`, `jq://`/`yq://` filters selecting an
+array, `xpath://` matching several nodes, or a plain shell command printing a JSON
+array; `fzr`/`fzo` store the full list per case, unmodified (cases may have
+different-length vectors). Note: the plain-shell-command form still simplifies a
+single-element array to its scalar (`echo '[42]'` → `42`) for backward compatibility;
+the other forms never do.
 
 ### fz.fzr — run a parametric study
 

@@ -242,6 +242,65 @@ model = {
 }
 ```
 
+If the expression matches more than one node (e.g.
+`//result/value/text()` against several `<value>` siblings), the result is
+a list of per-node values instead of a single string — see "Vector / array
+outputs" below.
+
+### Vector / array outputs
+
+An `output` entry does not have to resolve to a single value. Any of the
+forms above can return a Python list instead of a scalar, and `fzo`/`fzr`
+store it as-is (one full list per matched case, in one DataFrame cell) —
+this is the natural way to capture a time series, a spatial profile, a
+spectrum, or any other array-shaped simulation result:
+
+```python
+model = {
+    "output": {
+        # Whole JSON array file -> plain Python list
+        "T_series": "python://json_file('series.json')",
+        # Every regex match -> list
+        "T_series_grep": "python://grep(r'T=(\S+)', 'log.txt', all=True)",
+        # A CSV column -> list
+        "T_series_csv": "python://csv_file('data.csv', column='T')",
+        # An HDF5 dataset -> list (requires the optional h5py package)
+        "T_series_h5": "python://hdf5_file('results.h5', 'T')",
+        # jq/yq filter selecting a JSON/YAML array
+        "T_series_jq": "jq://.temperatures results.json",
+        # xpath:// selecting more than one XML node
+        "T_series_xpath": "xpath://'//value/text()' output.xml",
+        # Plain shell command whose stdout is a JSON array
+        "T_series_bash": "cat series.json",
+    }
+}
+```
+
+`fzr` places no constraint on vector length or shape across cases: two
+cases can perfectly well produce vectors of different lengths (e.g. an
+iterative solver that converges after a variable number of steps) — each
+row simply keeps its own list, with no padding or truncation.
+
+**Single-element vectors**: the plain-shell-command form (`bash://` or the
+implicit default) applies `cast_output`'s backward-compatible
+simplification, which unwraps a single-element JSON array to its scalar
+element (`"echo '[42]'"` → `42`, not `[42]`). This can silently turn one
+row of an otherwise vector-valued column into a bare scalar, if that
+particular case happens to produce a length-1 result. The `python://`,
+`jq://`, `yq://` and `xpath://` forms never do this — a length-1 result
+stays a one-element list — so prefer one of those forms whenever a vector
+output's length can legitimately be 1.
+
+**Persisting vector-valued results**: `fzr`/`fzo` results are plain pandas
+DataFrames. `to_dict(orient="records")` / `json.dumps(..., default=str)`
+(and the CLI's `--format json`) round-trip vectors as native JSON arrays.
+`to_csv()` (and `--format csv`) stringifies each list instead (e.g.
+`"[1, 2, 3]"`); reload with `json.loads`/`ast.literal_eval` per cell, or
+prefer `to_pickle`/`to_parquet` for a lossless round trip.
+
+See `examples/vector_outputs_example.md` for a complete, runnable
+walk-through.
+
 ### id (optional)
 
 Unique identifier for the model, useful for documentation and logging.

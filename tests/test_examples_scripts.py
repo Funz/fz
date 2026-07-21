@@ -108,3 +108,6 @@ class TestExampleMarkdownSyntax:
 
     def test_shell_path_example_md_python_blocks_valid_syntax(self):
         self._check_md_syntax("shell_path_example.md")
+
+    def test_vector_outputs_example_md_python_blocks_valid_syntax(self):
+        self._check_md_syntax("vector_outputs_example.md")
