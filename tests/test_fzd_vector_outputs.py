@@ -79,6 +79,61 @@ class TestEvaluateOutputExpressionVectorReductions:
         assert result == 20.0
 
 
+class TestEvaluateOutputExpressionCombiningDifferentOutputs:
+    """
+    An expression can draw on more than one output variable at once, and
+    this works whether each output is a scalar or a vector. Two distinct
+    ways of combining two *different* vector-valued outputs are covered
+    here: concatenating them (pooling all values from both into one
+    reduction) and combining them element-wise (e.g. a residual/RMSE
+    between a simulated and a reference series).
+    """
+
+    def test_concatenating_two_vector_outputs_then_reducing(self):
+        # Plain "+" on two lists concatenates them -- no extra helper
+        # needed. mean([1,2,3] + [10,20,30]) pools all 6 values.
+        data = {"a": [1.0, 2.0, 3.0], "b": [10.0, 20.0, 30.0]}
+        assert evaluate_output_expression("mean(a + b)", data) == pytest.approx(11.0)
+        assert evaluate_output_expression("sum(a + b)", data) == pytest.approx(66.0)
+        assert evaluate_output_expression("len(a + b)", data) == 6.0
+
+    def test_combining_reductions_of_two_vector_outputs(self):
+        data = {"a": [1.0, 2.0, 3.0], "b": [10.0, 20.0, 30.0]}
+        assert evaluate_output_expression("mean(a) + mean(b)", data) == pytest.approx(22.0)
+        assert evaluate_output_expression("sum(a) - sum(b)", data) == pytest.approx(-54.0)
+
+    def test_elementwise_combination_via_zip(self):
+        # RMSE between two different vector outputs of matching length --
+        # the natural way to score a simulated series against a reference
+        # one as fzd's objective.
+        data = {"sim": [1.0, 2.0, 3.0], "ref": [10.0, 20.0, 30.0]}
+        rmse = evaluate_output_expression(
+            "sqrt(sum((x - y) ** 2 for x, y in zip(sim, ref)) / len(sim))", data
+        )
+        expected = math.sqrt(
+            sum((x - y) ** 2 for x, y in zip(data["sim"], data["ref"])) / len(data["sim"])
+        )
+        assert rmse == pytest.approx(expected)
+
+    def test_elementwise_combination_with_function_call_in_genexp_body(self):
+        # Regression: a generator-expression body executes in its own
+        # nested scope, which resolves names through eval()'s *globals*
+        # only -- never through a separately-passed locals dict. Calling a
+        # safe_dict function (abs, here) from inside the genexp body used
+        # to raise a spurious "name 'abs' is not defined", even though the
+        # exact same call works fine outside a genexp.
+        data = {"sim": [1.0, 2.0, 5.0], "ref": [10.0, 20.0, 30.0]}
+        result = evaluate_output_expression(
+            "max(abs(x - y) for x, y in zip(sim, ref))", data
+        )
+        assert result == pytest.approx(25.0)  # max(|1-10|, |2-20|, |5-30|) = 25
+
+    def test_three_outputs_combined(self):
+        data = {"a": [1.0, 2.0], "b": [3.0, 4.0], "weight": 2.0}
+        result = evaluate_output_expression("weight * (mean(a) + mean(b))", data)
+        assert result == pytest.approx(2.0 * (1.5 + 3.5))
+
+
 class TestEvaluateOutputExpressionVectorErrors:
 
     def test_unreduced_vector_raises_clear_error(self):
@@ -175,6 +230,80 @@ class TestFzdVectorOutputIntegration:
             expected_series = [round(t0 * (0.9 ** i), 3) for i in range(4)]
             expected_mean = sum(expected_series) / len(expected_series)
             assert row["mean(T_series)"] == pytest.approx(expected_mean, rel=1e-6)
+
+    @pytest.fixture
+    def two_vector_outputs_model(self):
+        """
+        Same toy 'simulation' as vector_output_model, but the case script
+        also writes a fixed reference series (independent of T0) to
+        ref.json, and the model exposes both as separate vector outputs.
+        This is the realistic shape of a calibration/UQ objective: score a
+        simulated trajectory against a reference/target one.
+        """
+        with open("input.txt", "w") as f:
+            f.write("T0=${T0}\n")
+
+        with open("run_case.sh", "w", newline="\n") as f:
+            f.write("#!/bin/bash\n")
+            f.write("source input.txt\n")
+            f.write(
+                "python3 -c \"\n"
+                "import json\n"
+                "n = 4\n"
+                "T0 = float($T0)\n"
+                "series = [round(T0 * (0.9 ** i), 3) for i in range(n)]\n"
+                "ref = [100.0, 90.0, 81.0, 72.9]\n"
+                "print(json.dumps(series))\n"
+                "with open('ref.json', 'w') as fh:\n"
+                "    json.dump(ref, fh)\n"
+                "\" > series.json\n"
+            )
+        os.chmod("run_case.sh", 0o755)
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "output": {
+                "T_series": "python://json_file('series.json')",
+                "T_ref": "python://json_file('ref.json')",
+            },
+        }
+        return model
+
+    def test_fzd_rmse_between_two_vector_outputs(self, two_vector_outputs_model):
+        """
+        End-to-end: output_expression combines two *different* vector
+        outputs element-wise (via zip) into an RMSE objective, exactly the
+        pattern used to score a simulated series against a reference one.
+        """
+        algo_path = str(
+            __import__("pathlib").Path(__file__).parent.parent
+            / "examples" / "algorithms" / "randomsampling.py"
+        )
+
+        result = fz.fzd(
+            input_path="input.txt",
+            input_variables={"T0": "[50;200]"},
+            model=two_vector_outputs_model,
+            output_expression="sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))",
+            algorithm=algo_path,
+            calculators="sh://bash run_case.sh",
+            algorithm_options={"nvalues": 3, "seed": 42},
+        )
+
+        assert result is not None
+        df = result["XY"]
+        assert len(df) == 3
+
+        ref = [100.0, 90.0, 81.0, 72.9]
+        for _, row in df.iterrows():
+            t0 = row["T0"]
+            series = [round(t0 * (0.9 ** i), 3) for i in range(4)]
+            expected_rmse = math.sqrt(
+                sum((x - y) ** 2 for x, y in zip(series, ref)) / len(series)
+            )
+            objective_col = [c for c in df.columns if c.startswith("sqrt(")][0]
+            assert row[objective_col] == pytest.approx(expected_rmse, rel=1e-6)
 
     def test_fzd_unreduced_vector_output_reports_failed_points(self, vector_output_model):
         """

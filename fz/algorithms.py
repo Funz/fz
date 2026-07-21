@@ -171,7 +171,12 @@ def evaluate_output_expression(
     slicing (``series[-1]``, ``series[:5]``) works via plain Python syntax,
     and the reduction helpers ``sum``, ``len``, ``sorted``, ``mean``,
     ``median``, ``stdev``, ``variance`` are available on top of the usual
-    math functions.
+    math functions. Two *different* vector outputs can be combined too:
+    plain ``+`` concatenates two lists (e.g. ``mean(a + b)`` pools both
+    before averaging), and ``zip`` lets an expression combine them
+    element-wise (e.g. ``sqrt(sum((x - y) ** 2 for x, y in zip(a, b)) /
+    len(a))`` for an RMSE/residual between a simulated and a reference
+    series).
 
     Args:
         expression: Mathematical expression like "output1 + output2 * 2",
@@ -230,14 +235,32 @@ def evaluate_output_expression(
         'median': statistics.median,
         'stdev': statistics.stdev,
         'variance': statistics.variance,
+        # 'zip' lets an expression combine two *different* vector outputs
+        # element-wise (e.g. a residual/RMSE between a simulated and a
+        # reference series: "sqrt(sum((x-y)**2 for x,y in zip(a, b)) /
+        # len(a))"). Concatenating two vector outputs instead of combining
+        # them element-wise needs no extra helper: plain "+" on two lists
+        # already concatenates them (e.g. "mean(a + b)" pools both series
+        # before averaging).
+        'zip': zip,
     }
 
     # Add output variables
     safe_dict.update(output_data)
+    # No separate builtins: block them explicitly.
+    safe_dict['__builtins__'] = {}
 
     try:
-        # Evaluate the expression
-        result = eval(expression, {"__builtins__": {}}, safe_dict)
+        # Evaluate with a single combined globals dict (not a separate
+        # globals/locals split). This matters for expressions containing a
+        # generator expression or comprehension (e.g. reducing across two
+        # vector outputs with "sum((x - y) ** 2 for x, y in zip(a, b))"):
+        # such nested scopes resolve names through the *globals* dict only,
+        # never through a separately-passed locals dict, so eval(expr,
+        # {"__builtins__": {}}, safe_dict) would raise a spurious
+        # NameError for any safe_dict name (e.g. abs(), or an output
+        # variable) referenced inside the generator/comprehension body.
+        result = eval(expression, safe_dict)
     except Exception as e:
         raise ValueError(
             f"Failed to evaluate output expression '{expression}' with data {output_data}: {e}"

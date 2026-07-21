@@ -1142,7 +1142,11 @@ always need a single scalar objective, so `output_expression` is where
 such a vector gets reduced: on top of `abs()`/`min()`/`max()`/`sqrt()`/...
 and indexing/slicing (`series[-1]`), the reduction functions `sum()`,
 `len()`, `sorted()`, `mean()`, `median()`, `stdev()`, `variance()` are
-available, e.g. `output_expression="mean(T_series)"`. Referencing a
+available, e.g. `output_expression="mean(T_series)"`. Two different vector
+outputs can be combined too: plain `+` concatenates them before reducing
+(`mean(a + b)`), and `zip()` combines them element-wise, e.g.
+`output_expression="sqrt(sum((x - y) ** 2 for x, y in zip(sim, ref)) / len(sim))"`
+for an RMSE between a simulated and a reference series. Referencing a
 vector-valued output without reducing it raises a clear error naming the
 output and suggesting a fix; that point is simply reported as a failed
 evaluation, it does not stop the run. See `examples/fzd_example.md`,

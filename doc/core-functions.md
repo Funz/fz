@@ -739,6 +739,31 @@ raises a clear error naming the offending output and suggesting a fix,
 and that point's evaluation is simply reported as failed (`None`), like
 any other per-case error.
 
+**Combining two different vector outputs**: a model can expose more than
+one vector output (e.g. a simulated series and a reference/target one for
+calibration), and `output_expression` can combine them in two ways:
+
+```python
+model = {
+    "output": {
+        "T_series": "python://json_file('series.json')",  # simulated
+        "T_ref": "python://json_file('ref.json')",         # reference
+    }
+}
+
+# Concatenate then reduce: plain "+" on two lists concatenates them, no
+# extra helper needed -- pools every value from both series before
+# averaging.
+output_expression = "mean(T_series + T_ref)"
+
+# Combine two independent reductions.
+output_expression = "mean(T_series) - mean(T_ref)"
+
+# Combine element-wise with zip(): the natural way to score a simulated
+# series against a reference one, e.g. as an RMSE objective.
+output_expression = "sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))"
+```
+
 ### Algorithm Interface
 
 Custom algorithms must implement a class with these methods:

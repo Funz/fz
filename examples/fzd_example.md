@@ -286,6 +286,7 @@ The output expression supports:
 - **Functions:** `abs()`, `min()`, `max()`, `sqrt()`, `exp()`, `log()`, etc.
 - **Reduction functions (for vector-valued outputs):** `sum()`, `len()`,
   `sorted()`, `mean()`, `median()`, `stdev()`, `variance()`
+- **`zip()`:** to combine two *different* vector outputs element-wise
 - **Math constants:** `pi`, `e`
 - **Model outputs:** Any variable from `model["output"]` — scalars, or
   vectors (lists) as described in `doc/model-definition.md`, "Vector /
@@ -316,6 +317,12 @@ output_expression = "mean(T_series)"                      # average value
 output_expression = "sum(T_series) / len(T_series)"        # equivalent, spelled out
 output_expression = "max(T_series) - min(T_series)"         # peak-to-peak amplitude
 output_expression = "sqrt(sum(v**2 for v in T_series) / len(T_series))"  # RMS
+
+# Combining two DIFFERENT vector outputs (e.g. T_series simulated vs a
+# T_ref reference/target series of the same length)
+output_expression = "mean(T_series + T_ref)"                # concatenate ("+") then reduce -- pools both series
+output_expression = "mean(T_series) - mean(T_ref)"           # combine two independent reductions
+output_expression = "sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))"  # RMSE, element-wise via zip()
 ```
 
 ### Vector-valued outputs as objectives
@@ -329,6 +336,27 @@ clear error naming the offending output and suggesting a fix, rather than
 a bare type error; that point's evaluation is then reported as failed
 (`None`), exactly like any other per-case error — it does not stop the
 run.
+
+A model can expose more than one vector output at once (e.g. a simulated
+series and a reference/target one for calibration). Two ways to combine
+them:
+
+```python
+model = {
+    "output": {
+        "T_series": "python://json_file('series.json')",  # simulated
+        "T_ref": "python://json_file('ref.json')",         # reference
+    }
+}
+
+# Concatenate (plain "+" on two lists) then reduce -- pools every value
+# from both series before averaging.
+output_expression = "mean(T_series + T_ref)"
+
+# Combine element-wise with zip() -- an RMSE/residual objective between a
+# simulated and a reference series.
+output_expression = "sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))"
+```
 
 ---
 

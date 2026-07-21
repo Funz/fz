@@ -83,6 +83,22 @@
   output(s) and suggesting a reduction (e.g. `mean(T_series)`); the
   affected point is reported as a failed evaluation (`None`), like any
   other per-case error — it does not stop the run.
+- Two *different* vector outputs can be combined in the same expression:
+  plain `+` concatenates two lists (`mean(a + b)` pools both before
+  averaging), and the new `zip()` helper combines them element-wise, e.g.
+  `sqrt(sum((x - y) ** 2 for x, y in zip(sim, ref)) / len(sim))` for an
+  RMSE/residual between a simulated and a reference series.
+- Fixed a related bug this uncovered: `evaluate_output_expression()` used
+  to evaluate with a split globals/locals dict
+  (`eval(expr, {"__builtins__": {}}, safe_dict)`), which made any
+  generator-expression or comprehension body unable to see the output
+  variables or helper functions (Python resolves names inside a nested
+  comprehension/genexp scope through *globals* only, never through a
+  separately-passed locals dict) — e.g. `max(abs(x - y) for x, y in
+  zip(a, b))` used to fail with a spurious `name 'abs' is not defined`.
+  Now uses a single combined globals dict, so any output variable or
+  helper function works the same whether referenced directly or from
+  inside a generator/comprehension body.
 - `fzd`'s objective itself is still a single scalar per case (no
   multi-objective / vector-objective optimization) — this only concerns
   reducing a vector-valued model *output* to that scalar.
