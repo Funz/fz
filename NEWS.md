@@ -68,6 +68,25 @@
   objective per case; vector-output support there is tracked as a
   follow-up.
 
+### Vector-valued outputs as fzd objectives
+
+- `output_expression` (the expression `fzd` evaluates to get its scalar
+  objective per case) can now reduce a vector-valued output (a time
+  series, a per-node profile, ...) down to that scalar: `sum()`, `len()`,
+  `sorted()`, `mean()`, `median()`, `stdev()`, `variance()` join the
+  existing math functions and indexing/slicing (`series[-1]`) available in
+  `evaluate_output_expression`.
+- Referencing a vector-valued output without reducing it (e.g.
+  `output_expression="T_series"` on its own) used to fail with a bare
+  `float() argument must be a string or a real number, not 'list'`
+  `TypeError`. It now raises a clear `ValueError` naming the offending
+  output(s) and suggesting a reduction (e.g. `mean(T_series)`); the
+  affected point is reported as a failed evaluation (`None`), like any
+  other per-case error — it does not stop the run.
+- `fzd`'s objective itself is still a single scalar per case (no
+  multi-objective / vector-objective optimization) — this only concerns
+  reducing a vector-valued model *output* to that scalar.
+
 ## Version 1.1 (2026-06-15)
 
 ### CLI argument aliases (README forms now work)

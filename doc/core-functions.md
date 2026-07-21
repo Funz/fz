@@ -702,6 +702,43 @@ result = fz.fzd(
 )
 ```
 
+### Vector-valued outputs as objectives
+
+A case's model output does not have to be a single number — `fzo`/`fzr`
+already store vector outputs (a time series, a per-node profile, ...) as
+plain Python lists (see `doc/model-definition.md`, "Vector / array
+outputs"). `fzd`'s algorithms, though, always work with a single scalar
+objective per case, so `output_expression` is where a vector output gets
+reduced. On top of the usual math functions and indexing/slicing
+(`series[-1]`, `series[:5]`), the following reduction functions are
+available: `sum()`, `len()`, `sorted()`, `mean()`, `median()`, `stdev()`,
+`variance()`.
+
+```python
+model = {
+    "varprefix": "$",
+    "output": {"T_series": "python://json_file('series.json')"},
+}
+
+result = fz.fzd(
+    input_path="input.txt",
+    input_variables={"T0": "[50;200]"},
+    model=model,
+    output_expression="mean(T_series)",   # average the whole series
+    # or: "T_series[-1]" (final value), "max(T_series) - min(T_series)"
+    # (peak-to-peak), "sqrt(sum(v**2 for v in T_series) / len(T_series))" (RMS)
+    algorithm="examples/algorithms/randomsampling.py",
+    calculators="sh://bash run_case.sh",
+    algorithm_options={"nvalues": 20, "seed": 42}
+)
+```
+
+Referencing a vector-valued output *without* reducing it (e.g.
+`output_expression="T_series"` on its own) does not crash the run: it
+raises a clear error naming the offending output and suggesting a fix,
+and that point's evaluation is simply reported as failed (`None`), like
+any other per-case error.
+
 ### Algorithm Interface
 
 Custom algorithms must implement a class with these methods:

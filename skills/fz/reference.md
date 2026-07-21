@@ -83,6 +83,12 @@ fz.fzd(input_path: str | None,
 Returns `{"XY": DataFrame, "analysis": ..., "iterations": int,
 "total_evaluations": int, "summary": str}`. Duplicate points within a batch are
 deduplicated; previously evaluated points are cached across iterations and re-runs.
+`output_expression` also reduces vector-valued outputs (lists, e.g. a time series)
+to the scalar fzd needs: besides the usual math functions and indexing/slicing
+(`series[-1]`), `sum()`, `len()`, `sorted()`, `mean()`, `median()`, `stdev()`,
+`variance()` are available (e.g. `"mean(T_series)"`). Referencing a vector output
+without reducing it raises a clear error and that point is reported as failed,
+rather than crashing the run.
 
 **Direct Python function model** (Python API only, no CLI equivalent): pass a
 callable as `model` instead of a dict/alias. Then `input_path` must be `None`;

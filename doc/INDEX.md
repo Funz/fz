@@ -76,6 +76,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | fzd fixed vs range variables | core-functions.md | "fzd" → "Fixed vs. Range Variables" |
 | fzd batch deduplication | core-functions.md | "fzd" → "Batch Deduplication" |
 | fzd auto caching between iterations | core-functions.md | "fzd" → "Automatic Caching Between Iterations" |
+| fzd vector-valued outputs as objectives | core-functions.md | "fzd" → "Vector-valued outputs as objectives" |
 | fzd analysis content formats | fzd_content_format.md | "Supported Formats" |
 | fzl (list models/calculators) | core-functions.md | "fzl - List and Validate Models/Calculators" |
 | Function signatures | core-functions.md | Each function section → "Function Signature" |
@@ -255,6 +256,7 @@ Quick keyword search:
 - **fzl**: core-functions.md → "fzl - List and Validate Models/Calculators"
 - **Algorithm**: core-functions.md → "fzd", examples/fzd_example.md
 - **Optimization**: core-functions.md → "fzd", examples/fzd_example.md
+- **Vector outputs as fzd objectives**: core-functions.md → "fzd" → "Vector-valued outputs as objectives", examples/fzd_example.md → "Vector-valued outputs as objectives"
 - **Fixed variable**: core-functions.md → "fzd" → "Fixed vs. Range Variables"
 - **Deduplication**: core-functions.md → "fzd" → "Batch Deduplication"
 - **fzd content format**: fzd_content_format.md

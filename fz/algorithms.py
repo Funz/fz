@@ -163,53 +163,112 @@ def evaluate_output_expression(
     """
     Evaluate mathematical expression using output variables
 
+    fzd's algorithms (sampling, optimization, ...) always work with a single
+    scalar objective per case, but a model output itself may be a vector
+    (e.g. a time series, extracted via one of fzo's vector-output forms —
+    see doc/model-definition.md, "Vector / array outputs"). The expression
+    is the place to reduce such a vector down to that scalar: indexing/
+    slicing (``series[-1]``, ``series[:5]``) works via plain Python syntax,
+    and the reduction helpers ``sum``, ``len``, ``sorted``, ``mean``,
+    ``median``, ``stdev``, ``variance`` are available on top of the usual
+    math functions.
+
     Args:
-        expression: Mathematical expression like "output1 + output2 * 2"
-        output_data: Dict of output variable values
+        expression: Mathematical expression like "output1 + output2 * 2",
+            or, for a vector-valued output, a reduction like
+            "mean(T_series)", "sum(T_series) / len(T_series)" or
+            "T_series[-1]".
+        output_data: Dict of output variable values (scalars and/or lists)
 
     Returns:
-        Evaluated numeric result
+        Evaluated numeric result, as a float
+
+    Raises:
+        ValueError: If the expression fails to evaluate, or evaluates to
+            something other than a single number (most commonly: a vector
+            output referenced directly, without a reduction) — the message
+            names the offending vector-valued output(s) and suggests a
+            reduction.
 
     Examples:
         >>> evaluate_output_expression("x + y * 2", {"x": 1.0, "y": 3.0})
         7.0
+        >>> evaluate_output_expression("mean(series)", {"series": [1.0, 2.0, 3.0]})
+        2.0
     """
+    import math
+    import statistics
+
+    # Create a safe evaluation environment with only the output variables
+    # and a curated set of math/reduction functions
+    safe_dict = {
+        # Math functions
+        'abs': abs,
+        'min': min,
+        'max': max,
+        'pow': pow,
+        'sqrt': math.sqrt,
+        'exp': math.exp,
+        'log': math.log,
+        'log10': math.log10,
+        'sin': math.sin,
+        'cos': math.cos,
+        'tan': math.tan,
+        'asin': math.asin,
+        'acos': math.acos,
+        'atan': math.atan,
+        'atan2': math.atan2,
+        'pi': math.pi,
+        'e': math.e,
+        # Vector-reduction helpers, for expressions that need to turn a
+        # vector-valued output (e.g. a time series) into fzd's scalar
+        # objective
+        'sum': sum,
+        'len': len,
+        'sorted': sorted,
+        'mean': statistics.mean,
+        'median': statistics.median,
+        'stdev': statistics.stdev,
+        'variance': statistics.variance,
+    }
+
+    # Add output variables
+    safe_dict.update(output_data)
+
     try:
-        # Create a safe evaluation environment with only the output variables
-        # and math functions
-        import math
-        safe_dict = {
-            # Math functions
-            'abs': abs,
-            'min': min,
-            'max': max,
-            'pow': pow,
-            'sqrt': math.sqrt,
-            'exp': math.exp,
-            'log': math.log,
-            'log10': math.log10,
-            'sin': math.sin,
-            'cos': math.cos,
-            'tan': math.tan,
-            'asin': math.asin,
-            'acos': math.acos,
-            'atan': math.atan,
-            'atan2': math.atan2,
-            'pi': math.pi,
-            'e': math.e,
-        }
-
-        # Add output variables
-        safe_dict.update(output_data)
-
         # Evaluate the expression
         result = eval(expression, {"__builtins__": {}}, safe_dict)
-
-        return float(result)
-
     except Exception as e:
         raise ValueError(
             f"Failed to evaluate output expression '{expression}' with data {output_data}: {e}"
+        ) from e
+
+    try:
+        return float(result)
+    except (TypeError, ValueError) as e:
+        # The expression evaluated fine but didn't reduce to a single
+        # number -- overwhelmingly, this means it directly returned a
+        # vector-valued output (a list, tuple, or numpy array) without
+        # reducing it first. Name the culprit(s) and suggest a fix rather
+        # than surfacing the bare float() TypeError.
+        vector_keys = [
+            key for key, value in output_data.items()
+            if isinstance(value, (list, tuple))
+            or (hasattr(value, "__len__") and not isinstance(value, (str, bytes, dict)))
+        ]
+        hint = ""
+        if vector_keys:
+            example_key = vector_keys[0]
+            hint = (
+                f" Output variable(s) {vector_keys} are vector-valued (lists) in "
+                f"this case's output data. fzd needs a single scalar objective per "
+                f"case: reduce the vector first, e.g. mean({example_key}), "
+                f"sum({example_key}) / len({example_key}), max({example_key}), or "
+                f"{example_key}[-1]."
+            )
+        raise ValueError(
+            f"Output expression '{expression}' evaluated to {result!r}, which is "
+            f"not a single number.{hint}"
         ) from e
 
 
