@@ -57,13 +57,18 @@ def _get_length(result, key):
 # ---------------------------------------------------------------------------
 
 def test_fzo_bash_json_array_output_is_a_list():
-    """A plain shell output echoing a JSON array comes back as a Python list."""
+    """A plain shell output printing a JSON array comes back as a Python list."""
     os.makedirs("case_output", exist_ok=True)
-    with open("case_output/dummy.txt", "w") as f:
-        f.write("unused\n")
+    # Read the JSON array from a file with "cat" rather than passing it on
+    # the command line via "echo": echo is a native cmd.exe builtin on
+    # Windows (unlike grep/head/cat, which FZ_SHELL_PATH remaps to real
+    # executables), so it doesn't strip shell quoting there the way bash's
+    # echo does -- "cat" behaves consistently across platforms instead.
+    with open("case_output/series.json", "w") as f:
+        f.write("[1, 2, 3, 4, 5]")
 
     model = {
-        "output": {"series": "echo '[1, 2, 3, 4, 5]'"},
+        "output": {"series": "cat series.json"},
     }
     result = fz.fzo("case_output", model)
     value = _get_value(result, "series")
@@ -169,10 +174,10 @@ def test_fzo_bash_single_element_array_is_simplified_to_scalar():
     when a length-1 result must still be preserved as a vector.
     """
     os.makedirs("case_output", exist_ok=True)
-    with open("case_output/dummy.txt", "w") as f:
-        f.write("unused\n")
+    with open("case_output/series.json", "w") as f:
+        f.write("[42]")
 
-    model = {"output": {"series": "echo '[42]'"}}
+    model = {"output": {"series": "cat series.json"}}
     result = fz.fzo("case_output", model)
     value = _get_value(result, "series")
     assert value == 42
