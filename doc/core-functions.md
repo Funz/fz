@@ -764,6 +764,29 @@ output_expression = "mean(T_series) - mean(T_ref)"
 output_expression = "sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))"
 ```
 
+### Multi-objective (vector) objectives
+
+`output_expression` may be a **list of expressions** for multi-objective
+algorithms: each case yields one scalar per expression, and the algorithm's
+`get_next_design()`/`get_analysis()` receive lists of floats instead of
+floats. All objectives are minimized by convention; negate an expression to
+maximize it. Reductions over vector-valued outputs work in each expression,
+so both features compose:
+
+```python
+result = fzd(
+    "input.txt", {"e": "[0;0.3]", "P": "[0;4000]"}, model,
+    ["19 - min(Tser)",          # winter deficit  (minimize)
+     "max(Tser) - 26"],         # summer excess   (minimize)
+    "examples/algorithms/nsga2.py",
+    algorithm_options={"pop_size": 24, "generations": 15},
+)
+result["XY"]                    # one column per objective expression
+result["analysis"]["data"]["pareto_X"]   # Pareto-optimal designs
+```
+
+A plain string keeps the legacy single-scalar behavior unchanged.
+
 ### Algorithm Interface
 
 Custom algorithms must implement a class with these methods:

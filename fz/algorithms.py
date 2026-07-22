@@ -64,7 +64,7 @@ import sys
 import subprocess
 import inspect
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any, Optional, Union
 import logging
 
 
@@ -293,6 +293,46 @@ def evaluate_output_expression(
             f"Output expression '{expression}' evaluated to {result!r}, which is "
             f"not a single number.{hint}"
         ) from e
+
+
+def evaluate_output_expressions(
+    expression: Union[str, List[str], Tuple[str, ...]],
+    output_data: Dict[str, Any]
+) -> Union[float, List[float]]:
+    """
+    Evaluate one objective expression (str) or several (list/tuple of str).
+
+    This is the vector-objective entry point used by fzd: a plain string
+    behaves exactly like :func:`evaluate_output_expression` (single scalar
+    objective, unchanged legacy behavior), while a list of expression
+    strings produces one scalar per expression, evaluated against the same
+    case outputs. Multi-objective algorithms (e.g. NSGA-II) then receive a
+    list of floats per case instead of a single float.
+
+    Args:
+        expression: Expression string, or list/tuple of expression strings.
+            Each expression may use the same reductions and helpers as
+            :func:`evaluate_output_expression` (min, max, mean, zip, ...),
+            including over vector-valued outputs.
+        output_data: Dict of output variable values for one case.
+
+    Returns:
+        A float for a string expression; a list of floats (same length and
+        order as the expressions) for a list/tuple.
+
+    Raises:
+        ValueError: If any expression fails to evaluate to a single number
+            (the error names the offending expression).
+
+    Examples:
+        >>> evaluate_output_expressions("x + y", {"x": 1.0, "y": 2.0})
+        3.0
+        >>> evaluate_output_expressions(["x", "y * 2"], {"x": 1.0, "y": 2.0})
+        [1.0, 4.0]
+    """
+    if isinstance(expression, (list, tuple)):
+        return [evaluate_output_expression(e, output_data) for e in expression]
+    return evaluate_output_expression(expression, output_data)
 
 
 def _is_algorithm_class(obj) -> bool:

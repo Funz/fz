@@ -576,10 +576,18 @@ def get_analysis(
         processed_final_analysis = {}
 
     # Create DataFrame with all input and output values
+    # (one column per objective when output_expression is a list — multi-objective fzd)
     df_data = []
+    multi = isinstance(output_expression, (list, tuple))
+    obj_names = list(output_expression) if multi else [output_expression]
     for inp_dict, out_val in zip(all_input_vars, all_output_values):
         row = inp_dict.copy()
-        row[output_expression] = out_val  # Use output_expression as column name
+        if multi:
+            vals = out_val if isinstance(out_val, (list, tuple)) else [None]*len(obj_names)
+            for name, v in zip(obj_names, vals):
+                row[name] = v
+        else:
+            row[output_expression] = out_val  # Use output_expression as column name
         df_data.append(row)
 
     data_df = pd.DataFrame(df_data)

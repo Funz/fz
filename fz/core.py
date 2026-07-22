@@ -108,8 +108,24 @@ from .algorithms import (
     parse_input_vars,
     parse_fixed_vars,
     evaluate_output_expression,
+    evaluate_output_expressions,
     load_algorithm,
 )
+
+
+def _objective_names(output_expression) -> list:
+    """Column/label names for the objective(s): [expr] for a str, the list itself otherwise."""
+    if isinstance(output_expression, (list, tuple)):
+        return list(output_expression)
+    return [output_expression]
+
+
+def _format_objective(value) -> str:
+    """Log-friendly formatting for a scalar or vector objective value."""
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(f"{v:.6g}" if v is not None else "NA" for v in value) + "]"
+    return f"{value:.6g}"
+
 
 
 def _parse_argument(arg, alias_type=None):
@@ -1778,9 +1794,15 @@ def _get_analysis(
 
     # Create DataFrame with all input and output values
     df_data = []
+    obj_names = _objective_names(output_expression)
     for inp_dict, out_val in zip(all_input_vars, all_output_values):
         row = inp_dict.copy()
-        row[output_expression] = out_val  # Use output_expression as column name
+        if isinstance(output_expression, (list, tuple)):
+            vals = out_val if isinstance(out_val, (list, tuple)) else [None]*len(obj_names)
+            for name, v in zip(obj_names, vals):
+                row[name] = v
+        else:
+            row[output_expression] = out_val  # Use output_expression as column name
         df_data.append(row)
 
     data_df = pd.DataFrame(df_data)
@@ -1871,7 +1893,7 @@ def _evaluate_function_model_point(model_func, point, output_expression):
     result = _call_function_model(model_func, point)
     output_data = _normalize_function_model_result(result)
     if output_expression:
-        output_value = evaluate_output_expression(output_expression, output_data)
+        output_value = evaluate_output_expressions(output_expression, output_data)
     else:
         output_value = next(iter(output_data.values()))
     return output_data, output_value
@@ -1926,7 +1948,7 @@ def fzd(
     input_path: Optional[str],
     input_variables: Dict[str, str],
     model: Union[str, Dict, Callable],
-    output_expression: Optional[str],
+    output_expression: Optional[Union[str, List[str]]],
     algorithm: str,
     calculators: Union[str, List[str], int] = None,
     algorithm_options: Union[Dict[str, Any], str] = None,
@@ -1960,7 +1982,11 @@ def fzd(
         input_path: Path to input file or directory (None when model is a callable)
         input_variables: Input variables to vary, as dict of strings {"var1": "[min;max]", ...}
         model: Model definition dict or alias string, or a Python callable
-        output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2".
+        output_expression: Expression to extract from output files, e.g. "output1 + output2 * 2",
+            or a LIST of such expressions for multi-objective algorithms (e.g. NSGA-II):
+            each case then yields a list of scalars (one per expression, same order),
+            passed as-is to the algorithm's get_next_design()/get_analysis(). A plain
+            string keeps the legacy single-scalar behavior unchanged.
             When model is a callable, may be None to default to the first output value.
         algorithm: Path to algorithm Python file (e.g., "algorithms/montecarlo.py")
         calculators: Calculator specifications. If omitted, installed calculator
@@ -2171,7 +2197,7 @@ def fzd(
                             iteration_outputs.append(None)
                             continue
 
-                        log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
+                        log_info(f"  Point {i+1}: {point} → {_format_objective(output_value)}")
                         iteration_outputs.append(output_value)
 
                 else:
@@ -2213,11 +2239,11 @@ def fzd(
 
                             # Evaluate output expression
                             try:
-                                output_value = evaluate_output_expression(
+                                output_value = evaluate_output_expressions(
                                     output_expression,
                                     output_data
                                 )
-                                log_info(f"  Point {i+1}: {point} → {output_value:.6g}")
+                                log_info(f"  Point {i+1}: {point} → {_format_objective(output_value)}")
                                 iteration_outputs.append(output_value)
                             except Exception as e:
                                 # Include the runner error if available for better diagnostics
@@ -2268,9 +2294,16 @@ def fzd(
                 # Save Y (output values) to CSV
                 y_file = results_dir / f"Y_{iteration}.csv"
                 with open(y_file, 'w') as f:
-                    f.write('output\n')
-                    for val in all_output_values:
-                        f.write(f"{val if val is not None else 'NA'}\n")
+                    if isinstance(output_expression, (list, tuple)):
+                        f.write(','.join(str(e) for e in output_expression) + '\n')
+                        n_obj = len(output_expression)
+                        for val in all_output_values:
+                            vals = val if isinstance(val, (list, tuple)) else [None]*n_obj
+                            f.write(','.join('NA' if v is None else str(v) for v in vals) + '\n')
+                    else:
+                        f.write('output\n')
+                        for val in all_output_values:
+                            f.write(f"{val if val is not None else 'NA'}\n")
 
                 # Save HTML results
                 html_file = results_dir / f"results_{iteration}.html"

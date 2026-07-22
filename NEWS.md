@@ -1,5 +1,29 @@
 # FZ Release Notes
 
+## Unreleased (feat/vector-objectives-fzd)
+
+### Multi-objective (vector) objectives in fzd
+
+- `fzd()`'s `output_expression` now also accepts a **list of expressions**:
+  each case then yields a list of scalars (one per expression, same order),
+  passed as-is to the algorithm's `get_next_design()`/`get_analysis()`.
+  A plain string keeps the legacy single-scalar behavior unchanged.
+  This completes the vector-output work of #75/#76: #76 reduces vector
+  *outputs* to a scalar objective; this change allows the *objective itself*
+  to be a vector, enabling native multi-objective algorithms.
+- New `evaluate_output_expressions()` in `fz/algorithms.py` (str or list of
+  str); XY DataFrame and `Y_<iteration>.csv` gain one column per objective.
+- New example algorithm `examples/algorithms/nsga2.py`: NSGA-II (Deb 2002)
+  at the fzd plugin format — batch-parallel generations, SBX + polynomial
+  mutation, Pareto front written to `nsga2_pareto.csv` and returned in the
+  analysis `data` (`pareto_X`/`pareto_F`). Objectives are all minimized;
+  negate an expression to maximize. Validated against the analytic Pareto
+  front of the Binh-Korn problem (objective-space deviation < 3%).
+- 8 new tests in `tests/test_fzd_multiobjective.py`; no regressions on
+  `test_fzd.py`, `test_fzd_vector_outputs.py`, `test_algorithm_options.py`,
+  `test_algorithm_plugins.py` (85 passed).
+
+
 ## Unreleased
 
 ### Native shell-free output extraction: python://, jq://, yq://, xpath://

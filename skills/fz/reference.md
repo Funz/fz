@@ -83,7 +83,7 @@ fz.fzd(input_path: str | None,
 Returns `{"XY": DataFrame, "analysis": ..., "iterations": int,
 "total_evaluations": int, "summary": str}`. Duplicate points within a batch are
 deduplicated; previously evaluated points are cached across iterations and re-runs.
-`output_expression` also reduces vector-valued outputs (lists, e.g. a time series)
+`output_expression` (a str, or a list of str for multi-objective algorithms — one scalar per expression is passed to the algorithm) also reduces vector-valued outputs (lists, e.g. a time series)
 to the scalar fzd needs: besides the usual math functions and indexing/slicing
 (`series[-1]`), `sum()`, `len()`, `sorted()`, `mean()`, `median()`, `stdev()`,
 `variance()` are available (e.g. `"mean(T_series)"`). Two different vector outputs
