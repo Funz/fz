@@ -95,6 +95,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | commentline | model-definition.md | "Model Fields" → "commentline" |
 | interpreter | model-definition.md | "Model Fields" → "interpreter" |
 | output | model-definition.md | "Model Fields" → "output" |
+| Vector / array outputs | model-definition.md | "Model Fields" → "Vector / array outputs" |
 | Complete model examples | model-definition.md | "Complete Examples" |
 | Model aliases | model-definition.md | "Model Aliases" |
 | Output extraction | model-definition.md | "Advanced Output Extraction" |
@@ -260,6 +261,7 @@ Quick keyword search:
 - **Examples**: quick-examples.md
 - **CLI**: quick-examples.md → "CLI Quick Examples"
 - **DataFrame**: core-functions.md → "fzr", "fzo"
+- **Vector / array outputs**: model-definition.md → "Vector / array outputs", examples/vector_outputs_example.md
 - **Interrupt**: parallel-and-caching.md → "Interrupt Handling"
 - **Retry**: parallel-and-caching.md → "Retry Mechanism"
 - **Performance**: parallel-and-caching.md → "Performance Optimization"

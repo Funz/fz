@@ -42,6 +42,32 @@
 - The `python://` prefix also works with `fzo --output-cmd NAME="python://..."`
   on the CLI (as do `jq://`, `yq://`, `xpath://` and `bash://`).
 
+### Vector (array) output support in fzr/fzo
+
+- Output entries can resolve to a Python list, not just a scalar — a
+  natural fit for time series, per-node profiles, spectra, etc. Supported
+  via `python://grep(..., all=True)`, `csv_file(column=...)`,
+  `hdf5_file(dataset=...)`, `jq://`/`yq://` filters selecting an array,
+  `xpath://` matching several XML nodes, or a plain shell command printing
+  a JSON array. `fzr`/`fzo` store the full list per case unmodified — no
+  flattening, truncation or padding, so cases can have vectors of
+  different lengths.
+- Fixed `xpath://`: an expression matching more than one XML node used to
+  return a single string with the matched nodes' text concatenated by
+  `xmllint` with no reliable separator, instead of a vector. It now
+  returns a list of per-node values (each cast like `grep`'s default);
+  single-node and zero-node matches are unaffected (same scalar behavior
+  as before).
+- New `tests/test_vector_outputs.py` and `examples/vector_outputs_example.md`
+  cover vector outputs end-to-end across `fzo`/`fzr`, all extraction forms,
+  and fzo/fzr coherence. See `doc/model-definition.md` ("output" → "Vector /
+  array outputs") for the full write-up, including the CSV/JSON
+  persistence caveat (`to_csv()` stringifies lists; prefer `--format json`,
+  `to_pickle`, or `to_parquet` for a lossless round trip).
+- `fzd` (design of experiments / optimization) still expects a scalar
+  objective per case; vector-output support there is tracked as a
+  follow-up.
+
 ## Version 1.1 (2026-06-15)
 
 ### CLI argument aliases (README forms now work)
