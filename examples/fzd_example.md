@@ -284,8 +284,14 @@ print(f"  r1 + r2 * 2 = {df.loc[best_idx, 'r1 + r2 * 2']:.6f}")
 The output expression supports:
 - **Arithmetic:** `+`, `-`, `*`, `/`, `**` (power)
 - **Functions:** `abs()`, `min()`, `max()`, `sqrt()`, `exp()`, `log()`, etc.
+- **Reduction functions (for vector-valued outputs):** `sum()`, `len()`,
+  `sorted()`, `mean()`, `median()`, `stdev()`, `variance()`
+- **`zip()`:** to combine two *different* vector outputs element-wise
 - **Math constants:** `pi`, `e`
-- **Model outputs:** Any variable from `model["output"]`
+- **Model outputs:** Any variable from `model["output"]` — scalars, or
+  vectors (lists) as described in `doc/model-definition.md`, "Vector /
+  array outputs"
+- **Indexing/slicing:** plain Python syntax (`series[-1]`, `series[:5]`)
 
 ### Example Expressions
 
@@ -299,11 +305,57 @@ output_expression = "0.7 * pressure + 0.3 * temperature"
 # Constraint violation penalty
 output_expression = "cost + 1000 * max(0, temperature - 100)"
 
-# Root mean square
+# Root mean square, over a fixed small number of scalar outputs
 output_expression = "sqrt((x1**2 + x2**2 + x3**2) / 3)"
 
-# Array indexing (for trajectory data)
+# Array indexing (for trajectory / time-series data)
 output_expression = "res_x[-1]"  # Last element
+
+# Reducing a vector output (e.g. a time series produced by
+# "python://json_file('series.json')") down to fzd's scalar objective
+output_expression = "mean(T_series)"                      # average value
+output_expression = "sum(T_series) / len(T_series)"        # equivalent, spelled out
+output_expression = "max(T_series) - min(T_series)"         # peak-to-peak amplitude
+output_expression = "sqrt(sum(v**2 for v in T_series) / len(T_series))"  # RMS
+
+# Combining two DIFFERENT vector outputs (e.g. T_series simulated vs a
+# T_ref reference/target series of the same length)
+output_expression = "mean(T_series + T_ref)"                # concatenate ("+") then reduce -- pools both series
+output_expression = "mean(T_series) - mean(T_ref)"           # combine two independent reductions
+output_expression = "sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))"  # RMSE, element-wise via zip()
+```
+
+### Vector-valued outputs as objectives
+
+If a case's model output is a vector (see `doc/model-definition.md`,
+"Vector / array outputs" — a time series, a per-node profile, ...), the
+`output_expression` is where it gets reduced to the single scalar every
+`fzd` algorithm expects. Referencing a vector-valued output *without*
+reducing it (e.g. `output_expression="T_series"` on its own) raises a
+clear error naming the offending output and suggesting a fix, rather than
+a bare type error; that point's evaluation is then reported as failed
+(`None`), exactly like any other per-case error — it does not stop the
+run.
+
+A model can expose more than one vector output at once (e.g. a simulated
+series and a reference/target one for calibration). Two ways to combine
+them:
+
+```python
+model = {
+    "output": {
+        "T_series": "python://json_file('series.json')",  # simulated
+        "T_ref": "python://json_file('ref.json')",         # reference
+    }
+}
+
+# Concatenate (plain "+" on two lists) then reduce -- pools every value
+# from both series before averaging.
+output_expression = "mean(T_series + T_ref)"
+
+# Combine element-wise with zip() -- an RMSE/residual objective between a
+# simulated and a reference series.
+output_expression = "sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))"
 ```
 
 ---

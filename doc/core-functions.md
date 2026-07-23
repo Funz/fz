@@ -702,6 +702,91 @@ result = fz.fzd(
 )
 ```
 
+### Vector-valued outputs as objectives
+
+A case's model output does not have to be a single number — `fzo`/`fzr`
+already store vector outputs (a time series, a per-node profile, ...) as
+plain Python lists (see `doc/model-definition.md`, "Vector / array
+outputs"). `fzd`'s algorithms, though, always work with a single scalar
+objective per case, so `output_expression` is where a vector output gets
+reduced. On top of the usual math functions and indexing/slicing
+(`series[-1]`, `series[:5]`), the following reduction functions are
+available: `sum()`, `len()`, `sorted()`, `mean()`, `median()`, `stdev()`,
+`variance()`.
+
+```python
+model = {
+    "varprefix": "$",
+    "output": {"T_series": "python://json_file('series.json')"},
+}
+
+result = fz.fzd(
+    input_path="input.txt",
+    input_variables={"T0": "[50;200]"},
+    model=model,
+    output_expression="mean(T_series)",   # average the whole series
+    # or: "T_series[-1]" (final value), "max(T_series) - min(T_series)"
+    # (peak-to-peak), "sqrt(sum(v**2 for v in T_series) / len(T_series))" (RMS)
+    algorithm="examples/algorithms/randomsampling.py",
+    calculators="sh://bash run_case.sh",
+    algorithm_options={"nvalues": 20, "seed": 42}
+)
+```
+
+Referencing a vector-valued output *without* reducing it (e.g.
+`output_expression="T_series"` on its own) does not crash the run: it
+raises a clear error naming the offending output and suggesting a fix,
+and that point's evaluation is simply reported as failed (`None`), like
+any other per-case error.
+
+**Combining two different vector outputs**: a model can expose more than
+one vector output (e.g. a simulated series and a reference/target one for
+calibration), and `output_expression` can combine them in two ways:
+
+```python
+model = {
+    "output": {
+        "T_series": "python://json_file('series.json')",  # simulated
+        "T_ref": "python://json_file('ref.json')",         # reference
+    }
+}
+
+# Concatenate then reduce: plain "+" on two lists concatenates them, no
+# extra helper needed -- pools every value from both series before
+# averaging.
+output_expression = "mean(T_series + T_ref)"
+
+# Combine two independent reductions.
+output_expression = "mean(T_series) - mean(T_ref)"
+
+# Combine element-wise with zip(): the natural way to score a simulated
+# series against a reference one, e.g. as an RMSE objective.
+output_expression = "sqrt(sum((x - y) ** 2 for x, y in zip(T_series, T_ref)) / len(T_series))"
+```
+
+### Multi-objective (vector) objectives
+
+`output_expression` may be a **list of expressions** for multi-objective
+algorithms: each case yields one scalar per expression, and the algorithm's
+`get_next_design()`/`get_analysis()` receive lists of floats instead of
+floats. All objectives are minimized by convention; negate an expression to
+maximize it. Reductions over vector-valued outputs work in each expression,
+so both features compose:
+
+```python
+result = fzd(
+    "input.txt", {"e": "[0;0.3]", "P": "[0;4000]"}, model,
+    ["19 - min(Tser)",          # winter deficit  (minimize)
+     "max(Tser) - 26"],         # summer excess   (minimize)
+    "examples/algorithms/nsga2.py",
+    algorithm_options={"pop_size": 24, "generations": 15},
+)
+result["XY"]                    # one column per objective expression
+result["analysis"]["data"]["pareto_X"]   # Pareto-optimal designs
+```
+
+A plain string keeps the legacy single-scalar behavior unchanged.
+
 ### Algorithm Interface
 
 Custom algorithms must implement a class with these methods:

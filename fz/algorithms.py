@@ -64,7 +64,7 @@ import sys
 import subprocess
 import inspect
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any, Optional, Union
 import logging
 
 
@@ -163,54 +163,176 @@ def evaluate_output_expression(
     """
     Evaluate mathematical expression using output variables
 
+    fzd's algorithms (sampling, optimization, ...) always work with a single
+    scalar objective per case, but a model output itself may be a vector
+    (e.g. a time series, extracted via one of fzo's vector-output forms —
+    see doc/model-definition.md, "Vector / array outputs"). The expression
+    is the place to reduce such a vector down to that scalar: indexing/
+    slicing (``series[-1]``, ``series[:5]``) works via plain Python syntax,
+    and the reduction helpers ``sum``, ``len``, ``sorted``, ``mean``,
+    ``median``, ``stdev``, ``variance`` are available on top of the usual
+    math functions. Two *different* vector outputs can be combined too:
+    plain ``+`` concatenates two lists (e.g. ``mean(a + b)`` pools both
+    before averaging), and ``zip`` lets an expression combine them
+    element-wise (e.g. ``sqrt(sum((x - y) ** 2 for x, y in zip(a, b)) /
+    len(a))`` for an RMSE/residual between a simulated and a reference
+    series).
+
     Args:
-        expression: Mathematical expression like "output1 + output2 * 2"
-        output_data: Dict of output variable values
+        expression: Mathematical expression like "output1 + output2 * 2",
+            or, for a vector-valued output, a reduction like
+            "mean(T_series)", "sum(T_series) / len(T_series)" or
+            "T_series[-1]".
+        output_data: Dict of output variable values (scalars and/or lists)
 
     Returns:
-        Evaluated numeric result
+        Evaluated numeric result, as a float
+
+    Raises:
+        ValueError: If the expression fails to evaluate, or evaluates to
+            something other than a single number (most commonly: a vector
+            output referenced directly, without a reduction) — the message
+            names the offending vector-valued output(s) and suggests a
+            reduction.
 
     Examples:
         >>> evaluate_output_expression("x + y * 2", {"x": 1.0, "y": 3.0})
         7.0
+        >>> evaluate_output_expression("mean(series)", {"series": [1.0, 2.0, 3.0]})
+        2.0
     """
+    import math
+    import statistics
+
+    # Create a safe evaluation environment with only the output variables
+    # and a curated set of math/reduction functions
+    safe_dict = {
+        # Math functions
+        'abs': abs,
+        'min': min,
+        'max': max,
+        'pow': pow,
+        'sqrt': math.sqrt,
+        'exp': math.exp,
+        'log': math.log,
+        'log10': math.log10,
+        'sin': math.sin,
+        'cos': math.cos,
+        'tan': math.tan,
+        'asin': math.asin,
+        'acos': math.acos,
+        'atan': math.atan,
+        'atan2': math.atan2,
+        'pi': math.pi,
+        'e': math.e,
+        # Vector-reduction helpers, for expressions that need to turn a
+        # vector-valued output (e.g. a time series) into fzd's scalar
+        # objective
+        'sum': sum,
+        'len': len,
+        'sorted': sorted,
+        'mean': statistics.mean,
+        'median': statistics.median,
+        'stdev': statistics.stdev,
+        'variance': statistics.variance,
+        # 'zip' lets an expression combine two *different* vector outputs
+        # element-wise (e.g. a residual/RMSE between a simulated and a
+        # reference series: "sqrt(sum((x-y)**2 for x,y in zip(a, b)) /
+        # len(a))"). Concatenating two vector outputs instead of combining
+        # them element-wise needs no extra helper: plain "+" on two lists
+        # already concatenates them (e.g. "mean(a + b)" pools both series
+        # before averaging).
+        'zip': zip,
+    }
+
+    # Add output variables
+    safe_dict.update(output_data)
+    # No separate builtins: block them explicitly.
+    safe_dict['__builtins__'] = {}
+
     try:
-        # Create a safe evaluation environment with only the output variables
-        # and math functions
-        import math
-        safe_dict = {
-            # Math functions
-            'abs': abs,
-            'min': min,
-            'max': max,
-            'pow': pow,
-            'sqrt': math.sqrt,
-            'exp': math.exp,
-            'log': math.log,
-            'log10': math.log10,
-            'sin': math.sin,
-            'cos': math.cos,
-            'tan': math.tan,
-            'asin': math.asin,
-            'acos': math.acos,
-            'atan': math.atan,
-            'atan2': math.atan2,
-            'pi': math.pi,
-            'e': math.e,
-        }
-
-        # Add output variables
-        safe_dict.update(output_data)
-
-        # Evaluate the expression
-        result = eval(expression, {"__builtins__": {}}, safe_dict)
-
-        return float(result)
-
+        # Evaluate with a single combined globals dict (not a separate
+        # globals/locals split). This matters for expressions containing a
+        # generator expression or comprehension (e.g. reducing across two
+        # vector outputs with "sum((x - y) ** 2 for x, y in zip(a, b))"):
+        # such nested scopes resolve names through the *globals* dict only,
+        # never through a separately-passed locals dict, so eval(expr,
+        # {"__builtins__": {}}, safe_dict) would raise a spurious
+        # NameError for any safe_dict name (e.g. abs(), or an output
+        # variable) referenced inside the generator/comprehension body.
+        result = eval(expression, safe_dict)
     except Exception as e:
         raise ValueError(
             f"Failed to evaluate output expression '{expression}' with data {output_data}: {e}"
         ) from e
+
+    try:
+        return float(result)
+    except (TypeError, ValueError) as e:
+        # The expression evaluated fine but didn't reduce to a single
+        # number -- overwhelmingly, this means it directly returned a
+        # vector-valued output (a list, tuple, or numpy array) without
+        # reducing it first. Name the culprit(s) and suggest a fix rather
+        # than surfacing the bare float() TypeError.
+        vector_keys = [
+            key for key, value in output_data.items()
+            if isinstance(value, (list, tuple))
+            or (hasattr(value, "__len__") and not isinstance(value, (str, bytes, dict)))
+        ]
+        hint = ""
+        if vector_keys:
+            example_key = vector_keys[0]
+            hint = (
+                f" Output variable(s) {vector_keys} are vector-valued (lists) in "
+                f"this case's output data. fzd needs a single scalar objective per "
+                f"case: reduce the vector first, e.g. mean({example_key}), "
+                f"sum({example_key}) / len({example_key}), max({example_key}), or "
+                f"{example_key}[-1]."
+            )
+        raise ValueError(
+            f"Output expression '{expression}' evaluated to {result!r}, which is "
+            f"not a single number.{hint}"
+        ) from e
+
+
+def evaluate_output_expressions(
+    expression: Union[str, List[str], Tuple[str, ...]],
+    output_data: Dict[str, Any]
+) -> Union[float, List[float]]:
+    """
+    Evaluate one objective expression (str) or several (list/tuple of str).
+
+    This is the vector-objective entry point used by fzd: a plain string
+    behaves exactly like :func:`evaluate_output_expression` (single scalar
+    objective, unchanged legacy behavior), while a list of expression
+    strings produces one scalar per expression, evaluated against the same
+    case outputs. Multi-objective algorithms (e.g. NSGA-II) then receive a
+    list of floats per case instead of a single float.
+
+    Args:
+        expression: Expression string, or list/tuple of expression strings.
+            Each expression may use the same reductions and helpers as
+            :func:`evaluate_output_expression` (min, max, mean, zip, ...),
+            including over vector-valued outputs.
+        output_data: Dict of output variable values for one case.
+
+    Returns:
+        A float for a string expression; a list of floats (same length and
+        order as the expressions) for a list/tuple.
+
+    Raises:
+        ValueError: If any expression fails to evaluate to a single number
+            (the error names the offending expression).
+
+    Examples:
+        >>> evaluate_output_expressions("x + y", {"x": 1.0, "y": 2.0})
+        3.0
+        >>> evaluate_output_expressions(["x", "y * 2"], {"x": 1.0, "y": 2.0})
+        [1.0, 4.0]
+    """
+    if isinstance(expression, (list, tuple)):
+        return [evaluate_output_expression(e, output_data) for e in expression]
+    return evaluate_output_expression(expression, output_data)
 
 
 def _is_algorithm_class(obj) -> bool:

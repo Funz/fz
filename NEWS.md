@@ -1,5 +1,29 @@
 # FZ Release Notes
 
+## Unreleased (feat/vector-objectives-fzd)
+
+### Multi-objective (vector) objectives in fzd
+
+- `fzd()`'s `output_expression` now also accepts a **list of expressions**:
+  each case then yields a list of scalars (one per expression, same order),
+  passed as-is to the algorithm's `get_next_design()`/`get_analysis()`.
+  A plain string keeps the legacy single-scalar behavior unchanged.
+  This completes the vector-output work of #75/#76: #76 reduces vector
+  *outputs* to a scalar objective; this change allows the *objective itself*
+  to be a vector, enabling native multi-objective algorithms.
+- New `evaluate_output_expressions()` in `fz/algorithms.py` (str or list of
+  str); XY DataFrame and `Y_<iteration>.csv` gain one column per objective.
+- New example algorithm `examples/algorithms/nsga2.py`: NSGA-II (Deb 2002)
+  at the fzd plugin format — batch-parallel generations, SBX + polynomial
+  mutation, Pareto front written to `nsga2_pareto.csv` and returned in the
+  analysis `data` (`pareto_X`/`pareto_F`). Objectives are all minimized;
+  negate an expression to maximize. Validated against the analytic Pareto
+  front of the Binh-Korn problem (objective-space deviation < 3%).
+- 8 new tests in `tests/test_fzd_multiobjective.py`; no regressions on
+  `test_fzd.py`, `test_fzd_vector_outputs.py`, `test_algorithm_options.py`,
+  `test_algorithm_plugins.py` (85 passed).
+
+
 ## Unreleased
 
 ### Native shell-free output extraction: python://, jq://, yq://, xpath://
@@ -67,6 +91,41 @@
 - `fzd` (design of experiments / optimization) still expects a scalar
   objective per case; vector-output support there is tracked as a
   follow-up.
+
+### Vector-valued outputs as fzd objectives
+
+- `output_expression` (the expression `fzd` evaluates to get its scalar
+  objective per case) can now reduce a vector-valued output (a time
+  series, a per-node profile, ...) down to that scalar: `sum()`, `len()`,
+  `sorted()`, `mean()`, `median()`, `stdev()`, `variance()` join the
+  existing math functions and indexing/slicing (`series[-1]`) available in
+  `evaluate_output_expression`.
+- Referencing a vector-valued output without reducing it (e.g.
+  `output_expression="T_series"` on its own) used to fail with a bare
+  `float() argument must be a string or a real number, not 'list'`
+  `TypeError`. It now raises a clear `ValueError` naming the offending
+  output(s) and suggesting a reduction (e.g. `mean(T_series)`); the
+  affected point is reported as a failed evaluation (`None`), like any
+  other per-case error — it does not stop the run.
+- Two *different* vector outputs can be combined in the same expression:
+  plain `+` concatenates two lists (`mean(a + b)` pools both before
+  averaging), and the new `zip()` helper combines them element-wise, e.g.
+  `sqrt(sum((x - y) ** 2 for x, y in zip(sim, ref)) / len(sim))` for an
+  RMSE/residual between a simulated and a reference series.
+- Fixed a related bug this uncovered: `evaluate_output_expression()` used
+  to evaluate with a split globals/locals dict
+  (`eval(expr, {"__builtins__": {}}, safe_dict)`), which made any
+  generator-expression or comprehension body unable to see the output
+  variables or helper functions (Python resolves names inside a nested
+  comprehension/genexp scope through *globals* only, never through a
+  separately-passed locals dict) — e.g. `max(abs(x - y) for x, y in
+  zip(a, b))` used to fail with a spurious `name 'abs' is not defined`.
+  Now uses a single combined globals dict, so any output variable or
+  helper function works the same whether referenced directly or from
+  inside a generator/comprehension body.
+- `fzd`'s objective itself is still a single scalar per case (no
+  multi-objective / vector-objective optimization) — this only concerns
+  reducing a vector-valued model *output* to that scalar.
 
 ## Version 1.1 (2026-06-15)
 
