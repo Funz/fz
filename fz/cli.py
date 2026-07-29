@@ -241,6 +241,26 @@ def _add_calculators_arg(parser):
                         help="Calculator URI, alias, JSON file, or JSON list (repeatable)")
 
 
+def _add_input_static_arg(parser):
+    parser.add_argument("--input_static", dest="input_static", action="append", default=None,
+                        help="Static file path, identical across every case and never "
+                             "templated (see docs); or an inline JSON list of paths. Repeatable.")
+
+
+def _resolve_input_static(args):
+    values = getattr(args, "input_static", None)
+    if not values:
+        return None
+    result = []
+    for item in values:
+        stripped = item.strip()
+        if stripped.startswith("["):
+            result.extend(json.loads(stripped))
+        else:
+            result.append(item)
+    return result
+
+
 def _resolve_calculators(args):
     if not args.calculators:
         return None
@@ -508,6 +528,7 @@ def fzi_main():
     parser.add_argument("--version", action="version", version=f"fzi {get_version()}")
     _add_input_path_args(parser)
     _add_model_args(parser)
+    _add_input_static_arg(parser)
     _add_format_arg(parser)
 
     args = parser.parse_args()
@@ -515,7 +536,7 @@ def fzi_main():
     try:
         input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
         model = _resolve_model(parser, args)
-        result = fzi_func(input_path, model)
+        result = fzi_func(input_path, model, input_static=_resolve_input_static(args))
         print(format_output(result, args.format))
         return 0
     except TypeError as e:
@@ -540,6 +561,7 @@ def fzc_main():
     _add_input_path_args(parser)
     _add_model_args(parser)
     _add_variables_arg(parser)
+    _add_input_static_arg(parser)
     parser.add_argument("--output_dir", "--output", "-o", dest="output_dir", default="output",
                         help="Output directory (default: output)")
 
@@ -549,7 +571,8 @@ def fzc_main():
         input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
         model = _resolve_model(parser, args)
         variables = parse_variables(args.input_variables)
-        fzc_func(input_path, variables, model, output_dir=args.output_dir)
+        fzc_func(input_path, variables, model, output_dir=args.output_dir,
+                  input_static=_resolve_input_static(args))
         print(f"Compiled input saved to {args.output_dir}")
         return 0
     except TypeError as e:
@@ -613,6 +636,7 @@ def fzr_main():
                              "'hash' (short content hash, avoids filename length limits), or "
                              "'index' (case_<i>). Defaults to FZ_CASE_NAMING env var, or 'path'.")
     _add_calculators_arg(parser)
+    _add_input_static_arg(parser)
     _add_format_arg(parser)
 
     args = parser.parse_args()
@@ -626,7 +650,8 @@ def fzr_main():
         result = fzr_func(input_path, variables, model,
                     results_dir=args.results_dir,
                     calculators=calculators,
-                    case_naming=args.case_naming)
+                    case_naming=args.case_naming,
+                    input_static=_resolve_input_static(args))
         print(format_output(result, args.format))
         # Exit non-zero when no case succeeded, so shell scripts and agents
         # can detect total failure without parsing the per-case status column
@@ -665,6 +690,7 @@ def fzd_main():
     parser.add_argument("--results_dir", "-r", default="results_fzd", help="Results directory (default: results_fzd)")
     parser.add_argument("--calculators", "-c", help="Calculator specifications (JSON file or inline JSON)")
     parser.add_argument("--options", "-o", help="Algorithm options (JSON file or inline JSON)")
+    _add_input_static_arg(parser)
 
     args = parser.parse_args()
 
@@ -684,6 +710,7 @@ def fzd_main():
             calculators=calculators,
             algorithm_options=(algo_options if isinstance(algo_options, dict) else {}),
             analysis_dir=args.results_dir,
+            input_static=_resolve_input_static(args),
         )
 
         # Print summary
@@ -722,6 +749,7 @@ def main():
     parser_input = subparsers.add_parser("input", help="Parse input to find variables")
     _add_input_path_args(parser_input)
     _add_model_args(parser_input)
+    _add_input_static_arg(parser_input)
     _add_format_arg(parser_input)
 
     # compile command (fzc)
@@ -729,6 +757,7 @@ def main():
     _add_input_path_args(parser_compile)
     _add_model_args(parser_compile)
     _add_variables_arg(parser_compile)
+    _add_input_static_arg(parser_compile)
     parser_compile.add_argument("--output_dir", "--output", "-o", dest="output_dir",
                                 default="output", help="Output directory (default: output)")
 
@@ -751,6 +780,7 @@ def main():
                                  "'hash' (short content hash, avoids filename length limits), or "
                                  "'index' (case_<i>). Defaults to FZ_CASE_NAMING env var, or 'path'.")
     _add_calculators_arg(parser_run)
+    _add_input_static_arg(parser_run)
     _add_format_arg(parser_run)
 
     # design command (fzd)
@@ -766,6 +796,7 @@ def main():
     parser_design.add_argument("--results_dir", "-r", default="results_fzd", help="Results directory (default: results_fzd)")
     parser_design.add_argument("--calculators", "-c", help="Calculator specifications (JSON file or inline JSON)")
     parser_design.add_argument("--options", "-o", help="Algorithm options (JSON file or inline JSON)")
+    _add_input_static_arg(parser_design)
 
     # list command (fzl)
     parser_list = subparsers.add_parser("list", help="List installed models and calculators")
@@ -821,14 +852,15 @@ def main():
         if args.command == "input":
             input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
             model = _resolve_model(parser, args)
-            result = fzi_func(input_path, model)
+            result = fzi_func(input_path, model, input_static=_resolve_input_static(args))
             print(format_output(result, args.format))
 
         elif args.command == "compile":
             input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
             model = _resolve_model(parser, args)
             variables = parse_variables(args.input_variables)
-            fzc_func(input_path, variables, model, output_dir=args.output_dir)
+            fzc_func(input_path, variables, model, output_dir=args.output_dir,
+                      input_static=_resolve_input_static(args))
             print(f"Compiled input saved to {args.output_dir}")
 
         elif args.command == "output":
@@ -846,7 +878,8 @@ def main():
             result = fzr_func(input_path, variables, model,
                         results_dir=args.results_dir,
                         calculators=calculators,
-                        case_naming=args.case_naming)
+                        case_naming=args.case_naming,
+                        input_static=_resolve_input_static(args))
             print(format_output(result, args.format))
 
         elif args.command == "design":
@@ -874,6 +907,7 @@ def main():
                 calculators=calculators,
                 algorithm_options=algo_options,
                 analysis_dir=args.results_dir,
+                input_static=_resolve_input_static(args),
             )
 
             # Print summary

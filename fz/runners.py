@@ -1248,6 +1248,7 @@ def run_calculation(
     original_input_was_dir: bool = False,
     original_cwd: str = None,
     input_files_list: List[str] = None,
+    static_entries: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run a single calculation on a calculator
@@ -1259,6 +1260,12 @@ def run_calculation(
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         original_input_was_dir: Whether original input was a directory
         input_files_list: List of input file names in order (from .fz_hash)
+        static_entries: Pre-resolved input_static entries (see
+            helpers.resolve_static_files). Relative entries live outside
+            input_path/working_dir (only symlinked there for local execution), so
+            remote calculators (ssh/slurm-remote/funz) transfer them explicitly from
+            their real source path. Absolute entries are never transferred - assumed
+            already present at that path on the calculator side.
 
     Returns:
         Dict containing calculation results and status
@@ -1274,7 +1281,8 @@ def run_calculation(
         return {"status": "cache_miss"}
 
     elif base_uri.startswith("sh://") or base_uri == "sh:":
-        # Local shell execution
+        # Local shell execution - static_files are already symlinked into
+        # working_dir (same filesystem), nothing extra to transfer
         command = base_uri[5:] if base_uri.startswith("sh://") else ""
         return run_local_calculation(
             working_dir,
@@ -1289,19 +1297,19 @@ def run_calculation(
     elif base_uri.startswith("ssh://"):
         # Remote SSH execution
         return run_ssh_calculation(
-            working_dir, base_uri, model, timeout, input_files_list
+            working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
         )
 
     elif base_uri.startswith("slurm://"):
         # SLURM execution (local or remote)
         return run_slurm_calculation(
-            working_dir, base_uri, model, timeout, input_files_list
+            working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
         )
 
     elif base_uri.startswith("funz://"):
         # Funz server execution
         return run_funz_calculation(
-            working_dir, base_uri, model, timeout, input_files_list
+            working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
         )
 
     else:
@@ -1802,6 +1810,7 @@ def run_ssh_calculation(
     model: Dict,
     timeout: int = None,
     input_files_list: List[str] = None,
+    static_entries: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run calculation via SSH
@@ -1812,6 +1821,8 @@ def run_ssh_calculation(
         model: Model definition dict
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
+        static_entries: Pre-resolved input_static entries, explicitly
+            transferred (relative ones only - see transfer_static_files_to_remote_sftp)
 
     Returns:
         Dict containing calculation results and status
@@ -1943,6 +1954,7 @@ def run_ssh_calculation(
         try:
             # Transfer input files to remote
             _transfer_files_to_remote(sftp, working_dir, remote_temp_dir)
+            transfer_static_files_to_remote_sftp(sftp, static_entries, remote_temp_dir)
 
             # Execute command on remote
             result = _execute_remote_command(
@@ -2023,6 +2035,7 @@ def run_slurm_calculation(
     model: Dict,
     timeout: int = None,
     input_files_list: List[str] = None,
+    static_entries: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run calculation via SLURM workload manager
@@ -2033,6 +2046,9 @@ def run_slurm_calculation(
         model: Model definition dict
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
+        static_entries: Pre-resolved input_static entries; only used for
+            remote SLURM execution (local execution shares the filesystem, so the
+            local symlink already resolves)
 
     Returns:
         Dict containing calculation results and status
@@ -2083,7 +2099,7 @@ def run_slurm_calculation(
 
             return _run_remote_slurm_calculation(
                 working_dir, host, port or 22, username, password, partition, script,
-                model, timeout, start_time, env_info, input_files_list
+                model, timeout, start_time, env_info, input_files_list, static_entries=static_entries
             )
 
     except Exception as e:
@@ -2297,6 +2313,7 @@ def _run_remote_slurm_calculation(
     start_time: datetime,
     env_info: Dict,
     input_files_list: List[str] = None,
+    static_entries: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run SLURM calculation on remote host via SSH
@@ -2314,6 +2331,8 @@ def _run_remote_slurm_calculation(
         start_time: Calculation start time
         env_info: Local environment information
         input_files_list: List of input file names in order
+        static_entries: Pre-resolved input_static entries, explicitly
+            transferred (relative ones only - see transfer_static_files_to_remote_sftp)
 
     Returns:
         Dict containing calculation results and status
@@ -2401,6 +2420,7 @@ def _run_remote_slurm_calculation(
         try:
             # Transfer input files to remote
             _transfer_files_to_remote(sftp, working_dir, remote_temp_dir)
+            transfer_static_files_to_remote_sftp(sftp, static_entries, remote_temp_dir)
 
             # Execute SLURM command on remote
             result = _execute_remote_slurm_command(
@@ -2763,6 +2783,7 @@ def run_funz_calculation(
     model: Dict,
     timeout: int = None,
     input_files_list: List[str] = None,
+    static_entries: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run calculation via Funz server protocol
@@ -2773,6 +2794,9 @@ def run_funz_calculation(
         model: Model definition dict
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
+        static_entries: Pre-resolved input_static entries; relative ones are
+            explicitly uploaded (they live outside working_dir - only symlinked there
+            for local execution), absolute ones are assumed already present server-side
 
     Returns:
         Dict containing calculation results and status
@@ -3093,14 +3117,21 @@ def run_funz_calculation(
 
                 # Step 3: Upload input files (after NEW_CASE)
                 log_info("📤 Step 3: Uploading input files...")
-                files_to_upload = [item for item in working_dir.iterdir() if item.is_file()]
+                # (relative_path, real_path) pairs: files physically in working_dir,
+                # plus relative static_files entries (uploaded from their real source
+                # path, since they live outside working_dir - only symlinked there
+                # for local execution). Absolute static_files are assumed already
+                # present server-side and are not uploaded.
+                files_to_upload = [(item.name, item) for item in working_dir.iterdir() if item.is_file()]
+                files_to_upload += [
+                    (e["name"], e["source"]) for e in (static_entries or []) if not e["is_absolute"]
+                ]
                 log_debug(f"Found {len(files_to_upload)} files to upload")
 
                 uploaded_count = 0
-                for item in files_to_upload:
+                for relative_path, real_path in files_to_upload:
                     # Send PUT_FILE request
-                    file_size = item.stat().st_size
-                    relative_path = item.name
+                    file_size = real_path.stat().st_size
 
                     log_info(f"  📄 Uploading {relative_path} ({file_size} bytes)")
                     log_debug(f"Sending {METHOD_PUT_FILE} request for {relative_path}")
@@ -3115,7 +3146,7 @@ def run_funz_calculation(
                     log_debug(f"Server ready to receive {relative_path}")
 
                     # Send file content
-                    with open(item, 'rb') as f:
+                    with open(real_path, 'rb') as f:
                         file_data = f.read()
                         bytes_sent = sock.sendall(file_data)
                         log_debug(f"Sent {len(file_data)} bytes of file data")
@@ -3359,6 +3390,43 @@ def _transfer_files_to_remote(sftp, local_dir: Path, remote_dir: str) -> None:
                 f"Transferring {item.name} from local ({local_path}) to remote ({remote_path})"
             )
             sftp.put(local_path, remote_path)
+
+
+def _sftp_mkdir_p(sftp, remote_dir: str) -> None:
+    """Create a remote directory (and parents) via SFTP, ignoring "already exists"."""
+    parts = remote_dir.strip("/").split("/")
+    path = ""
+    for part in parts:
+        path = f"{path}/{part}" if path else f"/{part}"
+        try:
+            sftp.mkdir(path)
+        except IOError:
+            pass  # Already exists
+
+
+def transfer_static_files_to_remote_sftp(sftp, static_entries: Optional[List[Dict[str, Any]]], remote_dir: str) -> None:
+    """
+    Explicitly transfer a model's relative static_files entries to a remote
+    directory via SFTP.
+
+    Relative static_files (see helpers.resolve_static_files) live outside
+    input_path/working_dir - only a local symlink is placed there for local
+    execution - so the generic per-case file transfer (_transfer_files_to_remote,
+    which only sees what's physically in working_dir) never finds them. This
+    uploads them explicitly from their real source path instead. Absolute entries
+    are skipped: they're assumed already present at that same path on the
+    calculator side.
+    """
+    if not static_entries:
+        return
+    for entry in static_entries:
+        if entry["is_absolute"]:
+            continue
+        remote_path = f"{remote_dir}/{entry['name']}"
+        if "/" in entry["name"]:
+            _sftp_mkdir_p(sftp, str(Path(remote_path).parent).replace("\\", "/"))
+        log_info(f"Transferring static file {entry['name']} from {entry['source']} to remote ({remote_path})")
+        sftp.put(str(entry["source"]), remote_path)
 
 
 def _execute_remote_command(
@@ -3610,6 +3678,7 @@ def run_single_case_calculation(
     original_input_was_dir: bool = False,
     original_cwd: str = None,
     input_files_list: List[str] = None,
+    static_entries: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run calculation for a single case on a specific calculator
@@ -3622,6 +3691,8 @@ def run_single_case_calculation(
         original_input_was_dir: Whether original input was a directory
         original_cwd: Original working directory
         input_files_list: List of input file names in order
+        static_entries: Pre-resolved input_static entries (see
+            helpers.resolve_static_files), force-transferred to remote calculators
 
     Returns:
         Dict containing calculation results and status
@@ -3635,6 +3706,7 @@ def run_single_case_calculation(
             original_input_was_dir,
             original_cwd,
             input_files_list,
+            static_entries=static_entries,
         )
 
         # Always add calculator URI to result

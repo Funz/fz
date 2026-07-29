@@ -1083,6 +1083,13 @@ print(results)
   `info.txt` if the manifest is missing or incomplete). Defaults to the
   `FZ_CASE_NAMING` env var, or `"path"`.
 
+- `input_static`: Files identical across every case (a shared weather CSV, a large
+  reference dataset) that are never templated and never duplicated per case — see
+  `doc/core-functions.md` ("fzr" → `input_static`) for the full write-up. If a large
+  variable-free file is left in `input_path` instead, `fzr()` logs a one-time warning
+  suggesting `input_static` (threshold: `FZ_STATIC_CANDIDATE_MIN_SIZE`, default 1 MiB,
+  `0` disables it).
+
 **Returns**: pandas DataFrame with all results
 
 ### fzd - Run Design of Experiments
@@ -2467,6 +2474,11 @@ export FZ_RUN_TIMEOUT=3600
 # (short content hash, avoids filesystem filename length limits with many
 # variables), or "index" (case_<i>)
 export FZ_CASE_NAMING=path
+
+# Minimum size (bytes) for a variable-free input_path file to trigger a
+# one-time warning suggesting input_static instead (default: 1048576 = 1 MiB;
+# 0 disables the warning)
+export FZ_STATIC_CANDIDATE_MIN_SIZE=1048576
 ```
 
 ### Shell Path Configuration (FZ_SHELL_PATH)

@@ -50,7 +50,17 @@ def ensure_unique_directory(directory_path: Path) -> tuple[Path, Optional[Path]]
     return directory_path, new_path
 
 
-def create_hash_file(directory: Path, input_files_order: List[str] = None) -> None:
+def md5_file(file_path: Path) -> str:
+    """Compute the MD5 hex digest of a file's content."""
+    hasher = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def create_hash_file(directory: Path, input_files_order: List[str] = None,
+                      static_file_hashes: List[tuple] = None) -> None:
     """
     Create .fz_hash file containing MD5 checksums of all files in the directory
     The input files are listed first in the order they were provided
@@ -58,13 +68,29 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None) -> No
     Args:
         directory: Directory to hash all files in
         input_files_order: Optional list of input file names in the order they should appear
+        static_file_hashes: Optional list of (name, hash) pairs for static_files entries
+            (see helpers.resolve_static_files), precomputed once per fzr() call rather
+            than per case. "name" is the declared relative path for relative static_files
+            (may not physically exist in `directory` - a symlink is placed there
+            separately), or the absolute path itself for absolute static_files (which are
+            never copied/symlinked into the case directory at all).
     """
     hash_file = directory / ".fz_hash"
 
-    # Get all files in directory (excluding .fz_hash itself and subdirectories)
-    all_files = [f for f in directory.iterdir() if f.is_file() and f.name != ".fz_hash"]
+    static_names = {name for name, _ in static_file_hashes} if static_file_hashes else set()
+
+    # Get all files in directory (excluding .fz_hash itself, subdirectories, and
+    # static_files - those are hashed once via static_file_hashes, not re-read per case)
+    all_files = [
+        f for f in directory.iterdir()
+        if f.is_file() and f.name != ".fz_hash" and f.name not in static_names
+    ]
 
     hash_content = []
+
+    if static_file_hashes:
+        for name, file_hash in static_file_hashes:
+            hash_content.append(f"{file_hash}  {name}")
 
     # If input_files_order is provided, process those files first in order
     processed_files = set()

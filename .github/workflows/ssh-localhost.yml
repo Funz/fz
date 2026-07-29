@@ -78,6 +78,11 @@ jobs:
         pip install paramiko
         python -m pytest tests/test_error_reporting.py::TestSSHIntegrationErrorReporting -v -s --tb=long
 
+    - name: Run static_files over SSH test
+      run: |
+        pip install paramiko
+        python -m pytest tests/test_static_files_ssh.py -v -s --tb=long
+
     - name: Test summary
       if: always()
       run: |

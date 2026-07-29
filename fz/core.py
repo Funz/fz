@@ -948,13 +948,15 @@ def fzl(models: str = "*", calculators: str = "*", check: bool = False) -> Dict[
 
 
 @with_helpful_errors
-def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
+def fzi(input_path: str, model: Union[str, Dict], input_static: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     Parse input file(s) to find variables, formulas, and static objects
 
     Args:
         input_path: Path to input file or directory
         model: Model definition dict or alias string
+        input_static: Files identical across every case (see fzr()'s input_static);
+                  never scanned for variables, since they're never templated
 
     Returns:
         Dict with static objects, variable names, and formula expressions as keys, with their values (or None)
@@ -974,6 +976,9 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
     # Validate input arguments
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
+
+    from .helpers import _validate_input_static
+    _validate_input_static(input_static)
 
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
@@ -999,8 +1004,10 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
         if not input_path.exists():
             raise FileNotFoundError(f"Input path '{input_path}' not found")
 
-        # Parse variables
-        variables = parse_variables_from_path(input_path, varprefix, var_delim)
+        # Parse variables (input_static files are never templated, so excluded from the scan)
+        from .helpers import resolve_static_file_paths
+        static_paths = resolve_static_file_paths(input_static, working_dir)
+        variables = parse_variables_from_path(input_path, varprefix, var_delim, exclude_paths=static_paths)
 
         # Read content to extract defaults and formulas
         if input_path.is_file():
@@ -1133,6 +1140,7 @@ def fzc(
     input_variables: Dict,
     model: Union[str, Dict],
     output_dir: str = "output",
+    input_static: Optional[List[str]] = None,
 ) -> None:
     """
     Compile input file(s) replacing variables with values
@@ -1142,6 +1150,8 @@ def fzc(
         input_variables: Dict of variable values or lists/numpy arrays of values for grid
         model: Model definition dict or alias string
         output_dir: Output directory for compiled files
+        input_static: Files identical across every case (see fzr()'s input_static);
+                  symlinked into output_dir rather than templated/duplicated
 
     Raises:
         TypeError: If arguments have invalid types
@@ -1159,6 +1169,9 @@ def fzc(
     if not isinstance(output_dir, (str, Path)):
         raise TypeError(f"output_dir must be a string or Path, got {type(output_dir).__name__}")
 
+    from .helpers import _validate_input_static
+    _validate_input_static(input_static)
+
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
 
@@ -1172,7 +1185,7 @@ def fzc(
         raise FileNotFoundError(f"Input path '{input_path}' not found")
 
     # Check if any input_variable keys are missing in input files
-    found_variables = fzi(str(input_path), model)
+    found_variables = fzi(str(input_path), model, input_static=input_static)
     missing_vars = set(input_variables.keys()) - set(found_variables.keys())
     if missing_vars:
         log_warning(f"⚠️  Warning: The following input variables are not found in input files: {', '.join(sorted(missing_vars))}")
@@ -1181,12 +1194,14 @@ def fzc(
     output_dir, _ = ensure_unique_directory(output_dir)
 
     # Generate all combinations if lists are provided
-    from .helpers import generate_variable_combinations
+    from .helpers import generate_variable_combinations, resolve_static_files
     var_combinations = generate_variable_combinations(input_variables)
+    static_entries = resolve_static_files(input_static, working_dir)
 
     # Use compile_to_result_directories helper to avoid code duplication
     compile_to_result_directories(
-        input_path, model, input_variables, var_combinations, output_dir
+        input_path, model, input_variables, var_combinations, output_dir,
+        static_entries=static_entries,
     )
 
     # Always restore the original working directory
@@ -1497,6 +1512,7 @@ def fzr(
     callbacks: Optional[Dict[str, callable]] = None,
     timeout: int = None,
     case_naming: str = None,
+    input_static: Optional[List[str]] = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
     """
     Run full parametric calculations
@@ -1525,6 +1541,18 @@ def fzr(
                   Regardless of scheme, the exact variable values are always recoverable from
                   each case's info.txt, and fzo() falls back to reading it when the directory
                   name doesn't parse as "key=val,...". Defaults to FZ_CASE_NAMING env var, or "path".
+        input_static: Files identical across every case (e.g. a shared weather CSV or a large
+                  reference dataset) that are never templated/substituted, never re-hashed per
+                  case, and (for relative paths) not duplicated on disk per case:
+                  - Absolute path entries are assumed already present at that same path on the
+                    calculator side too (shared/mounted storage); never copied/symlinked/
+                    transferred, only hashed (so cache:// still reacts to content changes).
+                  - Relative path entries are resolved against cwd at call time, identified by
+                    basename, symlinked into every case's directory, and explicitly transferred
+                    to ssh://, slurm:// (remote), and funz:// calculators (they live outside
+                    input_path, so the generic per-case file transfer never finds them).
+                  fzi() excludes them from variable discovery; .fz_hash always includes them.
+                  See doc/core-functions.md ("fzr" -> input_static) for the full write-up.
 
     Returns:
         DataFrame with variable values and results (if pandas available), otherwise Dict with lists
@@ -1553,6 +1581,9 @@ def fzr(
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
+
+    from .helpers import _validate_input_static
+    _validate_input_static(input_static)
 
     # Resolve case_naming: explicit arg > FZ_CASE_NAMING env var (via config) > "path"
     if case_naming is None:
@@ -1687,9 +1718,16 @@ def fzr(
                 resolved_calculators.append(calc)
         calculators = resolved_calculators
 
+        # Resolve input_static once for this whole fzr() call (not per case):
+        # relative entries symlinked/hashed once and reused everywhere, absolute
+        # entries hashed once and assumed already present on the calculator side
+        from .helpers import resolve_static_files
+        static_entries = resolve_static_files(input_static, original_cwd)
+
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
-            input_path, model, input_variables, var_combinations, results_dir, case_naming
+            input_path, model, input_variables, var_combinations, results_dir, case_naming,
+            static_entries=static_entries,
         )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)
@@ -1711,6 +1749,7 @@ def fzr(
                 callbacks,
                 timeout,
                 case_naming,
+                static_entries,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
@@ -2041,7 +2080,8 @@ def fzd(
     algorithm: str,
     calculators: Union[str, List[str], int] = None,
     algorithm_options: Union[Dict[str, Any], str] = None,
-    analysis_dir: str = "analysis"
+    analysis_dir: str = "analysis",
+    input_static: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Run iterative design of experiments with algorithms
@@ -2092,6 +2132,8 @@ def fzd(
             Each iteration's cases live in "<analysis_dir>/iter<NNN>/case_<i>/" — file-based
             models are run via fzr() internally with case_naming="index", since design
             points from an algorithm can carry many variables/long float values.
+        input_static: Files identical across every case (see fzr()'s input_static); passed
+            through unchanged to each iteration's internal fzr() call for file-based models.
 
     Returns:
         Dict with algorithm results including:
@@ -2136,6 +2178,9 @@ def fzd(
         ...     algorithm_options="algo_config.json"  # Path to JSON file
         ... )
     """
+    from .helpers import _validate_input_static
+    _validate_input_static(input_static)
+
     # This represents the directory from which the function was launched
     working_dir = os.getcwd()
 
@@ -2144,7 +2189,7 @@ def fzd(
     _interrupt_requested = False
     _install_signal_handler()
 
-    
+
     try:
         is_function_model = callable(model) and not isinstance(model, (str, dict))
 
@@ -2310,6 +2355,7 @@ def fzd(
                         # (cache:// matching is by .fz_hash content, not directory name,
                         # so this doesn't affect cross-iteration cache reuse above).
                         case_naming="index",
+                        input_static=input_static,
                     )
 
                     # Expand result_df back to full current_design length (re-map duplicates)

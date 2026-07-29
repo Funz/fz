@@ -423,6 +423,57 @@ jobs:
             print("\\n✓ Multiple partition test passed!")
         PYTHON
 
+    - name: Test SLURM calculator - static_files
+      run: |
+        echo "Testing FZ static_files with local SLURM..."
+        SCRIPT_PATH="$HOME/fz_test/slurm_calc.sh"
+
+        python3 << PYTHON
+        import tempfile
+        from pathlib import Path
+        from fz import fzr
+
+        print("=" * 60)
+        print("Test 4: static_files with local SLURM")
+        print("=" * 60)
+
+        script_path = "$SCRIPT_PATH"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            assets_dir = root / "assets"
+            assets_dir.mkdir()
+            weather = assets_dir / "weather.csv"
+            weather.write_text("weather-slurm-local\\n")
+
+            study_dir = root / "study"
+            study_dir.mkdir()
+            input_file = study_dir / "input.txt"
+            input_file.write_text("x = \${x}\\n")
+
+            model = {
+                "delim": "{}",
+                "output": {"weather": "cat weather.csv"},
+            }
+
+            import os
+            os.chdir(study_dir)
+            calculator_uri = f"slurm://:debug/bash {script_path}"
+            results = fzr(
+                str(input_file), {"x": 3}, model,
+                calculators=calculator_uri, results_dir="results",
+                input_static=["../assets/weather.csv"],
+            )
+
+            if hasattr(results, "to_dict"):
+                row = results.to_dict("records")[0]
+            else:
+                row = {k: (v[0] if isinstance(v, list) else v) for k, v in results.items()}
+
+            assert row["weather"].strip() == "weather-slurm-local", row
+            print("\\n✓ static_files with local SLURM test passed!")
+        PYTHON
+
     - name: Run SLURM error reporting integration tests
       run: |
         python -m pytest tests/test_error_reporting.py::TestSlurmIntegrationErrorReporting -v -s --tb=long

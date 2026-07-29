@@ -29,7 +29,7 @@ def _sh_success(calc_uri):
 
 
 def _mock_run(tmp_dir, calculator_uri, model, timeout,
-              original_input_was_dir, original_cwd, input_files_list):
+              original_input_was_dir, original_cwd, input_files_list, static_entries=None):
     if calculator_uri.startswith("funz://"):
         return _udp_miss(calculator_uri)
     if calculator_uri.startswith("sh://"):

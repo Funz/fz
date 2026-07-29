@@ -5,7 +5,7 @@ import re
 import json
 import ast
 from pathlib import Path
-from typing import Dict, List, Union, Any, Set
+from typing import Dict, List, Union, Any, Set, Optional
 
 
 def _get_comment_char(model: Dict) -> str:
@@ -166,7 +166,8 @@ def parse_variables_from_file(filepath: Path, varprefix: str = "$", delim: str =
     return parse_variables_from_content(content, varprefix, delim)
 
 
-def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str = "()") -> Set[str]:
+def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str = "()",
+                              exclude_paths: Optional[Set[Path]] = None) -> Set[str]:
     """
     Parse variables from file or directory
 
@@ -174,17 +175,22 @@ def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str
         input_path: Path to input file or directory
         varprefix: Variable prefix (e.g., "$")
         delim: Delimiter characters (e.g., "()")
+        exclude_paths: Optional set of resolved absolute paths to skip (e.g. a
+            model's static_files - not templated, so not worth scanning for
+            variables, and possibly too large to read cheaply)
 
     Returns:
         Set of variable names found
     """
     variables = set()
+    exclude_paths = exclude_paths or set()
 
     if input_path.is_file():
-        variables.update(parse_variables_from_file(input_path, varprefix, delim))
+        if input_path.resolve() not in exclude_paths:
+            variables.update(parse_variables_from_file(input_path, varprefix, delim))
     elif input_path.is_dir():
         for filepath in input_path.rglob("*"):
-            if filepath.is_file():
+            if filepath.is_file() and filepath.resolve() not in exclude_paths:
                 variables.update(parse_variables_from_file(filepath, varprefix, delim))
     else:
         raise FileNotFoundError(f"Input path '{input_path}' not found")
