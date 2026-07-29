@@ -137,6 +137,11 @@ f6e5d4c3b2a1...  config.dat
 3. If match found and outputs are valid → reuse results
 4. If no match → run calculation
 
+Matching is by `.fz_hash` content, not by directory name, so it's unaffected by
+`case_naming` (see core-functions.md → "fzr") — a `cache://` calculator still finds
+matches whether the cache directory was written with `case_naming="path"`,
+`"hash"`, or `"index"`.
+
 ### Strategy 1: Resume Interrupted Runs
 
 ```python

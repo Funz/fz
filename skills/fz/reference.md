@@ -37,7 +37,12 @@ fz.fzo(output_path: str, model: str | dict) -> pandas.DataFrame
 
 Runs each `model["output"]` command in every directory matched by `output_path` (plain
 path or glob like `results/*`). Returns one row per directory. Directory names following
-`key=val,key=val` are parsed back into variable columns. Results are auto-cast (int,
+`key=val,key=val` are parsed back into variable columns; if they don't follow that
+pattern (e.g. `fzr` ran with `case_naming="hash"`/`"index"`), `fzo` reads `cases.csv`
+(a single manifest `fzr` writes at the results root mapping each case directory to its
+variables) instead, falling back to each case's own `info.txt`
+(`input.<var>=<value>` lines) if the manifest is missing or incomplete.
+Results are auto-cast (int,
 float, list, dict) when possible. An output entry may resolve to a **list** (vector
 output: time series, per-node profile, ...) via `python://grep(..., all=True)`,
 `csv_file(column=...)`, `hdf5_file(dataset=...)`, `jq://`/`yq://` filters selecting an
@@ -56,12 +61,19 @@ fz.fzr(input_path: str,
        results_dir: str = "results",
        calculators: str | list[str] = None,   # default "sh://"
        callbacks: dict = None,
-       timeout: int = None) -> pandas.DataFrame
+       timeout: int = None,
+       case_naming: str = None) -> pandas.DataFrame   # "path" (default), "hash", "index"
 ```
 
 - dict `input_variables` ⇒ factorial (Cartesian product); DataFrame ⇒ one case per row.
 - Returns a DataFrame: variable columns + output columns + `status` ("done", "error",
   "cached"), `calculator`, `error`, `command`.
+- `case_naming` controls each case's result/temp subdirectory name: `"path"`
+  (`var1=val1,var2=val2,...`, default, but can exceed filesystem filename length
+  limits with many variables), `"hash"` (short content hash, always short/stable), or
+  `"index"` (`case_<i>`). With `"hash"`/`"index"`, a single `cases.csv` manifest is
+  written at the results root (case dir name → variables); each case's own `info.txt`
+  also has them, as a fallback. Defaults to the `FZ_CASE_NAMING` env var, or `"path"`.
 - `callbacks` supports `on_start(total_cases, calculators)`, plus per-case progress
   callbacks (see docstring of `fz.fzr`).
 - Ctrl+C interrupts gracefully; completed cases stay in `results_dir` and can be reused
@@ -83,6 +95,11 @@ fz.fzd(input_path: str | None,
 Returns `{"XY": DataFrame, "analysis": ..., "iterations": int,
 "total_evaluations": int, "summary": str}`. Duplicate points within a batch are
 deduplicated; previously evaluated points are cached across iterations and re-runs.
+For file-based models, each iteration's cases live under
+`<analysis_dir>/iter<NNN>/case_<i>/` — fzd always calls `fzr()` internally with
+`case_naming="index"` (not overridable), since algorithm-generated design points
+can carry many variables/long float values; `cache://` matching is by `.fz_hash`
+content, not directory name, so this doesn't affect cross-iteration cache reuse.
 `output_expression` (a str, or a list of str for multi-objective algorithms — one scalar per expression is passed to the algorithm) also reduces vector-valued outputs (lists, e.g. a time series)
 to the scalar fzd needs: besides the usual math functions and indexing/slicing
 (`series[-1]`), `sum()`, `len()`, `sorted()`, `mean()`, `median()`, `stdev()`,
@@ -131,7 +148,7 @@ fzi  [input_path]  --input_path/-i  --model/-m  --format/-f
 fzc  [input_path]  --input_path/-i  --model/-m  --input_variables/-v  --output_dir/-o
 fzo  [output_path] --output_path/-o --model/-m  --format/-f
 fzr  [input_path]  --input_path/-i  --model/-m  --input_variables/-v  --results_dir/-r
-     --calculators/-c  --format/-f
+     --calculators/-c  --format/-f  --case_naming {path,hash,index}
 fzl  --models/-m  --calculators/-c  --check  --format/-f
 fzd  --input_dir/-i  --input_vars/-v  --model/-m  --output_expression/-e
      --algorithm/-a  --results_dir/-r  --calculators/-c  --options/-o
@@ -228,6 +245,7 @@ FZ_MAX_RETRIES               attempts for failed cases (default 5)
 FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip interactive host-key prompt (CI; use with care)
 FZ_SSH_KEEPALIVE             SSH keepalive seconds
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)
+FZ_CASE_NAMING                fzr case dir naming: path (default) | hash | index
 ```
 
 ## Variable syntax in input files

@@ -1,5 +1,32 @@
 # FZ Release Notes
 
+## Unreleased
+
+### Configurable case directory naming (`case_naming`), thread-safe signal handling
+
+- `fzr()`/CLI `fzr`/`fz run` gain a `case_naming` parameter (`--case_naming`,
+  env `FZ_CASE_NAMING`): `"path"` (default, unchanged `var1=val1,var2=val2,...`
+  subdirectories), `"hash"` (short content hash of the variable combination),
+  or `"index"` (`case_<i>`). `"path"` can exceed filesystem filename length
+  limits (~255 chars) with many input variables; `"hash"`/`"index"` avoid
+  that. With `"hash"`/`"index"`, a single `cases.csv` manifest is written
+  at the results root mapping each case directory to its variables; each
+  case's own `info.txt` still has them too, as a fallback if the manifest
+  is missing or incomplete. `fzo()` now recovers variable columns from
+  whichever is available when a directory name doesn't parse as
+  `key=val,...`.
+- Fixed: `fzr`/`fzd` installed a `SIGINT` handler unconditionally, which
+  raises `ValueError` when called from a non-main thread (e.g. Streamlit
+  reruns, a `ThreadPoolExecutor` worker, or a background thread embedding
+  fz). Signal handler install/restore is now skipped outside the main
+  thread instead of raising.
+- `fzd()` now runs its internal per-iteration `fzr()` calls (file-based
+  models) with `case_naming="index"` rather than the default `"path"`:
+  algorithm-generated design points can carry many variables with long
+  float values, so `iter<NNN>/case_<i>/` avoids filename length limits.
+  `cache://` matching is by `.fz_hash` content, not directory name, so
+  cross-iteration cache reuse is unaffected.
+
 ## Unreleased (feat/vector-objectives-fzd)
 
 ### Multi-objective (vector) objectives in fzd

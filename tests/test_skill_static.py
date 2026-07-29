@@ -98,8 +98,12 @@ class TestSkillCodeDrift:
     def test_documented_format_choices(self):
         """--format values listed in reference.md equal the argparse choices"""
         code_choices = set()
-        for block in re.findall(r"choices=\[([^\]]+)\]", CLI_SRC):
-            code_choices |= {c.strip().strip("\"'") for c in block.split(",")}
+        # Scope to add_argument calls for --format specifically: other flags
+        # (e.g. --case_naming) also use choices=[...] for unrelated option sets.
+        for call in re.findall(r'add_argument\([^)]*"--format"[^)]*\)', CLI_SRC, re.S):
+            m = re.search(r"choices=\[([^\]]+)\]", call)
+            if m:
+                code_choices |= {c.strip().strip("\"'") for c in m.group(1).split(",")}
         ref = (SKILL_DIR / "reference.md").read_text(encoding="utf-8")
         m = re.search(r"`--format` accepts: (.+?)\.", ref)
         assert m, "reference.md must list the --format choices"

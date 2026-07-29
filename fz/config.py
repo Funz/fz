@@ -84,6 +84,16 @@ class Config:
         # Shell path configuration (overrides system PATH for binary resolution)
         self.shell_path = os.getenv('FZ_SHELL_PATH', None)
 
+        # Case directory naming scheme: "path" (key=val,... subdirs, default),
+        # "hash" (short hash of the variable combination), or "index" (case_<i>).
+        # "hash"/"index" avoid exceeding filesystem filename length limits when
+        # there are many input variables; the variable values are still
+        # recoverable from each case's info.txt.
+        case_naming = os.getenv('FZ_CASE_NAMING', 'path').lower()
+        if case_naming not in ('path', 'hash', 'index'):
+            case_naming = 'path'
+        self.case_naming = case_naming
+
     def _parse_int_env(self, key: str, default: Optional[int]) -> Optional[int]:
         """Parse integer environment variable"""
         value = os.getenv(key)
@@ -129,7 +139,8 @@ class Config:
             'ssh_auto_accept_hostkeys': self.ssh_auto_accept_hostkeys,
             'ssh_keepalive': self.ssh_keepalive,
             'run_timeout': self.run_timeout,
-            'shell_path': self.shell_path
+            'shell_path': self.shell_path,
+            'case_naming': self.case_naming
         }
 
 
@@ -221,6 +232,9 @@ def print_config():
 
     print("\n🔍 SHELL PATH:")
     print(f"  FZ_SHELL_PATH = {summary['shell_path'] or '(not set, use system PATH)'}")
+
+    print("\n📁 CASE DIRECTORY NAMING:")
+    print(f"  FZ_CASE_NAMING = {summary['case_naming']}")
 
     print("\n" + "=" * 60)
     print("Set environment variables to customize these defaults")

@@ -63,7 +63,7 @@ import pandas as pd
 import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug
-from .config import get_interpreter
+from .config import get_interpreter, get_config
 from .helpers import (
     fz_temporary_directory,
     _cleanup_fzr_resources,
@@ -74,6 +74,7 @@ from .helpers import (
     run_cases_parallel,
     compile_to_result_directories,
     prepare_temp_directories,
+    read_case_naming_manifest,
 )
 from .shell import run_command, replace_commands_in_string
 from .outparsers import (
@@ -459,8 +460,18 @@ def _signal_handler(signum, frame):
 
 
 def _install_signal_handler():
-    """Install custom SIGINT handler - Windows and Unix compatible"""
+    """Install custom SIGINT handler - Windows and Unix compatible.
+
+    signal.signal() only works from the main thread of the main interpreter
+    (Python raises ValueError otherwise). fzr/fzd are frequently called from
+    worker threads, Streamlit reruns, or process-pool workers, so silently
+    skip installation there instead of crashing the caller.
+    """
     global _original_sigint_handler
+
+    if threading.current_thread() is not threading.main_thread():
+        log_debug("Not in main thread: skipping SIGINT handler installation")
+        return
 
     # On Windows, signal handling needs special care
     if platform.system() == "Windows":
@@ -472,14 +483,22 @@ def _install_signal_handler():
             log_warning(f"⚠️  Could not install signal handler on Windows: {e}")
             log_warning("⚠️  Graceful interrupt may not work. Use Ctrl+Break for forceful termination.")
     else:
-        _original_sigint_handler = signal.signal(signal.SIGINT, _signal_handler)
+        try:
+            _original_sigint_handler = signal.signal(signal.SIGINT, _signal_handler)
+        except ValueError as e:
+            log_debug(f"Could not install SIGINT handler: {e}")
 
 
 def _restore_signal_handler():
     """Restore original SIGINT handler"""
     global _original_sigint_handler
     if _original_sigint_handler:
-        signal.signal(signal.SIGINT, _original_sigint_handler)
+        if threading.current_thread() is not threading.main_thread():
+            return
+        try:
+            signal.signal(signal.SIGINT, _original_sigint_handler)
+        except ValueError:
+            pass
         _original_sigint_handler = None
 
 
@@ -1403,6 +1422,60 @@ def fzo(
                             # Keep as string
                             cast_values.append(v)
                     df[key] = cast_values
+            elif not all_parseable:
+                # Directory names don't follow "key=val,..." (e.g. fzr was run with
+                # case_naming="hash" or "index"). First try the single manifest fzr
+                # writes at the results root (cases.json: case dir name -> variables);
+                # fall back to each case's own info.txt (which always has
+                # "input.<var>=<value>" lines regardless of naming scheme) if the
+                # manifest is missing or incomplete for these paths.
+                manifest_vars = {}
+                manifest_ok = True
+                manifests_by_parent = {}
+                for output_path_single in output_paths:
+                    parent = output_path_single.parent
+                    if parent not in manifests_by_parent:
+                        manifests_by_parent[parent] = read_case_naming_manifest(parent)
+                    manifest = manifests_by_parent[parent]
+                    if manifest is None or output_path_single.name not in manifest:
+                        manifest_ok = False
+                        break
+                    for key, val in manifest[output_path_single.name].items():
+                        manifest_vars.setdefault(key, []).append(val)
+
+                if manifest_ok and manifest_vars and all(len(v) == len(output_paths) for v in manifest_vars.values()):
+                    for key, values in manifest_vars.items():
+                        df[key] = values
+                else:
+                    info_vars = {}
+                    info_all_found = True
+                    for output_path_single in output_paths:
+                        info_path = output_path_single / "info.txt"
+                        if not info_path.exists():
+                            info_all_found = False
+                            break
+                        row_vars = {}
+                        for line in info_path.read_text().splitlines():
+                            if line.startswith("input.") and "=" in line:
+                                key, val = line[len("input."):].split("=", 1)
+                                row_vars[key] = val
+                        for key, val in row_vars.items():
+                            info_vars.setdefault(key, []).append(val)
+
+                    # Only keep columns present in every case, so rows stay aligned
+                    # (e.g. avoid misalignment if a case's info.txt is missing a variable)
+                    if info_all_found and info_vars and all(len(v) == len(output_paths) for v in info_vars.values()):
+                        for key, values in info_vars.items():
+                            cast_values = []
+                            for v in values:
+                                try:
+                                    if "." not in v:
+                                        cast_values.append(int(v))
+                                    else:
+                                        cast_values.append(float(v))
+                                except ValueError:
+                                    cast_values.append(v)
+                            df[key] = cast_values
 
         # Flatten any dict-valued columns into separate columns
         df = flatten_dict_columns(df)
@@ -1423,6 +1496,7 @@ def fzr(
     calculators: Union[str, Dict, List[Union[str, Dict]]] = None,
     callbacks: Optional[Dict[str, callable]] = None,
     timeout: int = None,
+    case_naming: str = None,
 ) -> Union[Dict[str, List[Any]], "pandas.DataFrame"]:
     """
     Run full parametric calculations
@@ -1443,6 +1517,14 @@ def fzr(
                   - 'on_progress': Called periodically. Args: (completed, total, eta_seconds)
                   - 'on_complete': Called when all cases finish. Args: (total_cases, completed_cases, results)
         timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
+        case_naming: How to name each case's result/temp subdirectory:
+                  - "path" (default): "var1=val1,var2=val2,..." - human-readable, but can exceed
+                    filesystem filename length limits (~255 chars) with many variables.
+                  - "hash": short content hash of the variable combination - always short and stable.
+                  - "index": "case_<i>" - shortest, order-dependent.
+                  Regardless of scheme, the exact variable values are always recoverable from
+                  each case's info.txt, and fzo() falls back to reading it when the directory
+                  name doesn't parse as "key=val,...". Defaults to FZ_CASE_NAMING env var, or "path".
 
     Returns:
         DataFrame with variable values and results (if pandas available), otherwise Dict with lists
@@ -1471,6 +1553,12 @@ def fzr(
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
+
+    # Resolve case_naming: explicit arg > FZ_CASE_NAMING env var (via config) > "path"
+    if case_naming is None:
+        case_naming = get_config().case_naming
+    elif case_naming not in ("path", "hash", "index"):
+        raise ValueError(f"case_naming must be one of 'path', 'hash', 'index', got {case_naming!r}")
 
     if calculators is not None:
         if not isinstance(calculators, (str, list, dict)):
@@ -1601,11 +1689,11 @@ def fzr(
 
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
-            input_path, model, input_variables, var_combinations, results_dir
+            input_path, model, input_variables, var_combinations, results_dir, case_naming
         )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)
-        prepare_temp_directories(var_combinations, temp_path, results_dir, has_input_variables)
+        prepare_temp_directories(var_combinations, temp_path, results_dir, has_input_variables, case_naming)
 
         # Run calculations in parallel across cases
         try:
@@ -1622,6 +1710,7 @@ def fzr(
                 has_input_variables,
                 callbacks,
                 timeout,
+                case_naming,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
@@ -1999,7 +2088,10 @@ def fzd(
             - Dict: {"batch_size": 10, "max_iter": 100}
             - JSON string: '{"batch_size": 10, "max_iter": 100}'
             - JSON file path: "options.json"
-        analysis_dir: Analysis results directory (default: "analysis"; the CLI uses "results_fzd")
+        analysis_dir: Analysis results directory (default: "analysis"; the CLI uses "results_fzd").
+            Each iteration's cases live in "<analysis_dir>/iter<NNN>/case_<i>/" — file-based
+            models are run via fzr() internally with case_naming="index", since design
+            points from an algorithm can carry many variables/long float values.
 
     Returns:
         Dict with algorithm results including:
@@ -2212,7 +2304,12 @@ def fzd(
                         pd.DataFrame(unique_design, columns=all_var_names),
                         model,
                         results_dir=str(iteration_result_dir),
-                        calculators=[*cache_paths, *calculators]  # Cache paths first, then actual calculators
+                        calculators=[*cache_paths, *calculators],  # Cache paths first, then actual calculators
+                        # fzd design points can have many variables and long float
+                        # values; "index" keeps case directory names short regardless
+                        # (cache:// matching is by .fz_hash content, not directory name,
+                        # so this doesn't affect cross-iteration cache reuse above).
+                        case_naming="index",
                     )
 
                     # Expand result_df back to full current_design length (re-map duplicates)
