@@ -704,6 +704,7 @@ fzr input.txt \
 ```
 --calculator URI          Calculator URI (can be specified multiple times)
 --results DIR             Results directory (default: results)
+--case_naming SCHEME      Case directory naming: path (default), hash, or index
 ```
 
 ### Complete CLI Examples
@@ -1025,6 +1026,12 @@ print(output)
 # 2  T_celsius=30,V_L=1  2520.74       30.0  1.0
 ```
 
+If subdirectories were instead named with `case_naming="hash"` or `"index"` (see below),
+`fzo` recovers the variable columns from `cases.csv`, a single manifest `fzr` writes
+at the results root mapping each case directory to its variables (falling back to
+each case's own `info.txt`, which always has `input.<var>=<value>` lines, if the
+manifest is missing or incomplete).
+
 ### fzr - Run Parametric Calculations
 
 Execute complete parametric study with automatic parallelization:
@@ -1064,6 +1071,17 @@ print(results)
 - `model`: Model definition (dict or alias)
 - `calculators`: Calculator URI(s) - string or list
 - `results_dir`: Results directory path
+- `case_naming`: How each case's result/temp subdirectory is named (default `"path"`):
+  - `"path"`: `var1=val1,var2=val2,...` - human-readable, but can exceed filesystem
+    filename length limits (~255 chars) with many variables
+  - `"hash"`: short content hash of the variable combination - always short and stable
+  - `"index"`: `case_<i>` - shortest, order-dependent
+
+  With `"hash"`/`"index"`, a single `cases.csv` manifest is written at the results
+  root mapping each case directory to its variables, and `fzo()` reads it back when
+  the directory name isn't a `key=val,...` pattern (falling back to each case's own
+  `info.txt` if the manifest is missing or incomplete). Defaults to the
+  `FZ_CASE_NAMING` env var, or `"path"`.
 
 **Returns**: pandas DataFrame with all results
 
@@ -2444,6 +2462,11 @@ export FZ_SHELL_PATH=/usr/local/bin:/usr/bin
 
 # Run timeout in seconds (default: 600 = 10 minutes)
 export FZ_RUN_TIMEOUT=3600
+
+# Case directory naming scheme: "path" (var=val,... subdirs, default), "hash"
+# (short content hash, avoids filesystem filename length limits with many
+# variables), or "index" (case_<i>)
+export FZ_CASE_NAMING=path
 ```
 
 ### Shell Path Configuration (FZ_SHELL_PATH)

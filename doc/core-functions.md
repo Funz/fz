@@ -330,6 +330,13 @@ If subdirectory names follow the pattern `key1=val1,key2=val2,...`, variables ar
 # Automatically creates columns: mesh=100, dt=0.01, solver="fast"
 ```
 
+If the directory names don't follow that pattern (e.g. `fzr` was run with
+`case_naming="hash"` or `"index"`), `fzo` recovers the variable columns from
+`cases.csv`, a single manifest `fzr` writes at the results root mapping each
+case directory to its variables (falling back to each case's own `info.txt`,
+which always has `input.<var>=<value>` lines, if the manifest is missing or
+incomplete).
+
 ### Output Type Casting
 
 Values are automatically cast to appropriate types:
@@ -372,6 +379,13 @@ results_df = fz.fzr(
 - `model` (dict or str): Model definition or alias
 - `calculators` (str or list): Calculator URI(s)
 - `results_dir` (str): Results directory path (default: "results")
+- `case_naming` (str): How each case's result/temp subdirectory is named - `"path"`
+  (`var1=val1,var2=val2,...`, default; human-readable but can exceed filesystem
+  filename length limits with many variables), `"hash"` (short content hash, always
+  short and stable), or `"index"` (`case_<i>`, shortest). With `"hash"`/`"index"`, a
+  single `cases.csv` manifest is written at the results root mapping each case
+  directory to its variables (each case's own `info.txt` also has them, as a
+  fallback). Defaults to the `FZ_CASE_NAMING` env var, or `"path"`.
 
 **Returns**: pandas DataFrame with all results and metadata
 

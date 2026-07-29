@@ -217,11 +217,13 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Set up parallel execution | parallel-and-caching.md → "Basic Parallel Execution" |
 | Use caching | calculators.md → "Cache Calculator" |
 | Debug my calculation | quick-examples.md → "Troubleshooting Examples" |
+| Avoid filename length limits with many variables | core-functions.md → "fzr" → `case_naming` |
 
 ## Configuration & Advanced Topics
 
 | Topic | File | Section |
 |-------|------|---------|
+| Case directory naming (`case_naming`, `FZ_CASE_NAMING`) | core-functions.md | "fzr" |
 | FZ_SHELL_PATH overview | shell-path.md | "Overview" |
 | Shell path setup | shell-path.md | "Usage" |
 | Windows path configuration | shell-path.md | "Common Configurations" → "Windows with MSYS2" |
@@ -267,3 +269,5 @@ Quick keyword search:
 - **Interrupt**: parallel-and-caching.md → "Interrupt Handling"
 - **Retry**: parallel-and-caching.md → "Retry Mechanism"
 - **Performance**: parallel-and-caching.md → "Performance Optimization"
+- **case_naming / FZ_CASE_NAMING**: core-functions.md → "fzr"
+- **cases.csv manifest**: core-functions.md → "fzo" → "Automatic Variable Extraction"

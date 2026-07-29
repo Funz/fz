@@ -607,6 +607,11 @@ def fzr_main():
     _add_variables_arg(parser)
     parser.add_argument("--results_dir", "--results", "-r", dest="results_dir", default="results",
                         help="Results directory (default: results)")
+    parser.add_argument("--case_naming", dest="case_naming", default=None,
+                        choices=["path", "hash", "index"],
+                        help="Case directory naming scheme: 'path' (var=val,... subdirs, default), "
+                             "'hash' (short content hash, avoids filename length limits), or "
+                             "'index' (case_<i>). Defaults to FZ_CASE_NAMING env var, or 'path'.")
     _add_calculators_arg(parser)
     _add_format_arg(parser)
 
@@ -620,7 +625,8 @@ def fzr_main():
 
         result = fzr_func(input_path, variables, model,
                     results_dir=args.results_dir,
-                    calculators=calculators)
+                    calculators=calculators,
+                    case_naming=args.case_naming)
         print(format_output(result, args.format))
         # Exit non-zero when no case succeeded, so shell scripts and agents
         # can detect total failure without parsing the per-case status column
@@ -739,6 +745,11 @@ def main():
     _add_variables_arg(parser_run)
     parser_run.add_argument("--results_dir", "--results", "-r", dest="results_dir",
                             default="results", help="Results directory (default: results)")
+    parser_run.add_argument("--case_naming", dest="case_naming", default=None,
+                            choices=["path", "hash", "index"],
+                            help="Case directory naming scheme: 'path' (var=val,... subdirs, default), "
+                                 "'hash' (short content hash, avoids filename length limits), or "
+                                 "'index' (case_<i>). Defaults to FZ_CASE_NAMING env var, or 'path'.")
     _add_calculators_arg(parser_run)
     _add_format_arg(parser_run)
 
@@ -834,7 +845,8 @@ def main():
 
             result = fzr_func(input_path, variables, model,
                         results_dir=args.results_dir,
-                        calculators=calculators)
+                        calculators=calculators,
+                        case_naming=args.case_naming)
             print(format_output(result, args.format))
 
         elif args.command == "design":
