@@ -27,9 +27,15 @@
   - `fzd()` passes `input_static` through unchanged to each iteration's
     internal `fzr()` call.
   - See `doc/core-functions.md` ("fzr" → `input_static`) for the full write-up.
-  - New `tests/test_static_files.py` (8 tests, `sh://`) and
+  - `fzr()` now logs a one-time warning (per file, not per case) when an
+    `input_path` file has no variables and is at least
+    `FZ_STATIC_CANDIDATE_MIN_SIZE` bytes (default 1 MiB), suggesting it be
+    passed via `input_static` instead; set `FZ_STATIC_CANDIDATE_MIN_SIZE=0`
+    to disable.
+  - New `tests/test_static_files.py` (8 tests, `sh://`),
     `tests/test_static_files_ssh.py` (real SFTP transfer over `ssh://` to
-    localhost, wired into `ssh-localhost.yml`).
+    localhost, wired into `ssh-localhost.yml`), and
+    `tests/test_static_files_warning.py` (4 tests for the new warning).
 
 ### Configurable case directory naming (`case_naming`), thread-safe signal handling
 

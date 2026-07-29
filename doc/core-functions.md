@@ -408,6 +408,11 @@ results_df = fz.fzr(
     `input_path` and the generic per-case file transfer never finds them.
   - Either way, `fzi()` never scans them for `$variables`, and `.fz_hash` always
     includes them so `cache://` matching stays correct.
+  - **Detection helper**: if a file under `input_path` has no variables and is at
+    least `FZ_STATIC_CANDIDATE_MIN_SIZE` bytes (default 1 MiB), `fzr()` logs a
+    one-time warning suggesting it be passed via `input_static` instead - it's
+    otherwise re-read/re-copied and re-hashed on every case. Set
+    `FZ_STATIC_CANDIDATE_MIN_SIZE=0` to disable.
 
 **Returns**: pandas DataFrame with all results and metadata
 

@@ -94,6 +94,12 @@ class Config:
             case_naming = 'path'
         self.case_naming = case_naming
 
+        # Size threshold (bytes) above which an input_path file with no
+        # variables triggers a one-time warning suggesting input_static
+        # instead (it's otherwise re-read/re-copied and re-hashed per case).
+        # Set to 0 to disable the warning entirely.
+        self.static_candidate_min_size = self._parse_int_env('FZ_STATIC_CANDIDATE_MIN_SIZE', 1_048_576)
+
     def _parse_int_env(self, key: str, default: Optional[int]) -> Optional[int]:
         """Parse integer environment variable"""
         value = os.getenv(key)
@@ -140,7 +146,8 @@ class Config:
             'ssh_keepalive': self.ssh_keepalive,
             'run_timeout': self.run_timeout,
             'shell_path': self.shell_path,
-            'case_naming': self.case_naming
+            'case_naming': self.case_naming,
+            'static_candidate_min_size': self.static_candidate_min_size
         }
 
 
@@ -235,6 +242,10 @@ def print_config():
 
     print("\n📁 CASE DIRECTORY NAMING:")
     print(f"  FZ_CASE_NAMING = {summary['case_naming']}")
+
+    print("\n📦 STATIC FILE DETECTION:")
+    print(f"  FZ_STATIC_CANDIDATE_MIN_SIZE = {summary['static_candidate_min_size']} bytes "
+          f"(0 = disabled)")
 
     print("\n" + "=" * 60)
     print("Set environment variables to customize these defaults")

@@ -83,7 +83,9 @@ fz.fzr(input_path: str,
   cwd at call time, identified by basename) are symlinked into every case directory and
   explicitly transferred to `ssh://`/`slurm://` (remote)/`funz://` calculators. `fzi()`
   never scans them for variables. See `doc/core-functions.md` → "fzr" → `input_static`
-  for the full write-up.
+  for the full write-up. A large (`FZ_STATIC_CANDIDATE_MIN_SIZE`, default 1 MiB)
+  variable-free file left in `input_path` instead triggers a one-time warning
+  suggesting `input_static`.
 - `callbacks` supports `on_start(total_cases, calculators)`, plus per-case progress
   callbacks (see docstring of `fz.fzr`).
 - Ctrl+C interrupts gracefully; completed cases stay in `results_dir` and can be reused
@@ -264,6 +266,7 @@ FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip interactive host-key prompt (CI; use with
 FZ_SSH_KEEPALIVE             SSH keepalive seconds
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)
 FZ_CASE_NAMING                fzr case dir naming: path (default) | hash | index
+FZ_STATIC_CANDIDATE_MIN_SIZE  bytes threshold for the input_static warning (default 1048576; 0 disables)
 ```
 
 ## Variable syntax in input files

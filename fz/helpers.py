@@ -1823,6 +1823,32 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     static_entries = static_entries or []
     static_hash_pairs = [(e["name"], e["hash"]) for e in static_entries]
 
+    # Warn (once per file, not per case) about large input_path files with no
+    # variables - they're re-read/re-copied and re-hashed on every case, when
+    # passing them via input_static instead would symlink and hash them once.
+    static_candidate_min_size = get_config().static_candidate_min_size
+    _static_candidates_warned = set()
+
+    def _maybe_warn_static_candidate(src_path: Path, has_variables: bool):
+        if static_candidate_min_size <= 0 or has_variables:
+            return
+        resolved = str(src_path.resolve())
+        if resolved in _static_candidates_warned:
+            return
+        try:
+            size = src_path.stat().st_size
+        except OSError:
+            return
+        if size < static_candidate_min_size:
+            return
+        _static_candidates_warned.add(resolved)
+        log_warning(
+            f"⚠️  '{src_path.name}' ({size / 1_048_576:.1f} MB) has no variables and is "
+            f"re-copied/re-hashed for every case. Consider passing it via input_static "
+            f"instead, so it's symlinked and hashed once (see doc/core-functions.md → "
+            f"'fzr' → input_static)."
+        )
+
     for case_index, var_combo in enumerate(var_combinations):
         # Use dedicated result directory function to avoid any temp_path contamination
         result_dir, case_name = _get_result_directory(
@@ -1838,19 +1864,21 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
                     content = f.read()
                     eol = f.newlines if f.newlines else '\n'
             except UnicodeDecodeError:
-                # Copy binary files as-is
+                # Copy binary files as-is - inherently "no variables"
+                _maybe_warn_static_candidate(src_path, has_variables=False)
                 shutil.copy2(src_path, dst_path)
                 return
 
             # Replace variables
-            content = replace_variables_in_content(content, var_combo, varprefix, delim)
+            substituted = replace_variables_in_content(content, var_combo, varprefix, delim)
 
             # Evaluate formulas
-            content = evaluate_formulas(content, model, var_combo, interpreter)
+            substituted = evaluate_formulas(substituted, model, var_combo, interpreter)
+            _maybe_warn_static_candidate(src_path, has_variables=(substituted != content))
 
             # Write compiled content
             with open(dst_path, 'w', newline=eol) as f:
-                f.write(content)
+                f.write(substituted)
 
         # Compile files to result directory and track input file names in order
         input_files_list = []
