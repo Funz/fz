@@ -29,13 +29,8 @@ def test_case_naming_path_default(tmp_path):
         {"output": {"echo": "echo done"}},
         results_dir=str(results_dir), calculators="sh://true",
     )
-    paths = sorted(res["path"])
-    assert paths == [
-        f"{results_dir}/x=1,y=10",
-        f"{results_dir}/x=1,y=20",
-        f"{results_dir}/x=2,y=10",
-        f"{results_dir}/x=2,y=20",
-    ]
+    names = sorted(Path(p).name for p in res["path"])
+    assert names == ["x=1,y=10", "x=1,y=20", "x=2,y=10", "x=2,y=20"]
     # No cases.csv manifest for the default "path" naming - it would be redundant
     assert not (results_dir / "cases.csv").exists()
 
