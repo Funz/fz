@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### Shared static files across cases (`static_files`)
+
+- Models can declare `"static_files"`: files identical across every case
+  (e.g. a shared weather CSV or a large reference dataset) that are never
+  templated/substituted, never re-hashed per case, and (for relative paths)
+  not duplicated on disk per case.
+  - **Absolute path** entries are assumed already present at that same path
+    on the calculator side too (shared/mounted storage); fz never copies,
+    symlinks, or transfers them - only hashes them (once per `fzr()`/`fzd()`
+    call), so `cache://` still reacts if the shared file's content changes.
+  - **Relative path** entries are resolved against the cwd `fzr()`/`fzd()`
+    was called from, identified by basename, and symlinked into every case's
+    result/temp directory (falling back to a real copy if the platform
+    doesn't allow symlinks, e.g. Windows without developer mode/admin).
+    Explicitly transferred to `ssh://`, `slurm://` (remote), and `funz://`
+    calculators, since they live outside `input_path` and wouldn't otherwise
+    be found by the normal per-case file transfer.
+  - `fzi()` never scans them for `$variables`; `.fz_hash` always includes
+    them (once, memoized) so cache matching stays correct.
+  - See `doc/model-definition.md` ("static_files") for the full write-up.
+  - New `tests/test_static_files.py` (8 tests, `sh://`) and
+    `tests/test_static_files_ssh.py` (real SFTP transfer over `ssh://` to
+    localhost, wired into `ssh-localhost.yml`).
+
 ### Configurable case directory naming (`case_naming`), thread-safe signal handling
 
 - `fzr()`/CLI `fzr`/`fz run` gain a `case_naming` parameter (`--case_naming`,

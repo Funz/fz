@@ -1083,6 +1083,10 @@ print(results)
   `info.txt` if the manifest is missing or incomplete). Defaults to the
   `FZ_CASE_NAMING` env var, or `"path"`.
 
+Models can also declare `"static_files"`: files identical across every case (a shared
+weather CSV, a large reference dataset) that are never templated and never duplicated
+per case — see `doc/model-definition.md` ("static_files") for the full write-up.
+
 **Returns**: pandas DataFrame with all results
 
 ### fzd - Run Design of Experiments

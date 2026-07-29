@@ -218,12 +218,14 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Use caching | calculators.md → "Cache Calculator" |
 | Debug my calculation | quick-examples.md → "Troubleshooting Examples" |
 | Avoid filename length limits with many variables | core-functions.md → "fzr" → `case_naming` |
+| Share a large/static file across all cases without duplicating it | model-definition.md → "static_files" |
 
 ## Configuration & Advanced Topics
 
 | Topic | File | Section |
 |-------|------|---------|
 | Case directory naming (`case_naming`, `FZ_CASE_NAMING`) | core-functions.md | "fzr" |
+| Shared static files across cases (`static_files`) | model-definition.md | "static_files" |
 | FZ_SHELL_PATH overview | shell-path.md | "Overview" |
 | Shell path setup | shell-path.md | "Usage" |
 | Windows path configuration | shell-path.md | "Common Configurations" → "Windows with MSYS2" |
@@ -271,3 +273,4 @@ Quick keyword search:
 - **Performance**: parallel-and-caching.md → "Performance Optimization"
 - **case_naming / FZ_CASE_NAMING**: core-functions.md → "fzr"
 - **cases.csv manifest**: core-functions.md → "fzo" → "Automatic Variable Extraction"
+- **static_files**: model-definition.md → "static_files"

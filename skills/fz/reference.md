@@ -193,6 +193,7 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
     "delim": "{}",
     "commentline": "#",
     "interpreter": "python",
+    "static_files": ["../assets/weather.csv", "/data/shared/reference.bin"],
     "output": {
         "name": "shell command run in each case directory, stdout is the value"
     }
@@ -202,6 +203,14 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
 All fields optional except `output` (required to parse results). `id` links the model to
 calculator alias files. Search path for aliases: `./.fz/models/<alias>.json` then
 `~/.fz/models/<alias>.json`.
+
+`static_files`: paths identical across every case, never templated, hashed once per
+`fzr()`/`fzd()` call instead of per case. Absolute entries are assumed already present
+at that path on the calculator too (no copy/symlink/transfer, just hashed for cache
+busting); relative entries (resolved against cwd at call time, identified by basename)
+are symlinked into every case directory and explicitly transferred to `ssh://`/
+`slurm://` (remote)/`funz://` calculators. `fzi()` never scans them for variables.
+See `doc/model-definition.md` → "static_files" for the full write-up.
 
 ## Calculator JSON schema
 

@@ -414,6 +414,15 @@ def _validate_model(model: Dict) -> None:
                     f"callables, got {type(value).__name__} for key '{key}'"
                 )
 
+    # Validate static_files if present
+    if "static_files" in model and model["static_files"] is not None:
+        static_files = model["static_files"]
+        if not isinstance(static_files, list):
+            raise TypeError(f"Model 'static_files' must be a list, got {type(static_files).__name__}")
+        for entry in static_files:
+            if not isinstance(entry, str):
+                raise TypeError(f"Model 'static_files' entries must be strings, got {type(entry).__name__}")
+
     # Validate interpreter if present
     if "interpreter" in model and model["interpreter"] is not None:
         interpreter = model["interpreter"]
@@ -603,7 +612,8 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                               tmp_dir: Path, model: Dict, original_input_was_dir: bool,
                               thread_id: int, start_time: float, original_cwd: str = None,
                               input_files_list: List[str] = None, timeout: int = None,
-                              history: 'CaseHistory | None' = None) -> Tuple[Dict[str, Any], str]:
+                              history: 'CaseHistory | None' = None,
+                              static_entries: List[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], str]:
     """
     Try calculators with retry mechanism for failed calculations
 
@@ -618,6 +628,8 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         original_cwd: Original working directory
         input_files_list: List of input file names in order
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        static_entries: Pre-resolved model["static_files"] entries (see resolve_static_files),
+            forwarded to remote calculators for explicit transfer of the relative ones
 
     Returns:
         Tuple of (calculation result dict, used calculator ID)
@@ -694,7 +706,8 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
             if history:
                 history.append(f"Running command: {selected_calculator_uri}")
             calc_result = run_single_case_calculation(
-                tmp_dir, selected_calculator_uri, model, timeout, original_input_was_dir, original_cwd, input_files_list
+                tmp_dir, selected_calculator_uri, model, timeout, original_input_was_dir, original_cwd,
+                input_files_list, static_entries=static_entries
             )
             calc_elapsed = time.time() - calc_start
 
@@ -866,6 +879,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     callbacks = case_info.get("callbacks")  # Optional callbacks for progress monitoring
     timeout = case_info.get("timeout")  # Optional timeout for calculations
     case_naming = case_info.get("case_naming", "path")  # Case directory naming scheme
+    static_entries = case_info.get("static_entries")  # Pre-resolved model["static_files"] entries
 
     # Get thread ID for debugging
     thread_id = threading.get_ident()
@@ -1030,7 +1044,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             calc_result, used_calculator_id = try_calculators_with_retry(
                 non_cache_calculator_ids, case_index, tmp_dir, model,
                 original_input_was_dir, thread_id, start_time, original_cwd, input_files_list, timeout,
-                history=history
+                history=history, static_entries=static_entries
             )
             # Use calculator ID directly (includes #n suffix for duplicate URIs)
             used_calculator = used_calculator_id
@@ -1386,7 +1400,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                       calculators: List[str], model: Dict, original_input_was_dir: bool,
                       var_names: List[str], output_keys: List[str], original_cwd: str = None,
                       has_input_variables: bool = True, callbacks: Optional[Dict[str, callable]] = None,
-                      timeout: int = None, case_naming: str = "path") -> List[Dict[str, Any]]:
+                      timeout: int = None, case_naming: str = "path",
+                      static_entries: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """
     Run multiple cases in parallel across available calculators
 
@@ -1403,6 +1418,10 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         callbacks: Optional dict of callback functions for progress monitoring
         timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
         case_naming: Case directory naming scheme - "path", "hash", or "index" (see _case_subdir_name)
+        static_entries: Pre-resolved model["static_files"] entries (see resolve_static_files),
+            forwarded to remote calculators (ssh/slurm/funz) so they can explicitly
+            transfer the relative ones, which live outside input_path and wouldn't
+            otherwise be found by the per-case file transfer
 
     Returns:
         List of case results in the same order as var_combinations
@@ -1446,6 +1465,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
             "output_keys": output_keys,
             "total_cases": var_combinations,
             "original_cwd": original_cwd,
+            "static_entries": static_entries,  # Add resolved static_files entries
             "spinner": spinner,  # Add spinner instance
             "has_input_variables": has_input_variables,  # Add flag for directory structure
             "callbacks": callbacks,  # Add callbacks for progress monitoring
@@ -1644,9 +1664,107 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
 
 
 
+def resolve_static_file_paths(model: Dict, base_dir: Union[str, Path]) -> set:
+    """
+    Resolve a model's "static_files" declarations to a set of absolute source
+    paths, without hashing them (used by fzi() to exclude them from variable
+    discovery - cheap enough to call on every fzi() even for large assets).
+    """
+    entries = model.get("static_files") or []
+    base_dir = Path(base_dir)
+    resolved = set()
+    for entry in entries:
+        entry_path = Path(entry)
+        source = entry_path if entry_path.is_absolute() else (base_dir / entry_path).resolve()
+        resolved.add(source)
+    return resolved
+
+
+def resolve_static_files(model: Dict, base_dir: Union[str, Path]) -> List[Dict[str, Any]]:
+    """
+    Resolve a model's "static_files" declarations and hash each one once.
+
+    static_files is a list of paths to files that are identical across every
+    case (e.g. a shared weather CSV or a large reference dataset) and are
+    therefore never templated/substituted, never re-hashed per case, and
+    (for relative paths) not duplicated on disk per case - they're symlinked
+    instead:
+
+    - Absolute path entries are assumed already present at that same absolute
+      path on the calculator side too (shared/mounted storage); fz never
+      copies, symlinks, or transfers them - it only hashes them (by that
+      absolute path, from `base_dir`) so cache matching still reacts if the
+      shared file's content changes.
+    - Relative path entries are resolved against `base_dir` (the cwd fzr()/
+      fzd() was called from), then identified by their **basename** (not the
+      full declared path, which may contain ".." to reach outside input_path
+      and would otherwise escape the case directory when used as a symlink
+      destination). fz symlinks them into every case's result_dir and tmp_dir
+      under that basename (so local `sh://` calculators find them
+      transparently by filename), and explicitly transfers them to remote
+      calculators (ssh://, slurm:// remote, funz://) since they live outside
+      input_path and the generic per-case file walk won't find them.
+
+    Args:
+        model: Model definition dict (reads "static_files")
+        base_dir: Base directory relative paths are resolved against
+
+    Returns:
+        List of {"name": str, "source": Path, "is_absolute": bool, "hash": str}
+        dicts, one per static_files entry that could be read; unreadable
+        entries are skipped with a warning.
+    """
+    entries = model.get("static_files") or []
+    base_dir = Path(base_dir)
+    resolved = []
+    seen_names = set()
+    for entry in entries:
+        entry_path = Path(entry)
+        is_absolute = entry_path.is_absolute()
+        source = entry_path if is_absolute else (base_dir / entry_path).resolve()
+        # Absolute entries are identified by their full path (never placed in
+        # the case directory, so no collision risk); relative entries by
+        # basename only (used as an actual filesystem symlink name).
+        name = str(source) if is_absolute else source.name
+        if not source.is_file():
+            log_warning(f"⚠️  static_files entry '{entry}' not found (resolved to {source}), skipping")
+            continue
+        if name in seen_names:
+            log_warning(f"⚠️  static_files entry '{entry}' has the same name '{name}' as another entry, skipping")
+            continue
+        seen_names.add(name)
+        try:
+            from .io import md5_file
+            file_hash = md5_file(source)
+        except Exception as e:
+            log_warning(f"⚠️  Could not hash static_files entry '{entry}' ({source}): {e}")
+            continue
+        resolved.append({"name": name, "source": source, "is_absolute": is_absolute, "hash": file_hash})
+    return resolved
+
+
+def _symlink_static_files(static_entries: List[Dict[str, Any]], target_dir: Path) -> None:
+    """Symlink each relative static_files entry into target_dir under its declared name."""
+    for entry in static_entries:
+        if entry["is_absolute"]:
+            continue
+        link_path = target_dir / entry["name"]
+        link_path.parent.mkdir(parents=True, exist_ok=True)
+        if link_path.exists() or link_path.is_symlink():
+            continue
+        try:
+            link_path.symlink_to(entry["source"])
+        except OSError as e:
+            # Symlinks require developer mode/admin on some Windows setups;
+            # fall back to a real copy so the case still runs.
+            log_warning(f"⚠️  Could not symlink static file '{entry['name']}' ({e}), copying instead")
+            shutil.copy2(entry["source"], link_path)
+
+
 def compile_to_result_directories(input_path: str, model: Dict, input_variables: Dict,
                                  var_combinations: List[Dict],
-                                 resultsdir: Path, case_naming: str = "path") -> None:
+                                 resultsdir: Path, case_naming: str = "path",
+                                 static_entries: List[Dict[str, Any]] = None) -> None:
     """
     Compile input files directly to result directories for each case
 
@@ -1657,6 +1775,9 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
         var_combinations: List of variable combinations (cases)
         resultsdir: Results directory
         case_naming: Case directory naming scheme - "path", "hash", or "index" (see _case_subdir_name)
+        static_entries: Pre-resolved model["static_files"] entries (see resolve_static_files),
+            computed once by the caller rather than per case; defaults to resolving
+            against cwd if not given
     """
     from .interpreter import replace_variables_in_content, evaluate_formulas
     from .io import create_hash_file
@@ -1687,6 +1808,11 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     # recovered one info.txt at a time.
     if case_naming in ("hash", "index") and has_input_variables:
         write_case_naming_manifest(var_combinations, resultsdir, case_naming)
+
+    # Resolve and hash static_files once for the whole fzr() call, not per case
+    if static_entries is None:
+        static_entries = resolve_static_files(model, os.getcwd())
+    static_hash_pairs = [(e["name"], e["hash"]) for e in static_entries]
 
     for case_index, var_combo in enumerate(var_combinations):
         # Use dedicated result directory function to avoid any temp_path contamination
@@ -1733,9 +1859,14 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
                     compile_file(src_file, dst_file)
                     input_files_list.append(str(rel_path))
 
-        # Create hash file of compiled input files with input files in order
+        # Symlink relative static_files into the result directory under their
+        # declared name (absolute entries are never placed in the case directory)
+        _symlink_static_files(static_entries, result_dir)
+
+        # Create hash file of compiled input files with input files in order,
+        # plus the pre-hashed static_files entries
         try:
-            create_hash_file(result_dir, input_files_list)
+            create_hash_file(result_dir, input_files_list, static_file_hashes=static_hash_pairs)
             log_info(f"Created result hash file: {result_dir}/.fz_hash")
         except Exception as e:
             log_warning(f"Warning: Could not create hash file for case {var_combo}: {e}")
@@ -1773,14 +1904,20 @@ def prepare_temp_directories(var_combinations: List[Dict], temp_path: Path, resu
         # Copy files from result directory to temp directory (excluding .fz_hash).
         # Subdirectories are copied recursively so directory-tree inputs (e.g. an
         # OpenFOAM case with system/, constant/, 0/) reach the calculator intact.
+        # Symlinks (static_files) are recreated as symlinks rather than dereferenced -
+        # copying their target content here would defeat the point of not duplicating
+        # a large static file on disk per case.
         try:
             if result_dir.exists():
                 files_copied = 0
                 for item in result_dir.iterdir():
                     if item.name == ".fz_hash":
                         continue
-                    if item.is_dir():
-                        shutil.copytree(item, tmp_dir / item.name, dirs_exist_ok=True)
+                    if item.is_symlink():
+                        (tmp_dir / item.name).symlink_to(os.readlink(item))
+                        files_copied += 1
+                    elif item.is_dir():
+                        shutil.copytree(item, tmp_dir / item.name, dirs_exist_ok=True, symlinks=True)
                         files_copied += 1
                     elif item.is_file():
                         shutil.copy2(item, tmp_dir)

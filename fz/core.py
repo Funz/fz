@@ -999,8 +999,10 @@ def fzi(input_path: str, model: Union[str, Dict]) -> Dict[str, Any]:
         if not input_path.exists():
             raise FileNotFoundError(f"Input path '{input_path}' not found")
 
-        # Parse variables
-        variables = parse_variables_from_path(input_path, varprefix, var_delim)
+        # Parse variables (static_files are never templated, so excluded from the scan)
+        from .helpers import resolve_static_file_paths
+        static_paths = resolve_static_file_paths(model, working_dir)
+        variables = parse_variables_from_path(input_path, varprefix, var_delim, exclude_paths=static_paths)
 
         # Read content to extract defaults and formulas
         if input_path.is_file():
@@ -1687,9 +1689,16 @@ def fzr(
                 resolved_calculators.append(calc)
         calculators = resolved_calculators
 
+        # Resolve model["static_files"] once for this whole fzr() call (not per case):
+        # relative entries symlinked/hashed once and reused everywhere, absolute
+        # entries hashed once and assumed already present on the calculator side
+        from .helpers import resolve_static_files
+        static_entries = resolve_static_files(model, original_cwd)
+
         # Compile all combinations directly to result directories, then prepare temp directories
         compile_to_result_directories(
-            input_path, model, input_variables, var_combinations, results_dir, case_naming
+            input_path, model, input_variables, var_combinations, results_dir, case_naming,
+            static_entries=static_entries,
         )
 
         # Create temp directories and copy from result directories (excluding .fz_hash)
@@ -1711,6 +1720,7 @@ def fzr(
                 callbacks,
                 timeout,
                 case_naming,
+                static_entries,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)
