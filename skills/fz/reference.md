@@ -12,17 +12,18 @@ import fz
 ### fz.fzi — parse input, discover variables
 
 ```python
-fz.fzi(input_path: str, model: str | dict) -> dict
+fz.fzi(input_path: str, model: str | dict, input_static: list[str] = None) -> dict
 ```
 
 Returns a dict whose keys are the variables, formulas, and static objects found in
 `input_path` (file or directory); variable values are `None` (or their `~default`).
+`input_static` entries (see `fz.fzr` below) are never scanned for variables.
 
 ### fz.fzc — compile input files
 
 ```python
 fz.fzc(input_path: str, input_variables: dict, model: str | dict,
-       output_dir: str = "output") -> None
+       output_dir: str = "output", input_static: list[str] = None) -> None
 ```
 
 Substitutes variables and evaluates formulas. Scalar values produce a single compiled
@@ -62,7 +63,8 @@ fz.fzr(input_path: str,
        calculators: str | list[str] = None,   # default "sh://"
        callbacks: dict = None,
        timeout: int = None,
-       case_naming: str = None) -> pandas.DataFrame   # "path" (default), "hash", "index"
+       case_naming: str = None,               # "path" (default), "hash", "index"
+       input_static: list[str] = None) -> pandas.DataFrame
 ```
 
 - dict `input_variables` ⇒ factorial (Cartesian product); DataFrame ⇒ one case per row.
@@ -74,6 +76,14 @@ fz.fzr(input_path: str,
   `"index"` (`case_<i>`). With `"hash"`/`"index"`, a single `cases.csv` manifest is
   written at the results root (case dir name → variables); each case's own `info.txt`
   also has them, as a fallback. Defaults to the `FZ_CASE_NAMING` env var, or `"path"`.
+- `input_static`: files identical across every case (a shared weather CSV, a large
+  reference dataset), never templated, never re-hashed per case. Absolute path entries
+  are assumed already present at that path on the calculator too (no copy/symlink/
+  transfer, just hashed once for cache busting); relative entries (resolved against
+  cwd at call time, identified by basename) are symlinked into every case directory and
+  explicitly transferred to `ssh://`/`slurm://` (remote)/`funz://` calculators. `fzi()`
+  never scans them for variables. See `doc/core-functions.md` → "fzr" → `input_static`
+  for the full write-up.
 - `callbacks` supports `on_start(total_cases, calculators)`, plus per-case progress
   callbacks (see docstring of `fz.fzr`).
 - Ctrl+C interrupts gracefully; completed cases stay in `results_dir` and can be reused
@@ -89,7 +99,8 @@ fz.fzd(input_path: str | None,
        algorithm: str,                      # name or path to .py algorithm
        calculators: str | list[str] | int = None,
        algorithm_options: dict | str = None,  # dict, JSON string, or JSON file path
-       analysis_dir: str = "analysis") -> dict   # CLI default: results_fzd
+       analysis_dir: str = "analysis",        # CLI default: results_fzd
+       input_static: list[str] = None) -> dict   # passed through to each iteration's fzr()
 ```
 
 Returns `{"XY": DataFrame, "analysis": ..., "iterations": int,
@@ -144,15 +155,18 @@ plus calculator script/alias. `fz uninstall model|algorithm <name>` removes them
 Flags per command:
 
 ```
-fzi  [input_path]  --input_path/-i  --model/-m  --format/-f
-fzc  [input_path]  --input_path/-i  --model/-m  --input_variables/-v  --output_dir/-o
+fzi  [input_path]  --input_path/-i  --model/-m  --input_static  --format/-f
+fzc  [input_path]  --input_path/-i  --model/-m  --input_variables/-v  --input_static  --output_dir/-o
 fzo  [output_path] --output_path/-o --model/-m  --format/-f
 fzr  [input_path]  --input_path/-i  --model/-m  --input_variables/-v  --results_dir/-r
-     --calculators/-c  --format/-f  --case_naming {path,hash,index}
+     --calculators/-c  --format/-f  --case_naming {path,hash,index}  --input_static
 fzl  --models/-m  --calculators/-c  --check  --format/-f
 fzd  --input_dir/-i  --input_vars/-v  --model/-m  --output_expression/-e
-     --algorithm/-a  --results_dir/-r  --calculators/-c  --options/-o
+     --algorithm/-a  --results_dir/-r  --calculators/-c  --options/-o  --input_static
 ```
+
+`--input_static` (fzi/fzc/fzr/fzd): a static file path, or an inline JSON list of paths;
+repeatable to add several. See `input_static` in `fz.fzr`'s signature above.
 
 > **`fzd` flag divergence (easy to trip on):** `fzd`'s canonical input flags are
 > `--input_dir`/`-i` and `--input_vars`/`-v` (fz ≥ 1.1 also accepts the `fzi`/`fzc`/`fzr`
@@ -193,7 +207,6 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
     "delim": "{}",
     "commentline": "#",
     "interpreter": "python",
-    "static_files": ["../assets/weather.csv", "/data/shared/reference.bin"],
     "output": {
         "name": "shell command run in each case directory, stdout is the value"
     }
@@ -204,13 +217,9 @@ All fields optional except `output` (required to parse results). `id` links the 
 calculator alias files. Search path for aliases: `./.fz/models/<alias>.json` then
 `~/.fz/models/<alias>.json`.
 
-`static_files`: paths identical across every case, never templated, hashed once per
-`fzr()`/`fzd()` call instead of per case. Absolute entries are assumed already present
-at that path on the calculator too (no copy/symlink/transfer, just hashed for cache
-busting); relative entries (resolved against cwd at call time, identified by basename)
-are symlinked into every case directory and explicitly transferred to `ssh://`/
-`slurm://` (remote)/`funz://` calculators. `fzi()` never scans them for variables.
-See `doc/model-definition.md` → "static_files" for the full write-up.
+Static files identical across every case (never templated) are declared via `fzr`'s
+`input_static` argument, not the model — see `fz.fzr` above and `doc/core-functions.md`
+→ "fzr" → `input_static`.
 
 ## Calculator JSON schema
 

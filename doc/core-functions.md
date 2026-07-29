@@ -104,12 +104,14 @@ fzl --format json > config.json
 ```python
 import fz
 
-variables = fz.fzi(input_path, model)
+variables = fz.fzi(input_path, model, input_static=None)
 ```
 
 **Parameters**:
 - `input_path` (str): Path to input file or directory
 - `model` (dict or str): Model definition or alias
+- `input_static` (list of str, optional): Files identical across every case (see `fzr`'s
+  `input_static` below); never scanned for variables, since they're never templated
 
 **Returns**: Dictionary with variable names as keys (values are None)
 
@@ -173,7 +175,7 @@ print(variables)
 ```python
 import fz
 
-fz.fzc(input_path, input_variables, model, output_dir)
+fz.fzc(input_path, input_variables, model, output_dir, input_static=None)
 ```
 
 **Parameters**:
@@ -181,6 +183,8 @@ fz.fzc(input_path, input_variables, model, output_dir)
 - `input_variables` (dict): Variable values (scalar or list)
 - `model` (dict or str): Model definition or alias
 - `output_dir` (str): Output directory path
+- `input_static` (list of str, optional): Files identical across every case (see `fzr`'s
+  `input_static`); symlinked into `output_dir` rather than templated/duplicated
 
 **Returns**: None (writes files to output_dir)
 
@@ -386,6 +390,24 @@ results_df = fz.fzr(
   single `cases.csv` manifest is written at the results root mapping each case
   directory to its variables (each case's own `info.txt` also has them, as a
   fallback). Defaults to the `FZ_CASE_NAMING` env var, or `"path"`.
+- `input_static` (list of str, optional): Files identical across every case (e.g. a
+  shared weather CSV or a large reference dataset) that are never templated/
+  substituted, never re-hashed per case, and (for relative paths) not duplicated on
+  disk per case:
+  - **Absolute path** entries are assumed already present at that same path on the
+    calculator side too (shared/mounted storage); fz never copies, symlinks, or
+    transfers them - only hashes them once per `fzr()`/`fzd()` call, so `cache://`
+    still reacts if the shared file's content changes. The calculator command/script
+    must reference the absolute path directly.
+  - **Relative path** entries are resolved against the cwd `fzr()`/`fzd()` was called
+    from, identified by their **basename** (not the full declared path, which may
+    contain `..` to reach outside `input_path`), symlinked into every case's
+    directory (falling back to a real copy if the platform disallows symlinks, e.g.
+    Windows without developer mode/admin), and explicitly transferred to `ssh://`,
+    `slurm://` (remote), and `funz://` calculators, since they live outside
+    `input_path` and the generic per-case file transfer never finds them.
+  - Either way, `fzi()` never scans them for `$variables`, and `.fz_hash` always
+    includes them so `cache://` matching stays correct.
 
 **Returns**: pandas DataFrame with all results and metadata
 
@@ -537,7 +559,8 @@ result = fz.fzd(
     algorithm,
     calculators=None,
     algorithm_options=None,
-    analysis_dir="analysis"
+    analysis_dir="analysis",
+    input_static=None
 )
 ```
 
@@ -550,6 +573,9 @@ result = fz.fzd(
 - `calculators` (str, list, or int): Calculator URI(s) (default: `["sh://"]`); when `model` is a callable, must be an `int` (default: `1`), accepted for API compatibility — calls are always run sequentially, never in parallel (see below)
 - `algorithm_options` (dict, str, or None): Algorithm-specific options (dict, JSON string, or JSON file path)
 - `analysis_dir` (str): Analysis results directory (default: `"analysis"`)
+- `input_static` (list of str, optional): Files identical across every case (see `fzr`'s
+  `input_static`); passed through unchanged to each iteration's internal `fzr()` call
+  for file-based models
 
 **Returns**: Dictionary with keys:
 - `XY`: pandas DataFrame with all input and output values

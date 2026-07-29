@@ -301,41 +301,6 @@ prefer `to_pickle`/`to_parquet` for a lossless round trip.
 See `examples/vector_outputs_example.md` for a complete, runnable
 walk-through.
 
-### static_files (optional)
-
-List of files that are identical across every case (e.g. a shared weather
-CSV, a large mesh/reference dataset) and should never be templated/substituted
-or duplicated per case:
-
-```python
-model = {
-    "static_files": [
-        "../assets/weather.csv",       # relative: resolved against cwd at fzr()/fzd() call time
-        "/data/shared/reference.bin",  # absolute: assumed already present at that same path on the calculator too
-    ],
-    "output": {...},
-}
-```
-
-- **Absolute paths** are assumed identical and already accessible at that
-  exact path on the calculator side (shared/mounted storage, or a cluster
-  where the same path is available on every node). fz never copies,
-  symlinks, or transfers them - only hashes them (so results still cache
-  bust if the shared file's content changes). The calculator command/script
-  must reference the absolute path directly.
-- **Relative paths** are resolved once against the cwd `fzr()`/`fzd()` was
-  called from, identified by their **basename** (not the full declared path,
-  which may contain `..` to reach outside `input_path`), hashed once per
-  call rather than per case, and symlinked into every case's directory under
-  that basename - so a script referencing it by plain filename
-  (`cat weather.csv`) just works locally. For `ssh://`, `slurm://` (remote),
-  and `funz://` calculators, fz explicitly transfers them from their real
-  source path, since they live outside `input_path` and wouldn't otherwise
-  be found by the normal per-case file transfer.
-- Either way, `fzi()` never scans static_files for `$variables`, and
-  `.fz_hash` always includes them so `cache://` still reacts to content
-  changes.
-
 ### id (optional)
 
 Unique identifier for the model, useful for documentation and logging.

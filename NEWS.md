@@ -2,12 +2,15 @@
 
 ## Unreleased
 
-### Shared static files across cases (`static_files`)
+### Shared static files across cases (`input_static`)
 
-- Models can declare `"static_files"`: files identical across every case
-  (e.g. a shared weather CSV or a large reference dataset) that are never
-  templated/substituted, never re-hashed per case, and (for relative paths)
-  not duplicated on disk per case.
+- `fzr()`/`fzc()`/`fzi()`/`fzd()` gain an `input_static` parameter (CLI
+  `--input_static`, repeatable or an inline JSON list): files identical
+  across every case (e.g. a shared weather CSV or a large reference
+  dataset) that are never templated/substituted, never re-hashed per case,
+  and (for relative paths) not duplicated on disk per case. This is a
+  function argument, not a model field — the model itself doesn't need to
+  know about it.
   - **Absolute path** entries are assumed already present at that same path
     on the calculator side too (shared/mounted storage); fz never copies,
     symlinks, or transfers them - only hashes them (once per `fzr()`/`fzd()`
@@ -21,7 +24,9 @@
     be found by the normal per-case file transfer.
   - `fzi()` never scans them for `$variables`; `.fz_hash` always includes
     them (once, memoized) so cache matching stays correct.
-  - See `doc/model-definition.md` ("static_files") for the full write-up.
+  - `fzd()` passes `input_static` through unchanged to each iteration's
+    internal `fzr()` call.
+  - See `doc/core-functions.md` ("fzr" → `input_static`) for the full write-up.
   - New `tests/test_static_files.py` (8 tests, `sh://`) and
     `tests/test_static_files_ssh.py` (real SFTP transfer over `ssh://` to
     localhost, wired into `ssh-localhost.yml`).

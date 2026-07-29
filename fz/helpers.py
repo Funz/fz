@@ -361,6 +361,22 @@ def _cleanup_fzr_resources():
         _calculator_manager = None
 
 
+def _validate_input_static(input_static: Optional[List[str]]) -> None:
+    """
+    Validate the input_static argument of fzr()/fzc()/fzi()/fzd().
+
+    Raises:
+        TypeError: If input_static is not a list of strings
+    """
+    if input_static is None:
+        return
+    if not isinstance(input_static, list):
+        raise TypeError(f"input_static must be a list, got {type(input_static).__name__}")
+    for entry in input_static:
+        if not isinstance(entry, str):
+            raise TypeError(f"input_static entries must be strings, got {type(entry).__name__}")
+
+
 def _validate_model(model: Dict) -> None:
     """
     Validate model dictionary structure and required fields
@@ -413,15 +429,6 @@ def _validate_model(model: Dict) -> None:
                     f"'jq://', 'yq://' or 'xpath://' expression) or "
                     f"callables, got {type(value).__name__} for key '{key}'"
                 )
-
-    # Validate static_files if present
-    if "static_files" in model and model["static_files"] is not None:
-        static_files = model["static_files"]
-        if not isinstance(static_files, list):
-            raise TypeError(f"Model 'static_files' must be a list, got {type(static_files).__name__}")
-        for entry in static_files:
-            if not isinstance(entry, str):
-                raise TypeError(f"Model 'static_files' entries must be strings, got {type(entry).__name__}")
 
     # Validate interpreter if present
     if "interpreter" in model and model["interpreter"] is not None:
@@ -628,7 +635,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         original_cwd: Original working directory
         input_files_list: List of input file names in order
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
-        static_entries: Pre-resolved model["static_files"] entries (see resolve_static_files),
+        static_entries: Pre-resolved input_static entries (see resolve_static_files),
             forwarded to remote calculators for explicit transfer of the relative ones
 
     Returns:
@@ -879,7 +886,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     callbacks = case_info.get("callbacks")  # Optional callbacks for progress monitoring
     timeout = case_info.get("timeout")  # Optional timeout for calculations
     case_naming = case_info.get("case_naming", "path")  # Case directory naming scheme
-    static_entries = case_info.get("static_entries")  # Pre-resolved model["static_files"] entries
+    static_entries = case_info.get("static_entries")  # Pre-resolved input_static entries
 
     # Get thread ID for debugging
     thread_id = threading.get_ident()
@@ -1418,7 +1425,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         callbacks: Optional dict of callback functions for progress monitoring
         timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
         case_naming: Case directory naming scheme - "path", "hash", or "index" (see _case_subdir_name)
-        static_entries: Pre-resolved model["static_files"] entries (see resolve_static_files),
+        static_entries: Pre-resolved input_static entries (see resolve_static_files),
             forwarded to remote calculators (ssh/slurm/funz) so they can explicitly
             transfer the relative ones, which live outside input_path and wouldn't
             otherwise be found by the per-case file transfer
@@ -1664,13 +1671,13 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
 
 
 
-def resolve_static_file_paths(model: Dict, base_dir: Union[str, Path]) -> set:
+def resolve_static_file_paths(input_static: Optional[List[str]], base_dir: Union[str, Path]) -> set:
     """
-    Resolve a model's "static_files" declarations to a set of absolute source
-    paths, without hashing them (used by fzi() to exclude them from variable
+    Resolve "input_static" declarations to a set of absolute source paths,
+    without hashing them (used by fzi() to exclude them from variable
     discovery - cheap enough to call on every fzi() even for large assets).
     """
-    entries = model.get("static_files") or []
+    entries = input_static or []
     base_dir = Path(base_dir)
     resolved = set()
     for entry in entries:
@@ -1680,11 +1687,12 @@ def resolve_static_file_paths(model: Dict, base_dir: Union[str, Path]) -> set:
     return resolved
 
 
-def resolve_static_files(model: Dict, base_dir: Union[str, Path]) -> List[Dict[str, Any]]:
+def resolve_static_files(input_static: Optional[List[str]], base_dir: Union[str, Path]) -> List[Dict[str, Any]]:
     """
-    Resolve a model's "static_files" declarations and hash each one once.
+    Resolve "input_static" declarations (fzr()/fzd()/fzc()/fzi()'s input_static
+    argument) and hash each one once.
 
-    static_files is a list of paths to files that are identical across every
+    input_static is a list of paths to files that are identical across every
     case (e.g. a shared weather CSV or a large reference dataset) and are
     therefore never templated/substituted, never re-hashed per case, and
     (for relative paths) not duplicated on disk per case - they're symlinked
@@ -1706,15 +1714,16 @@ def resolve_static_files(model: Dict, base_dir: Union[str, Path]) -> List[Dict[s
       input_path and the generic per-case file walk won't find them.
 
     Args:
-        model: Model definition dict (reads "static_files")
+        input_static: List of static file paths (fzr()/fzd()/fzc()/fzi()'s
+            input_static argument)
         base_dir: Base directory relative paths are resolved against
 
     Returns:
         List of {"name": str, "source": Path, "is_absolute": bool, "hash": str}
-        dicts, one per static_files entry that could be read; unreadable
+        dicts, one per input_static entry that could be read; unreadable
         entries are skipped with a warning.
     """
-    entries = model.get("static_files") or []
+    entries = input_static or []
     base_dir = Path(base_dir)
     resolved = []
     seen_names = set()
@@ -1727,24 +1736,24 @@ def resolve_static_files(model: Dict, base_dir: Union[str, Path]) -> List[Dict[s
         # basename only (used as an actual filesystem symlink name).
         name = str(source) if is_absolute else source.name
         if not source.is_file():
-            log_warning(f"⚠️  static_files entry '{entry}' not found (resolved to {source}), skipping")
+            log_warning(f"⚠️  input_static entry '{entry}' not found (resolved to {source}), skipping")
             continue
         if name in seen_names:
-            log_warning(f"⚠️  static_files entry '{entry}' has the same name '{name}' as another entry, skipping")
+            log_warning(f"⚠️  input_static entry '{entry}' has the same name '{name}' as another entry, skipping")
             continue
         seen_names.add(name)
         try:
             from .io import md5_file
             file_hash = md5_file(source)
         except Exception as e:
-            log_warning(f"⚠️  Could not hash static_files entry '{entry}' ({source}): {e}")
+            log_warning(f"⚠️  Could not hash input_static entry '{entry}' ({source}): {e}")
             continue
         resolved.append({"name": name, "source": source, "is_absolute": is_absolute, "hash": file_hash})
     return resolved
 
 
 def _symlink_static_files(static_entries: List[Dict[str, Any]], target_dir: Path) -> None:
-    """Symlink each relative static_files entry into target_dir under its declared name."""
+    """Symlink each relative input_static entry into target_dir under its declared name."""
     for entry in static_entries:
         if entry["is_absolute"]:
             continue
@@ -1775,9 +1784,9 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
         var_combinations: List of variable combinations (cases)
         resultsdir: Results directory
         case_naming: Case directory naming scheme - "path", "hash", or "index" (see _case_subdir_name)
-        static_entries: Pre-resolved model["static_files"] entries (see resolve_static_files),
-            computed once by the caller rather than per case; defaults to resolving
-            against cwd if not given
+        static_entries: Pre-resolved input_static entries (see resolve_static_files),
+            computed once by the caller (from fzr()'s/fzc()'s input_static argument)
+            rather than per case
     """
     from .interpreter import replace_variables_in_content, evaluate_formulas
     from .io import create_hash_file
@@ -1809,9 +1818,9 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
     if case_naming in ("hash", "index") and has_input_variables:
         write_case_naming_manifest(var_combinations, resultsdir, case_naming)
 
-    # Resolve and hash static_files once for the whole fzr() call, not per case
-    if static_entries is None:
-        static_entries = resolve_static_files(model, os.getcwd())
+    # static_entries is pre-resolved once by the caller (fzr()/fzc(), from
+    # their input_static argument) rather than per case
+    static_entries = static_entries or []
     static_hash_pairs = [(e["name"], e["hash"]) for e in static_entries]
 
     for case_index, var_combo in enumerate(var_combinations):

@@ -453,7 +453,6 @@ jobs:
 
             model = {
                 "delim": "{}",
-                "static_files": ["../assets/weather.csv"],
                 "output": {"weather": "cat weather.csv"},
             }
 
@@ -463,6 +462,7 @@ jobs:
             results = fzr(
                 str(input_file), {"x": 3}, model,
                 calculators=calculator_uri, results_dir="results",
+                input_static=["../assets/weather.csv"],
             )
 
             if hasattr(results, "to_dict"):

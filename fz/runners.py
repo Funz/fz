@@ -1260,7 +1260,7 @@ def run_calculation(
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         original_input_was_dir: Whether original input was a directory
         input_files_list: List of input file names in order (from .fz_hash)
-        static_entries: Pre-resolved model["static_files"] entries (see
+        static_entries: Pre-resolved input_static entries (see
             helpers.resolve_static_files). Relative entries live outside
             input_path/working_dir (only symlinked there for local execution), so
             remote calculators (ssh/slurm-remote/funz) transfer them explicitly from
@@ -1821,7 +1821,7 @@ def run_ssh_calculation(
         model: Model definition dict
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
-        static_entries: Pre-resolved model["static_files"] entries, explicitly
+        static_entries: Pre-resolved input_static entries, explicitly
             transferred (relative ones only - see transfer_static_files_to_remote_sftp)
 
     Returns:
@@ -2046,7 +2046,7 @@ def run_slurm_calculation(
         model: Model definition dict
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
-        static_entries: Pre-resolved model["static_files"] entries; only used for
+        static_entries: Pre-resolved input_static entries; only used for
             remote SLURM execution (local execution shares the filesystem, so the
             local symlink already resolves)
 
@@ -2331,7 +2331,7 @@ def _run_remote_slurm_calculation(
         start_time: Calculation start time
         env_info: Local environment information
         input_files_list: List of input file names in order
-        static_entries: Pre-resolved model["static_files"] entries, explicitly
+        static_entries: Pre-resolved input_static entries, explicitly
             transferred (relative ones only - see transfer_static_files_to_remote_sftp)
 
     Returns:
@@ -2794,7 +2794,7 @@ def run_funz_calculation(
         model: Model definition dict
         timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
         input_files_list: List of input file names in order (from .fz_hash)
-        static_entries: Pre-resolved model["static_files"] entries; relative ones are
+        static_entries: Pre-resolved input_static entries; relative ones are
             explicitly uploaded (they live outside working_dir - only symlinked there
             for local execution), absolute ones are assumed already present server-side
 
@@ -3691,7 +3691,7 @@ def run_single_case_calculation(
         original_input_was_dir: Whether original input was a directory
         original_cwd: Original working directory
         input_files_list: List of input file names in order
-        static_entries: Pre-resolved model["static_files"] entries (see
+        static_entries: Pre-resolved input_static entries (see
             helpers.resolve_static_files), force-transferred to remote calculators
 
     Returns:

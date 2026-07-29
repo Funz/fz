@@ -1,6 +1,6 @@
 """
-Tests for the model "static_files" option: files identical across every case
-(e.g. a shared weather CSV or a large reference dataset) that are never
+Tests for fzr()/fzi()'s "input_static" argument: files identical across every
+case (e.g. a shared weather CSV or a large reference dataset) that are never
 templated/substituted, never re-hashed per case, and (for relative paths) not
 duplicated on disk per case - symlinked into each case directory instead.
 
@@ -37,12 +37,10 @@ def test_static_files_relative_symlinked_and_hashed(tmp_path, monkeypatch):
     monkeypatch.chdir(study_dir)
     input_file = _write_input(study_dir)
 
-    model = {
-        "static_files": ["../assets/weather.csv"],
-        "output": {"echo": "cat weather.csv"},
-    }
+    model = {"output": {"echo": "cat weather.csv"}}
     res = fz.fzr(str(input_file), {"x": [1, 2]}, model,
-                 results_dir="results", calculators="sh://true")
+                 results_dir="results", calculators="sh://true",
+                 input_static=["../assets/weather.csv"])
 
     for p in res["path"]:
         link = Path(p) / "weather.csv"
@@ -69,12 +67,10 @@ def test_static_files_absolute_not_transferred_but_hashed(tmp_path, monkeypatch)
     monkeypatch.chdir(study_dir)
     input_file = _write_input(study_dir)
 
-    model = {
-        "static_files": [str(shared)],
-        "output": {"echo": "echo done"},
-    }
+    model = {"output": {"echo": "echo done"}}
     res = fz.fzr(str(input_file), {"x": [1]}, model,
-                 results_dir="results", calculators="sh://true")
+                 results_dir="results", calculators="sh://true",
+                 input_static=[str(shared)])
 
     case_dir = Path(res["path"][0])
     # Never copied or symlinked into the case directory
@@ -108,12 +104,10 @@ def test_static_files_command_can_read_both_kinds(tmp_path, monkeypatch):
     calc_script.write_text(f"#!/bin/bash\ncat weather.csv {shared.as_posix()} > combined.txt\n")
     calc_script.chmod(0o755)
 
-    model = {
-        "static_files": ["../assets/weather.csv", str(shared)],
-        "output": {"echo": "cat combined.txt"},
-    }
+    model = {"output": {"echo": "cat combined.txt"}}
     res = fz.fzr(str(input_file), {"x": [1]}, model,
-                 results_dir="results", calculators="sh://bash calc.sh")
+                 results_dir="results", calculators="sh://bash calc.sh",
+                 input_static=["../assets/weather.csv", str(shared)])
 
     assert res["status"][0] == "done"
     assert res["echo"][0] == "weather-data\nshared-data"
@@ -132,11 +126,8 @@ def test_static_files_excluded_from_fzi_variable_scan(tmp_path, monkeypatch):
     monkeypatch.chdir(study_dir)
     input_file = _write_input(study_dir)
 
-    model = {
-        "static_files": ["../assets/weather.csv"],
-        "output": {},
-    }
-    variables = fz.fzi(str(input_file), model)
+    model = {"output": {}}
+    variables = fz.fzi(str(input_file), model, input_static=["../assets/weather.csv"])
     assert "x" in variables
     assert "not_a_real_var" not in variables
 
@@ -152,22 +143,21 @@ def test_static_files_cache_invalidated_on_content_change(tmp_path, monkeypatch)
     monkeypatch.chdir(study_dir)
     input_file = _write_input(study_dir)
 
-    model = {
-        "static_files": ["../assets/weather.csv"],
-        "output": {"echo": "cat weather.csv"},
-    }
-    fz.fzr(str(input_file), {"x": [1]}, model,
-           results_dir="results1", calculators="sh://true")
+    model = {"output": {"echo": "cat weather.csv"}}
+    fz.fzr(str(input_file), {"x": [1]}, model, results_dir="results1",
+           calculators="sh://true", input_static=["../assets/weather.csv"])
 
     # Re-run via cache with unchanged static file -> cache hit, same content
     res_hit = fz.fzr(str(input_file), {"x": [1]}, model, results_dir="results2",
-                      calculators=["cache://results1", "sh://true"])
+                      calculators=["cache://results1", "sh://true"],
+                      input_static=["../assets/weather.csv"])
     assert res_hit["echo"][0] == "v1"
 
     # Change the shared static file, re-run via cache -> must NOT reuse stale cache
     weather.write_text("v2-changed")
     res_miss = fz.fzr(str(input_file), {"x": [1]}, model, results_dir="results3",
-                       calculators=["cache://results1", "sh://true"])
+                       calculators=["cache://results1", "sh://true"],
+                       input_static=["../assets/weather.csv"])
     assert res_miss["echo"][0] == "v2-changed"
 
 
@@ -177,22 +167,20 @@ def test_static_files_missing_entry_skipped_with_warning(tmp_path, monkeypatch, 
     monkeypatch.chdir(study_dir)
     input_file = _write_input(study_dir)
 
-    model = {
-        "static_files": ["does_not_exist.csv"],
-        "output": {"echo": "echo done"},
-    }
+    model = {"output": {"echo": "echo done"}}
     # Should not raise - the missing entry is skipped, case still runs
     res = fz.fzr(str(input_file), {"x": [1]}, model,
-                 results_dir="results", calculators="sh://true")
+                 results_dir="results", calculators="sh://true",
+                 input_static=["does_not_exist.csv"])
     assert res["status"][0] == "done"
 
 
 def test_static_files_invalid_type_raises():
     with pytest.raises(TypeError):
-        fz.fzr("x", {}, {"output": {}, "static_files": "not-a-list"})
+        fz.fzr("x", {}, {"output": {}}, input_static="not-a-list")
 
     with pytest.raises(TypeError):
-        fz.fzr("x", {}, {"output": {}, "static_files": [123]})
+        fz.fzr("x", {}, {"output": {}}, input_static=[123])
 
 
 def test_static_files_name_collision_skipped(tmp_path, monkeypatch):
@@ -210,12 +198,10 @@ def test_static_files_name_collision_skipped(tmp_path, monkeypatch):
     monkeypatch.chdir(study_dir)
     input_file = _write_input(study_dir)
 
-    model = {
-        "static_files": ["../a/config.xml", "../b/config.xml"],
-        "output": {"echo": "cat config.xml"},
-    }
+    model = {"output": {"echo": "cat config.xml"}}
     res = fz.fzr(str(input_file), {"x": [1]}, model,
-                 results_dir="results", calculators="sh://true")
+                 results_dir="results", calculators="sh://true",
+                 input_static=["../a/config.xml", "../b/config.xml"])
     # Whichever was kept, the case must still run and read a consistent file
     assert res["status"][0] == "done"
     assert res["echo"][0] in ("from-a", "from-b")

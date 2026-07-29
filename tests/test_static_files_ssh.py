@@ -1,9 +1,9 @@
 """
-Test model "static_files" (see tests/test_static_files.py) over a real ssh://
-calculator connecting to localhost.
+Test fzr()'s "input_static" argument (see tests/test_static_files.py) over a
+real ssh:// calculator connecting to localhost.
 
 Unlike sh:// (same filesystem, symlinks just resolve), ssh:// exercises the
-actual remote-transfer code path: relative static_files entries are
+actual remote-transfer code path: relative input_static entries are
 explicitly uploaded via SFTP from their real source path
 (runners.transfer_static_files_to_remote_sftp), since they live outside
 input_path and the generic per-case file transfer only sees what's physically
@@ -149,10 +149,7 @@ def test_static_files_over_ssh_localhost(tmp_path, monkeypatch):
         )
         calc_script.chmod(0o755)
 
-        model = {
-            "static_files": ["../assets/weather.csv", str(shared_absolute)],
-            "output": {"echo": "cat combined.txt"},
-        }
+        model = {"output": {"echo": "cat combined.txt"}}
 
         # fz's ssh:// URI doesn't take custom ssh options; rely on default
         # agent/key discovery plus the authorized_keys entry set up above,
@@ -169,7 +166,8 @@ def test_static_files_over_ssh_localhost(tmp_path, monkeypatch):
             )
 
         res = fz.fzr(str(input_file), {"x": [1]}, model,
-                      results_dir="results", calculators=[ssh_calculator])
+                      results_dir="results", calculators=[ssh_calculator],
+                      input_static=["../assets/weather.csv", str(shared_absolute)])
 
         assert res["status"][0] == "done", res.get("error", [None])[0]
         assert res["echo"][0] == "weather-over-ssh\nshared-over-ssh"
