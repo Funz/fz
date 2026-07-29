@@ -103,7 +103,9 @@ def test_static_files_command_can_read_both_kinds(tmp_path, monkeypatch):
     input_file = _write_input(study_dir)
 
     calc_script = study_dir / "calc.sh"
-    calc_script.write_text(f"#!/bin/bash\ncat weather.csv {shared} > combined.txt\n")
+    # bash needs forward slashes: a literal Windows "C:\Users\..." path would
+    # have its backslashes misread as escape characters
+    calc_script.write_text(f"#!/bin/bash\ncat weather.csv {shared.as_posix()} > combined.txt\n")
     calc_script.chmod(0o755)
 
     model = {
