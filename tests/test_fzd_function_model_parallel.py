@@ -74,7 +74,7 @@ class TestRunFunctionModelDesignParallel:
         def model_func(x):
             with lock:
                 seen_threads.add(threading.current_thread().ident)
-            time.sleep(0.05)
+            time.sleep(0.1)
             return {"y": x * 2}
 
         design_points = [{"x": i} for i in range(8)]
@@ -83,9 +83,11 @@ class TestRunFunctionModelDesignParallel:
         elapsed = time.time() - start
 
         assert sorted(r[1] for r in results) == [0, 2, 4, 6, 8, 10, 12, 14]
-        # 8 points x 0.05s sequentially would take >=0.4s; with 4 workers
-        # it should comfortably finish in well under that.
-        assert elapsed < 0.35
+        # 8 points x 0.1s sequentially would take >=0.8s (2 batches of 4
+        # workers ideally take ~0.2s); allow generous headroom for slower/
+        # contended CI runners (e.g. macOS GitHub Actions) while still
+        # clearly proving concurrent, not sequential, execution.
+        assert elapsed < 0.6
         # More than one worker thread must actually have been used.
         assert len(seen_threads) > 1
 
