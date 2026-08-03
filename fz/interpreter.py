@@ -4,8 +4,96 @@ Interpreter utilities for fz package: variable parsing, formula evaluation, and 
 import re
 import json
 import ast
+import math
 from pathlib import Path
 from typing import Dict, List, Union, Any, Set, Optional
+
+
+def _format_decimal_pattern(value: float, pattern: str) -> str:
+    """
+    Format a number using a (non-scientific) Java DecimalFormat-like pattern,
+    e.g. "0.000" (fixed decimals, zero-padded) or "#.###" (up to 3 decimals,
+    trailing insignificant zeros stripped).
+
+    - '0' means "always show this digit" (zero-padded)
+    - '#' means "show this digit only if significant"
+    """
+    negative = value < 0
+    value = abs(value)
+
+    if '.' in pattern:
+        int_pattern, frac_pattern = pattern.split('.', 1)
+    else:
+        int_pattern, frac_pattern = pattern, ''
+
+    min_int = max(int_pattern.count('0'), 1)
+    min_frac = frac_pattern.count('0')
+    max_frac = len(frac_pattern)
+
+    rounded = round(value, max_frac)
+    text = f"{rounded:.{max_frac}f}" if max_frac > 0 else f"{rounded:.0f}"
+
+    if '.' in text:
+        int_part, frac_part = text.split('.', 1)
+    else:
+        int_part, frac_part = text, ''
+
+    # Strip insignificant trailing zeros down to the minimum required decimals
+    while len(frac_part) > min_frac and frac_part.endswith('0'):
+        frac_part = frac_part[:-1]
+
+    int_part = int_part.zfill(min_int)
+
+    result = int_part + ('.' + frac_part if frac_part else '')
+    if negative and float(result) != 0:
+        result = '-' + result
+    return result
+
+
+def _format_number(value: Any, format_spec: str) -> Optional[str]:
+    """
+    Format a numeric value using a Java-Funz/DecimalFormat-compatible pattern,
+    e.g. "0.000", "#.###" or scientific notation "0.00E00".
+
+    Returns None if value isn't numeric or format_spec is empty/invalid,
+    so callers can fall back to the unformatted value.
+    """
+    format_spec = (format_spec or "").strip()
+    if not format_spec:
+        return None
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    match = re.match(r'^(?P<mantissa>[0#]*(?:\.[0#]*)?)[Ee](?P<exp>[0#]+)$', format_spec)
+    if match:
+        mantissa_pattern = match.group('mantissa') or '0'
+        exp_digits = len(match.group('exp'))
+        frac_pattern = mantissa_pattern.split('.', 1)[1] if '.' in mantissa_pattern else ''
+        mantissa_decimals = len(frac_pattern)
+
+        if value == 0:
+            mantissa, exponent = 0.0, 0
+        else:
+            exponent = int(math.floor(math.log10(abs(value))))
+            mantissa = value / (10 ** exponent)
+            mantissa = round(mantissa, mantissa_decimals)
+            if abs(mantissa) >= 10:
+                mantissa /= 10
+                exponent += 1
+            elif abs(mantissa) < 1:
+                mantissa *= 10
+                exponent -= 1
+
+        mantissa_str = _format_decimal_pattern(mantissa, mantissa_pattern)
+        sign = '-' if exponent < 0 else ''
+        return f"{mantissa_str}E{sign}{abs(exponent):0{exp_digits}d}"
+
+    if '.' in format_spec or '0' in format_spec or '#' in format_spec:
+        return _format_decimal_pattern(value, format_spec)
+
+    return None
 
 
 def _get_comment_char(model: Dict) -> str:
@@ -589,12 +677,13 @@ def evaluate_single_formula(formula: str, model: Dict, input_variables: Dict, in
             result = eval(formula, env)
 
             # Apply format if specified
-            if format_spec and '.' in format_spec:
-                decimals = len(format_spec.split('.')[1])
-                try:
-                    return float(f"{float(result):.{decimals}f}")
-                except (ValueError, TypeError):
-                    return result
+            if format_spec:
+                formatted = _format_number(result, format_spec)
+                if formatted is not None:
+                    try:
+                        return float(formatted)
+                    except (ValueError, TypeError):
+                        return result
 
             return result
         except Exception as e:
@@ -657,12 +746,13 @@ def evaluate_single_formula(formula: str, model: Dict, input_variables: Dict, in
                 value = result if not (hasattr(result, '__len__') and len(result) == 0) else result
 
             # Apply format if specified
-            if format_spec and '.' in format_spec:
-                decimals = len(format_spec.split('.')[1])
-                try:
-                    return float(f"{float(value):.{decimals}f}")
-                except (ValueError, TypeError):
-                    return value
+            if format_spec:
+                formatted = _format_number(value, format_spec)
+                if formatted is not None:
+                    try:
+                        return float(formatted)
+                    except (ValueError, TypeError):
+                        return value
 
             return value
         except Exception:
@@ -786,15 +876,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
 
                 # Apply format if specified
                 if format_spec:
-                    # Parse format like "0.0000" → 4 decimals
-                    if '.' in format_spec:
-                        decimals = len(format_spec.split('.')[1])
-                        try:
-                            return f"{float(result):.{decimals}f}"
-                        except (ValueError, TypeError):
-                            return str(result)
-                    else:
-                        return str(result)
+                    formatted = _format_number(result, format_spec)
+                    return formatted if formatted is not None else str(result)
                 else:
                     return str(result)
             except Exception as e:
@@ -895,15 +978,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
                 
                 # Apply format if specified
                 if format_spec:
-                    # Parse format like "0.0000" → 4 decimals
-                    if '.' in format_spec:
-                        decimals = len(format_spec.split('.')[1])
-                        try:
-                            return f"{float(value):.{decimals}f}"
-                        except (ValueError, TypeError):
-                            return str(value)
-                    else:
-                        return str(value)
+                    formatted = _format_number(value, format_spec)
+                    return formatted if formatted is not None else str(value)
                 else:
                     return str(value)
             except Exception as e:

@@ -103,6 +103,75 @@ def test_formula_with_format_specifier():
     assert "0.3333" in result
 
 
+def test_formula_with_hash_pattern_strips_trailing_zeros():
+    """Test Java DecimalFormat '#' pattern: @{expr | #.###} keeps up to 3
+    decimals but strips insignificant trailing zeros"""
+    model = {
+        "formula_prefix": "@",
+        "formula_delim": "{}",
+        "commentline": "#",
+    }
+    content = "A: @{3.14159 | #.###}\nB: @{3.1 | #.###}\nC: @{3.0 | #.###}"
+    result = evaluate_formulas(content, model, {}, interpreter="python")
+    assert "A: 3.142" in result
+    assert "B: 3.1" in result
+    assert "C: 3" in result
+
+
+def test_formula_with_scientific_format():
+    """Test Java DecimalFormat scientific notation: @{expr | 0.00E00}"""
+    model = {
+        "formula_prefix": "@",
+        "formula_delim": "{}",
+        "commentline": "#",
+    }
+    content = (
+        "A: @{123456.789 | 0.00E00}\n"
+        "B: @{0.000123456 | 0.00E00}"
+    )
+    result = evaluate_formulas(content, model, {}, interpreter="python")
+    assert "A: 1.23E05" in result
+    assert "B: 1.23E-04" in result
+
+
+def test_formula_with_mixed_zero_hash_pattern():
+    """Test Java DecimalFormat mixed pattern: @{expr | 0.00##} enforces a
+    minimum of 2 decimals (zero-padded) and a maximum of 4 (trailing
+    insignificant zeros beyond the minimum are stripped)"""
+    model = {
+        "formula_prefix": "@",
+        "formula_delim": "{}",
+        "commentline": "#",
+    }
+    content = (
+        "A: @{3.14159265 | 0.00##}\n"
+        "B: @{3.1 | 0.00##}\n"
+        "C: @{3 | 0.00##}"
+    )
+    result = evaluate_formulas(content, model, {}, interpreter="python")
+    assert "A: 3.1416" in result
+    assert "B: 3.10" in result
+    assert "C: 3.00" in result
+
+
+def test_formula_with_mixed_zero_hash_scientific_format():
+    """Test Java DecimalFormat mixed scientific pattern: @{expr | 0.00##E00}"""
+    model = {
+        "formula_prefix": "@",
+        "formula_delim": "{}",
+        "commentline": "#",
+    }
+    content = (
+        "A: @{123456.789 | 0.00##E00}\n"
+        "B: @{123000000 | 0.00##E00}\n"
+        "C: @{0.000123456 | 0.00##E00}"
+    )
+    result = evaluate_formulas(content, model, {}, interpreter="python")
+    assert "A: 1.2346E05" in result
+    assert "B: 1.23E08" in result
+    assert "C: 1.2346E-04" in result
+
+
 def test_function_declaration_with_colon_prefix():
     """Test Java Funz function declaration: #@: func = ..."""
     model = {

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Formula number formatting (`@{expr | pattern}`)
+
+- Formula format specifiers now support the full `java.text.DecimalFormat`
+  subset used by the original Java Funz, not just fixed-decimal patterns:
+  `#` digits strip insignificant trailing zeros (`@{3.1 | #.###}` → `3.1`,
+  `@{3.0 | #.###}` → `3`) and scientific notation is supported
+  (`@{123456.789 | 0.00E00}` → `1.23E05`). `0` digits still zero-pad as
+  before (`@{1/3 | 0.0000}` → `0.3333`). Documented in
+  `doc/formulas-and-interpreters.md` ("Basic Formula Syntax" → "Number
+  Formatting").
+
 ### Shared static files across cases (`input_static`)
 
 - `fzr()`/`fzc()`/`fzi()`/`fzd()` gain an `input_static` parameter (CLI
