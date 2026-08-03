@@ -10,6 +10,7 @@ import logging
 import time
 import uuid
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 import signal
 import sys
@@ -2027,28 +2028,75 @@ def _evaluate_function_model_point(model_func, point, output_expression):
     return output_data, output_value
 
 
-def _run_function_model_design(model_func, design_points, output_expression, max_workers):
-    """Evaluate design_points against model_func, one at a time, in the calling thread.
+class FunctionModelParallelError(RuntimeError):
+    """Raised by fzd() when a Python-function model raises while being evaluated
+    in parallel (calculators=N>1). Kept as a distinct RuntimeError subclass so
+    fzd's own batch-error handling can re-raise it immediately instead of
+    downgrading it to a per-point failure like it does for other exceptions
+    (see _run_function_model_design and fzd)."""
 
-    Always sequential (a plain loop, like R's lapply), regardless of
-    max_workers: concurrent.futures.ThreadPoolExecutor always dispatches to a
-    *worker* thread, even with max_workers=1 — never the calling thread. That
-    breaks model_func callables that are only safe to call from the thread
-    that created them, such as an R closure bridged in via reticulate, which
-    crashes the host process if invoked from any thread other than the main
-    one. There is no way to distinguish such callables from an ordinary,
-    thread-safe Python function, so we always run sequentially to stay safe
-    for both. max_workers is accepted for API compatibility but currently has
-    no effect on execution.
+
+def _run_function_model_design(model_func, design_points, output_expression, max_workers):
+    """Evaluate design_points against model_func.
+
+    - max_workers <= 1 (the default): purely sequential, one call at a time,
+      in the calling thread — like R's lapply, never via a thread pool. This
+      is the only safe mode for callables that may only be invoked from the
+      thread that created them (e.g. an R closure bridged in via reticulate,
+      which can crash the host process if invoked from any other thread);
+      the fz.R wrapper always forces calculators=1 for exactly this reason.
+      Exceptions raised while evaluating an individual point are captured
+      and reported as a per-point failure (see the returned tuples below),
+      letting the algorithm continue with the remaining, successful points.
+
+    - max_workers > 1: dispatches calls to a concurrent.futures.ThreadPoolExecutor
+      with max_workers worker threads, running evaluations concurrently. Only
+      use this when model_func is an ordinary, thread-safe Python function
+      (never for a callable that isn't safe to invoke from arbitrary
+      threads). Because a thread-safety problem can make otherwise-valid
+      points fail — possibly intermittently — once run concurrently, any
+      exception raised while evaluating a point in this mode is treated as
+      fatal for the whole batch: it is re-raised immediately as a
+      RuntimeError that explicitly calls out parallel execution as the
+      likely cause and suggests retrying with calculators=1, instead of
+      being silently downgraded to a per-point failure as in the sequential
+      case above.
+
+    Returns a list of (output_data, output_value, error) tuples, one per
+    design point, in the same order as design_points (error is None on
+    success).
     """
     def _call(point):
-        try:
-            output_data, output_value = _evaluate_function_model_point(model_func, point, output_expression)
-            return output_data, output_value, None
-        except Exception as e:
-            return None, None, str(e)
+        output_data, output_value = _evaluate_function_model_point(model_func, point, output_expression)
+        return output_data, output_value, None
 
-    return [_call(point) for point in design_points]
+    if max_workers is None or max_workers <= 1:
+        results = []
+        for point in design_points:
+            try:
+                results.append(_call(point))
+            except Exception as e:
+                results.append((None, None, str(e)))
+        return results
+
+    results = [None] * len(design_points)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_index = {executor.submit(_call, point): i for i, point in enumerate(design_points)}
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+            try:
+                results[index] = future.result()
+            except Exception as e:
+                point = design_points[index]
+                raise FunctionModelParallelError(
+                    f"Model function raised an error while evaluating point {point} "
+                    f"during parallel execution (calculators={max_workers}): {e}. "
+                    "If this function is not safe to call concurrently from multiple "
+                    "threads (e.g. a callable bridged in from another language runtime, "
+                    "such as an R function via reticulate), retry with calculators=1 to "
+                    "force strictly sequential, single-threaded execution."
+                ) from e
+    return results
 
 
 def _save_function_model_iteration_csv(iteration_result_dir, all_var_names, unique_design, unique_results):
@@ -2098,12 +2146,20 @@ def fzd(
        - output_expression may be None, in which case the value of the first
          key of the function's return value is used (or the return value
          itself if it's a plain scalar)
-       - calculators must be an int (defaults to 1), accepted for API
-         compatibility; function calls are always run sequentially, one at a
-         time in the calling thread — never via a thread pool. This is
-         required for model callables that are only safe to call from that
-         thread (e.g. an R function bridged in via reticulate), which cannot
-         be reliably distinguished from an ordinary thread-safe function
+       - calculators must be a positive int (defaults to 1): the number of
+         design points evaluated concurrently. calculators=1 (the default)
+         calls the function sequentially, one at a time, in the calling
+         thread — never via a thread pool. This is required for model
+         callables that are only safe to call from that thread (e.g. an R
+         function bridged in via reticulate); the fz.R wrapper always forces
+         calculators=1 for this reason. calculators=N>1 dispatches calls to
+         a thread pool of N worker threads, running evaluations
+         concurrently — only use this for an ordinary, thread-safe Python
+         function. If any point raises while evaluated in parallel, fzd
+         aborts and re-raises it immediately as an explicit RuntimeError
+         (rather than silently marking just that point as failed), since a
+         thread-safety issue can otherwise surface as sporadic, hard to
+         diagnose per-point failures
        - analysis_dir behaves as usual, except the per-iteration directory
          only contains a CSV of the function's inputs/outputs (no case dirs)
 
@@ -2121,9 +2177,15 @@ def fzd(
         calculators: Calculator specifications. If omitted, installed calculator
             aliases supporting the model id are auto-discovered (like fzr);
             falls back to ["sh://"] when none are found.
-            When model is a callable, this must be an int (defaults to 1),
-            accepted for API compatibility but currently has no effect:
-            calls always run sequentially (see above).
+            When model is a callable, this must be a positive int (defaults
+            to 1): the number of design points evaluated concurrently. See
+            "Direct Python function model" above — calculators=1 runs
+            strictly sequentially in the calling thread (required for
+            callables not safe to invoke from another thread, e.g. an R
+            function via reticulate); calculators=N>1 runs N points at a
+            time in a thread pool (only for thread-safe Python functions),
+            and re-raises any evaluation error immediately instead of
+            downgrading it to a per-point failure.
         algorithm_options: Algorithm-specific options. Can be:
             - Dict: {"batch_size": 10, "max_iter": 100}
             - JSON string: '{"batch_size": 10, "max_iter": 100}'
@@ -2210,6 +2272,10 @@ def fzd(
             if calculators is None:
                 function_workers = 1
             elif isinstance(calculators, int):
+                if calculators < 1:
+                    raise ValueError(
+                        f"calculators must be a positive int when model is a Python callable, got {calculators}"
+                    )
                 function_workers = calculators
             else:
                 raise TypeError("calculators must be an int (number of parallel calls) when model is a Python callable")
@@ -2403,6 +2469,12 @@ def fzd(
                             log_warning(f"  Point {i+1}: No results")
                             iteration_outputs.append(None)
 
+            except FunctionModelParallelError:
+                # Thread-safety issue in a parallel function-model evaluation:
+                # this is fatal for the whole fzd() run, not a per-point
+                # failure, so propagate it to the caller as an explicit error
+                # instead of silently continuing with all-None outputs.
+                raise
             except Exception as e:
                 log_error(f"  ❌ Error evaluating batch: {e}")
                 # Add all points with None outputs
