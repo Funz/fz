@@ -103,6 +103,37 @@ def test_formula_with_format_specifier():
     assert "0.3333" in result
 
 
+def test_formula_with_hash_pattern_strips_trailing_zeros():
+    """Test Java DecimalFormat '#' pattern: @{expr | #.###} keeps up to 3
+    decimals but strips insignificant trailing zeros"""
+    model = {
+        "formula_prefix": "@",
+        "formula_delim": "{}",
+        "commentline": "#",
+    }
+    content = "A: @{3.14159 | #.###}\nB: @{3.1 | #.###}\nC: @{3.0 | #.###}"
+    result = evaluate_formulas(content, model, {}, interpreter="python")
+    assert "A: 3.142" in result
+    assert "B: 3.1" in result
+    assert "C: 3" in result
+
+
+def test_formula_with_scientific_format():
+    """Test Java DecimalFormat scientific notation: @{expr | 0.00E00}"""
+    model = {
+        "formula_prefix": "@",
+        "formula_delim": "{}",
+        "commentline": "#",
+    }
+    content = (
+        "A: @{123456.789 | 0.00E00}\n"
+        "B: @{0.000123456 | 0.00E00}"
+    )
+    result = evaluate_formulas(content, model, {}, interpreter="python")
+    assert "A: 1.23E05" in result
+    assert "B: 1.23E-04" in result
+
+
 def test_function_declaration_with_colon_prefix():
     """Test Java Funz function declaration: #@: func = ..."""
     model = {

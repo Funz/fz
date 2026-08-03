@@ -39,6 +39,35 @@ temperature=25
 temperature_K=298.15
 ```
 
+### Number Formatting
+
+Formulas support a Java-Funz-compatible format specifier: append `| <pattern>`
+inside the delimiters, where `<pattern>` is a `java.text.DecimalFormat`-style
+pattern. This works with both the Python and R interpreters, and with any
+expression (constants, variables, function calls, etc.) preceding the `|`.
+
+- **`0`**: always show this digit, zero-padded (fixed number of decimals).
+- **`#`**: show this digit only if significant (insignificant trailing zeros
+  are stripped).
+- **`E`**: scientific notation; digits after `E` set the minimum number of
+  exponent digits, digits after `.` set the mantissa decimals.
+
+**Input template**:
+```text
+pi_value=@{3.14159265 | 0.000}
+third=@{1/3 | 0.0000}
+trimmed=@{3.1 | #.###}
+sci=@{123456.789 | 0.00E00}
+```
+
+**Result**:
+```text
+pi_value=3.142
+third=0.3333
+trimmed=3.1
+sci=1.23E05
+```
+
 ### R Formulas
 
 **Model configuration**:

@@ -55,6 +55,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Topic | File | Section |
 |-------|------|---------|
 | Python formulas | formulas-and-interpreters.md | "Basic Formula Syntax" → "Python Formulas" |
+| Formula number formatting (`@{expr \| 0.000}`) | formulas-and-interpreters.md | "Basic Formula Syntax" → "Number Formatting" |
 | R formulas | formulas-and-interpreters.md | "Basic Formula Syntax" → "R Formulas" |
 | Context lines | formulas-and-interpreters.md | "Context Lines" |
 | Python context examples | formulas-and-interpreters.md | "Context Lines" → "Python Context" |
