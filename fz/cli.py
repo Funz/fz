@@ -125,8 +125,95 @@ def parse_model(model_str):
     return parse_argument(model_str, alias_type='models')
 
 
-def parse_variables(var_str):
-    """Parse variables from JSON string or JSON file"""
+def _split_top_level(s, sep=','):
+    """Split s on sep, ignoring occurrences of sep nested inside [...]"""
+    parts = []
+    depth = 0
+    current = []
+    for ch in s:
+        if ch == '[':
+            depth += 1
+            current.append(ch)
+        elif ch == ']':
+            depth -= 1
+            current.append(ch)
+        elif ch == sep and depth == 0:
+            parts.append(''.join(current))
+            current = []
+        else:
+            current.append(ch)
+    parts.append(''.join(current))
+    return parts
+
+
+def _coerce_scalar(s):
+    """Convert a string to int/float when possible, else return it unchanged"""
+    s = s.strip()
+    try:
+        return int(s)
+    except ValueError:
+        pass
+    try:
+        return float(s)
+    except ValueError:
+        return s
+
+
+def _parse_simple_variables(var_str, as_strings=False):
+    """
+    Parse the simplified 'a=1,b=[4,5,6],c=[0;1]' variable syntax into a dict.
+
+    - Plain scalars ('a=1') become int/float when possible.
+    - Bracketed, comma/semicolon-separated lists ('b=[4,5,6]', 'c=[0;1]') become a
+      list of coerced elements — fzr/fzc use this as a factorial grid; a 2-element
+      '[min;max]'/'[min,max]' list also happens to be exactly the range syntax fzd's
+      algorithms expect (see algorithms.parse_input_vars), so it round-trips there too.
+    - When as_strings is True (fzd), values are kept as plain strings instead
+      (fzd's algorithms.py parses "[min;max]" / numeric strings itself).
+    """
+    result = {}
+    for part in _split_top_level(var_str, ','):
+        part = part.strip()
+        if not part:
+            continue
+        if '=' not in part:
+            raise ValueError(
+                f"Invalid variable assignment '{part}': expected 'name=value' "
+                "(e.g. \"a=1,b=[4,5,6],c=[0;1]\")"
+            )
+        name, value = part.split('=', 1)
+        name = name.strip()
+        value = value.strip()
+
+        if as_strings:
+            result[name] = value
+            continue
+
+        if value.startswith('[') and value.endswith(']'):
+            elements = _split_top_level(value[1:-1], ',')
+            elements = [e for part_ in elements for e in _split_top_level(part_, ';')]
+            result[name] = [_coerce_scalar(e) for e in elements]
+        else:
+            result[name] = _coerce_scalar(value)
+
+    return result
+
+
+def parse_variables(var_str, as_strings=False):
+    """
+    Parse variables from JSON string, JSON file, or the simplified
+    'a=1,b=[4,5,6],c=[0;1]' syntax (used when the value isn't JSON/a .json path).
+    """
+    if not var_str:
+        return None
+
+    stripped = var_str.strip()
+    if stripped.startswith(('{', '[')) or var_str.endswith('.json'):
+        return parse_argument(var_str, alias_type=None)
+
+    if '=' in stripped:
+        return _parse_simple_variables(stripped, as_strings=as_strings)
+
     return parse_argument(var_str, alias_type=None)
 
 
@@ -231,8 +318,29 @@ def _resolve_model(parser, args):
 
 
 def _add_variables_arg(parser, required=True):
+    help_text = "Variable values (JSON file or inline JSON)"
+    if not required:
+        help_text += " (omit if the input files declare no variables)"
     parser.add_argument("--input_variables", "--variables", "-v", dest="input_variables",
-                        required=required, help="Variable values (JSON file or inline JSON)")
+                        required=required, default=None, help=help_text)
+
+
+def _resolve_variables(parser, args, input_path, model):
+    """Resolve --input_variables, auto-falling back to {} for variable-free models.
+
+    input_variables is only truly required when the input files actually
+    declare variables; otherwise requiring an empty --input_variables '{}'
+    on every call would be needless friction for non-parametric datasets.
+    """
+    if args.input_variables is None:
+        found_variables = fzi_func(input_path, model)
+        if found_variables:
+            parser.error(
+                "--input_variables is required: input files declare variable(s) "
+                f"{', '.join(sorted(found_variables))}"
+            )
+        return {}
+    return parse_variables(args.input_variables)
 
 
 def _add_calculators_arg(parser):
@@ -560,7 +668,7 @@ def fzc_main():
     parser.add_argument("--version", action="version", version=f"fzc {get_version()}")
     _add_input_path_args(parser)
     _add_model_args(parser)
-    _add_variables_arg(parser)
+    _add_variables_arg(parser, required=False)
     _add_input_static_arg(parser)
     parser.add_argument("--output_dir", "--output", "-o", dest="output_dir", default="output",
                         help="Output directory (default: output)")
@@ -570,7 +678,7 @@ def fzc_main():
     try:
         input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
         model = _resolve_model(parser, args)
-        variables = parse_variables(args.input_variables)
+        variables = _resolve_variables(parser, args, input_path, model)
         fzc_func(input_path, variables, model, output_dir=args.output_dir,
                   input_static=_resolve_input_static(args))
         print(f"Compiled input saved to {args.output_dir}")
@@ -627,7 +735,7 @@ def fzr_main():
     parser.add_argument("--version", action="version", version=f"fzr {get_version()}")
     _add_input_path_args(parser)
     _add_model_args(parser)
-    _add_variables_arg(parser)
+    _add_variables_arg(parser, required=False)
     parser.add_argument("--results_dir", "--results", "-r", dest="results_dir", default="results",
                         help="Results directory (default: results)")
     parser.add_argument("--case_naming", dest="case_naming", default=None,
@@ -644,7 +752,7 @@ def fzr_main():
     try:
         input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
         model = _resolve_model(parser, args)
-        variables = parse_variables(args.input_variables)
+        variables = _resolve_variables(parser, args, input_path, model)
         calculators = _resolve_calculators(args)
 
         result = fzr_func(input_path, variables, model,
@@ -696,7 +804,7 @@ def fzd_main():
 
     try:
         model = parse_model(args.model)
-        variables = parse_variables(args.input_vars)
+        variables = parse_variables(args.input_vars, as_strings=True)
 
         calculators = parse_calculators(args.calculators) if args.calculators else None
         algo_options = parse_algorithm_options(args.options) if args.options else {}
@@ -756,7 +864,7 @@ def main():
     parser_compile = subparsers.add_parser("compile", help="Compile input with variable values")
     _add_input_path_args(parser_compile)
     _add_model_args(parser_compile)
-    _add_variables_arg(parser_compile)
+    _add_variables_arg(parser_compile, required=False)
     _add_input_static_arg(parser_compile)
     parser_compile.add_argument("--output_dir", "--output", "-o", dest="output_dir",
                                 default="output", help="Output directory (default: output)")
@@ -771,7 +879,7 @@ def main():
     parser_run = subparsers.add_parser("run", help="Run full parametric calculations")
     _add_input_path_args(parser_run)
     _add_model_args(parser_run)
-    _add_variables_arg(parser_run)
+    _add_variables_arg(parser_run, required=False)
     parser_run.add_argument("--results_dir", "--results", "-r", dest="results_dir",
                             default="results", help="Results directory (default: results)")
     parser_run.add_argument("--case_naming", dest="case_naming", default=None,
@@ -858,7 +966,7 @@ def main():
         elif args.command == "compile":
             input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
             model = _resolve_model(parser, args)
-            variables = parse_variables(args.input_variables)
+            variables = _resolve_variables(parser, args, input_path, model)
             fzc_func(input_path, variables, model, output_dir=args.output_dir,
                       input_static=_resolve_input_static(args))
             print(f"Compiled input saved to {args.output_dir}")
@@ -872,7 +980,7 @@ def main():
         elif args.command == "run":
             input_path = _resolve_path(parser, args.input_path, args.input_path_pos, "input_path")
             model = _resolve_model(parser, args)
-            variables = parse_variables(args.input_variables)
+            variables = _resolve_variables(parser, args, input_path, model)
             calculators = _resolve_calculators(args)
 
             result = fzr_func(input_path, variables, model,
@@ -884,7 +992,7 @@ def main():
 
         elif args.command == "design":
             model = parse_model(args.model)
-            variables = parse_variables(args.input_vars)
+            variables = parse_variables(args.input_vars, as_strings=True)
 
             calculators = None
             calculators = parse_calculators(args.calculators) if args.calculators else None

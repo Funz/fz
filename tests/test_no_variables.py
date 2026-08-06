@@ -406,6 +406,81 @@ def test_fzr_with_empty_input_variables():
         assert results is not None
 
 
+def test_fzr_omitted_input_variables_when_none_in_input():
+    """fzr(input_path, model=model) works when the input files declare no variables"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        input_file = tmpdir / "input.txt"
+        input_file.write_text("constant = 42\n")
+
+        calc_script = tmpdir / "calc.sh"
+        calc_script.write_text("#!/bin/bash\necho 'result = 100' > output.txt\n")
+        calc_script.chmod(0o755)
+
+        model = {
+            "varprefix": "$",
+            "delim": "{}",
+            "output": {
+                "result": "grep 'result' output.txt | awk '{print $3}'"
+            }
+        }
+
+        # input_variables omitted entirely
+        results = fzr(
+            str(input_file),
+            calculators=f"sh://{calc_script}",
+            results_dir=str(tmpdir / "results"),
+            model=model
+        )
+
+        assert results is not None
+
+
+def test_fzr_omitted_input_variables_when_variables_present():
+    """fzr(input_path, model=model) raises ValueError when the input files declare variables"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        input_file = tmpdir / "input.txt"
+        input_file.write_text("x = ${x}\n")
+
+        model = {"varprefix": "$", "delim": "{}"}
+
+        with pytest.raises(ValueError, match="input_variables"):
+            fzr(str(input_file), model=model)
+
+
+def test_fzc_omitted_input_variables_when_none_in_input():
+    """fzc(input_path, model=model) works when the input files declare no variables"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        input_file = tmpdir / "input.txt"
+        input_file.write_text("constant = 42\n")
+
+        model = {"varprefix": "$", "delim": "{}"}
+        output_dir = tmpdir / "output"
+
+        fzc(str(input_file), model=model, output_dir=str(output_dir))
+
+        assert output_dir.exists()
+
+
+def test_fzc_omitted_input_variables_when_variables_present():
+    """fzc(input_path, model=model) raises ValueError when the input files declare variables"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        input_file = tmpdir / "input.txt"
+        input_file.write_text("x = ${x}\n")
+
+        model = {"varprefix": "$", "delim": "{}"}
+
+        with pytest.raises(ValueError, match="input_variables"):
+            fzc(str(input_file), model=model, output_dir=str(tmpdir / "output"))
+
+
 if __name__ == "__main__":
     # Run tests manually for debugging
     pytest.main([__file__, "-v"])

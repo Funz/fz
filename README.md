@@ -985,7 +985,11 @@ fz.fzc(
 
 **Parameters**:
 - `input_path`: Path to input file or directory
-- `input_variables`: Dictionary of variable values (scalar or list)
+- `input_variables`: Dictionary of variable values (scalar or list). Optional (default
+  `None`) when the input files declare no variables (non-parametric dataset) — omit it
+  and pass `model` as a keyword argument: `fz.fzc(input_path, model=model)`. If the
+  input files do declare variables and it's omitted, `fzc` raises a `ValueError` naming
+  them.
 - `model`: Model definition (dict or alias name)
 - `output_dir`: Output directory path
 
@@ -1070,7 +1074,11 @@ print(results)
 
 **Parameters**:
 - `input_path`: Input file or directory path
-- `input_variables`: Variable values - dict (factorial) or DataFrame (non-factorial)
+- `input_variables`: Variable values - dict (factorial) or DataFrame (non-factorial).
+  Optional (default `None`) when the input files declare no variables (non-parametric
+  dataset) — omit it and pass `model` as a keyword argument: `fz.fzr(input_path,
+  model=model, calculators=calculators)`. If the input files do declare variables and
+  it's omitted, `fzr` raises a `ValueError` naming them.
 - `model`: Model definition (dict or alias)
 - `calculators`: Calculator URI(s) - string or list
 - `results_dir`: Results directory path

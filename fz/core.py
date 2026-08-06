@@ -1138,8 +1138,8 @@ def fzi(input_path: str, model: Union[str, Dict], input_static: Optional[List[st
 @with_helpful_errors
 def fzc(
     input_path: str,
-    input_variables: Dict,
-    model: Union[str, Dict],
+    input_variables: Optional[Dict] = None,
+    model: Union[str, Dict] = None,
     output_dir: str = "output",
     input_static: Optional[List[str]] = None,
 ) -> None:
@@ -1148,7 +1148,12 @@ def fzc(
 
     Args:
         input_path: Path to input file or directory
-        input_variables: Dict of variable values or lists/numpy arrays of values for grid
+        input_variables: Dict of variable values or lists/numpy arrays of values for grid.
+                  Optional (default None) when the input files declare no variables
+                  (non-parametric dataset) — in that case omit it and pass model as a
+                  keyword argument, e.g. fzc(input_path, model=model). If the input files
+                  do declare variables, it's still required and a ValueError is raised
+                  naming the variable(s) found.
         model: Model definition dict or alias string
         output_dir: Output directory for compiled files
         input_static: Files identical across every case (see fzr()'s input_static);
@@ -1156,16 +1161,15 @@ def fzc(
 
     Raises:
         TypeError: If arguments have invalid types
-        ValueError: If model is invalid
+        ValueError: If model is invalid, or input_variables is omitted but required
         FileNotFoundError: If input_path doesn't exist
     """
     # Validate input arguments
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    # Allow dict or pandas DataFrame for input_variables
-    if not isinstance(input_variables, (dict, pd.DataFrame)):
-        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
+    if model is None:
+        raise TypeError("fzc() missing required argument: 'model'")
 
     if not isinstance(output_dir, (str, Path)):
         raise TypeError(f"output_dir must be a string or Path, got {type(output_dir).__name__}")
@@ -1187,6 +1191,19 @@ def fzc(
 
     # Check if any input_variable keys are missing in input files
     found_variables = fzi(str(input_path), model, input_static=input_static)
+
+    if input_variables is None:
+        if found_variables:
+            raise ValueError(
+                "input_variables is required: input files declare variable(s) "
+                f"{', '.join(sorted(found_variables))}"
+            )
+        input_variables = {}
+
+    # Allow dict or pandas DataFrame for input_variables
+    if not isinstance(input_variables, (dict, pd.DataFrame)):
+        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
+
     missing_vars = set(input_variables.keys()) - set(found_variables.keys())
     if missing_vars:
         log_warning(f"⚠️  Warning: The following input variables are not found in input files: {', '.join(sorted(missing_vars))}")
@@ -1506,8 +1523,8 @@ def fzo(
 @with_helpful_errors
 def fzr(
     input_path: str,
-    input_variables: Union[Dict, "pandas.DataFrame"],
-    model: Union[str, Dict],
+    input_variables: Optional[Union[Dict, "pandas.DataFrame"]] = None,
+    model: Union[str, Dict] = None,
     results_dir: str = "results",
     calculators: Union[str, Dict, List[Union[str, Dict]]] = None,
     callbacks: Optional[Dict[str, callable]] = None,
@@ -1523,6 +1540,11 @@ def fzr(
         input_variables: Dict of variable values or lists/numpy arrays of values for factorial grid,
                         or pandas DataFrame for non-factorial designs (each row is one case).
                         Numpy arrays are automatically converted to lists.
+                        Optional (default None) when the input files declare no variables
+                        (non-parametric dataset) — in that case omit it and pass model as a
+                        keyword argument, e.g. fzr(input_path, model=model). If the input
+                        files do declare variables, it's still required and a ValueError is
+                        raised naming the variable(s) found.
         model: Model definition dict or alias string
         results_dir: Results directory
         calculators: Calculator specifications
@@ -1560,25 +1582,16 @@ def fzr(
 
     Raises:
         TypeError: If arguments have invalid types
-        ValueError: If model is invalid or calculators are invalid
+        ValueError: If model is invalid, calculators are invalid, or input_variables is
+                  omitted but required
         FileNotFoundError: If input_path doesn't exist
     """
     # Validate input arguments
     if not isinstance(input_path, (str, Path)):
         raise TypeError(f"input_path must be a string or Path, got {type(input_path).__name__}")
 
-    # Allow dict or pandas DataFrame for input_variables
-    if not isinstance(input_variables, (dict, pd.DataFrame)):
-        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
-
-    # Reject duplicate rows in a DataFrame design: each row must be a distinct case
-    # (duplicate rows would map to the same temp directory and silently overwrite results)
-    if isinstance(input_variables, pd.DataFrame) and input_variables.duplicated().any():
-        dup_idx = input_variables[input_variables.duplicated(keep=False)].index.tolist()
-        raise ValueError(
-            f"input_variables DataFrame contains duplicate rows (indices {dup_idx}). "
-            "Each case must have a unique combination of input values."
-        )
+    if model is None:
+        raise TypeError("fzr() missing required argument: 'model'")
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
@@ -1645,6 +1658,28 @@ def fzr(
 
     # Check if any input_variable keys are missing in input files
     found_variables = fzi(str(input_path), model)
+
+    if input_variables is None:
+        if found_variables:
+            raise ValueError(
+                "input_variables is required: input files declare variable(s) "
+                f"{', '.join(sorted(found_variables))}"
+            )
+        input_variables = {}
+
+    # Allow dict or pandas DataFrame for input_variables
+    if not isinstance(input_variables, (dict, pd.DataFrame)):
+        raise TypeError(f"input_variables must be a dictionary or DataFrame, got {type(input_variables).__name__}")
+
+    # Reject duplicate rows in a DataFrame design: each row must be a distinct case
+    # (duplicate rows would map to the same temp directory and silently overwrite results)
+    if isinstance(input_variables, pd.DataFrame) and input_variables.duplicated().any():
+        dup_idx = input_variables[input_variables.duplicated(keep=False)].index.tolist()
+        raise ValueError(
+            f"input_variables DataFrame contains duplicate rows (indices {dup_idx}). "
+            "Each case must have a unique combination of input values."
+        )
+
     missing_vars = set(input_variables.keys()) - set(found_variables.keys())
     if missing_vars:
         log_warning(f"⚠️  Warning: The following input variables are not found in input files: {', '.join(sorted(missing_vars))}")

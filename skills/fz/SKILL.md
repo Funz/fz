@@ -309,7 +309,10 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
   period/scientific-notation values (returning a wrong "max"); computing min/max in `awk`
   (one pass) is more robust than `sort | head/tail`.
 - `fzr` argument order in Python is `(input_path, input_variables, model, results_dir=...,
-  calculators=...)` — use keyword arguments to stay safe.
+  calculators=...)` — use keyword arguments to stay safe. `input_variables` (and `fzc`'s)
+  default to `None`: for a non-parametric dataset (no variables in the input files) call
+  `fzr(input_path, model=model, ...)` and omit it; if the input files do declare variables
+  and it's omitted, fz raises a `ValueError` naming them.
 - Concurrency: repeat the same calculator URI N times (or set `FZ_MAX_WORKERS`) to run N
   cases in parallel.
 - Long studies: run `fzr` in the background, then monitor `results/*/log.txt` and the
