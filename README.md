@@ -109,7 +109,7 @@ pip install -e .
 Or straight from GitHub via pip:
 
 ```bash
-pip install --break-system-packages --upgrade --force-reinstall -e git+https://github.com/Funz/fz.git
+pip install --break-system-packages --upgrade --force-reinstall "git+https://github.com/Funz/fz.git"
 ```
 
 * '--upgrade --force-reinstall' option to force update of possible previous installation
