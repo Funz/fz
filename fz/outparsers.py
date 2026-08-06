@@ -89,6 +89,8 @@ import subprocess as _subprocess
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
+from charset_normalizer import from_bytes as _from_bytes
+
 from .logging import log_debug
 
 #: Prefix marking a model output entry as a native Python expression
@@ -223,7 +225,16 @@ def make_helpers(base_dir: Union[str, Path]) -> Dict[str, Any]:
 
     def read(path: Union[str, Path]) -> str:
         """Return the full content of a file as a string."""
-        return _resolve(path).read_text()
+        data = _resolve(path).read_bytes()
+        try:
+            return data.decode("utf-8")
+        except UnicodeDecodeError:
+            # Some tools (e.g. SCALE) emit locale-encoded text (cp1252,
+            # iso-8859-*, ...). Detect the actual encoding rather than
+            # guessing, falling back to Latin-1 (never fails: every byte
+            # 0x00-0xFF maps to a character) if detection is inconclusive.
+            best = _from_bytes(data).best()
+            return str(best) if best is not None else data.decode("latin-1")
 
     def lines(path: Union[str, Path]) -> list:
         """Return the list of lines of a file (without line endings)."""
