@@ -109,8 +109,11 @@ pip install -e .
 Or straight from GitHub via pip:
 
 ```bash
-pip install -e git+https://github.com/Funz/fz.git
+pip install --break-system-packages --upgrade --force-reinstall -e git+https://github.com/Funz/fz.git
 ```
+
+* '--upgrade --force-reinstall' option to force update of possible previous installation
+* '--break-system-packages' option to enable user-wide installation (ie. not in dedicated venv)
 
 ### Dependencies
 
