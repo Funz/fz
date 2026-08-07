@@ -313,7 +313,8 @@ calculators = [
 
 **Environment variables**:
 ```bash
-export FZ_RUN_TIMEOUT=3600    # Timeout in seconds (default: 600 = 10 minutes)
+export FZ_RUN_TIMEOUT=3600    # Timeout in seconds (default: 3600 = 1 hour); a model's own
+                               # "timeout" entry (int, or None/0 to disable) overrides this
 export FZ_SSH_KEEPALIVE=300   # For remote SLURM
 ```
 

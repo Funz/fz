@@ -634,7 +634,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         start_time: Case start time
         original_cwd: Original working directory
         input_files_list: List of input file names in order
-        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         static_entries: Pre-resolved input_static entries (see resolve_static_files),
             forwarded to remote calculators for explicit transfer of the relative ones
 
@@ -1423,7 +1423,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         output_keys: List of output keys
         has_input_variables: Whether input_variables dict is non-empty
         callbacks: Optional dict of callback functions for progress monitoring
-        timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds for each calculation (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         case_naming: Case directory naming scheme - "path", "hash", or "index" (see _case_subdir_name)
         static_entries: Pre-resolved input_static entries (see resolve_static_files),
             forwarded to remote calculators (ssh/slurm/funz) so they can explicitly

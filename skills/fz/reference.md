@@ -212,6 +212,7 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
     "delim": "{}",
     "commentline": "#",
     "interpreter": "python",
+    "timeout": 1800,
     "output": {
         "name": "shell command run in each case directory, stdout is the value"
     }
@@ -220,7 +221,9 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
 
 All fields optional except `output` (required to parse results). `id` links the model to
 calculator alias files. Search path for aliases: `./.fz/models/<alias>.json` then
-`~/.fz/models/<alias>.json`.
+`~/.fz/models/<alias>.json`. `timeout` (int seconds, or `null`/`0` to disable) overrides
+`FZ_RUN_TIMEOUT` for this model; an explicit `timeout=` argument to `fzr()`/`fzc()` still
+wins over both.
 
 Static files identical across every case (never templated) are declared via `fzr`'s
 `input_static` argument, not the model — see `fz.fzr` above and `doc/core-functions.md`
@@ -265,6 +268,8 @@ timings, exit status); copies everything back; runs the `output` parsing command
 FZ_LOG_LEVEL                 DEBUG | INFO | WARNING | ERROR
 FZ_MAX_WORKERS               max parallel cases
 FZ_MAX_RETRIES               attempts for failed cases (default 5)
+FZ_RUN_TIMEOUT                per-calculation timeout in seconds (default 3600 = 1h);
+                              a model's own "timeout" entry overrides this
 FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip interactive host-key prompt (CI; use with care)
 FZ_SSH_KEEPALIVE             SSH keepalive seconds
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)

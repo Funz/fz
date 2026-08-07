@@ -78,8 +78,8 @@ class Config:
         self.ssh_auto_accept_hostkeys = self._parse_bool_env('FZ_SSH_AUTO_ACCEPT_HOSTKEYS', False)
         self.ssh_keepalive = self._parse_int_env('FZ_SSH_KEEPALIVE', 300)  # 5 minutes default
 
-        # Run timeout configuration (default 600 seconds = 10 minutes)
-        self.run_timeout = self._parse_int_env('FZ_RUN_TIMEOUT', 600)
+        # Run timeout configuration (default 3600 seconds = 1 hour)
+        self.run_timeout = self._parse_int_env('FZ_RUN_TIMEOUT', 3600)
 
         # Shell path configuration (overrides system PATH for binary resolution)
         self.shell_path = os.getenv('FZ_SHELL_PATH', None)
