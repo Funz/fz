@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### `--input_variables` no longer required for variable-free datasets
+
+- `fzc`/`fzr` CLI (standalone and `fz compile`/`fz run`) no longer require
+  `--input_variables` when the input files declare no variables. If they
+  omit it and the model does declare variables, the CLI now errors out
+  listing the variable(s) it found, instead of failing the generic
+  "required argument" check before even looking at the input files.
+
 ### Formula number formatting (`@{expr | pattern}`)
 
 - Formula format specifiers now support the full `java.text.DecimalFormat`

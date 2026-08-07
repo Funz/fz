@@ -183,6 +183,9 @@ repeatable to add several. See `input_static` in `fz.fzr`'s signature above.
   `--results_dir`, `--output` = `--output_dir`. (fz 1.0 required the canonical flag names
   and had no positional form; the canonical flags work everywhere — prefer them.)
 - `--format` accepts: `json`, `csv`, `html`, `markdown`, `table`.
+- `--input_variables` (fzc/fzr only) can be omitted when the input files declare no
+  variables (a non-parametric dataset) — omitting it otherwise errors out listing the
+  variable(s) found, so it's still required whenever the model actually has any.
 - `--model` and `--input_variables` auto-detect their format: alias (bare name) → JSON
   file path (ends in `.json`) → inline JSON. `--calculators` takes a URI, JSON file path,
   a bare alias name, or an inline JSON list (`'["cache://run1", "sh://bash calc.sh"]'`);

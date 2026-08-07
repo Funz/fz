@@ -260,6 +260,34 @@ class TestFzcCommand:
         assert result.returncode == 0
         assert output_dir.exists()
 
+    def test_fzc_omitted_input_variables_when_none_in_input(self, sample_model, temp_workspace):
+        """--input_variables can be omitted when the input file declares no variables"""
+        input_file = temp_workspace / "input.txt"
+        input_file.write_text("x = 1\ny = 2\n")
+        output_dir = temp_workspace / "output"
+
+        result = run_fz_cli_function('fzc_main', [
+            "--input_path", str(input_file),
+            "--model", json.dumps(sample_model),
+            "--output_dir", str(output_dir)
+        ])
+
+        assert result.returncode == 0
+        assert output_dir.exists()
+
+    def test_fzc_omitted_input_variables_when_variables_present(self, sample_input_file, sample_model, temp_workspace):
+        """--input_variables is still required when the input file declares variables"""
+        result = run_fz_cli_function('fzc_main', [
+            "--input_path", str(sample_input_file),
+            "--model", json.dumps(sample_model),
+            "--output_dir", str(temp_workspace / "output")
+        ])
+
+        assert result.returncode != 0
+        output = result.stdout + result.stderr
+        assert "input_variables" in output.lower()
+        assert "var1" in output
+
 
 class TestFzoCommand:
     """Test fzo command (parse output files)"""
@@ -334,6 +362,41 @@ class TestFzrCommand:
 
         # May fail if calculator execution has issues, that's OK for this test
         assert result.returncode in [0, 1]
+
+    @pytest.mark.skipif(IS_WINDOWS, reason="Complex test, skip on Windows for now")
+    def test_fzr_omitted_input_variables_when_none_in_input(self, sample_model, temp_workspace):
+        """--input_variables can be omitted for a non-parametric (variable-free) dataset"""
+        input_file = temp_workspace / "input.txt"
+        input_file.write_text("x = 1\ny = 2\n")
+
+        calc_script = temp_workspace / "calc.sh"
+        calc_script.write_text("#!/bin/bash\necho 'result = 10'")
+        calc_script.chmod(0o755)
+
+        result = run_cli_command([
+            get_python_executable(), "-m", "fz.cli", "run",
+            "--input_path", str(input_file),
+            "--model", json.dumps(sample_model),
+            "--results_dir", str(temp_workspace / "results"),
+            "--calculators", json.dumps({"local": {"type": "shell", "command": str(calc_script)}}),
+            "--format", "json"
+        ], cwd=str(temp_workspace), check=False)
+
+        assert result.returncode in [0, 1]
+        assert "input_variables" not in (result.stdout + result.stderr).lower()
+
+    def test_fzr_omitted_input_variables_when_variables_present(self, sample_input_file, sample_model, temp_workspace):
+        """--input_variables is still required when the input file declares variables"""
+        result = run_fz_cli_function('fzr_main', [
+            "--input_path", str(sample_input_file),
+            "--model", json.dumps(sample_model),
+            "--results_dir", str(temp_workspace / "results"),
+        ])
+
+        assert result.returncode != 0
+        output = result.stdout + result.stderr
+        assert "input_variables" in output.lower()
+        assert "var1" in output
 
 
 class TestFzMainCommand:

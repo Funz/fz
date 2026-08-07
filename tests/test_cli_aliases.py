@@ -119,6 +119,60 @@ class TestFlagAliases:
         assert Path("compiled_canonical/x=9/input.txt").exists()
 
 
+class TestSimpleVariablesSyntax:
+    """--input_variables also accepts 'a=1,b=[4,5,6],c=[0;1]' besides JSON"""
+
+    def test_fzc_simple_scalar(self):
+        _write_input()
+        result = run_fz_cli_function("fzc_main", [
+            "input.txt", "--model", '{"varprefix": "$"}',
+            "--variables", "x=5", "--output", "compiled",
+        ])
+        assert result.returncode == 0, result.stderr
+        assert Path("compiled/x=5/input.txt").exists()
+
+    def test_fzr_simple_grid_and_fixed(self):
+        _write_input("a=$a\nb=$b\n")
+        _write_file("calc.sh", "#!/bin/bash\necho 42 > output.txt\n")
+        result = run_fz_cli_function("fzr_main", [
+            "input.txt",
+            "--model", '{"varprefix": "$", "output": {"y": "cat output.txt"}}',
+            "--variables", "a=1,b=[4,5,6]",
+            "--calculators", "sh://bash calc.sh",
+            "--results", "results_grid",
+            "--format", "json",
+        ])
+        assert result.returncode == 0, result.stderr
+        records = json.loads(result.stdout)
+        assert len(records) == 3
+        assert all(r["a"] == 1 for r in records)
+        assert sorted(r["b"] for r in records) == [4, 5, 6]
+
+    def test_semicolon_bracket_becomes_two_element_list(self):
+        _write_input("c=$c\n")
+        result = run_fz_cli_function("fzc_main", [
+            "input.txt", "--model", '{"varprefix": "$"}',
+            "--variables", "c=[0;1]", "--output", "compiled_range",
+        ])
+        assert result.returncode == 0, result.stderr
+        # c is a 2-value grid [0, 1] -> one subdirectory per value
+        assert Path("compiled_range/c=0/input.txt").exists()
+        assert Path("compiled_range/c=1/input.txt").exists()
+
+    def test_invalid_simple_syntax_is_reported(self):
+        _write_input()
+        result = run_fz_cli_function("fzc_main", [
+            "input.txt", "--model", '{"varprefix": "$"}',
+            "--variables", "not_an_assignment", "--output", "compiled_bad",
+        ])
+        assert result.returncode != 0
+
+    def test_fzd_keeps_range_as_string(self):
+        """fzd's simplified --input_vars values stay strings (algorithms.py parses them)"""
+        from fz.cli import parse_variables
+        assert parse_variables("x=[0;1],z=0.5", as_strings=True) == {"x": "[0;1]", "z": "0.5"}
+
+
 class TestInlineModel:
     def test_fzi_inline_model_without_model_flag(self):
         _write_input()
