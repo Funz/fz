@@ -1555,7 +1555,7 @@ def fzr(
                   - 'on_case_complete': Called when a case completes. Args: (case_index, total_cases, var_combo, status, result)
                   - 'on_progress': Called periodically. Args: (completed, total, eta_seconds)
                   - 'on_complete': Called when all cases finish. Args: (total_cases, completed_cases, results)
-        timeout: Timeout in seconds for each calculation (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds for each calculation (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         case_naming: How to name each case's result/temp subdirectory:
                   - "path" (default): "var1=val1,var2=val2,..." - human-readable, but can exceed
                     filesystem filename length limits (~255 chars) with many variables.

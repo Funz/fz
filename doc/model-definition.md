@@ -309,6 +309,19 @@ Unique identifier for the model, useful for documentation and logging.
 model = {"id": "perfectgas", ...}
 ```
 
+### timeout (optional)
+
+Per-model override of the run timeout, in seconds. Takes precedence over the
+`FZ_RUN_TIMEOUT` config default (3600s = 1h) but is itself overridden by an
+explicit `timeout=` argument passed to `fzr()`/`fzc()`/the CLI. Set it to
+`None`/`null` (or `0`) to disable the timeout entirely for this model (the
+calculation is allowed to run indefinitely).
+
+```python
+model = {"timeout": 7200, ...}   # this model gets 2h instead of the 1h default
+model = {"timeout": None, ...}   # no timeout for this model
+```
+
 ## Complete Examples
 
 ### Example 1: Perfect Gas Model

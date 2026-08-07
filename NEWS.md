@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Default run timeout raised to 1h, per-model override
+
+- `FZ_RUN_TIMEOUT`'s default changed from 600 seconds (10 minutes) to 3600
+  seconds (1 hour).
+- Models can now set their own `"timeout"` entry (int seconds) to override
+  `FZ_RUN_TIMEOUT` for that model specifically. Setting it to `None`/`null`
+  or `0` disables the timeout entirely for that model. An explicit
+  `timeout=` argument to `fzr()`/`fzc()` still takes precedence over both.
+
 ### `--input_variables` no longer required for variable-free datasets
 
 - `fzc`/`fzr` CLI (standalone and `fz compile`/`fz run`) no longer require

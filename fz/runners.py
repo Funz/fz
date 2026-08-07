@@ -1240,6 +1240,27 @@ def resolve_calculators(
     return result
 
 
+def resolve_timeout(model: Optional[Dict], timeout: Optional[int] = None) -> Optional[int]:
+    """
+    Resolve the effective run timeout in seconds.
+
+    Precedence: explicit `timeout` argument > model's own "timeout" entry >
+    FZ_RUN_TIMEOUT config default. A model "timeout" of None/null or 0 disables
+    the timeout for that model (returns None, meaning no timeout).
+
+    Returns:
+        Timeout in seconds, or None if the timeout is disabled.
+    """
+    if timeout is not None:
+        return timeout
+    if isinstance(model, dict) and "timeout" in model:
+        model_timeout = model["timeout"]
+        if model_timeout is None or model_timeout == 0:
+            return None
+        return int(model_timeout)
+    return get_config().run_timeout
+
+
 def run_calculation(
     working_dir: Path,
     calculator_uri: str,
@@ -1257,7 +1278,8 @@ def run_calculation(
         working_dir: Directory containing input files
         calculator_uri: Calculator URI (e.g., "sh://command", "ssh://host/command", "slurm://partition/script")
         model: Model definition dict
-        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds (None resolves via the model's "timeout" entry, then
+            FZ_RUN_TIMEOUT from config, default 3600)
         original_input_was_dir: Whether original input was a directory
         input_files_list: List of input file names in order (from .fz_hash)
         static_entries: Pre-resolved input_static entries (see
@@ -1270,9 +1292,8 @@ def run_calculation(
     Returns:
         Dict containing calculation results and status
     """
-    # Use config default if timeout not specified
-    if timeout is None:
-        timeout = get_config().run_timeout
+    # Resolution (explicit arg > model's "timeout" entry > config default) happens
+    # in the per-protocol run_*_calculation functions, since they accept model too.
     base_uri = calculator_uri
 
     # Handle different calculator types
@@ -1560,7 +1581,7 @@ def run_local_calculation(
         working_dir: Directory containing input files
         command: Shell command to execute
         model: Model definition dict
-        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         original_input_was_dir: Whether original input was a directory
         original_cwd: Original working directory
         input_files_list: List of input file names in order (from .fz_hash)
@@ -1568,9 +1589,8 @@ def run_local_calculation(
     Returns:
         Dict containing calculation results and status
     """
-    # Use config default if timeout not specified
-    if timeout is None:
-        timeout = get_config().run_timeout
+    # Resolve effective timeout: explicit arg > model's "timeout" entry > config default
+    timeout = resolve_timeout(model, timeout)
     # Import here to avoid circular imports
     from .core import fzo, is_interrupted
 
@@ -1662,7 +1682,7 @@ def run_local_calculation(
                         raise KeyboardInterrupt("Process interrupted by user")
 
                     # Check for timeout
-                    if elapsed_time >= timeout:
+                    if timeout is not None and elapsed_time >= timeout:
                         raise subprocess.TimeoutExpired(full_command, timeout)
 
                     # Sleep briefly before next poll
@@ -1819,7 +1839,7 @@ def run_ssh_calculation(
         working_dir: Directory containing input files
         ssh_uri: SSH URI (e.g., "ssh://user:password@host:port/command")
         model: Model definition dict
-        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         input_files_list: List of input file names in order (from .fz_hash)
         static_entries: Pre-resolved input_static entries, explicitly
             transferred (relative ones only - see transfer_static_files_to_remote_sftp)
@@ -1827,9 +1847,8 @@ def run_ssh_calculation(
     Returns:
         Dict containing calculation results and status
     """
-    # Use config default if timeout not specified
-    if timeout is None:
-        timeout = get_config().run_timeout
+    # Resolve effective timeout: explicit arg > model's "timeout" entry > config default
+    timeout = resolve_timeout(model, timeout)
 
     # Import here to avoid circular imports
     from .core import is_interrupted
@@ -1896,7 +1915,7 @@ def run_ssh_calculation(
             "hostname": host,
             "port": port,
             "username": username,
-            "timeout": min(timeout, 30),  # Connection timeout
+            "timeout": 30 if timeout is None else min(timeout, 30),  # Connection timeout
         }
 
         if password:
@@ -2044,7 +2063,7 @@ def run_slurm_calculation(
         working_dir: Directory containing input files
         slurm_uri: SLURM URI (e.g., "slurm://partition/script" or "slurm://user@host:partition/script")
         model: Model definition dict
-        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         input_files_list: List of input file names in order (from .fz_hash)
         static_entries: Pre-resolved input_static entries; only used for
             remote SLURM execution (local execution shares the filesystem, so the
@@ -2053,9 +2072,8 @@ def run_slurm_calculation(
     Returns:
         Dict containing calculation results and status
     """
-    # Use config default if timeout not specified
-    if timeout is None:
-        timeout = get_config().run_timeout
+    # Resolve effective timeout: explicit arg > model's "timeout" entry > config default
+    timeout = resolve_timeout(model, timeout)
 
     # Import here to avoid circular imports
     from .core import is_interrupted
@@ -2111,7 +2129,7 @@ def _run_local_slurm_calculation(
     partition: str,
     script: str,
     model: Dict,
-    timeout: int,
+    timeout: Optional[int],
     start_time: datetime,
     env_info: Dict,
     input_files_list: List[str] = None,
@@ -2190,7 +2208,7 @@ def _run_local_slurm_calculation(
                     raise KeyboardInterrupt("SLURM job interrupted by user")
 
                 # Check for timeout
-                if elapsed_time >= timeout:
+                if timeout is not None and elapsed_time >= timeout:
                     raise subprocess.TimeoutExpired(full_command, timeout)
 
                 # Sleep briefly before next poll
@@ -2309,7 +2327,7 @@ def _run_remote_slurm_calculation(
     partition: str,
     script: str,
     model: Dict,
-    timeout: int,
+    timeout: Optional[int],
     start_time: datetime,
     env_info: Dict,
     input_files_list: List[str] = None,
@@ -2379,7 +2397,7 @@ def _run_remote_slurm_calculation(
             "hostname": host,
             "port": port,
             "username": username,
-            "timeout": min(timeout, 30),
+            "timeout": 30 if timeout is None else min(timeout, 30),
         }
 
         if password:
@@ -2566,7 +2584,7 @@ def _execute_remote_slurm_command(
                 raise KeyboardInterrupt("Remote SLURM job interrupted by user")
 
             # Check for timeout
-            if elapsed_time >= timeout:
+            if timeout is not None and elapsed_time >= timeout:
                 log_warning(f"⚠️  Remote SLURM job timeout after {timeout}s")
                 try:
                     channel.send('\x03')
@@ -2792,7 +2810,7 @@ def run_funz_calculation(
         working_dir: Directory containing input files
         funz_uri: Funz URI (e.g., "funz://:<port>/<code>")
         model: Model definition dict
-        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         input_files_list: List of input file names in order (from .fz_hash)
         static_entries: Pre-resolved input_static entries; relative ones are
             explicitly uploaded (they live outside working_dir - only symlinked there
@@ -2801,9 +2819,8 @@ def run_funz_calculation(
     Returns:
         Dict containing calculation results and status
     """
-    # Use config default if timeout not specified
-    if timeout is None:
-        timeout = get_config().run_timeout
+    # Resolve effective timeout: explicit arg > model's "timeout" entry > config default
+    timeout = resolve_timeout(model, timeout)
     # Import here to avoid circular imports
     from .core import is_interrupted, fzo
 
@@ -2931,7 +2948,7 @@ def run_funz_calculation(
         # Create TCP socket connection to discovered port
         log_debug(f"Creating TCP socket connection to {host}:{tcp_port}")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        connection_timeout = min(timeout, 30)
+        connection_timeout = 30 if timeout is None else min(timeout, 30)
         sock.settimeout(connection_timeout)
         log_debug(f"Socket timeout set to {connection_timeout}s")
 
@@ -3512,7 +3529,7 @@ def _execute_remote_command(
                 raise KeyboardInterrupt("Remote process interrupted by user")
 
             # Check for timeout
-            if elapsed_time >= timeout:
+            if timeout is not None and elapsed_time >= timeout:
                 log_warning(f"⚠️  Remote command timeout after {timeout}s")
                 try:
                     channel.send('\x03')  # Send Ctrl+C
@@ -3687,7 +3704,7 @@ def run_single_case_calculation(
         working_dir: Directory containing input files
         calculator_uri: Calculator URI to use for this case
         model: Model definition dict
-        timeout: Timeout in seconds (None uses FZ_RUN_TIMEOUT from config, default 600)
+        timeout: Timeout in seconds (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         original_input_was_dir: Whether original input was a directory
         original_cwd: Original working directory
         input_files_list: List of input file names in order

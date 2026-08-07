@@ -2478,8 +2478,8 @@ export FZ_INTERPRETER=python
 # Linux/macOS example: export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
 export FZ_SHELL_PATH=/usr/local/bin:/usr/bin
 
-# Run timeout in seconds (default: 600 = 10 minutes)
-export FZ_RUN_TIMEOUT=3600
+# Run timeout in seconds (default: 3600 = 1 hour)
+export FZ_RUN_TIMEOUT=1800
 
 # Case directory naming scheme: "path" (var=val,... subdirs, default), "hash"
 # (short content hash, avoids filesystem filename length limits with many
@@ -2539,13 +2539,13 @@ See `doc/shell-path.md` and `examples/shell_path_example.md` for detailed docume
 
 ### Timeout Configuration
 
-FZ provides flexible timeout settings at multiple levels for controlling calculation execution time:
+FZ provides flexible timeout settings for controlling calculation execution time:
 
 #### 1. Environment Variable (Global Default)
 
 ```bash
 # Set default timeout for all calculations (in seconds)
-export FZ_RUN_TIMEOUT=3600  # 1 hour (default: 600 seconds = 10 minutes)
+export FZ_RUN_TIMEOUT=1800  # 30 minutes (default: 3600 seconds = 1 hour)
 ```
 
 #### 2. Model Configuration (Per-Model)
@@ -2554,55 +2554,31 @@ export FZ_RUN_TIMEOUT=3600  # 1 hour (default: 600 seconds = 10 minutes)
 model = {
     "varprefix": "$",
     "output": {"result": "cat output.txt"},
-    "timeout": 1800  # 30 minutes for this model
+    "timeout": 1800  # 30 minutes for this model, regardless of FZ_RUN_TIMEOUT
 }
 
 results = fz.fzr("input.txt", input_variables, model, calculators="sh://calc.sh")
 ```
 
-#### 3. Calculator URI Parameter (Per-Calculator)
+A model `timeout` of `None`/`null` or `0` disables the timeout entirely for that
+model (the calculation may run indefinitely):
 
 ```python
-# Set timeout directly in calculator URI
-calculators = [
-    "sh://bash quick_calc.sh?timeout=300",      # 5 minutes
-    "sh://bash slow_calc.sh?timeout=7200",       # 2 hours
-    "ssh://user@hpc.edu/sbatch job.sh?timeout=86400"  # 24 hours
-]
+model = {"timeout": None, "output": {"result": "cat output.txt"}}
+```
 
-results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
+#### 3. `fzr()`/`fzc()` `timeout=` Argument (Per-Call)
+
+```python
+# Overrides both the model's timeout and FZ_RUN_TIMEOUT for this call only
+results = fz.fzr("input.txt", input_variables, model, calculators="sh://calc.sh", timeout=7200)
 ```
 
 #### Priority Order (highest to lowest)
 
-1. **Calculator URI parameter** (`?timeout=300`)
+1. **`timeout=` argument** passed to `fzr()`/`fzc()`
 2. **Model configuration** (`model["timeout"]`)
-3. **Environment variable** (`FZ_RUN_TIMEOUT`)
-4. **Default** (600 seconds = 10 minutes)
-
-**Example combining multiple levels**:
-
-```python
-import os
-
-# Global default: 1 hour
-os.environ['FZ_RUN_TIMEOUT'] = '3600'
-
-# Model-specific: 30 minutes
-model = {
-    "timeout": 1800,
-    "output": {"result": "cat output.txt"}
-}
-
-# Override for specific calculator: 2 hours
-calculators = [
-    "cache://previous_results",
-    "sh://bash calc.sh?timeout=7200",  # Uses 2 hours (URI overrides)
-    "sh://bash calc.sh"                 # Uses 30 minutes (model timeout)
-]
-
-results = fz.fzr("input.txt", input_variables, model, calculators=calculators)
-```
+3. **Environment variable** (`FZ_RUN_TIMEOUT`, default 3600 seconds = 1 hour)
 
 **Timeout Behavior**:
 - Calculation terminates after timeout expires
