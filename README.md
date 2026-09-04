@@ -3245,6 +3245,8 @@ parametric studies.
 ```
 
 The skill then loads automatically in every project, and updates with the marketplace.
+The plugin also adds four slash commands — `/fz:wrap`, `/fz:run`, `/fz:design`,
+`/fz:install` — that pre-frame the corresponding workflow.
 
 **Manual install** — copy (or symlink) the skill into your project or user skills
 directory:

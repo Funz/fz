@@ -14,6 +14,12 @@ use it.
 /plugin install fz@funz
 ```
 
+This also adds four slash commands that pre-frame a task so the skill activates
+reliably: `/fz:wrap` (wrap a code and verify it step by step), `/fz:run` (run a
+parametric study), `/fz:design` (optimization / calibration with `fzd`) and
+`/fz:install` (find and install an official `fz-<code>` package). They're optional —
+describing the goal in plain language works just as well.
+
 **User-level copy** (available in all your projects):
 
 ```bash

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Claude Code plugin: slash commands added
+
+- The `fz` Claude Code plugin (install with `/plugin marketplace add Funz/fz`
+  then `/plugin install fz@funz`) now ships four slash commands alongside the
+  Agent Skill: `/fz:wrap` (wrap a simulation code and verify it step by step),
+  `/fz:run` (run a parametric study), `/fz:design` (adaptive design of
+  experiments / optimization / calibration with `fzd`) and `/fz:install`
+  (find and install an official `fz-<code>` wrapper or algorithm). Plugin
+  bumped to 1.1.0.
+
 ### Default run timeout raised to 1h, per-model override
 
 - `FZ_RUN_TIMEOUT`'s default changed from 600 seconds (10 minutes) to 3600
