@@ -18,12 +18,14 @@ fz wraps any simulation code that reads input files and writes output files, so 
 run as a parametric study: variables in input files are substituted for each case, cases run
 in parallel (locally, SSH, SLURM), and outputs are parsed back into a pandas DataFrame.
 
-Install: `pip install 'funz-fz>=1.1'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
-`fzd` plus the `fz` Python package). 1.1 is recommended — it fixes `fzd` on the CLI,
-auto-discovers calculators for `fzd`, and stages directory-tree (case) inputs intact;
-1.0 lacks these. On PEP 668 externally-managed systems
+Install: `pip install 'funz-fz>=1.2'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
+`fzd` plus the `fz` Python package). 1.2 is recommended — on top of the 1.1 fixes (`fzd`
+on the CLI, calculator auto-discovery for `fzd`, directory-tree inputs staged intact) it
+adds shell-free output extraction (`python://`/`jq://`/`yq://`/`xpath://`), vector outputs,
+multi-objective `fzd`, shared `input_static` files, and configurable `case_naming`.
+On PEP 668 externally-managed systems
 (`error: externally-managed-environment`), use a venv:
-`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=1.1'`.
+`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=1.2'`.
 
 ## The workflow
 

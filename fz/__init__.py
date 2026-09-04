@@ -95,7 +95,7 @@ def list_models(global_list=False):
     return list_installed_models(global_list=global_list)
 
 
-__version__ = "1.1"
+__version__ = "1.2"
 __all__ = [
     "fzi", "fzc", "fzo", "fzr", "fzl", "fzd", "FunctionModelParallelError",
     "install", "uninstall", "list_models",

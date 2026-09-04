@@ -1,7 +1,7 @@
 {
   "name": "fz",
   "description": "Parametric simulation studies with the fz package (Funz): wrap any simulation code, run parameter sweeps locally / over SSH / on SLURM, parse results into DataFrames, and build reusable fz-<code> wrappers. Bundles the fz Agent Skill (workflow guide, API/CLI reference, fzd algorithm interface, wrapper implementation guide) and slash commands for the wrap / run / optimize / install workflows.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "Funz",
     "url": "https://github.com/Funz"

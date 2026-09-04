@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## Version 1.2 (2026-09-04)
+
 ### Claude Code plugin: slash commands added
 
 - The `fz` Claude Code plugin (install with `/plugin marketplace add Funz/fz`
@@ -10,7 +12,7 @@
   `/fz:run` (run a parametric study), `/fz:design` (adaptive design of
   experiments / optimization / calibration with `fzd`) and `/fz:install`
   (find and install an official `fz-<code>` wrapper or algorithm). Plugin
-  bumped to 1.1.0.
+  bumped to 1.2.0, aligned with the package release.
 
 ### Default run timeout raised to 1h, per-model override
 
@@ -100,8 +102,6 @@
   `cache://` matching is by `.fz_hash` content, not directory name, so
   cross-iteration cache reuse is unaffected.
 
-## Unreleased (feat/vector-objectives-fzd)
-
 ### Multi-objective (vector) objectives in fzd
 
 - `fzd()`'s `output_expression` now also accepts a **list of expressions**:
@@ -122,9 +122,6 @@
 - 8 new tests in `tests/test_fzd_multiobjective.py`; no regressions on
   `test_fzd.py`, `test_fzd_vector_outputs.py`, `test_algorithm_options.py`,
   `test_algorithm_plugins.py` (85 passed).
-
-
-## Unreleased
 
 ### Native shell-free output extraction: python://, jq://, yq://, xpath://
 
