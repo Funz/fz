@@ -1788,7 +1788,7 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
             computed once by the caller (from fzr()'s/fzc()'s input_static argument)
             rather than per case
     """
-    from .interpreter import replace_variables_in_content, evaluate_formulas
+    from .interpreter import replace_variables_in_content, evaluate_formulas, parse_variable_defaults_from_content
     from .io import create_hash_file
     from .config import get_interpreter
 
@@ -1869,11 +1869,21 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
                 shutil.copy2(src_path, dst_path)
                 return
 
+            # Seed inline defaults ($(var~default)) for any variable the caller
+            # did not provide, so formulas referencing such a variable can still
+            # be pre-evaluated here (matching fzi()'s pre-evaluation). Explicit
+            # values in var_combo always win; list/bounds defaults (None) are skipped.
+            inline_defaults = parse_variable_defaults_from_content(content, varprefix, delim)
+            effective_combo = {
+                **{k: v for k, v in inline_defaults.items() if v is not None},
+                **var_combo,
+            }
+
             # Replace variables
-            substituted = replace_variables_in_content(content, var_combo, varprefix, delim)
+            substituted = replace_variables_in_content(content, effective_combo, varprefix, delim)
 
             # Evaluate formulas
-            substituted = evaluate_formulas(substituted, model, var_combo, interpreter)
+            substituted = evaluate_formulas(substituted, model, effective_combo, interpreter)
             _maybe_warn_static_candidate(src_path, has_variables=(substituted != content))
 
             # Write compiled content

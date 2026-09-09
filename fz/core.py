@@ -1027,7 +1027,7 @@ def fzi(input_path: str, model: Union[str, Dict], input_static: Optional[List[st
                         pass
 
         # Extract default values from variables
-        from .interpreter import parse_formulas_from_content, evaluate_single_formula, parse_static_objects_from_content, evaluate_static_objects, parse_static_objects_with_expressions
+        from .interpreter import parse_formulas_from_content, evaluate_single_formula, parse_static_objects_from_content, evaluate_static_objects, parse_static_objects_with_expressions, parse_variable_defaults_from_content
 
         # Parse static objects to get their expressions (for returning in fzi)
         commentline = _get_comment_char(model)
@@ -1037,40 +1037,8 @@ def fzi(input_path: str, model: Union[str, Dict], input_static: Optional[List[st
         static_lines = parse_static_objects_from_content(content, commentline, formulaprefix)
         static_objects_evaluated = evaluate_static_objects(static_lines, interpreter)
 
-        variable_defaults = {}
-
-        # Pattern to match variables with defaults: $(var~default...)
-        if len(var_delim) == 2:
-            left_delim, right_delim = var_delim[0], var_delim[1]
-            esc_varprefix = re.escape(varprefix)
-            esc_left = re.escape(left_delim)
-            esc_right = re.escape(right_delim)
-
-            # Match $(var~default...) patterns
-            default_pattern = rf"{esc_varprefix}{esc_left}([a-zA-Z_][a-zA-Z0-9_]*)~([^{esc_right};]*)"
-
-            for match in re.finditer(default_pattern, content):
-                var_name = match.group(1)
-                default_value = match.group(2).strip()
-
-                # Try to parse the default value
-                # Use ast.literal_eval to handle various Python literal formats:
-                # - Hexadecimal (0x1F), octal (0o77), binary (0b1010)
-                # - Numbers with underscores (1_000_000)
-                # - Scientific notation (1e6)
-                # - Regular integers and floats
-                try:
-                    variable_defaults[var_name] = ast.literal_eval(default_value)
-                except (ValueError, SyntaxError):
-                    # If literal_eval fails, try to interpret as string
-                    if default_value.startswith('"') and default_value.endswith('"'):
-                        variable_defaults[var_name] = default_value[1:-1]
-                    elif default_value.startswith('[') or default_value.startswith('{'):
-                        # Keep bounds/values as string for now
-                        variable_defaults[var_name] = None
-                    else:
-                        # Keep as raw string
-                        variable_defaults[var_name] = default_value
+        # Extract inline default values ($(var~default...)); shared with fzc()
+        variable_defaults = parse_variable_defaults_from_content(content, varprefix, var_delim)
 
         # Build result dict starting with static objects
         result = {}

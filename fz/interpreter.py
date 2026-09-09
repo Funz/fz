@@ -232,6 +232,58 @@ def parse_variables_from_content(content: str, varprefix: str = "$", delim: str 
     return variables
 
 
+def parse_variable_defaults_from_content(content: str, varprefix: str = "$",
+                                         delim: str = "()") -> Dict[str, Any]:
+    """
+    Extract inline default values declared with the ``$(var~default)`` syntax
+    (optionally ``$(var~default;comment;bounds)``).
+
+    Returns a dict mapping variable name -> parsed default value:
+
+    - anything ``ast.literal_eval`` accepts is returned as that value: numbers,
+      quoted strings, hex/oct/bin, scientific notation, underscores, and valid
+      list/dict literals (e.g. ``$(b~[0,1])`` -> ``[0, 1]``);
+    - a bare token that is not a valid literal is kept as a raw string
+      (e.g. ``$(host~localhost)`` -> ``"localhost"``);
+    - a token that starts with ``[`` or ``{`` but does not parse (truncated
+      bounds metadata) maps to ``None``.
+
+    Text after a ``;`` separator (comment / bounds metadata) is ignored, and
+    variables without an inline default are absent from the returned dict.
+
+    Shared by fzi() (pre-evaluation of variables/formulas) and fzc()'s
+    compilation, so both use the same defaults.
+    """
+    defaults: Dict[str, Any] = {}
+
+    if len(delim) != 2:
+        return defaults
+
+    left_delim, right_delim = delim[0], delim[1]
+    esc_varprefix = re.escape(varprefix)
+    esc_left = re.escape(left_delim)
+    esc_right = re.escape(right_delim)
+
+    # Match $(var~default...) up to the closing delimiter or a ';' metadata separator
+    default_pattern = rf"{esc_varprefix}{esc_left}([a-zA-Z_][a-zA-Z0-9_]*)~([^{esc_right};]*)"
+
+    for match in re.finditer(default_pattern, content):
+        var_name = match.group(1)
+        default_value = match.group(2).strip()
+        try:
+            defaults[var_name] = ast.literal_eval(default_value)
+        except (ValueError, SyntaxError):
+            if default_value.startswith('"') and default_value.endswith('"'):
+                defaults[var_name] = default_value[1:-1]
+            elif default_value.startswith('[') or default_value.startswith('{'):
+                # Bounds/range literal, not a usable scalar default
+                defaults[var_name] = None
+            else:
+                defaults[var_name] = default_value
+
+    return defaults
+
+
 def parse_variables_from_file(filepath: Path, varprefix: str = "$", delim: str = "()") -> Set[str]:
     """
     Parse variables from a single file
