@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### `fzc`/`fzr` now pre-evaluate formulas from inline variable defaults
+
+- When an input file declares a variable default (`$(x~3)`) and a formula that
+  uses it (`@{x * 2}`), `fzc`/`fzr` now substitute the default and evaluate the
+  formula (`x = 3`, `y = 6`), matching what `fzi` already reported. Previously
+  the variable was substituted but the formula was left uncompiled. Explicitly
+  passed `input_variables` still override the inline defaults.
+
 ## Version 1.2 (2026-09-04)
 
 ### Claude Code plugin: slash commands added
