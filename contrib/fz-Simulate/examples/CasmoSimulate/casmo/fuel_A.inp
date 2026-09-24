@@ -1,0 +1,21 @@
+TTL * Fuel segment A - fz chain example (SKELETON: complete with your methodology,
+* including the branch cases required by CMS-LINK)
+TFU=900 TMO=580 BOR=600
+PDE 104.5 'KWL'
+PWR 17 1.26 21.50
+FUE 1 10.4/${enrichment_A~3.1}
+PIN 1 0.4096 0.418 0.475
+PIN 2 0.573 0.613/'MOD' 'BOX'
+LPI
+2
+1 1
+1 1 1
+2 1 1 2
+1 1 1 1 1
+1 1 1 1 1 2
+2 1 1 2 1 1 1
+1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1
+DEP -60
+STA
+END

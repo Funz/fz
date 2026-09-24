@@ -1,0 +1,17 @@
+#!/bin/bash
+# Mock SIMULATE (NOT SIMULATE): reads the library mean k-inf and the 'PWR' card,
+# writes a 3-step summary: boron = 10000 * (kinf - 1) * (100 / power) * (1 - step / 3).
+INP="${@: -1}"
+LIB=$(awk -F"'" '$2=="LIB" {print $4; exit}' "$INP")
+[ -f "$LIB" ] || { echo "mock sim5: library $LIB not found" >&2; exit 6; }
+PWR=$(awk -F"'" '$2=="PWR" {split($3, a, " "); print a[1]; exit}' "$INP")
+LC_ALL=C awk -v k="$(cat "$LIB")" -v p="${PWR:-100}" 'BEGIN {
+  print " MOCK SIMULATE OUTPUT (synthetic)"
+  for (s = 0; s < 3; s++) {
+    printf "  Cycle Exp. . . . . . %8.3f\n", 6 * s
+    printf "  K-effective . . . . . %8.5f\n", 1.0
+    printf "  Boron Conc. . . . . . %8.1f ppm\n", 10000 * (k - 1) * (100 / p) * (1 - s / 3)
+    printf "  Fq  . . . . . . . . . %8.3f\n", 2.0 - 0.1 * s
+    printf "  F-delta-H . . . . . . %8.3f\n", 1.5 - 0.05 * s
+  }
+}' > "${INP%.*}.out"

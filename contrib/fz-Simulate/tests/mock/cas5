@@ -1,0 +1,11 @@
+#!/bin/bash
+# Mock CASMO5 launcher (NOT CASMO5): k-inf = 0.9 + 0.1 * enrichment of the FUE card,
+# written to <base>.out and <base>.cax. MOCK_CASMO_FAIL=<deck base name> makes that deck fail.
+for a in "$@"; do case "$a" in -*) ;; *) INP="$a" ;; esac; done
+[ -f "$INP" ] || { echo "mock cas5: no input" >&2; exit 3; }
+B="${INP%.*}"
+[ "$MOCK_CASMO_FAIL" = "$B" ] && { echo "mock cas5: simulated failure" >&2; exit 4; }
+ENR=$(awk '$1=="FUE" {split($3, a, "/"); print a[2]; exit}' "$INP")
+K=$(LC_ALL=C awk -v e="${ENR:-3}" 'BEGIN {printf "%.5f", 0.9 + 0.1 * e}')
+printf ' MOCK CASMO5 OUTPUT\n  2D k-infinity:   %s\n' "$K" > "$B.out"
+echo "$K" > "$B.cax"

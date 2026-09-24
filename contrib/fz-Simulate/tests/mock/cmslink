@@ -1,0 +1,13 @@
+#!/bin/bash
+# Mock CMS-LINK (NOT CMS-LINK): reads the 'CAS' files and the 'NEW' library name of
+# the deck, writes the mean k-inf of the .cax files into the library.
+INP="${@: -1}"
+LIB=$(awk -F"'" '$2=="NEW" {print $4; exit}' "$INP")
+k=0; n=0
+for cax in $(awk -F"'" '$2=="CAS" {print $4}' "$INP"); do
+  [ -f "$cax" ] || { echo "mock cmslink: missing $cax" >&2; exit 5; }
+  k=$(LC_ALL=C awk -v a="$k" -v b="$(cat "$cax")" 'BEGIN {print a + b}'); n=$((n + 1))
+done
+[ $n -gt 0 ] || { echo "mock cmslink: no CAS file" >&2; exit 5; }
+LC_ALL=C awk -v k="$k" -v n="$n" 'BEGIN {printf "%.5f\n", k / n}' > "$LIB"
+echo " MOCK CMS-LINK: $n segments -> $LIB" > cmslink.out

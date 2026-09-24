@@ -1,0 +1,7 @@
+{
+    "uri": "sh://",
+    "models": {
+        "Simulate": "bash .fz/calculators/Simulate.sh",
+        "CasmoSimulate": "bash .fz/calculators/CasmoSimulate.sh"
+    }
+}

@@ -1,0 +1,34 @@
+# Results and temporary files
+results/
+*.out
+*.msg
+*.html
+PID
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv
+
+# fz temporary files
+.fz/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Private decks and outputs
+private_examples/
+
+# Keep output fixtures used by the tests
+!tests/fixtures/**
+*.cax
+*.lib
+
+# Keep output fixtures used by the tests
+!tests/fixtures/**

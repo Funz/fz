@@ -1,0 +1,19 @@
+* SIMULATE core deck - fz parametric SKELETON (SIMULATE-3 card style).
+* Complete the core description (loading map, library, geometry) with the decks
+* of your own methodology; only the fz parameterization is illustrated here.
+* fz parameters use the dollar-brace syntax, with a default value after "~".
+'COM' fz parametric core calculation /
+'TIT.CAS' 'fz-demo' /
+* Nuclear data library produced by CMS-LINK (ship it with the input or use
+* fzr --input_static, or give an absolute path)
+'LIB' 'cms.lib' /
+* Core thermal power and flow (% of nominal)
+'PWR' ${core_power~100.0} /
+'FLO' ${core_flow~100.0} /
+* Initial boron guess (ppm)
+'BOR' ${boron_guess~1200} /
+* Cycle depletion: exposure steps (GWd/t) up to the cycle length
+'DEP.CYC' 'CYCLE1' 0.0 1 /
+'DEP.STA' 'AVE' 0.0 0.15 0.5 -1 ${cycle_length~18.0} /
+'STA' /
+'END' /
