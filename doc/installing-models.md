@@ -68,7 +68,8 @@ fz-mycode/
     └── algorithms/*.py|*.R         # for algorithm repositories
 ```
 
-On install, fz copies the model JSON into `.fz/models/` (or `~/.fz/models/` with
+On install, fz copies every model JSON of the repository (`.fz/models/*.json`; a
+repository may ship several related models) into `.fz/models/` (or `~/.fz/models/` with
 `--global`) and any accompanying `.fz/` subdirectories (calculators, algorithms, …)
 alongside it.
 

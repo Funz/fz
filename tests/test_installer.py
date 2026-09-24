@@ -296,6 +296,36 @@ def test_extract_model_files():
         print("✓ extract_model_files correctly identifies .fz directory")
 
 
+def test_install_model_with_several_models():
+    """A repository shipping several .fz/models/*.json installs all of them"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        zip_path = tmpdir / "fz-multi.zip"
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            for name in ("Multi-b", "Multi-a"):
+                zf.writestr(f"fz-multi-main/.fz/models/{name}.json",
+                            json.dumps({"id": name, "varprefix": "$", "output": {}}))
+            zf.writestr("fz-multi-main/.fz/calculators/localhost_Multi.json",
+                        json.dumps({"uri": "sh://", "models": {"Multi-a": "bash a.sh",
+                                                               "Multi-b": "bash b.sh"}}))
+
+        project_dir = tmpdir / "project"
+        project_dir.mkdir()
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(project_dir)
+            result = install_model(str(zip_path), global_install=False)
+            assert result['model_name'] == 'Multi-a'  # primary = first in sorted order
+            assert result['model_names'] == ['Multi-a', 'Multi-b']
+            for name in ('Multi-a', 'Multi-b'):
+                installed = project_dir / '.fz' / 'models' / f'{name}.json'
+                assert installed.exists()
+                assert json.loads(installed.read_text())['id'] == name
+            assert len(result['install_paths']) == 2
+        finally:
+            os.chdir(original_cwd)
+
+
 def test_install_model_no_additional_files():
     """Test installation of a model with only model.json (no calculators, algorithms, etc.)"""
     with tempfile.TemporaryDirectory() as tmpdir:

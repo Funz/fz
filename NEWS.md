@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### `fz install model` installs every model of a repository
+
+- A wrapper repository shipping several `.fz/models/*.json` (e.g. fz-Scale's
+  `Scale-keno`/`Scale-shift`/..., or a code and its coupling chain) now gets all of
+  them installed. Previously only the first file found was installed, in
+  filesystem order, so the installed model was arbitrary. `install_model()` also
+  returns `model_names` and `install_paths`; `model_name`/`install_path` still
+  refer to the first model (sorted by file name).
+
 ### `fzc`/`fzr` now pre-evaluate formulas from inline variable defaults
 
 - When an input file declares a variable default (`$(x~3)`) and a formula that

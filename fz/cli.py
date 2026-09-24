@@ -1030,7 +1030,11 @@ def main():
             if args.install_type == "model":
                 from .installer import install_model
                 result = install_model(args.source, global_install=args.global_install)
-                print(f"Successfully installed model '{result['model_name']}'")
+                names = result.get('model_names') or [result['model_name']]
+                if len(names) == 1:
+                    print(f"Successfully installed model '{names[0]}'")
+                else:
+                    print(f"Successfully installed models {', '.join(repr(n) for n in names)}")
                 if result.get('installed_files'):
                     print(f"  Installed {len(result['installed_files'])} additional files from .fz subdirectories")
             elif args.install_type == "algorithm":

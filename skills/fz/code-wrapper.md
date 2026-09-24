@@ -37,8 +37,9 @@ fz-mycode/                         # GitHub repo named fz-<code> (lowercase)
 - A bare name resolves to `https://github.com/Funz/fz-<code>` (official wrappers live
   under the Funz organization; any git URL or local zip also works:
   `fz install model https://github.com/you/fz-mycode.git`).
-- On install, `.fz/models/MyCode.json` is copied to the project's (or, with `--global`,
-  the user's) `.fz/models/`; every other `.fz/` subdirectory (`calculators/`, optionally
+- On install, every `.fz/models/*.json` is copied to the project's (or, with `--global`,
+  the user's) `.fz/models/` (one repository may ship several models, e.g. variants or a
+  code chain; fz > 1.2, earlier versions install only the first one); every other `.fz/` subdirectory (`calculators/`, optionally
   `algorithms/`) is copied wholesale, and `.sh`/`.bash`/`.zsh` scripts are made executable.
 
 ## 1. The model JSON
