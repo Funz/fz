@@ -1,8 +1,0 @@
-* CMS-LINK deck - SKELETON: replace by the CMS-LINK input of your methodology.
-* It must read the CASMO files casmo/fuel_A.cax and casmo/fuel_B.cax and write
-* the library cms.lib read by simulate.inp.
-'COM' fz chain library /
-'NEW' 'cms.lib' /
-'CAS' 'casmo/fuel_A.cax' /
-'CAS' 'casmo/fuel_B.cax' /
-'END' /
