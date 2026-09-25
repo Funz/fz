@@ -49,8 +49,20 @@ _SHELL_MISSING_COMMAND_RE = re.compile(
 )
 
 
+# cmd.exe report of a missing command, capturing its name:
+# "'grep' is not recognized as an internal or external command, ..."
+_CMD_NOT_RECOGNIZED_RE = re.compile(
+    r"^'?([^'\n]+?)'? is not recognized as an internal or external command",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Exit codes meaning "command not found": 127 (POSIX shells), 9009 (cmd.exe),
+# 3 (cmd.exe ERROR_PATH_NOT_FOUND, for a command given with a wrong path)
+_MISSING_COMMAND_EXIT_CODES = (127, 9009, 3)
+
+
 def _missing_command(stderr: str, exit_code: int, cmd_name: str,
-                     extra_patterns: Tuple[str, ...] = ()) -> Optional[str]:
+                     windows: bool = False) -> Optional[str]:
     """
     Name of the command or script the shell could not find, or None.
 
@@ -58,6 +70,11 @@ def _missing_command(stderr: str, exit_code: int, cmd_name: str,
     "not found" / "no such file or directory" may come from the simulation
     code (e.g. "library not found", a missing data file) and then says nothing
     about the command, so it counts only with the shell's exit code 127.
+
+    With windows=True (local sh:// runs), cmd.exe messages are also recognized:
+    "... is not recognized as an internal or external command" always, and
+    "The system cannot find the path specified" only with a missing-command exit
+    code, since programs print it for missing data paths too.
     """
     stderr_lower = stderr.lower() if stderr else ""
     match = _SHELL_MISSING_COMMAND_RE.search(stderr or "")
@@ -65,10 +82,18 @@ def _missing_command(stderr: str, exit_code: int, cmd_name: str,
         match = None  # e.g. "bash: input.txt: No such file..." from a redirection
     if match:
         return match.group(1)
-    if any(p in stderr_lower for p in ("command not found",) + tuple(extra_patterns)):
+    if "command not found" in stderr_lower:
         return cmd_name
     if exit_code == 127 and any(p in stderr_lower for p in ("not found", "no such file or directory")):
         return cmd_name
+    if windows:
+        match = _CMD_NOT_RECOGNIZED_RE.search(stderr or "")
+        if match:
+            return match.group(1)
+        if "is not recognized as" in stderr_lower:
+            return cmd_name
+        if exit_code in _MISSING_COMMAND_EXIT_CODES and "cannot find the path" in stderr_lower:
+            return cmd_name
     return None
 
 
@@ -115,11 +140,7 @@ def _classify_sh_error(stderr: str, exit_code: int, command: str) -> Optional[st
         )
 
     # --- Command not found (local) ---
-    missing = _missing_command(stderr, exit_code, cmd_name, (
-        "is not recognized as",       # Windows cmd.exe
-        "cannot find the path",       # Windows cmd.exe
-        "the system cannot find",     # Windows cmd.exe
-    ))
+    missing = _missing_command(stderr, exit_code, cmd_name, windows=True)
     if missing:
         return (
             f"Command not found locally: '{missing}'. "
@@ -509,6 +530,7 @@ def _classify_common_error(stderr: str, exit_code: int, command: str, protocol: 
         "failed to open",
         "input file not found",
         "file not found",
+        "cannot find the file specified",   # Windows
     ]) and "command not found" not in stderr_lower:
         return (
             f"Input file not found {location}. "

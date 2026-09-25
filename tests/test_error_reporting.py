@@ -312,10 +312,30 @@ class TestShClassifier:
         assert msg is not None
         assert "locally" in msg.lower()
 
-    def test_command_not_found_windows_cannot_find(self):
-        msg = _classify_sh_error("The system cannot find the path specified", 1, "mycommand")
+    @pytest.mark.parametrize("exit_code", [3, 9009])
+    def test_command_not_found_windows_cannot_find(self, exit_code):
+        """cmd.exe: wrong command path (ERROR_PATH_NOT_FOUND 3, or 9009)."""
+        msg = _classify_sh_error("The system cannot find the path specified", exit_code, "mycommand")
         assert msg is not None
         assert "locally" in msg.lower()
+        assert "'mycommand'" in msg
+
+    def test_windows_cannot_find_path_from_code_is_not_command_not_found(self):
+        """A program printing this for a missing data path (own exit status) is not a missing command."""
+        assert _classify_sh_error("The system cannot find the path specified", 1, "solver") is None
+        msg = classify_error("The system cannot find the path specified", exit_code=1, command="solver in.dat")
+        assert "command not found" not in msg.lower()
+
+    def test_windows_cannot_find_file_is_input_file(self):
+        msg = classify_error("The system cannot find the file specified.", exit_code=1,
+                             command="solver in.dat")
+        assert "input file not found" in msg.lower()
+
+    def test_windows_not_recognized_names_the_command(self):
+        msg = _classify_sh_error("'cas5' is not recognized as an internal or external command,\n"
+                                 "operable program or batch file.", 9009, "run.bat input.inp")
+        assert msg is not None
+        assert "'cas5'" in msg
 
     def test_permission_denied_unix(self):
         msg = _classify_sh_error("bash: ./script.sh: Permission denied", 126, "./script.sh")

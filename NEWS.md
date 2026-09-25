@@ -15,6 +15,11 @@
   "is not recognized as ..."), or from a bare "not found" / "No such file or
   directory" with exit code 127. The report names the missing command taken from
   the shell message (e.g. `'cas5'` inside a runner script), not the launcher `bash`.
+- Windows (local runs): "'x' is not recognized as an internal or external command"
+  still reports `x` as missing; "The system cannot find the path specified" does
+  only with a missing-command exit code (3, 9009 or 127), since programs print it
+  for missing data paths too; "The system cannot find the file specified" is
+  reported as an input file not found.
 
 ### `fz install model` installs every model of a repository
 
