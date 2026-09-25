@@ -247,6 +247,53 @@ class TestClassifyError:
         assert "not found" in msg.lower() or "input file" in msg.lower()
 
 
+class TestNotFoundFromCodeIsNotMissingCommand:
+    """A "not found" printed by the simulation code must not be reported as a
+    missing command (it used to give "Command not found locally: 'bash'")."""
+
+    CODE_STDERR = "mock sim5: library cms.lib not found\nSIMULATE exited with status 6"
+
+    @pytest.mark.parametrize("protocol", ["sh", "ssh", "slurm"])
+    def test_code_not_found_message_is_not_command_not_found(self, protocol):
+        msg = classify_error(self.CODE_STDERR, exit_code=6,
+                             command="bash /x/Simulate.sh cms.lib simulate.inp", protocol=protocol)
+        assert "command not found" not in msg.lower()
+        assert "exit code 6" in msg.lower()
+        assert "library cms.lib not found" in msg
+
+    def test_missing_data_file_is_input_file_not_command(self):
+        msg = classify_error("cannot open 'data.csv': No such file or directory",
+                             exit_code=1, command="bash run.sh data.csv")
+        assert "input file not found" in msg.lower()
+        assert "command not found" not in msg.lower()
+
+    def test_redirection_failure_is_not_command_not_found(self):
+        msg = classify_error("bash: input.txt: No such file or directory",
+                             exit_code=1, command="bash run.sh")
+        assert "command not found" not in msg.lower()
+
+    @pytest.mark.parametrize("stderr, exit_code, name", [
+        ("bash: line 3: cas5: command not found", 127, "cas5"),
+        ("/bin/sh: line 1: cas5: command not found", 127, "cas5"),
+        ("sh: 1: sim5: not found", 127, "sim5"),
+        ("bash: /x/missing.sh: No such file or directory", 127, "/x/missing.sh"),
+    ])
+    def test_shell_report_names_the_missing_command(self, stderr, exit_code, name):
+        """The missing command is taken from the shell message, not the launcher."""
+        msg = classify_error(stderr, exit_code=exit_code, command="bash run.sh input.inp")
+        assert f"command not found locally: '{name}'" in msg.lower()
+
+    def test_remote_shell_report_names_the_missing_command(self):
+        msg = classify_error("bash: line 3: cas5: command not found", exit_code=127,
+                             command="bash run.sh", protocol="ssh")
+        assert "remote" in msg.lower()
+        assert "'cas5'" in msg
+
+    def test_bare_not_found_with_exit_127_is_still_command_not_found(self):
+        msg = classify_error("mycmd: not found", exit_code=127, command="mycmd")
+        assert "command not found locally: 'mycmd'" in msg.lower()
+
+
 # ===========================================================================
 # 1b. Protocol-specific classifier unit tests
 # ===========================================================================
@@ -265,10 +312,30 @@ class TestShClassifier:
         assert msg is not None
         assert "locally" in msg.lower()
 
-    def test_command_not_found_windows_cannot_find(self):
-        msg = _classify_sh_error("The system cannot find the path specified", 1, "mycommand")
+    @pytest.mark.parametrize("exit_code", [3, 9009])
+    def test_command_not_found_windows_cannot_find(self, exit_code):
+        """cmd.exe: wrong command path (ERROR_PATH_NOT_FOUND 3, or 9009)."""
+        msg = _classify_sh_error("The system cannot find the path specified", exit_code, "mycommand")
         assert msg is not None
         assert "locally" in msg.lower()
+        assert "'mycommand'" in msg
+
+    def test_windows_cannot_find_path_from_code_is_not_command_not_found(self):
+        """A program printing this for a missing data path (own exit status) is not a missing command."""
+        assert _classify_sh_error("The system cannot find the path specified", 1, "solver") is None
+        msg = classify_error("The system cannot find the path specified", exit_code=1, command="solver in.dat")
+        assert "command not found" not in msg.lower()
+
+    def test_windows_cannot_find_file_is_input_file(self):
+        msg = classify_error("The system cannot find the file specified.", exit_code=1,
+                             command="solver in.dat")
+        assert "input file not found" in msg.lower()
+
+    def test_windows_not_recognized_names_the_command(self):
+        msg = _classify_sh_error("'cas5' is not recognized as an internal or external command,\n"
+                                 "operable program or batch file.", 9009, "run.bat input.inp")
+        assert msg is not None
+        assert "'cas5'" in msg
 
     def test_permission_denied_unix(self):
         msg = _classify_sh_error("bash: ./script.sh: Permission denied", 126, "./script.sh")
