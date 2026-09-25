@@ -190,9 +190,17 @@ jobs:
         pip install pandas numpy scipy matplotlib
         pip install pytest pytest-cov
         pip install getpass4
-        # --prefer-binary: rpy2-rinterface 3.6.7 ships no cp313 Windows wheel and its
-        # sdist does not build with MSVC; fall back to the latest release with a wheel
-        pip install --prefer-binary rpy2
+
+    - name: Install rpy2 (Linux, macOS)
+      if: runner.os != 'Windows'
+      run: pip install rpy2
+
+    - name: Install rpy2 (Windows)
+      if: runner.os == 'Windows'
+      # rpy2-rinterface's sdist does not build with MSVC, and some releases lack a
+      # wheel for some Python versions (3.6.7: no cp313-win_amd64); wheels only, so
+      # that pip falls back to the latest rpy2/rpy2-rinterface pair that has one
+      run: pip install --only-binary=rpy2-rinterface rpy2
         
     - name: Setup SSH server (Linux only)
       if: runner.os == 'Linux'
