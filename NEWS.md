@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Error reports no longer blame the command for a code's "not found" message
+
+- Any stderr containing "not found" or "No such file or directory" was reported as
+  `Command not found locally: 'bash'` (or `... on remote server` for ssh/slurm),
+  even when the command ran and the simulation code itself printed e.g.
+  "library not found" and exited with its own status. Such cases now fall back to
+  the generic report (`Command failed with exit code N. stderr: ...`) or to
+  "Input file not found".
+- A missing command is recognized from the shell's own messages
+  (`bash: foo: command not found`, `sh: 1: foo: not found`, Windows
+  "is not recognized as ..."), or from a bare "not found" / "No such file or
+  directory" with exit code 127. The report names the missing command taken from
+  the shell message (e.g. `'cas5'` inside a runner script), not the launcher `bash`.
+
 ### `fz install model` installs every model of a repository
 
 - A wrapper repository shipping several `.fz/models/*.json` (e.g. fz-Scale's

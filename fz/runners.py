@@ -3,6 +3,7 @@ Calculation runners for fz package: calculator resolution and execution
 """
 
 import os
+import re
 import subprocess
 import time
 import hashlib
@@ -35,6 +36,40 @@ except ImportError:
     RejectPolicy = None
 
 from .io import load_aliases
+
+
+# Shell report of a missing command or script, capturing its name, e.g.
+# "bash: foo: command not found", "sh: 1: foo: not found",
+# "bash: ./run.sh: No such file or directory" (exit code 127 only),
+# "/bin/sh: line 1: foo: command not found"
+_SHELL_MISSING_COMMAND_RE = re.compile(
+    r"^(?:\S*/)?(?:ba|da|z|k)?sh(?:\.exe)?: (?:line )?(?:\d+: )?"
+    r"([^:\n]+): (command not found|not found|no such file or directory)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _missing_command(stderr: str, exit_code: int, cmd_name: str,
+                     extra_patterns: Tuple[str, ...] = ()) -> Optional[str]:
+    """
+    Name of the command or script the shell could not find, or None.
+
+    Only messages the shell itself emits for a missing command count: a bare
+    "not found" / "no such file or directory" may come from the simulation
+    code (e.g. "library not found", a missing data file) and then says nothing
+    about the command, so it counts only with the shell's exit code 127.
+    """
+    stderr_lower = stderr.lower() if stderr else ""
+    match = _SHELL_MISSING_COMMAND_RE.search(stderr or "")
+    if match and match.group(2).lower() == "no such file or directory" and exit_code != 127:
+        match = None  # e.g. "bash: input.txt: No such file..." from a redirection
+    if match:
+        return match.group(1)
+    if any(p in stderr_lower for p in ("command not found",) + tuple(extra_patterns)):
+        return cmd_name
+    if exit_code == 127 and any(p in stderr_lower for p in ("not found", "no such file or directory")):
+        return cmd_name
+    return None
 
 
 def _classify_sh_error(stderr: str, exit_code: int, command: str) -> Optional[str]:
@@ -80,16 +115,14 @@ def _classify_sh_error(stderr: str, exit_code: int, command: str) -> Optional[st
         )
 
     # --- Command not found (local) ---
-    if any(pattern in stderr_lower for pattern in [
-        "command not found",
-        "not found",
-        "no such file or directory",
+    missing = _missing_command(stderr, exit_code, cmd_name, (
         "is not recognized as",       # Windows cmd.exe
         "cannot find the path",       # Windows cmd.exe
         "the system cannot find",     # Windows cmd.exe
-    ]):
+    ))
+    if missing:
         return (
-            f"Command not found locally: '{cmd_name}'. "
+            f"Command not found locally: '{missing}'. "
             f"Check that the command is installed and available in PATH. "
             f"stderr: {stderr.strip()}"
         )
@@ -213,13 +246,10 @@ def _classify_ssh_error(stderr: str, exit_code: int, command: str) -> Optional[s
             )
 
     # --- Remote command not found ---
-    if any(pattern in stderr_lower for pattern in [
-        "command not found",
-        "not found",
-        "no such file or directory",
-    ]):
+    missing = _missing_command(stderr, exit_code, cmd_name)
+    if missing:
         return (
-            f"Command not found on remote server: '{cmd_name}'. "
+            f"Command not found on remote server: '{missing}'. "
             f"Check that the command is installed and available in PATH on the remote host. "
             f"stderr: {stderr.strip()}"
         )
@@ -333,13 +363,10 @@ def _classify_slurm_error(stderr: str, exit_code: int, command: str) -> Optional
         return f"SLURM error: {stderr.strip()}"
 
     # --- Remote command not found (SLURM runs on remote) ---
-    if any(pattern in stderr_lower for pattern in [
-        "command not found",
-        "not found",
-        "no such file or directory",
-    ]):
+    missing = _missing_command(stderr, exit_code, cmd_name)
+    if missing:
         return (
-            f"Command not found on remote server: '{cmd_name}'. "
+            f"Command not found on remote server: '{missing}'. "
             f"Check that the command is installed and available in PATH on the SLURM node. "
             f"stderr: {stderr.strip()}"
         )
