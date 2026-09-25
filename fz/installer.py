@@ -110,8 +110,9 @@ def extract_model_files(zip_path: Path, extract_dir: Path) -> Dict[str, Path]:
         extract_dir: Directory to extract to
 
     Returns:
-        Dict with 'model_json' key pointing to the model definition file,
-        and 'model_name' key with the model name
+        Dict with 'model_json' key pointing to the (primary) model definition file,
+        'model_name' key with its model name, and 'models' key listing every
+        (model_json, model_name) pair found
 
     Raises:
         Exception: If extraction fails or model.json not found
@@ -135,9 +136,9 @@ def extract_model_files(zip_path: Path, extract_dir: Path) -> Dict[str, Path]:
     # First try: look for model.json in root
     model_json_paths = list(extract_dir.rglob('model.json'))
 
-    # Second try: look for .fz/models/*.json
+    # Second try: look for .fz/models/*.json (a repository may ship several models)
     if not model_json_paths:
-        model_json_paths = list(extract_dir.glob('*/.fz/models/*.json'))
+        model_json_paths = sorted(extract_dir.glob('*/.fz/models/*.json'))
         log_debug(f"Looking in .fz/models/: found {len(model_json_paths)} files")
 
     log_debug(f"Found {len(model_json_paths)} model definition files")
@@ -148,19 +149,19 @@ def extract_model_files(zip_path: Path, extract_dir: Path) -> Dict[str, Path]:
         log_debug(f"Files found in extraction: {[str(f.relative_to(extract_dir)) for f in all_files[:20]]}")
         raise Exception(f"No model definition found in extracted archive. Extracted to: {extract_dir}")
 
-    # Use the first model definition found
-    model_json = model_json_paths[0]
-    log_info(f"Found model definition: {model_json}")
-
-    # Extract model name from the JSON file
-    try:
-        with open(model_json, 'r') as f:
-            model_def = json.load(f)
-            model_name = model_def.get('id')
-            if not model_name:
+    # Read every model definition found; the first one is the primary model
+    models = []
+    for path in model_json_paths:
+        log_info(f"Found model definition: {path}")
+        try:
+            with open(path, 'r') as f:
+                name = json.load(f).get('id')
+            if not name:
                 raise ValueError("Model definition must have an 'id' field")
-    except Exception as e:
-        raise Exception(f"Failed to read model definition: {e}")
+        except Exception as e:
+            raise Exception(f"Failed to read model definition {path}: {e}")
+        models.append((path, name))
+    model_json, model_name = models[0]
 
     # Find the .fz directory that contains the model
     # The model_json is at: extracted/fz-model-main/.fz/models/Model.json
@@ -177,6 +178,7 @@ def extract_model_files(zip_path: Path, extract_dir: Path) -> Dict[str, Path]:
     return {
         'model_json': model_json,
         'model_name': model_name,
+        'models': models,
         'extract_dir': model_json.parent,
         'fz_dir': fz_dir if fz_dir.exists() else None
     }
@@ -191,7 +193,9 @@ def install_model(source: str, global_install: bool = False) -> Dict[str, str]:
         global_install: If True, install to ~/.fz/models/, else to ./.fz/models/
 
     Returns:
-        Dict with 'model_name' and 'install_path' keys
+        Dict with 'model_name' and 'install_path' (primary model), 'model_names' and
+        'install_paths' (every model of the source; a repository may ship several
+        .fz/models/*.json) and 'installed_files' keys
 
     Raises:
         Exception: If installation fails
@@ -218,13 +222,16 @@ def install_model(source: str, global_install: bool = False) -> Dict[str, str]:
             model_info = extract_model_files(zip_path, extract_path)
 
             model_name = model_info['model_name']
-            model_json = model_info['model_json']
             fz_dir = model_info.get('fz_dir')
 
-            # Install the model definition
-            dest_json = install_base / f"{model_name}.json"
-            shutil.copy2(model_json, dest_json)
-            log_info(f"Installed model '{model_name}' to: {dest_json}")
+            # Install every model definition shipped (e.g. several variants of one code)
+            install_paths = []
+            for model_json, name in model_info['models']:
+                dest = install_base / f"{name}.json"
+                shutil.copy2(model_json, dest)
+                install_paths.append(str(dest))
+                log_info(f"Installed model '{name}' to: {dest}")
+            dest_json = install_paths[0]
 
             # Install all other .fz subdirectories (calculators, algorithms, etc.)
             installed_files = []
@@ -264,7 +271,9 @@ def install_model(source: str, global_install: bool = False) -> Dict[str, str]:
 
             return {
                 'model_name': model_name,
-                'install_path': str(dest_json),
+                'install_path': dest_json,
+                'model_names': [name for _, name in model_info['models']],
+                'install_paths': install_paths,
                 'installed_files': installed_files
             }
 
