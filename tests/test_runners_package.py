@@ -56,3 +56,34 @@ def test_sh_backend_runs_command(tmp_path):
     res = ShCalculator().run(tmp_path, "sh://echo hi", {}, timeout=30,
                              original_cwd=str(tmp_path), input_files_list=["in.txt"])
     assert res["status"] == "done"
+
+
+@pytest.mark.parametrize("uri,cls", [
+    ("cache://_", "CacheCalculator"),
+    ("sh://echo hi", "ShCalculator"),
+    ("sh:", "ShCalculator"),
+    ("ssh://user@host/cmd", "SshCalculator"),
+    ("slurm://:part/script", "SlurmCalculator"),
+    ("funz://:5555/Code", "FunzCalculator"),
+    ("bash run.sh", "ShCalculator"),
+    ("echo a://b", "ShCalculator"),
+    ("unknown://x", "ShCalculator"),
+])
+def test_get_calculator_by_scheme(uri, cls):
+    assert type(runners.dispatch.get_calculator(uri)).__name__ == cls
+
+
+@pytest.mark.parametrize("uri,expected", [
+    ("sh://echo hi", "echo hi"),
+    ("sh:", ""),
+    ("bash run.sh", "bash run.sh"),
+    ("unknown://x", "unknown://x"),
+])
+def test_dispatch_passes_same_command_as_before(monkeypatch, tmp_path, uri, expected):
+    seen = {}
+    monkeypatch.setattr(
+        "fz.runners.sh.run_local_calculation",
+        lambda wd, command, *a, **k: seen.setdefault("command", command) and {"status": "done"},
+    )
+    runners.run_calculation(tmp_path, uri, {})
+    assert seen["command"] == expected
