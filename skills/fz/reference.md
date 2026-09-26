@@ -268,7 +268,8 @@ timings, exit status); copies everything back; runs the `output` parsing command
 FZ_LOG_LEVEL                 DEBUG | INFO | WARNING | ERROR
 FZ_MAX_WORKERS               max parallel cases
 FZ_MAX_RETRIES               attempts for failed cases (default 5)
-FZ_RUN_TIMEOUT                per-calculation timeout in seconds (default 3600 = 1h);
+FZ_RUN_TIMEOUT                per-calculation timeout in seconds (default 3600 = 1h for sh://,
+                              funz://; unlimited for ssh://, slurm:// when unset);
                               a model's own "timeout" entry overrides this
 FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip interactive host-key prompt (CI; use with care)
 FZ_SSH_KEEPALIVE             SSH keepalive seconds

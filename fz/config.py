@@ -78,8 +78,11 @@ class Config:
         self.ssh_auto_accept_hostkeys = self._parse_bool_env('FZ_SSH_AUTO_ACCEPT_HOSTKEYS', False)
         self.ssh_keepalive = self._parse_int_env('FZ_SSH_KEEPALIVE', 300)  # 5 minutes default
 
-        # Run timeout configuration (default 3600 seconds = 1 hour)
+        # Run timeout configuration (default 3600 seconds = 1 hour for sh:// and
+        # funz://; ssh:// and slurm:// default to no timeout unless FZ_RUN_TIMEOUT
+        # is set explicitly, since queue waits are unbounded)
         self.run_timeout = self._parse_int_env('FZ_RUN_TIMEOUT', 3600)
+        self.run_timeout_explicit = os.getenv('FZ_RUN_TIMEOUT', '').strip() != ''
 
         # Shell path configuration (overrides system PATH for binary resolution)
         self.shell_path = os.getenv('FZ_SHELL_PATH', None)
@@ -145,6 +148,7 @@ class Config:
             'ssh_auto_accept_hostkeys': self.ssh_auto_accept_hostkeys,
             'ssh_keepalive': self.ssh_keepalive,
             'run_timeout': self.run_timeout,
+            'run_timeout_explicit': self.run_timeout_explicit,
             'shell_path': self.shell_path,
             'case_naming': self.case_naming,
             'static_candidate_min_size': self.static_candidate_min_size
@@ -235,7 +239,8 @@ def print_config():
     print(f"  FZ_SSH_KEEPALIVE = {summary['ssh_keepalive']}s")
 
     print("\n⏱️  RUN TIMEOUT:")
-    print(f"  FZ_RUN_TIMEOUT = {summary['run_timeout']}s")
+    print(f"  FZ_RUN_TIMEOUT = {summary['run_timeout']}s"
+          + ("" if summary['run_timeout_explicit'] else " (default; unlimited for ssh:// and slurm://)"))
 
     print("\n🔍 SHELL PATH:")
     print(f"  FZ_SHELL_PATH = {summary['shell_path'] or '(not set, use system PATH)'}")

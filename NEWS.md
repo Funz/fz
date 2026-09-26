@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Cleanup: README consistency and test suite
+
+- README: removed references to nonexistent files (`tests/test_parallel.py`,
+  `setup.py`, `docs/`, `fz.github.io`, `examples/variable_substitution.md`,
+  `examples/algorithms/PLUGIN_SYSTEM.md`); `paramiko` and `pandas` are documented as
+  the required dependencies they are in `pyproject.toml`.
+- New `tests/test_readme_paths.py` fails if README.md cites a nonexistent repo path.
+- Removed residual debug scripts under `tests/` (`debug_simple_test.py`,
+  `test_debug_*.py`); `test_current_dir_fix.py` is kept.
+
+### Breaking change: `ssh://` and `slurm://` have no default timeout
+
+- The built-in 3600 s run timeout no longer applies to `ssh://` and `slurm://`
+  calculators (jobs may wait in a queue for longer than an hour). `sh://` and
+  `funz://` keep 3600 s.
+- Setting `FZ_RUN_TIMEOUT` explicitly still applies to every calculator type, as do
+  the model's `timeout` entry and the `timeout=` argument.
+- A warning is logged at launch when an `ssh://`/`slurm://` calculation runs without
+  a timeout.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as
