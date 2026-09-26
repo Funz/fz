@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### SLURM: new `slurm-array://` calculator (sbatch job arrays)
+
+- `slurm-array://:partition/script` submits all cases as ONE `sbatch --array` job
+  (cases arriving within `FZ_SLURM_ARRAY_WINDOW`, default 1 s, are batched; a single
+  calculator URI runs N cases concurrently). One shared monitor thread follows every
+  task via `sacct` (`squeue` fallback; `FZ_SLURM_POLL_INTERVAL`, default 2 s) instead of
+  one blocked thread per case. Local SLURM only. `slurm://` is unchanged (blocking `srun`).
+- Resources in the URI for both protocols: `?cores=4&mem=8G&time=01:00:00` (`cores`,
+  `mem`, `time`, `nodes`, `ntasks`, `gres`, `account`, `qos`); `maxrunning=M` throttles an
+  array (`--array=0-N%M`). Validated against a whitelist.
+- Verified on a real SLURM (podman container) and with mocked commands
+  (`tests/test_slurm_async.py`). PSI/J decision: see `doc/slurm-architecture.md`.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as

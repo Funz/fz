@@ -1495,6 +1495,11 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         # Default behavior: use number of calculators, limited by number of cases
         max_workers = min(len(non_cache_calculators), len(var_combinations)) if non_cache_calculators else 1
 
+    if any(c.startswith("slurm-array://") for c in non_cache_calculators):
+        # Array cases only wait on SLURM: one thread per case lets them batch into one job array
+        max_workers = len(var_combinations) if config.max_workers is None else min(config.max_workers, len(var_combinations))
+        max_workers = max(max_workers, 1)
+
     log_info(f"🚀 Execution plan: {len(var_combinations)} cases, {len(non_cache_calculators)} calculators, {max_workers} workers")
 
     # Track timing
