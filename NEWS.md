@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### `fz/runners.py` split into a `fz.runners` package (no behavior change)
+
+- One module per backend (`sh`, `ssh`, `slurm`, `funz`, `cache`) plus `errors`,
+  `manager`, `resolve`, `dispatch`; no module exceeds 1 000 lines.
+- New abstract `fz.runners.base.Calculator` interface (`run`, `submit`, `poll`,
+  `fetch`, `cancel`); backends implement the blocking `run`, and the default
+  `submit`/`poll`/`fetch`/`cancel` run it on a worker thread.
+- All historical `from fz.runners import ...` names are still exported. Code that
+  patched `fz.runners.run_command` must now patch `fz.runners.sh.run_command`.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as
