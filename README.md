@@ -2478,7 +2478,7 @@ export FZ_INTERPRETER=python
 # Linux/macOS example: export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
 export FZ_SHELL_PATH=/usr/local/bin:/usr/bin
 
-# Run timeout in seconds (default: 3600 = 1 hour)
+# Run timeout in seconds (default: 3600 = 1 hour; unlimited for ssh:// and slurm:// when unset)
 export FZ_RUN_TIMEOUT=1800
 
 # Case directory naming scheme: "path" (var=val,... subdirs, default), "hash"
@@ -2545,8 +2545,14 @@ FZ provides flexible timeout settings for controlling calculation execution time
 
 ```bash
 # Set default timeout for all calculations (in seconds)
-export FZ_RUN_TIMEOUT=1800  # 30 minutes (default: 3600 seconds = 1 hour)
+export FZ_RUN_TIMEOUT=1800  # 30 minutes (default: 3600 seconds = 1 hour for sh:// and funz://,
+                            # unlimited for ssh:// and slurm://)
 ```
+
+When `FZ_RUN_TIMEOUT` is not set, `ssh://` and `slurm://` calculations have **no timeout**
+(queue waits are unbounded); a warning is logged at launch. Set `FZ_RUN_TIMEOUT`, the
+model `timeout` or the `timeout=` argument to bound them. When set explicitly,
+`FZ_RUN_TIMEOUT` applies to every calculator type.
 
 #### 2. Model Configuration (Per-Model)
 
@@ -2578,7 +2584,7 @@ results = fz.fzr("input.txt", input_variables, model, calculators="sh://calc.sh"
 
 1. **`timeout=` argument** passed to `fzr()`/`fzc()`
 2. **Model configuration** (`model["timeout"]`)
-3. **Environment variable** (`FZ_RUN_TIMEOUT`, default 3600 seconds = 1 hour)
+3. **Environment variable** (`FZ_RUN_TIMEOUT`; if unset: 3600 seconds for `sh://`/`funz://`, unlimited for `ssh://`/`slurm://`)
 
 **Timeout Behavior**:
 - Calculation terminates after timeout expires

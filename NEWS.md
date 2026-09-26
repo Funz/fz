@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Breaking change: `ssh://` and `slurm://` have no default timeout
+
+- The built-in 3600 s run timeout no longer applies to `ssh://` and `slurm://`
+  calculators (jobs may wait in a queue for longer than an hour). `sh://` and
+  `funz://` keep 3600 s.
+- Setting `FZ_RUN_TIMEOUT` explicitly still applies to every calculator type, as do
+  the model's `timeout` entry and the `timeout=` argument.
+- A warning is logged at launch when an `ssh://`/`slurm://` calculation runs without
+  a timeout.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as
