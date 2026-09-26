@@ -58,7 +58,7 @@ fzl = "fz.cli:fzl_main"
 fzd = "fz.cli:fzd_main"
 
 [tool.setuptools]
-packages = ["fz"]
+packages = ["fz", "fz.runners"]
 
 [tool.setuptools.dynamic]
 version = {attr = "fz.__version__"}

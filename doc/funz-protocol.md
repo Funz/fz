@@ -657,5 +657,5 @@ Client                          Funz Server
 - **Funz protocol tests**: `tests/test_funz_protocol.py`
 - **Integration tests**: `tests/test_funz_integration.py`
 - **Calculator types**: `doc/calculators.md`
-- **Implementation**: `fz/runners.py` (run_funz_calculation function)
+- **Implementation**: `fz/runners/funz.py` (run_funz_calculation function)
 - **Java Funz**: https://github.com/Funz/funz-calculator

@@ -3043,7 +3043,7 @@ fz/
 │   ├── __init__.py              # Public API exports
 │   ├── core.py                  # Core functions (fzi, fzc, fzo, fzr, fzd)
 │   ├── interpreter.py           # Variable parsing, formula evaluation
-│   ├── runners.py               # Calculation execution (sh, ssh, cache)
+│   ├── runners/                 # Calculators, one module per backend (sh, ssh, slurm, funz, cache)
 │   ├── helpers.py               # Parallel execution, retry logic
 │   ├── io.py                    # File I/O, caching, hashing
 │   ├── algorithms.py            # Algorithm framework for fzd
