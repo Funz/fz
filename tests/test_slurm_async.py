@@ -10,6 +10,9 @@ from fz import slurm_async
 from fz.runners import run_slurm_calculation, resolve_calculators, run_calculation
 
 
+posix_only = pytest.mark.skipif(os.name == "nt", reason="fake sbatch/sacct are bash scripts")
+
+
 def test_split_resources():
     uri, res = slurm_async.split_slurm_resources("slurm-array://:cpu/run.sh?cores=4&mem=2G&maxrunning=8")
     assert uri == "slurm-array://:cpu/run.sh"
@@ -76,6 +79,7 @@ def _fake_slurm(tmp_path, monkeypatch):
     return calls
 
 
+@posix_only
 def test_cases_are_batched_into_one_array(tmp_path, monkeypatch):
     calls = _fake_slurm(tmp_path, monkeypatch)
     script = tmp_path / "run.sh"
@@ -98,6 +102,7 @@ def test_cases_are_batched_into_one_array(tmp_path, monkeypatch):
     assert calls.read_text().split() == ["3"]  # ONE sbatch call, array 0-3
 
 
+@posix_only
 def test_array_failure_reports_exit_code(tmp_path, monkeypatch):
     _fake_slurm(tmp_path, monkeypatch)
     wd = tmp_path / "c"
@@ -108,6 +113,7 @@ def test_array_failure_reports_exit_code(tmp_path, monkeypatch):
     assert res["status"] == "failed" and res["exit_code"] == 3
 
 
+@posix_only
 def test_run_calculation_dispatches_slurm_array(tmp_path, monkeypatch):
     _fake_slurm(tmp_path, monkeypatch)
     wd = tmp_path / "d"
@@ -118,6 +124,7 @@ def test_run_calculation_dispatches_slurm_array(tmp_path, monkeypatch):
     assert res["status"] == "done" and int(res["r"]) == 7
 
 
+@posix_only
 def test_fzr_single_array_calculator_batches_all_cases(tmp_path, monkeypatch):
     """One slurm-array:// calculator must run N cases in ONE array (no exclusive lock)."""
     import fz
