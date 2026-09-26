@@ -877,7 +877,7 @@ class TestWindowsShErrorReporting:
     # --- F. End-to-end mock with run_local_calculation ---
 
     @patch("fz.runners.platform.system", return_value="Windows")
-    @patch("fz.runners.run_command")
+    @patch("fz.runners.sh.run_command")
     def test_run_local_calc_windows_no_bash_error_in_result(
         self, mock_run_cmd, mock_platform, input_dir, simple_model
     ):
@@ -897,7 +897,7 @@ class TestWindowsShErrorReporting:
         assert len(result["error"]) > 10
 
     @patch("fz.runners.platform.system", return_value="Windows")
-    @patch("fz.runners.run_command")
+    @patch("fz.runners.sh.run_command")
     def test_run_local_calc_windows_no_bash_not_done(
         self, mock_run_cmd, mock_platform, input_dir, simple_model
     ):

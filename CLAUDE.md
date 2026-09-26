@@ -6,7 +6,7 @@ codes to run parameter studies locally, over SSH, or on SLURM. Python rewrite of
 ## Layout
 
 - `fz/` — the package. `core.py` (public functions `fzi`/`fzc`/`fzo`/`fzr`/`fzl`/`fzd`),
-  `cli.py` (entry points `fz`, `fzi`, ... defined in pyproject.toml), `runners.py`
+  `cli.py` (entry points `fz`, `fzi`, ... defined in pyproject.toml), `runners/` (package: sh, ssh, slurm, funz, cache)
   (sh/ssh/slurm/funz/cache calculators), `interpreter.py` (variable/formula parsing,
   Python and R evaluation), `io.py`, `config.py` (env vars), `installer.py` (`fz install`).
 - `tests/` — pytest suite. `doc/` — modular user docs. `skills/fz/` — Agent Skill
