@@ -14,16 +14,16 @@ def tools(tmp_path):
 
 def test_untrusted_fails_closed_without_core_support(tmp_path, monkeypatch):
     monkeypatch.setattr(mcp_server, "_core_supports_trusted", lambda: False)
-    with pytest.raises(McpSecurityError, match="FZ_MCP_TRUSTED"):
+    with pytest.raises(McpSecurityError, match="FZ_MCP_TRUSTED=0"):
         FzTools(root=str(tmp_path), trusted=False)
 
 
-def test_untrusted_env_default(tmp_path, monkeypatch):
+def test_trusted_env_default(tmp_path, monkeypatch):
     monkeypatch.delenv("FZ_MCP_TRUSTED", raising=False)
-    monkeypatch.setattr(mcp_server, "_core_supports_trusted", lambda: True)
-    assert FzTools(root=str(tmp_path)).trusted is False
-    monkeypatch.setenv("FZ_MCP_TRUSTED", "1")
     assert FzTools(root=str(tmp_path)).trusted is True
+    monkeypatch.setattr(mcp_server, "_core_supports_trusted", lambda: True)
+    monkeypatch.setenv("FZ_MCP_TRUSTED", "0")
+    assert FzTools(root=str(tmp_path)).trusted is False
 
 
 @pytest.fixture

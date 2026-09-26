@@ -5,18 +5,19 @@ Tools: ``fzi``, ``fzc``, ``fzr``, ``fzo``, ``fzl`` (same semantics as the Python
 Run with ``fz-mcp`` (stdio transport). Requires the optional ``mcp`` extra:
 ``pip install 'funz-fz[mcp]'``.
 
-Security posture (safe by default, fail closed):
+Security posture (trusted by default, restricted mode opt-in and fail closed):
 
 * File paths are confined to a workspace root (``FZ_MCP_ROOT``, default: the
   current directory).
-* In the default *untrusted* mode, models must be installed aliases (no inline
+* With ``FZ_MCP_TRUSTED=0`` (*untrusted* mode), models must be installed aliases (no inline
   model dict, whose output commands run in a shell) and calculators must be
   installed aliases (no ``sh://``/``ssh://`` URIs, which run arbitrary commands),
   and fz is called with ``trusted=False`` so formulas are not ``eval``-ed.
   If the installed fz has no ``trusted`` parameter yet, untrusted mode cannot be
-  enforced and the server refuses to start unless ``FZ_MCP_TRUSTED=1``.
-* ``FZ_MCP_TRUSTED=1`` restores full API power; only use it when the agent and
-  every template/model it may touch are trusted.
+  enforced and the server refuses to start.
+* The default (trusted) mode gives the agent full API power: templates, formulas
+  and models are evaluated/executed without isolation. Only use it with trusted
+  agents and inputs.
 """
 
 import inspect
@@ -32,10 +33,6 @@ class McpSecurityError(ValueError):
     """Raised when a tool call violates the server's security policy."""
 
 
-def _truthy(value: Optional[str]) -> bool:
-    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
-
-
 def _core_supports_trusted() -> bool:
     return "trusted" in inspect.signature(core.fzr).parameters
 
@@ -45,11 +42,14 @@ class FzTools:
 
     def __init__(self, root: Optional[str] = None, trusted: Optional[bool] = None):
         self.root = Path(root or os.environ.get("FZ_MCP_ROOT") or os.getcwd()).resolve()
-        self.trusted = _truthy(os.environ.get("FZ_MCP_TRUSTED")) if trusted is None else trusted
+        self.trusted = (
+            os.environ.get("FZ_MCP_TRUSTED", "1").strip().lower() not in ("0", "false", "no", "off")
+            if trusted is None else trusted
+        )
         if not self.trusted and not _core_supports_trusted():
             raise McpSecurityError(
                 "Untrusted mode requires an fz core with a 'trusted' parameter, which "
-                "this fz version lacks. Upgrade fz, or set FZ_MCP_TRUSTED=1 to accept "
+                "this fz version lacks. Upgrade fz, or drop FZ_MCP_TRUSTED=0 to accept "
                 "that templates and formulas are evaluated without isolation."
             )
 
