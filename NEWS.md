@@ -60,9 +60,9 @@
 
 - New optional entry point `fz-mcp` (`pip install 'funz-fz[mcp]'`) exposing `fzi`, `fzc`,
   `fzr`, `fzo`, `fzl` as MCP tools. Trusted by default (no isolation of templates/formulas);
-  `FZ_MCP_TRUSTED=0` opts into a restricted mode (models/calculators must be installed aliases);
-  paths are always confined to `FZ_MCP_ROOT` that requires the fz core to support
-  `trusted=False` (audit ticket P0-2) and otherwise refuses to start.
+  `FZ_MCP_TRUSTED=0` opts into a restricted mode (models/calculators must be installed
+  aliases) that requires the fz core to support `trusted=False` (audit ticket P0-2) and
+  otherwise refuses to start. Paths are always confined to `FZ_MCP_ROOT`.
 
 ### Error reports no longer blame the command for a code's "not found" message
 
