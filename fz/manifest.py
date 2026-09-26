@@ -112,6 +112,60 @@ def build_manifest(
     }
 
 
+def build_fzd_manifest(
+    results_dir: Path,
+    *,
+    model: Any,
+    calculators: Any,
+    input_path: Any,
+    input_variables: Any,
+    algorithm: Any,
+    algorithm_options: Any,
+    output_expression: Any,
+    n_iterations: int,
+    start_time: str,
+    end_time: str,
+    interrupted: bool = False,
+) -> Dict[str, Any]:
+    """Assemble the manifest dict of a finished ``fzd`` (design/optimization) campaign."""
+    from ._version import __version__ as fz_version
+
+    results_dir = Path(results_dir)
+    if callable(model):
+        model_desc: Any = {"python_callable": getattr(model, "__name__", repr(model))}
+        model_sha = None
+    else:
+        model_desc = model
+        model_sha = hashlib.sha256(json.dumps(model, sort_keys=True, default=str).encode()).hexdigest()
+    calcs = [calculators] if isinstance(calculators, (str, int)) else list(calculators or [])
+    calcs = [redact_uri(c) for c in calcs]
+    iterations = []
+    for d in sorted(results_dir.glob("iter*")):
+        sub = d / MANIFEST_NAME
+        iterations.append({"dir": d.name, "manifest": f"{d.name}/{MANIFEST_NAME}" if sub.is_file() else None})
+    return {
+        "schema": "fz-manifest-fzd/1",
+        "fz_version": fz_version,
+        "python_version": sys.version.split()[0],
+        "platform": platform.platform(),
+        "dependencies": {n: _package_version(n) for n in ("pandas", "numpy", "paramiko")},
+        "start_time": start_time,
+        "end_time": end_time,
+        "interrupted": interrupted,
+        "input_path": str(input_path) if input_path is not None else None,
+        "model": model_desc,
+        "model_sha256": model_sha,
+        "calculators": calcs,
+        "hosts": sorted({h for h in (uri_host(c) for c in calcs) if h}),
+        "algorithm": str(algorithm),
+        "algorithm_options": algorithm_options,
+        "input_variables": input_variables,
+        "output_expression": output_expression,
+        "n_iterations": n_iterations,
+        "iterations": iterations,
+    }
+
+
 def write_manifest(results_dir: Path, manifest: Dict[str, Any]) -> Path:
     path = Path(results_dir) / MANIFEST_NAME
     path.write_text(json.dumps(manifest, indent=2, default=str) + "\n", encoding="utf-8")
@@ -153,12 +207,12 @@ def write_ro_crate(results_dir: Path, manifest: Dict[str, Any]) -> Path:
         {
             "@id": "#run",
             "@type": "CreateAction",
-            "name": "fzr parametric run",
+            "name": "fzd design/optimization run" if manifest["schema"].startswith("fz-manifest-fzd") else "fzr parametric run",
             "startTime": manifest["start_time"],
             "endTime": manifest["end_time"],
             "instrument": {"@id": "#fz"},
             "result": {"@id": "./"},
-            "description": "Calculators: " + ", ".join(manifest["calculators"]),
+            "description": "Calculators: " + ", ".join(map(str, manifest["calculators"])),
         },
     ]
     path = results_dir / RO_CRATE_NAME

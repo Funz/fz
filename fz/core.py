@@ -65,7 +65,7 @@ import shutil
 
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_interpreter, get_config
-from .manifest import build_manifest, write_manifest, write_ro_crate, utc_now
+from .manifest import build_manifest, build_fzd_manifest, write_manifest, write_ro_crate, utc_now
 from .helpers import (
     fz_temporary_directory,
     _cleanup_fzr_resources,
@@ -2270,6 +2270,9 @@ def fzd(
     _interrupt_requested = False
     _install_signal_handler()
 
+    campaign_start = utc_now()
+    results_dir = None
+    iteration = 0
 
     try:
         is_function_model = callable(model) and not isinstance(model, (str, dict))
@@ -2660,6 +2663,22 @@ def fzd(
 
         # Always restore the original working directory
         os.chdir(working_dir)
+
+        # fzd campaign manifest (+ RO-Crate); traceability must never fail a run
+        if results_dir is not None and Path(results_dir).is_dir():
+            try:
+                manifest = build_fzd_manifest(
+                    results_dir, model=model, calculators=calculators, input_path=input_path,
+                    input_variables=input_variables, algorithm=algorithm,
+                    algorithm_options=algorithm_options, output_expression=output_expression,
+                    n_iterations=iteration, start_time=campaign_start, end_time=utc_now(),
+                    interrupted=_interrupt_requested,
+                )
+                write_manifest(results_dir, manifest)
+                if get_config().ro_crate:
+                    write_ro_crate(results_dir, manifest)
+            except Exception as e:
+                log_warning(f"⚠️  Could not write fzd campaign manifest: {e}")
 
         if _interrupt_requested:
             log_warning("⚠️  Execution was interrupted. Partial results may be available.")
