@@ -12,7 +12,7 @@ PKG = Path(runners.__file__).parent
 
 def test_no_module_over_1000_lines():
     for py in PKG.glob("*.py"):
-        assert len(py.read_text().splitlines()) <= 1000, py.name
+        assert len(py.read_text(encoding="utf-8").splitlines()) <= 1000, py.name
 
 
 def test_backend_modules_exist():
