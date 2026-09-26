@@ -248,7 +248,7 @@ first argument). Search path: `./.fz/calculators/<alias>.json` then `~/.fz/calcu
 ```
 sh://command                                  local shell (default when omitted)
 ssh://user[:password]@host[:port]/command     remote SSH (paramiko, SFTP transfer)
-slurm://[user@host[:port]]:partition/command  SLURM srun; local form slurm://:partition/cmd
+slurm://[user@host[:port]]:partition/command[?cores=N&mem=M&time=T]  SLURM; local form slurm://:partition/cmd (sbatch + shared monitor if available, else srun)
 cache://path                                  reuse prior results by input-file hash
 funz://[host]:port/ModelName                  legacy Java Funz server protocol
 ```
@@ -270,6 +270,8 @@ FZ_MAX_WORKERS               max parallel cases
 FZ_MAX_RETRIES               attempts for failed cases (default 5)
 FZ_RUN_TIMEOUT                per-calculation timeout in seconds (default 3600 = 1h);
                               a model's own "timeout" entry overrides this
+FZ_SLURM_MODE                auto | sbatch | srun (local slurm://; default auto)
+FZ_SLURM_POLL_INTERVAL       seconds between sacct/squeue polls (default 2)
 FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip interactive host-key prompt (CI; use with care)
 FZ_SSH_KEEPALIVE             SSH keepalive seconds
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### SLURM: asynchronous `sbatch` submission (local `slurm://`)
+
+- Local `slurm://` calculators now submit with `sbatch` and follow all pending jobs
+  with one shared monitor thread (`sacct`, `squeue` fallback) instead of one blocking
+  `srun` per case. Mode selected by `FZ_SLURM_MODE` (`auto` = sbatch when available,
+  else srun); poll period `FZ_SLURM_POLL_INTERVAL` (default 2 s).
+- Resources in the URI: `slurm://:part/script?cores=4&mem=8G&time=01:00:00`
+  (`cores`, `mem`, `time`, `nodes`, `ntasks`, `gres`, `account`, `qos`).
+- Not yet done: job arrays, remote (SSH) sbatch. PSI/J decision: see `doc/slurm-architecture.md`.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as

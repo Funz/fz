@@ -240,6 +240,21 @@ mpirun -np 16 ./simulation input.txt
 
 Execute calculations on SLURM clusters (local or remote).
 
+**Asynchronous submission (local SLURM)**: when `sbatch` is available, each case is
+submitted with `sbatch --parsable` and all pending jobs are followed by one shared
+monitor thread (a single `sacct` call per poll, `squeue` as fallback) instead of one
+blocking `srun` per case. Resources go in the URI query string:
+
+```python
+calculators = "slurm://:compute/bash script.sh?cores=4&mem=8G&time=01:00:00"
+```
+
+Allowed keys: `cores` (`--cpus-per-task`), `mem`, `time`, `nodes`, `ntasks`, `gres`,
+`account`, `qos`. Env vars: `FZ_SLURM_MODE` (`auto` (default) | `sbatch` | `srun`),
+`FZ_SLURM_POLL_INTERVAL` (seconds, default 2). Remote SLURM still uses `srun`; job
+arrays are not implemented yet.
+
+
 ### Basic Syntax
 
 ```python

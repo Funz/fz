@@ -17,6 +17,8 @@ from collections import defaultdict
 from .logging import log_error, log_warning, log_info, log_debug
 from .config import get_config
 from .shell import run_command, replace_commands_in_string
+from . import slurm_async
+from .slurm_async import split_slurm_resources
 import getpass
 from datetime import datetime
 from pathlib import Path
@@ -1209,7 +1211,7 @@ def _validate_calculator_uri(calculator_uri: str) -> None:
     # Validate SLURM URI format if scheme is slurm
     if scheme == "slurm":
         try:
-            parse_slurm_uri(calculator_uri)
+            parse_slurm_uri(split_slurm_resources(calculator_uri)[0])
         except ValueError as e:
             raise ValueError(f"Invalid SLURM calculator URI: {e}")
 
@@ -2139,7 +2141,8 @@ def run_slurm_calculation(
     env_info = get_environment_info()
 
     try:
-        # Parse SLURM URI
+        # Split optional resources (?cores=4&mem=2G&time=01:00:00) then parse the URI
+        slurm_uri, resources = split_slurm_resources(slurm_uri)
         host, port, username, password, partition, script = parse_slurm_uri(slurm_uri)
 
         log_info(f"SLURM calculation: partition={partition}, script={script}")
@@ -2148,10 +2151,13 @@ def run_slurm_calculation(
         if host is None:
             # Local SLURM execution
             return _run_local_slurm_calculation(
-                working_dir, partition, script, model, timeout, start_time, env_info, input_files_list
+                working_dir, partition, script, model, timeout, start_time, env_info,
+                input_files_list, resources=resources,
             )
         else:
             # Remote SLURM execution via SSH
+            if resources:
+                log_warning("SLURM resources in the URI are only applied to local (sbatch) execution")
             if not PARAMIKO_AVAILABLE:
                 return {
                     "status": "error",
@@ -2182,9 +2188,11 @@ def _run_local_slurm_calculation(
     start_time: datetime,
     env_info: Dict,
     input_files_list: List[str] = None,
+    resources: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
-    Run SLURM calculation locally using srun
+    Run SLURM calculation locally using sbatch (shared monitor) or srun
+    (FZ_SLURM_MODE=srun, or when sbatch is unavailable)
 
     Args:
         working_dir: Directory containing input files
@@ -2217,6 +2225,12 @@ def _run_local_slurm_calculation(
 
         # Build arguments from input files list
         input_argument = " ".join(input_files_list) if input_files_list else "."
+
+        if slurm_async.resolve_mode() == "sbatch":
+            return _run_local_sbatch(
+                working_dir, partition, script, input_argument, model, timeout,
+                start_time, env_info, resources or {},
+            )
 
         # Construct srun command
         # Use --partition for partition and execute the script
@@ -2365,6 +2379,94 @@ def _run_local_slurm_calculation(
         }
     finally:
         os.chdir(original_cwd)
+
+
+def _run_local_sbatch(
+    working_dir: Path,
+    partition: str,
+    script: str,
+    input_argument: str,
+    model: Dict,
+    timeout: Optional[int],
+    start_time: datetime,
+    env_info: Dict,
+    resources: Dict[str, str],
+) -> Dict[str, Any]:
+    """Submit with sbatch and wait on the shared monitor (no per-case polling)."""
+    from .core import is_interrupted, fzo
+
+    command = f"sbatch --partition={partition} {script} {input_argument}"
+    monitor = slurm_async.get_monitor()
+    job_id = slurm_async.submit(partition, script, input_argument, working_dir, resources)
+    log_info(f"Submitted SLURM job {job_id}: {command}")
+    event = monitor.register(job_id)
+
+    waited = 0.0
+    while not event.wait(0.5):
+        waited += 0.5
+        if is_interrupted():
+            slurm_async.cancel(job_id)
+            monitor.forget(job_id)
+            return {"status": "interrupted", "error": "SLURM calculation interrupted by user",
+                    "command": command}
+        if timeout is not None and waited >= timeout:
+            slurm_async.cancel(job_id)
+            monitor.forget(job_id)
+            return {
+                "status": "timeout",
+                "error": f"SLURM job timed out after {timeout} seconds on partition '{partition}'",
+                "command": command,
+            }
+
+    state, exit_code = monitor.result(job_id)
+    marker = slurm_async.read_exit_marker(working_dir)
+    if exit_code is None or (exit_code == 0 and marker not in (None, 0)):
+        exit_code = marker
+    if exit_code is None:
+        exit_code = 0 if state == "COMPLETED" else 1
+    failed = state != "COMPLETED" or exit_code != 0
+
+    end_time = datetime.now()
+    with open(working_dir / "log.txt", "w") as log_file:
+        log_file.write(f"Command: {command}\n")
+        log_file.write(f"Exit code: {exit_code}\n")
+        log_file.write(f"SLURM job id: {job_id}\n")
+        log_file.write(f"SLURM state: {state}\n")
+        log_file.write(f"SLURM partition: {partition}\n")
+        log_file.write(f"Time start: {start_time.isoformat()}\n")
+        log_file.write(f"Time end: {end_time.isoformat()}\n")
+        log_file.write(f"Execution time: {(end_time - start_time).total_seconds():.3f} seconds\n")
+        log_file.write(f"User: {env_info['user']}\n")
+        log_file.write(f"Hostname: {env_info['hostname']}\n")
+
+    if failed:
+        stderr_content = ""
+        try:
+            stderr_content = (working_dir / "err.txt").read_text().strip()
+        except Exception:
+            pass
+        if state == "TIMEOUT":
+            return {"status": "timeout",
+                    "error": f"SLURM job {job_id} hit its time limit on partition '{partition}'",
+                    "command": command}
+        return {
+            "status": "failed",
+            "exit_code": exit_code,
+            "error": classify_error(stderr=stderr_content, exit_code=exit_code,
+                                    command=command, protocol="slurm"),
+            "stderr": stderr_content,
+            "command": command,
+        }
+
+    output_results = fzo(working_dir, model)
+    output_dict = output_results.iloc[0].to_dict() if hasattr(output_results, "to_dict") else output_results
+    output_error = output_dict.pop("_output_error", None)
+    output_dict["status"] = "done"
+    output_dict["calculator"] = f"slurm://{partition}"
+    output_dict["command"] = command
+    if output_error:
+        output_dict["error"] = f"Missing output: {output_error}"
+    return output_dict
 
 
 def _run_remote_slurm_calculation(
