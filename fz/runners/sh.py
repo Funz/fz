@@ -498,7 +498,14 @@ class ShCalculator(Calculator):
     def run(self, working_dir, calculator_uri, model, timeout=None,
             original_input_was_dir=False, original_cwd=None,
             input_files_list=None, static_entries=None):
-        command = calculator_uri[5:] if calculator_uri.startswith("sh://") else ""
+        # "sh://cmd" -> "cmd"; bare "sh:" -> ""; a URI without a known scheme is
+        # itself the command (default local shell fallback).
+        if calculator_uri.startswith("sh://"):
+            command = calculator_uri[5:]
+        elif calculator_uri == "sh:":
+            command = ""
+        else:
+            command = calculator_uri
         return run_local_calculation(
             working_dir, command, model, timeout, original_input_was_dir,
             original_cwd, input_files_list,

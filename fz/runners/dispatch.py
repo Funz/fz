@@ -3,11 +3,33 @@
 from pathlib import Path
 from typing import Dict, List, Any
 
-from .cache import run_cache_calculation
-from .sh import run_local_calculation
-from .ssh import run_ssh_calculation
-from .slurm import run_slurm_calculation
-from .funz import run_funz_calculation
+from .base import Calculator
+from .cache import CacheCalculator
+from .sh import ShCalculator
+from .ssh import SshCalculator
+from .slurm import SlurmCalculator
+from .funz import FunzCalculator
+
+
+_CALCULATORS = {
+    "cache": CacheCalculator,
+    "sh": ShCalculator,
+    "ssh": SshCalculator,
+    "slurm": SlurmCalculator,
+    "funz": FunzCalculator,
+}
+
+
+def get_calculator(calculator_uri: str) -> Calculator:
+    """Return the backend for a calculator URI, by scheme.
+
+    "sh://cmd" and "sh:" select the local shell; a URI without a known scheme is
+    treated as a local shell command.
+    """
+    scheme = calculator_uri.split("://", 1)[0] if "://" in calculator_uri else ""
+    if calculator_uri == "sh:":
+        scheme = "sh"
+    return _CALCULATORS.get(scheme, ShCalculator)()
 
 
 def run_calculation(
@@ -43,56 +65,16 @@ def run_calculation(
     """
     # Resolution (explicit arg > model's "timeout" entry > config default) happens
     # in the per-protocol run_*_calculation functions, since they accept model too.
-    base_uri = calculator_uri
-
-    # Handle different calculator types
-    if base_uri.startswith("cache://"):
-        # Cache handling is now done at fzr level, this should not be reached
-        return run_cache_calculation()
-
-    elif base_uri.startswith("sh://") or base_uri == "sh:":
-        # Local shell execution - static_files are already symlinked into
-        # working_dir (same filesystem), nothing extra to transfer
-        command = base_uri[5:] if base_uri.startswith("sh://") else ""
-        return run_local_calculation(
-            working_dir,
-            command,
-            model,
-            timeout,
-            original_input_was_dir,
-            original_cwd,
-            input_files_list,
-        )
-
-    elif base_uri.startswith("ssh://"):
-        # Remote SSH execution
-        return run_ssh_calculation(
-            working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
-        )
-
-    elif base_uri.startswith("slurm://"):
-        # SLURM execution (local or remote)
-        return run_slurm_calculation(
-            working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
-        )
-
-    elif base_uri.startswith("funz://"):
-        # Funz server execution
-        return run_funz_calculation(
-            working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
-        )
-
-    else:
-        # Default to local shell
-        return run_local_calculation(
-            working_dir,
-            base_uri,
-            model,
-            timeout,
-            original_input_was_dir,
-            original_cwd,
-            input_files_list,
-        )
+    return get_calculator(calculator_uri).run(
+        working_dir,
+        calculator_uri,
+        model,
+        timeout,
+        original_input_was_dir,
+        original_cwd,
+        input_files_list,
+        static_entries=static_entries,
+    )
 
 
 def select_calculator_for_case(calculator_uris: List[str], case_index: int) -> str:
