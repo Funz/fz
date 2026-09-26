@@ -13,12 +13,15 @@ on:
       - 'skills/**'
       - 'tests/test_skill_*.py'
       - 'fz/cli.py'
+      - 'fz/mcp_server.py'
       - '.github/workflows/skill-tests.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'skills/**'
       - 'tests/test_skill_*.py'
+      - 'fz/mcp_server.py'
+      - 'tests/test_mcp_server.py'
   workflow_dispatch:
 
 jobs:
@@ -33,9 +36,9 @@ jobs:
       - name: Install fz
         run: |
           pip install -e .
-          pip install pytest
-      - name: Run static skill tests
-        run: pytest tests/test_skill_static.py -v
+          pip install pytest mcp
+      - name: Run static skill and MCP tests
+        run: pytest tests/test_skill_static.py tests/test_mcp_server.py -v
 
   e2e:
     name: End-to-end (headless Claude Code)

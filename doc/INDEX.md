@@ -13,6 +13,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 - [Calculators](#calculators)
 - [Parallel Execution](#parallel-execution)
 - [Caching](#caching)
+- [MCP server](mcp-server.md)
 - [Examples by Use Case](#examples-by-use-case)
 - [CLI Usage](#cli-usage)
 - [Troubleshooting](#troubleshooting)
