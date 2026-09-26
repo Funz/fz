@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Cleanup: README consistency and test suite
+
+- README: removed references to nonexistent files (`tests/test_parallel.py`,
+  `setup.py`, `docs/`, `fz.github.io`, `examples/variable_substitution.md`,
+  `examples/algorithms/PLUGIN_SYSTEM.md`); `paramiko` and `pandas` are documented as
+  the required dependencies they are in `pyproject.toml`.
+- New `tests/test_readme_paths.py` fails if README.md cites a nonexistent repo path.
+- Removed residual debug scripts under `tests/` (`debug_simple_test.py`,
+  `test_debug_*.py`); `test_current_dir_fix.py` is kept.
+
 ### Breaking change: `ssh://` and `slurm://` have no default timeout
 
 - The built-in 3600 s run timeout no longer applies to `ssh://` and `slurm://`

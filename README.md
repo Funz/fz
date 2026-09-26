@@ -118,16 +118,10 @@ pip install --break-system-packages --upgrade --force-reinstall "git+https://git
 ### Dependencies
 
 ```bash
+# Installed automatically with fz (required dependencies):
+#   paramiko (SSH support), pandas (DataFrame I/O, fzd), charset-normalizer
+
 # Optional dependencies:
-
-# for SSH support
-pip install paramiko
-
-# for DataFrame support (recommended)
-pip install pandas
-
-# for fzd (design of experiments) - REQUIRED
-pip install pandas
 
 # for R interpreter support
 pip install funz-fz[r]
@@ -1413,7 +1407,7 @@ result = replace_variables_in_content(content, input_variables)
 - Environment-specific deployments
 - Optional parameters in parametric studies
 
-See `examples/variable_substitution.md` for comprehensive documentation.
+See `doc/syntax-guide.md` for comprehensive documentation.
 
 #### Old Funz Syntax Compatibility
 
@@ -2432,7 +2426,7 @@ def get_analysis(self, input_vars, output_values):
     # Saved to: analysis_<iteration>.txt
 ```
 
-See `docs/FZD_CONTENT_FORMATS.md` for detailed format documentation.
+See `doc/fzd_content_format.md` for detailed format documentation.
 
 #### Dependency Management
 
@@ -2839,7 +2833,7 @@ class MonteCarlo:
 
 4. **Install** using `fz install algorithm <name>` or `fz install algorithm <url>`
 
-See `examples/algorithms/PLUGIN_SYSTEM.md` for complete documentation on the algorithm plugin system.
+See `examples/algorithms/demo_plugin_system.py` and `examples/algorithm_options_example.md` for the algorithm plugin system.
 
 ## Interrupt Handling
 
@@ -3028,7 +3022,7 @@ python -m pytest tests/ -v
 python -m pytest tests/test_examples_perfectgaz.py -v
 
 # Run with debug output
-FZ_LOG_LEVEL=DEBUG python -m pytest tests/test_parallel.py -v
+FZ_LOG_LEVEL=DEBUG python -m pytest tests/test_parallel_simple.py -v
 
 # Run tests matching pattern
 python -m pytest tests/ -k "parallel" -v
@@ -3064,15 +3058,15 @@ fz/
 │       ├── bfgs.py                # BFGS optimization
 │       └── brent.py               # Brent's 1D optimization
 ├── tests/                       # Test suite
-│   ├── test_parallel.py         # Parallel execution tests
+│   ├── test_parallel_simple.py  # Parallel execution tests
 │   ├── test_interrupt_handling.py  # Interrupt handling tests
 │   ├── test_fzd.py              # Design of experiments tests
 │   ├── test_examples_*.py       # Example-based tests
 │   └── ...
-├── docs/                        # Documentation
-│   └── FZD_CONTENT_FORMATS.md  # fzd content format documentation
+├── doc/                         # Modular user documentation
+│   └── fzd_content_format.md    # fzd content format documentation
 ├── README.md                    # This file
-└── setup.py                     # Package configuration
+└── pyproject.toml               # Package configuration
 ```
 
 ### Testing Your Own Models
@@ -3323,7 +3317,7 @@ Practical examples in the `examples/` directory:
 Working examples in test files:
 
 - `tests/test_examples_*.py` - Comprehensive integration tests
-- `tests/test_parallel.py` - Parallel execution examples
+- `tests/test_parallel_simple.py`, `tests/test_complete_parallel_execution.py` - Parallel execution examples
 - `tests/test_interrupt_handling.py` - Interrupt handling demonstrations
 - `tests/test_funz_protocol.py` - Funz server protocol examples
 - `tests/test_slurm_runner.py` - SLURM workload manager examples
@@ -3331,5 +3325,5 @@ Working examples in test files:
 ## Support
 
 - **Issues**: https://github.com/Funz/fz/issues
-- **Documentation**: https://fz.github.io
+- **Documentation**: https://github.com/Funz/fz/tree/main/doc
 - **Repository**: https://github.com/Funz/fz
