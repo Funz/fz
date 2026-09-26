@@ -225,6 +225,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 
 | Topic | File | Section |
 |-------|------|---------|
+| Campaign manifest / RO-Crate (`manifest.json`, `FZ_RO_CRATE`, fzr and fzd) | parallel-and-caching.md | "Campaign manifest" |
 | Case directory naming (`case_naming`, `FZ_CASE_NAMING`) | core-functions.md | "fzr" |
 | Shared static files across cases (`input_static`) | core-functions.md | "fzr" |
 | FZ_SHELL_PATH overview | shell-path.md | "Overview" |
