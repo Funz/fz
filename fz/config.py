@@ -84,6 +84,9 @@ class Config:
         self.run_timeout = self._parse_int_env('FZ_RUN_TIMEOUT', 3600)
         self.run_timeout_explicit = os.getenv('FZ_RUN_TIMEOUT', '').strip() != ''
 
+        # Also write an RO-Crate (ro-crate-metadata.json) next to each campaign's manifest.json
+        self.ro_crate = self._parse_bool_env('FZ_RO_CRATE', False)
+
         # Shell path configuration (overrides system PATH for binary resolution)
         self.shell_path = os.getenv('FZ_SHELL_PATH', None)
 
