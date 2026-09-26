@@ -81,6 +81,9 @@ class Config:
         # Run timeout configuration (default 3600 seconds = 1 hour)
         self.run_timeout = self._parse_int_env('FZ_RUN_TIMEOUT', 3600)
 
+        # Also write an RO-Crate (ro-crate-metadata.json) next to each campaign's manifest.json
+        self.ro_crate = self._parse_bool_env('FZ_RO_CRATE', False)
+
         # Shell path configuration (overrides system PATH for binary resolution)
         self.shell_path = os.getenv('FZ_SHELL_PATH', None)
 

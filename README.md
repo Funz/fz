@@ -2490,6 +2490,9 @@ export FZ_CASE_NAMING=path
 # one-time warning suggesting input_static instead (default: 1048576 = 1 MiB;
 # 0 disables the warning)
 export FZ_STATIC_CANDIDATE_MIN_SIZE=1048576
+
+# Also write an RO-Crate next to each campaign's manifest.json (default: off)
+export FZ_RO_CRATE=1
 ```
 
 ### Shell Path Configuration (FZ_SHELL_PATH)
@@ -2536,6 +2539,15 @@ model = {
 ```
 
 See `doc/shell-path.md` and `examples/shell_path_example.md` for detailed documentation.
+
+### Campaign manifest and RO-Crate (traceability)
+
+Each `fzr()` run writes `<results_dir>/manifest.json` (schema `fz-manifest/1`):
+fz/Python/platform versions, start/end times (UTC), the model and its SHA-256, the
+calculators (credentials in URIs are masked as `user:***@host`), remote hosts, and
+per case: path, status, calculator, input values and the SHA-256 of its `.fz_hash`.
+Set `FZ_RO_CRATE=1` to also write an RO-Crate 1.1 (`ro-crate-metadata.json`)
+referencing the manifest. A failure to write either file only logs a warning.
 
 ### Timeout Configuration
 

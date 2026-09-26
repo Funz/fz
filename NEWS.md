@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Campaign manifest and optional RO-Crate
+
+- `fzr()` now writes `manifest.json` in the results directory: fz/Python/platform
+  versions, UTC start/end times, model (+ SHA-256), calculators (URI credentials masked),
+  hosts, and per-case status, inputs and `.fz_hash` SHA-256. New file only; no existing
+  behavior changes. Write failures log a warning and never fail the run.
+- `FZ_RO_CRATE=1` additionally writes an RO-Crate 1.1 `ro-crate-metadata.json`.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as

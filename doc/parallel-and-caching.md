@@ -311,6 +311,15 @@ results_detailed = fz.fzr(
 )
 ```
 
+## Campaign manifest and RO-Crate (traceability)
+
+Each `fzr()` run writes `<results_dir>/manifest.json` (schema `fz-manifest/1`):
+fz/Python/platform versions, start/end times (UTC), the model and its SHA-256, the
+calculators (credentials in URIs are masked as `user:***@host`), remote hosts, and
+per case: path, status, calculator, input values and the SHA-256 of its `.fz_hash`.
+Set `FZ_RO_CRATE=1` to also write an RO-Crate 1.1 (`ro-crate-metadata.json`)
+referencing the manifest. A failure to write either file only logs a warning.
+
 ## Retry Mechanism
 
 ### Basic Retry
