@@ -317,8 +317,11 @@ Each `fzr()` run writes `<results_dir>/manifest.json` (schema `fz-manifest/1`):
 fz/Python/platform versions, start/end times (UTC), the model and its SHA-256, the
 calculators (credentials in URIs are masked as `user:***@host`), remote hosts, and
 per case: path, status, calculator, input values and the SHA-256 of its `.fz_hash`.
-Set `FZ_RO_CRATE=1` to also write an RO-Crate 1.1 (`ro-crate-metadata.json`)
-referencing the manifest. A failure to write either file only logs a warning.
+`fzd()` writes a campaign-level `<analysis_dir>/manifest.json` (schema
+`fz-manifest-fzd/1`: algorithm and options, input variables, output expression,
+number of iterations, links to the per-iteration manifests). An RO-Crate 1.1
+(`ro-crate-metadata.json`) referencing the manifest is written next to each manifest;
+set `FZ_RO_CRATE=0` to disable it. A failure to write either file only logs a warning.
 
 ## Retry Mechanism
 
