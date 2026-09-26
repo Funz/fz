@@ -9,7 +9,7 @@ import getpass
 from collections import defaultdict
 from typing import Dict, List, Optional
 
-from ..logging import log_warning, log_debug
+from ..logging import log_warning, log_info, log_debug
 from ..config import get_config
 
 

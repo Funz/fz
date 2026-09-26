@@ -56,7 +56,7 @@ class TestSchemeDefaultTimeout:
     def default_config(self, monkeypatch):
         monkeypatch.delenv("FZ_RUN_TIMEOUT", raising=False)
         cfg = Config()
-        monkeypatch.setattr("fz.runners.get_config", lambda: cfg)
+        monkeypatch.setattr("fz.runners.manager.get_config", lambda: cfg)
         return cfg
 
     @pytest.mark.parametrize("scheme", ["ssh", "slurm"])
@@ -71,7 +71,7 @@ class TestSchemeDefaultTimeout:
     def test_explicit_env_applies_to_all_schemes(self, monkeypatch, scheme):
         monkeypatch.setenv("FZ_RUN_TIMEOUT", "1800")
         cfg = Config()
-        monkeypatch.setattr("fz.runners.get_config", lambda: cfg)
+        monkeypatch.setattr("fz.runners.manager.get_config", lambda: cfg)
         assert resolve_timeout({}, scheme=scheme) == 1800
 
     @pytest.mark.parametrize("scheme", ["ssh", "slurm"])
@@ -81,7 +81,7 @@ class TestSchemeDefaultTimeout:
 
     def test_unlimited_remote_logs_warning(self, default_config, monkeypatch):
         msgs = []
-        monkeypatch.setattr("fz.runners.log_warning", msgs.append)
+        monkeypatch.setattr("fz.runners.manager.log_warning", msgs.append)
         resolve_timeout({}, scheme="slurm")
         assert msgs and "unlimited" in msgs[0]
 
