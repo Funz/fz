@@ -1289,7 +1289,9 @@ def resolve_calculators(
     return result
 
 
-def resolve_timeout(model: Optional[Dict], timeout: Optional[int] = None) -> Optional[int]:
+def resolve_timeout(
+    model: Optional[Dict], timeout: Optional[int] = None, scheme: str = "sh"
+) -> Optional[int]:
     """
     Resolve the effective run timeout in seconds.
 
@@ -1297,17 +1299,35 @@ def resolve_timeout(model: Optional[Dict], timeout: Optional[int] = None) -> Opt
     FZ_RUN_TIMEOUT config default. A model "timeout" of None/null or 0 disables
     the timeout for that model (returns None, meaning no timeout).
 
+    When FZ_RUN_TIMEOUT is not set explicitly, the built-in 3600 s default applies
+    to sh:// and funz:// only; ssh:// and slurm:// default to no timeout (queue
+    waits are unbounded). A logged message reports the effective timeout.
+
     Returns:
         Timeout in seconds, or None if the timeout is disabled.
     """
     if timeout is not None:
-        return timeout
-    if isinstance(model, dict) and "timeout" in model:
+        effective = timeout
+    elif isinstance(model, dict) and "timeout" in model:
         model_timeout = model["timeout"]
-        if model_timeout is None or model_timeout == 0:
-            return None
-        return int(model_timeout)
-    return get_config().run_timeout
+        effective = None if (model_timeout is None or model_timeout == 0) else int(model_timeout)
+    else:
+        config = get_config()
+        if scheme in ("ssh", "slurm") and not config.run_timeout_explicit:
+            effective = None
+        else:
+            effective = config.run_timeout
+    if effective is None:
+        if scheme in ("ssh", "slurm"):
+            log_warning(
+                f"No timeout set for {scheme}:// calculation (unlimited); "
+                "set FZ_RUN_TIMEOUT, model['timeout'] or timeout= to bound it"
+            )
+        else:
+            log_info(f"Run timeout: unlimited ({scheme}://)")
+    else:
+        log_info(f"Run timeout: {effective}s ({scheme}://)")
+    return effective
 
 
 def run_calculation(
@@ -1897,7 +1917,7 @@ def run_ssh_calculation(
         Dict containing calculation results and status
     """
     # Resolve effective timeout: explicit arg > model's "timeout" entry > config default
-    timeout = resolve_timeout(model, timeout)
+    timeout = resolve_timeout(model, timeout, "ssh")
 
     # Import here to avoid circular imports
     from .core import is_interrupted
@@ -2122,7 +2142,7 @@ def run_slurm_calculation(
         Dict containing calculation results and status
     """
     # Resolve effective timeout: explicit arg > model's "timeout" entry > config default
-    timeout = resolve_timeout(model, timeout)
+    timeout = resolve_timeout(model, timeout, "slurm")
 
     # Import here to avoid circular imports
     from .core import is_interrupted
@@ -2869,7 +2889,7 @@ def run_funz_calculation(
         Dict containing calculation results and status
     """
     # Resolve effective timeout: explicit arg > model's "timeout" entry > config default
-    timeout = resolve_timeout(model, timeout)
+    timeout = resolve_timeout(model, timeout, "funz")
     # Import here to avoid circular imports
     from .core import is_interrupted, fzo
 

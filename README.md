@@ -118,16 +118,10 @@ pip install --break-system-packages --upgrade --force-reinstall "git+https://git
 ### Dependencies
 
 ```bash
+# Installed automatically with fz (required dependencies):
+#   paramiko (SSH support), pandas (DataFrame I/O, fzd), charset-normalizer
+
 # Optional dependencies:
-
-# for SSH support
-pip install paramiko
-
-# for DataFrame support (recommended)
-pip install pandas
-
-# for fzd (design of experiments) - REQUIRED
-pip install pandas
 
 # for R interpreter support
 pip install funz-fz[r]
@@ -1413,7 +1407,7 @@ result = replace_variables_in_content(content, input_variables)
 - Environment-specific deployments
 - Optional parameters in parametric studies
 
-See `examples/variable_substitution.md` for comprehensive documentation.
+See `doc/syntax-guide.md` for comprehensive documentation.
 
 #### Old Funz Syntax Compatibility
 
@@ -2432,7 +2426,7 @@ def get_analysis(self, input_vars, output_values):
     # Saved to: analysis_<iteration>.txt
 ```
 
-See `docs/FZD_CONTENT_FORMATS.md` for detailed format documentation.
+See `doc/fzd_content_format.md` for detailed format documentation.
 
 #### Dependency Management
 
@@ -2478,7 +2472,7 @@ export FZ_INTERPRETER=python
 # Linux/macOS example: export FZ_SHELL_PATH=/opt/custom/bin:/usr/local/bin
 export FZ_SHELL_PATH=/usr/local/bin:/usr/bin
 
-# Run timeout in seconds (default: 3600 = 1 hour)
+# Run timeout in seconds (default: 3600 = 1 hour; unlimited for ssh:// and slurm:// when unset)
 export FZ_RUN_TIMEOUT=1800
 
 # Case directory naming scheme: "path" (var=val,... subdirs, default), "hash"
@@ -2545,8 +2539,14 @@ FZ provides flexible timeout settings for controlling calculation execution time
 
 ```bash
 # Set default timeout for all calculations (in seconds)
-export FZ_RUN_TIMEOUT=1800  # 30 minutes (default: 3600 seconds = 1 hour)
+export FZ_RUN_TIMEOUT=1800  # 30 minutes (default: 3600 seconds = 1 hour for sh:// and funz://,
+                            # unlimited for ssh:// and slurm://)
 ```
+
+When `FZ_RUN_TIMEOUT` is not set, `ssh://` and `slurm://` calculations have **no timeout**
+(queue waits are unbounded); a warning is logged at launch. Set `FZ_RUN_TIMEOUT`, the
+model `timeout` or the `timeout=` argument to bound them. When set explicitly,
+`FZ_RUN_TIMEOUT` applies to every calculator type.
 
 #### 2. Model Configuration (Per-Model)
 
@@ -2578,7 +2578,7 @@ results = fz.fzr("input.txt", input_variables, model, calculators="sh://calc.sh"
 
 1. **`timeout=` argument** passed to `fzr()`/`fzc()`
 2. **Model configuration** (`model["timeout"]`)
-3. **Environment variable** (`FZ_RUN_TIMEOUT`, default 3600 seconds = 1 hour)
+3. **Environment variable** (`FZ_RUN_TIMEOUT`; if unset: 3600 seconds for `sh://`/`funz://`, unlimited for `ssh://`/`slurm://`)
 
 **Timeout Behavior**:
 - Calculation terminates after timeout expires
@@ -2833,7 +2833,7 @@ class MonteCarlo:
 
 4. **Install** using `fz install algorithm <name>` or `fz install algorithm <url>`
 
-See `examples/algorithms/PLUGIN_SYSTEM.md` for complete documentation on the algorithm plugin system.
+See `examples/algorithms/demo_plugin_system.py` and `examples/algorithm_options_example.md` for the algorithm plugin system.
 
 ## Interrupt Handling
 
@@ -3022,7 +3022,7 @@ python -m pytest tests/ -v
 python -m pytest tests/test_examples_perfectgaz.py -v
 
 # Run with debug output
-FZ_LOG_LEVEL=DEBUG python -m pytest tests/test_parallel.py -v
+FZ_LOG_LEVEL=DEBUG python -m pytest tests/test_parallel_simple.py -v
 
 # Run tests matching pattern
 python -m pytest tests/ -k "parallel" -v
@@ -3058,15 +3058,15 @@ fz/
 │       ├── bfgs.py                # BFGS optimization
 │       └── brent.py               # Brent's 1D optimization
 ├── tests/                       # Test suite
-│   ├── test_parallel.py         # Parallel execution tests
+│   ├── test_parallel_simple.py  # Parallel execution tests
 │   ├── test_interrupt_handling.py  # Interrupt handling tests
 │   ├── test_fzd.py              # Design of experiments tests
 │   ├── test_examples_*.py       # Example-based tests
 │   └── ...
-├── docs/                        # Documentation
-│   └── FZD_CONTENT_FORMATS.md  # fzd content format documentation
+├── doc/                         # Modular user documentation
+│   └── fzd_content_format.md    # fzd content format documentation
 ├── README.md                    # This file
-└── setup.py                     # Package configuration
+└── pyproject.toml               # Package configuration
 ```
 
 ### Testing Your Own Models
@@ -3317,7 +3317,7 @@ Practical examples in the `examples/` directory:
 Working examples in test files:
 
 - `tests/test_examples_*.py` - Comprehensive integration tests
-- `tests/test_parallel.py` - Parallel execution examples
+- `tests/test_parallel_simple.py`, `tests/test_complete_parallel_execution.py` - Parallel execution examples
 - `tests/test_interrupt_handling.py` - Interrupt handling demonstrations
 - `tests/test_funz_protocol.py` - Funz server protocol examples
 - `tests/test_slurm_runner.py` - SLURM workload manager examples
@@ -3325,5 +3325,5 @@ Working examples in test files:
 ## Support
 
 - **Issues**: https://github.com/Funz/fz/issues
-- **Documentation**: https://fz.github.io
+- **Documentation**: https://github.com/Funz/fz/tree/main/doc
 - **Repository**: https://github.com/Funz/fz

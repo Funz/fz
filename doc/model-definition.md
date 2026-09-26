@@ -312,7 +312,7 @@ model = {"id": "perfectgas", ...}
 ### timeout (optional)
 
 Per-model override of the run timeout, in seconds. Takes precedence over the
-`FZ_RUN_TIMEOUT` config default (3600s = 1h) but is itself overridden by an
+`FZ_RUN_TIMEOUT` config default (3600s = 1h for `sh://`/`funz://`; unlimited for `ssh://`/`slurm://` when the variable is unset) but is itself overridden by an
 explicit `timeout=` argument passed to `fzr()`/`fzc()`/the CLI. Set it to
 `None`/`null` (or `0`) to disable the timeout entirely for this model (the
 calculation is allowed to run indefinitely).

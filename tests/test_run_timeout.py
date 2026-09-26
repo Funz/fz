@@ -49,6 +49,43 @@ class TestResolveTimeout:
         assert resolve_timeout(None) == get_config().run_timeout
 
 
+class TestSchemeDefaultTimeout:
+    """ssh:// and slurm:// default to unlimited unless FZ_RUN_TIMEOUT is set explicitly."""
+
+    @pytest.fixture
+    def default_config(self, monkeypatch):
+        monkeypatch.delenv("FZ_RUN_TIMEOUT", raising=False)
+        cfg = Config()
+        monkeypatch.setattr("fz.runners.get_config", lambda: cfg)
+        return cfg
+
+    @pytest.mark.parametrize("scheme", ["ssh", "slurm"])
+    def test_remote_default_is_unlimited(self, default_config, scheme):
+        assert resolve_timeout({}, scheme=scheme) is None
+
+    @pytest.mark.parametrize("scheme", ["sh", "funz"])
+    def test_local_default_is_one_hour(self, default_config, scheme):
+        assert resolve_timeout({}, scheme=scheme) == 3600
+
+    @pytest.mark.parametrize("scheme", ["sh", "ssh", "slurm", "funz"])
+    def test_explicit_env_applies_to_all_schemes(self, monkeypatch, scheme):
+        monkeypatch.setenv("FZ_RUN_TIMEOUT", "1800")
+        cfg = Config()
+        monkeypatch.setattr("fz.runners.get_config", lambda: cfg)
+        assert resolve_timeout({}, scheme=scheme) == 1800
+
+    @pytest.mark.parametrize("scheme", ["ssh", "slurm"])
+    def test_model_and_argument_still_win(self, default_config, scheme):
+        assert resolve_timeout({"timeout": 120}, scheme=scheme) == 120
+        assert resolve_timeout({"timeout": 120}, timeout=30, scheme=scheme) == 30
+
+    def test_unlimited_remote_logs_warning(self, default_config, monkeypatch):
+        msgs = []
+        monkeypatch.setattr("fz.runners.log_warning", msgs.append)
+        resolve_timeout({}, scheme="slurm")
+        assert msgs and "unlimited" in msgs[0]
+
+
 class TestRunLocalCalculationTimeoutBehavior:
     """End-to-end: a small model timeout actually aborts a long-running command."""
 
