@@ -43,6 +43,9 @@ dev = [
 r = [
     "rpy2>=3.4.0",
 ]
+mcp = [
+    "mcp>=1.2.0; python_version >= '3.10'",
+]
 
 [project.urls]
 "Bug Reports" = "https://github.com/funz/fz/issues"
@@ -56,6 +59,7 @@ fzo = "fz.cli:fzo_main"
 fzr = "fz.cli:fzr_main"
 fzl = "fz.cli:fzl_main"
 fzd = "fz.cli:fzd_main"
+fz-mcp = "fz.mcp_server:main"
 
 [tool.setuptools]
 packages = ["fz"]

@@ -161,3 +161,10 @@ class TestSkillCodeDrift:
 
         for name in ("fzi", "fzc", "fzo", "fzr", "fzl", "fzd"):
             assert hasattr(fz, name), f"fz.{name} missing from public API"
+
+
+def test_mcp_env_vars_documented_in_skill():
+    """The fz-mcp env vars are documented in the skill and exist in the code"""
+    ref = (SKILL_DIR / "reference.md").read_text(encoding="utf-8")
+    for var in ("FZ_MCP_ROOT", "FZ_MCP_TRUSTED"):
+        assert var in ref and var in FZ_SRC

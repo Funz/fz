@@ -83,7 +83,9 @@ fz.fzr(input_path: str,
   cwd at call time, identified by basename) are symlinked into every case directory and
   explicitly transferred to `ssh://`/`slurm://` (remote)/`funz://` calculators. `fzi()`
   never scans them for variables. See `doc/core-functions.md` → "fzr" → `input_static`
-  for the full write-up. A large (`FZ_STATIC_CANDIDATE_MIN_SIZE`, default 1 MiB)
+  for the full write-up. A large (`FZ_MCP_ROOT                  fz-mcp workspace root for file paths (default: cwd)
+FZ_MCP_TRUSTED               1 lets fz-mcp accept inline models and sh:// / ssh:// calculators (default 0)
+FZ_STATIC_CANDIDATE_MIN_SIZE`, default 1 MiB)
   variable-free file left in `input_path` instead triggers a one-time warning
   suggesting `input_static`.
 - `callbacks` supports `on_start(total_cases, calculators)`, plus per-case progress
@@ -287,3 +289,9 @@ ${name~default}   variable with default value
 #@ code           interpreter context line (imports, constants, function defs)
 ?name             legacy Java-Funz syntax, auto-converted to $name
 ```
+
+## MCP server
+
+`fz-mcp` (extra: `pip install 'funz-fz[mcp]'`) serves `fzi`, `fzc`, `fzr`, `fzo`, `fzl` over
+MCP stdio. Default untrusted mode: paths confined to `FZ_MCP_ROOT`, models and calculators
+must be installed aliases. `FZ_MCP_TRUSTED=1` lifts this.

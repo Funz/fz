@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### MCP server for AI agents (`fz-mcp`)
+
+- New optional entry point `fz-mcp` (`pip install 'funz-fz[mcp]'`) exposing `fzi`, `fzc`,
+  `fzr`, `fzo`, `fzl` as MCP tools. Untrusted by default: paths confined to `FZ_MCP_ROOT`,
+  models/calculators must be installed aliases, and it refuses to start unless the fz core
+  supports `trusted=False` (audit ticket P0-2) or `FZ_MCP_TRUSTED=1` is set.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as
