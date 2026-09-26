@@ -1,14 +1,16 @@
 """
-Asynchronous SLURM support for ``slurm://`` calculators (local mode).
+Job-array SLURM support for the ``slurm-array://`` calculator (local mode).
 
-Jobs are submitted with ``sbatch`` and followed by a single shared monitor
-thread that queries ``sacct`` (falling back to ``squeue``) once per poll
-interval for *all* pending jobs, instead of blocking one ``srun`` per case.
+Cases that arrive within a short window are batched into ONE
+``sbatch --array`` submission; a single shared monitor thread then queries
+``sacct`` (falling back to ``squeue``) once per poll interval for all pending
+array tasks. ``slurm://`` keeps using a blocking ``srun`` per case.
 """
 
 import os
 import re
-import shutil
+import shlex
+import uuid
 import subprocess
 import threading
 import time
@@ -29,6 +31,9 @@ RESOURCE_OPTIONS = {
     "account": "--account",
     "qos": "--qos",
 }
+# Array-only: cap on simultaneously running tasks (sbatch --array=0-N%M)
+ARRAY_THROTTLE_KEY = "maxrunning"
+MAX_ARRAY_SIZE = 1000  # SLURM's default MaxArraySize
 _VALUE_RE = re.compile(r"^[A-Za-z0-9_.:,=\-/]+$")
 
 _TERMINAL_OK = {"COMPLETED"}
@@ -46,9 +51,9 @@ def split_slurm_resources(slurm_uri: str) -> Tuple[str, Dict[str, str]]:
     base, query = slurm_uri.split("?", 1)
     resources = {}
     for key, value in parse_qsl(query, keep_blank_values=True):
-        if key not in RESOURCE_OPTIONS:
+        if key not in RESOURCE_OPTIONS and key != ARRAY_THROTTLE_KEY:
             raise ValueError(
-                f"Unknown SLURM resource '{key}' (allowed: {', '.join(sorted(RESOURCE_OPTIONS))})"
+                f"Unknown SLURM resource '{key}' (allowed: {', '.join(sorted(list(RESOURCE_OPTIONS) + [ARRAY_THROTTLE_KEY]))})"
             )
         if not _VALUE_RE.match(value):
             raise ValueError(f"Invalid value for SLURM resource '{key}': {value!r}")
@@ -56,34 +61,104 @@ def split_slurm_resources(slurm_uri: str) -> Tuple[str, Dict[str, str]]:
     return base, resources
 
 
-def resolve_mode() -> str:
-    """Return 'sbatch' or 'srun' from FZ_SLURM_MODE (auto|sbatch|srun, default auto)."""
-    mode = os.getenv("FZ_SLURM_MODE", "auto").lower()
-    if mode == "auto":
-        return "sbatch" if shutil.which("sbatch") else "srun"
-    if mode not in ("sbatch", "srun"):
-        log_warning(f"Invalid FZ_SLURM_MODE={mode!r}, using auto")
-        return "sbatch" if shutil.which("sbatch") else "srun"
-    return mode
+def srun_options(resources: Dict[str, str]) -> str:
+    """Resource options for a blocking ``srun`` (slurm://); values are regex-validated."""
+    return " ".join(f"{RESOURCE_OPTIONS[k]}={v}" for k, v in resources.items() if k in RESOURCE_OPTIONS)
 
 
-def build_sbatch_command(partition: str, wrapped: str, working_dir: Path,
-                         resources: Dict[str, str]) -> List[str]:
-    cmd = [
-        "sbatch", "--parsable", f"--partition={partition}",
-        f"--chdir={working_dir}", "--output=out.txt", "--error=err.txt",
-    ]
-    cmd += [f"{RESOURCE_OPTIONS[k]}={v}" for k, v in resources.items()]
+class ArrayTask:
+    """Handle on one case inside a submitted array; ``job_id`` is ``<array>_<index>``."""
+
+    def __init__(self, working_dir: Path):
+        self.working_dir = Path(working_dir)
+        self.job_id: Optional[str] = None
+        self.error: Optional[str] = None
+        self.submitted = threading.Event()  # set once job_id (or error) is known
+
+
+class _Batch:
+    def __init__(self, key):
+        self.key = key
+        self.tasks: List[ArrayTask] = []
+        self.timer: Optional[threading.Timer] = None
+
+
+class ArrayBatcher:
+    """Collect concurrently submitted cases and send them as one ``sbatch --array``."""
+
+    def __init__(self, window: float = 1.0):
+        self.window = window
+        self._lock = threading.Lock()
+        self._batches: Dict[tuple, _Batch] = {}
+
+    def add(self, partition: str, script: str, input_argument: str, working_dir: Path,
+            resources: Dict[str, str]) -> ArrayTask:
+        key = (partition, script, input_argument, tuple(sorted(resources.items())))
+        task = ArrayTask(working_dir)
+        flush_now = None
+        with self._lock:
+            batch = self._batches.get(key)
+            if batch is None:
+                batch = self._batches[key] = _Batch(key)
+                batch.timer = threading.Timer(self.window, self._flush, args=(key, batch))
+                batch.timer.daemon = True
+                batch.timer.start()
+            batch.tasks.append(task)
+            if len(batch.tasks) >= MAX_ARRAY_SIZE:
+                flush_now = batch
+        if flush_now:
+            self._flush(key, flush_now)
+        return task
+
+    def _flush(self, key, batch: _Batch) -> None:
+        with self._lock:
+            if self._batches.get(key) is not batch:
+                return  # already flushed
+            del self._batches[key]
+            if batch.timer:
+                batch.timer.cancel()
+        partition, script, input_argument, res = key
+        try:
+            job_id = submit_array(partition, script, input_argument,
+                                  [t.working_dir for t in batch.tasks], dict(res))
+            log_debug(f"Submitted SLURM array {job_id} with {len(batch.tasks)} tasks")
+            for index, task in enumerate(batch.tasks):
+                task.job_id = f"{job_id}_{index}"
+        except Exception as e:
+            for task in batch.tasks:
+                task.error = str(e)
+        finally:
+            for task in batch.tasks:
+                task.submitted.set()
+
+
+def build_array_command(partition: str, script: str, input_argument: str, manifest: Path,
+                        n_tasks: int, resources: Dict[str, str]) -> List[str]:
+    """sbatch command for an array; each task cds into its case dir listed in the manifest."""
+    array = f"0-{n_tasks - 1}"
+    if ARRAY_THROTTLE_KEY in resources:
+        array += f"%{resources[ARRAY_THROTTLE_KEY]}"
+    # The marker file gives an exit code even when sacct accounting is disabled.
+    wrapped = (
+        f'd=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {shlex.quote(str(manifest))}); '
+        f'cd "$d" || exit 1; '
+        f"{script} {input_argument} > out.txt 2> err.txt; rc=$?; "
+        f"echo $rc > {EXIT_MARKER}; exit $rc"
+    )
+    cmd = ["sbatch", "--parsable", f"--partition={partition}", f"--array={array}",
+           f"--chdir={manifest.parent}", "--output=/dev/null", "--error=/dev/null"]
+    cmd += [f"{RESOURCE_OPTIONS[k]}={v}" for k, v in resources.items() if k in RESOURCE_OPTIONS]
     cmd.append(f"--wrap={wrapped}")
     return cmd
 
 
-def submit(partition: str, script: str, input_argument: str, working_dir: Path,
-           resources: Dict[str, str]) -> str:
-    """Submit one job with sbatch and return its job id."""
-    # The marker file gives an exit code even when sacct accounting is disabled.
-    wrapped = f"{script} {input_argument}; rc=$?; echo $rc > {EXIT_MARKER}; exit $rc"
-    cmd = build_sbatch_command(partition, wrapped, working_dir, resources)
+def submit_array(partition: str, script: str, input_argument: str, working_dirs: List[Path],
+                 resources: Dict[str, str]) -> str:
+    """Submit one array job covering ``working_dirs`` and return the array job id."""
+    common = Path(os.path.commonpath([str(d) for d in working_dirs]))
+    manifest = common / f".fz_array_{uuid.uuid4().hex[:8]}.manifest"
+    manifest.write_text("".join(f"{d}\n" for d in working_dirs))
+    cmd = build_array_command(partition, script, input_argument, manifest, len(working_dirs), resources)
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         raise RuntimeError(f"sbatch failed: {proc.stderr.strip() or proc.stdout.strip()}")
@@ -152,7 +227,9 @@ class SlurmJobMonitor:
 
 def query_states(job_ids: List[str]) -> Dict[str, Tuple[str, Optional[int]]]:
     """Return {job_id: (state, exit_code)} using one sacct call, else one squeue call."""
-    joined = ",".join(job_ids)
+    # Array tasks are "<array>_<index>"; ask for whole arrays, keep the rows we track.
+    joined = ",".join(sorted({j.split("_")[0] for j in job_ids}))
+    wanted = set(job_ids)
     out: Dict[str, Tuple[str, Optional[int]]] = {}
     try:
         proc = subprocess.run(
@@ -163,12 +240,13 @@ def query_states(job_ids: List[str]) -> Dict[str, Tuple[str, Optional[int]]]:
             for line in proc.stdout.strip().splitlines():
                 job_id, state, exit_code = (line.split("|") + ["", ""])[:3]
                 state = state.split()[0] if state else "UNKNOWN"  # "CANCELLED by 123"
-                out[job_id] = (state, int(exit_code.split(":")[0]) if exit_code else None)
+                if job_id in wanted:
+                    out[job_id] = (state, int(exit_code.split(":")[0]) if exit_code else None)
             return out
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     proc = subprocess.run(
-        ["squeue", "-h", "-j", joined, "-o", "%i|%T"],
+        ["squeue", "-h", "-r", "-j", joined, "-o", "%i|%T"],
         capture_output=True, text=True, timeout=60,
     )
     active = {}
@@ -182,7 +260,16 @@ def query_states(job_ids: List[str]) -> Dict[str, Tuple[str, Optional[int]]]:
 
 
 _monitor: Optional[SlurmJobMonitor] = None
+_batcher: Optional[ArrayBatcher] = None
 _monitor_lock = threading.Lock()
+
+
+def get_batcher() -> ArrayBatcher:
+    global _batcher
+    with _monitor_lock:
+        if _batcher is None:
+            _batcher = ArrayBatcher(float(os.getenv("FZ_SLURM_ARRAY_WINDOW", "1")))
+        return _batcher
 
 
 def get_monitor() -> SlurmJobMonitor:

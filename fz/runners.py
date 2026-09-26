@@ -803,6 +803,9 @@ class CalculatorManager:
         Returns:
             True if calculator was acquired, False if already in use
         """
+        if self.get_original_uri(calculator_id).startswith("slurm-array://"):
+            return True  # shareable: concurrent cases are batched into one job array
+
         calc_lock = self._calculator_locks[calculator_id]
 
         # Try to acquire the calculator lock (non-blocking)
@@ -832,6 +835,8 @@ class CalculatorManager:
             calculator_id: Calculator ID to release
             thread_id: Thread ID releasing the calculator
         """
+        if self.get_original_uri(calculator_id).startswith("slurm-array://"):
+            return
         try:
             with self._lock:
                 if calculator_id in self._calculator_owners:
@@ -1193,7 +1198,7 @@ def _validate_calculator_uri(calculator_uri: str) -> None:
 
     # Extract and validate scheme
     scheme = calculator_uri.split("://", 1)[0].lower()
-    supported_schemes = ["sh", "ssh", "cache", "slurm", "funz"]
+    supported_schemes = ["sh", "ssh", "cache", "slurm", "slurm-array", "funz"]
 
     if scheme not in supported_schemes:
         raise ValueError(
@@ -1209,9 +1214,9 @@ def _validate_calculator_uri(calculator_uri: str) -> None:
             raise ValueError(f"Invalid SSH calculator URI: {e}")
 
     # Validate SLURM URI format if scheme is slurm
-    if scheme == "slurm":
+    if scheme in ("slurm", "slurm-array"):
         try:
-            parse_slurm_uri(split_slurm_resources(calculator_uri)[0])
+            parse_slurm_uri(split_slurm_resources(calculator_uri)[0].replace("slurm-array://", "slurm://", 1))
         except ValueError as e:
             raise ValueError(f"Invalid SLURM calculator URI: {e}")
 
@@ -1369,6 +1374,12 @@ def run_calculation(
     elif base_uri.startswith("ssh://"):
         # Remote SSH execution
         return run_ssh_calculation(
+            working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
+        )
+
+    elif base_uri.startswith("slurm-array://"):
+        # SLURM job-array execution (cases batched into one sbatch --array)
+        return run_slurm_array_calculation(
             working_dir, base_uri, model, timeout, input_files_list, static_entries=static_entries
         )
 
@@ -2099,6 +2110,21 @@ def run_ssh_calculation(
             pass
 
 
+def run_slurm_array_calculation(
+    working_dir: Path,
+    slurm_uri: str,
+    model: Dict,
+    timeout: int = None,
+    input_files_list: List[str] = None,
+    static_entries: List[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run a case through slurm-array://[:]partition/script[?resources] (local SLURM only)."""
+    return run_slurm_calculation(
+        working_dir, slurm_uri, model, timeout, input_files_list,
+        static_entries=static_entries, array=True,
+    )
+
+
 def run_slurm_calculation(
     working_dir: Path,
     slurm_uri: str,
@@ -2106,6 +2132,7 @@ def run_slurm_calculation(
     timeout: int = None,
     input_files_list: List[str] = None,
     static_entries: List[Dict[str, Any]] = None,
+    array: bool = False,
 ) -> Dict[str, Any]:
     """
     Run calculation via SLURM workload manager
@@ -2143,6 +2170,8 @@ def run_slurm_calculation(
     try:
         # Split optional resources (?cores=4&mem=2G&time=01:00:00) then parse the URI
         slurm_uri, resources = split_slurm_resources(slurm_uri)
+        if slurm_uri.startswith("slurm-array://"):
+            slurm_uri = "slurm://" + slurm_uri[len("slurm-array://"):]
         host, port, username, password, partition, script = parse_slurm_uri(slurm_uri)
 
         log_info(f"SLURM calculation: partition={partition}, script={script}")
@@ -2150,14 +2179,22 @@ def run_slurm_calculation(
         # Check if this is local or remote SLURM execution
         if host is None:
             # Local SLURM execution
+            if array:
+                return _run_local_slurm_array(
+                    working_dir, partition, script, " ".join(input_files_list) if input_files_list else ".",
+                    model, timeout, start_time, env_info, resources,
+                )
             return _run_local_slurm_calculation(
                 working_dir, partition, script, model, timeout, start_time, env_info,
                 input_files_list, resources=resources,
             )
         else:
             # Remote SLURM execution via SSH
+            if array:
+                return {"status": "error",
+                        "error": "slurm-array:// supports local SLURM only (use slurm://user@host:partition/script for remote)"}
             if resources:
-                log_warning("SLURM resources in the URI are only applied to local (sbatch) execution")
+                log_warning("SLURM resources in the URI are only applied to local SLURM execution")
             if not PARAMIKO_AVAILABLE:
                 return {
                     "status": "error",
@@ -2191,8 +2228,7 @@ def _run_local_slurm_calculation(
     resources: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
-    Run SLURM calculation locally using sbatch (shared monitor) or srun
-    (FZ_SLURM_MODE=srun, or when sbatch is unavailable)
+    Run SLURM calculation locally using a blocking srun
 
     Args:
         working_dir: Directory containing input files
@@ -2226,15 +2262,10 @@ def _run_local_slurm_calculation(
         # Build arguments from input files list
         input_argument = " ".join(input_files_list) if input_files_list else "."
 
-        if slurm_async.resolve_mode() == "sbatch":
-            return _run_local_sbatch(
-                working_dir, partition, script, input_argument, model, timeout,
-                start_time, env_info, resources or {},
-            )
-
         # Construct srun command
         # Use --partition for partition and execute the script
-        full_command = f"srun --partition={partition} {script} {input_argument}"
+        extra = slurm_async.srun_options(resources or {})
+        full_command = f"srun --partition={partition}{' ' + extra if extra else ''} {script} {input_argument}"
 
         log_info(f"Running SLURM command: {full_command}")
 
@@ -2381,7 +2412,7 @@ def _run_local_slurm_calculation(
         os.chdir(original_cwd)
 
 
-def _run_local_sbatch(
+def _run_local_slurm_array(
     working_dir: Path,
     partition: str,
     script: str,
@@ -2392,13 +2423,20 @@ def _run_local_sbatch(
     env_info: Dict,
     resources: Dict[str, str],
 ) -> Dict[str, Any]:
-    """Submit with sbatch and wait on the shared monitor (no per-case polling)."""
+    """Queue this case into a job array and wait on the shared monitor."""
     from .core import is_interrupted, fzo
 
-    command = f"sbatch --partition={partition} {script} {input_argument}"
+    command = f"sbatch --array --partition={partition} {script} {input_argument}"
     monitor = slurm_async.get_monitor()
-    job_id = slurm_async.submit(partition, script, input_argument, working_dir, resources)
-    log_info(f"Submitted SLURM job {job_id}: {command}")
+    task = slurm_async.get_batcher().add(partition, script, input_argument, working_dir, resources)
+    while not task.submitted.wait(0.5):
+        if is_interrupted():
+            return {"status": "interrupted", "error": "SLURM calculation interrupted by user",
+                    "command": command}
+    if task.error:
+        return {"status": "error", "error": task.error, "command": command}
+    job_id = task.job_id
+    log_info(f"Submitted SLURM array task {job_id}: {command}")
     event = monitor.register(job_id)
 
     waited = 0.0

@@ -763,7 +763,7 @@ def _validate_calculator(calc_spec, calc_display):
             # Funz calculator - can't test without server connection
             return ("passed", None)
 
-        elif protocol == "slurm":
+        elif protocol in ("slurm", "slurm-array"):
             # SLURM calculator - can't test without cluster connection
             return ("passed", None)
 

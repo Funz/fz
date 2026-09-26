@@ -478,7 +478,23 @@ jobs:
       run: |
         python -m pytest tests/test_error_reporting.py::TestSlurmIntegrationErrorReporting -v -s --tb=long
 
-    - name: Run async SLURM (sbatch) unit tests
+    - name: Test slurm-array:// (job arrays) on real SLURM
+      run: |
+        mkdir -p $HOME/fz_array && cd $HOME/fz_array
+        printf 'x=$x\n' > input.txt
+        printf '#!/bin/bash\nsed "s/x=//" input.txt > out_x.txt\n' > run.sh
+        python - <<PYTHON
+        import fz
+        df = fz.fzr("input.txt", {"x": [1, 2, 3, 4]},
+                    {"varprefix": "$", "output": {"y": "cat out_x.txt"}},
+                    calculators="slurm-array://:debug/bash $HOME/fz_array/run.sh?cores=1&maxrunning=2",
+                    results_dir="res")
+        assert list(df["status"]) == ["done"] * 4, df
+        assert [int(v) for v in df["y"]] == [1, 2, 3, 4], df
+        print("✓ slurm-array job array test passed")
+        PYTHON
+
+    - name: Run async SLURM (job array) unit tests
       run: |
         python -m pytest tests/test_slurm_async.py -v
 

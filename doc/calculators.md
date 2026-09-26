@@ -240,19 +240,22 @@ mpirun -np 16 ./simulation input.txt
 
 Execute calculations on SLURM clusters (local or remote).
 
-**Asynchronous submission (local SLURM)**: when `sbatch` is available, each case is
-submitted with `sbatch --parsable` and all pending jobs are followed by one shared
-monitor thread (a single `sacct` call per poll, `squeue` as fallback) instead of one
-blocking `srun` per case. Resources go in the URI query string:
+**Job arrays (`slurm-array://`, local SLURM)**: `slurm-array://:partition/script` is the
+asynchronous twin of `slurm://`. Cases submitted within a short window are batched into
+**one** `sbatch --array` job (a single calculator URI runs all N cases; it is not locked
+per case) and a single shared monitor thread follows every task with one `sacct` call per
+poll (falling back to `squeue` when accounting is disabled). `slurm://` keeps its blocking
+`srun` per case. Resources go in the URI query string, for both protocols:
 
 ```python
-calculators = "slurm://:compute/bash script.sh?cores=4&mem=8G&time=01:00:00"
+calculators = "slurm-array://:compute/bash script.sh?cores=4&mem=8G&time=01:00:00&maxrunning=20"
 ```
 
 Allowed keys: `cores` (`--cpus-per-task`), `mem`, `time`, `nodes`, `ntasks`, `gres`,
-`account`, `qos`. Env vars: `FZ_SLURM_MODE` (`auto` (default) | `sbatch` | `srun`),
-`FZ_SLURM_POLL_INTERVAL` (seconds, default 2). Remote SLURM still uses `srun`; job
-arrays are not implemented yet.
+`account`, `qos`, plus `maxrunning` (array throttle, `--array=0-N%M`; `slurm-array://` only).
+Env vars: `FZ_SLURM_POLL_INTERVAL` (seconds between polls, default 2) and
+`FZ_SLURM_ARRAY_WINDOW` (seconds cases are gathered before submitting, default 1).
+`slurm-array://` supports local SLURM only (remote SSH SLURM stays on `slurm://`).
 
 
 ### Basic Syntax
