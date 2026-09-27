@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### `cache://` key: SHA-256, versioned `.fz_hash`, calculator `code_id` (P0-1)
+
+- `.fz_hash` is now a versioned ("v2") SHA-256 format with an optional
+  `# code_id: ...` header line, instead of a bare list of MD5 lines.
+- The cache key never included the calculator's command or a model hash, and
+  still doesn't: the exact same code is routinely invoked differently per
+  calculator (`bash run.sh` locally vs. `/opt/telemac/v8p5/run.sh` over SSH),
+  and keying on the command would defeat cache sharing across calculators.
+  Instead, a calculator alias may declare an optional `code_id` (its code
+  installation's identity, e.g. `"telemac@v8p5"`) or a `version_cmd` that
+  resolves it by running a command on the calculator (once per calculator per
+  session). Two calculators sharing the same `code_id` share `cache://`
+  results regardless of command; different `code_id`s never match.
+- With no `code_id` declared on either side, a match is still accepted
+  (backward compatible) with a one-time warning per campaign;
+  `FZ_CACHE_STRICT=1` refuses such unverifiable matches instead.
+- **Breaking change**: a pre-v2 (MD5, no header) cache directory written by
+  an older `fz` is now ignored by `cache://` by default (it has no `code_id`
+  at all). Set `FZ_CACHE_ACCEPT_LEGACY=1` to consider it - still subject to
+  the same "unknown identity" warning/`FZ_CACHE_STRICT` rule.
+- `manifest.json` (P1-4) records each case's `code_id` when known.
+- See `doc/parallel-and-caching.md` → "Cache identity across calculators" and
+  `doc/calculators.md` → "Cache Identity (`code_id`)".
+
 ### MCP server: tool annotations, stdio-only transport, decoupled restricted mode (P0-7)
 
 - `fzc`/`fzr` are registered with `destructiveHint`/`openWorldHint`; `fzi`/`fzo`/`fzl`

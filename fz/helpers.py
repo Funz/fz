@@ -867,7 +867,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     Returns:
         Dict with case results
     """
-    from .io import resolve_cache_paths, find_cache_match
+    from .io import resolve_cache_paths, find_cache_match, update_hash_file_code_id
     from .core import fzo
 
     var_combo = case_info["var_combo"]
@@ -877,6 +877,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     calculators = case_info["calculators"]  # Original URIs for compatibility
     calculator_ids = case_info.get("calculator_ids", calculators)  # Unique IDs for locking
     id_to_uri_map = case_info.get("id_to_uri_map", {})  # ID to URI mapping
+    id_to_code_id_map = case_info.get("id_to_code_id_map", {})  # ID to declared code_id (P0-1)
     model = case_info["model"]
     original_input_was_dir = case_info["original_input_was_dir"]
     output_keys = case_info["output_keys"]
@@ -939,6 +940,18 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
     log_debug(f"🔄 [Thread {thread_id}] {case_name}: Checking {len(calculators)} calculators: {calculators}")
 
+    # code_id(s) declared by the non-cache calculators available to this case
+    # (computed upfront so cache:// entries can check identity against them,
+    # regardless of which one actually ends up running on a cache miss - P0-1)
+    non_cache_calculator_ids = [
+        calc_id for calc_id in calculator_ids
+        if not id_to_uri_map.get(calc_id, calc_id).startswith("cache://")
+    ]
+    available_code_ids = {
+        id_to_code_id_map[calc_id] for calc_id in non_cache_calculator_ids
+        if id_to_code_id_map.get(calc_id)
+    }
+
     # Find corresponding calculator IDs for cache calculators
     for i, calculator in enumerate(calculators):
         if calculator.startswith("cache://"):
@@ -949,7 +962,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             # Try to find a match in any of the resolved cache directories
             cache_match = None
             for cache_path in cache_paths:
-                potential_match = find_cache_match(cache_path, current_hash_file)
+                potential_match = find_cache_match(cache_path, current_hash_file, code_ids=available_code_ids)
                 if potential_match:
                     cache_match = potential_match
                     break
@@ -1028,24 +1041,16 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
     # If no cache hit, run calculation with retry mechanism
     if calc_result is None:
-        # Filter non-cache calculators from IDs and map them
-        non_cache_calculator_ids = []
-        for calc_id in calculator_ids:
-            original_uri = id_to_uri_map.get(calc_id, calc_id)
-            if not original_uri.startswith("cache://"):
-                non_cache_calculator_ids.append(calc_id)
-
         if non_cache_calculator_ids:
             # Read input files list from result_dir/.fz_hash
             input_files_list = []
             hash_file = result_dir / ".fz_hash"
             if hash_file.exists():
-                with open(hash_file, 'r') as f:
-                    lines = [line.strip() for line in f if line.strip()]
-                for line in lines:
-                    parts = line.split(None, 1)
-                    if len(parts) >= 2:
-                        input_files_list.append(parts[1])
+                from .io import _parse_hash_file
+                try:
+                    input_files_list = list(_parse_hash_file(hash_file)["entries"].keys())
+                except Exception:
+                    input_files_list = []
 
             # Try calculators with retry mechanism using unique IDs
             calc_result, used_calculator_id = try_calculators_with_retry(
@@ -1055,6 +1060,16 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             )
             # Use calculator ID directly (includes #n suffix for duplicate URIs)
             used_calculator = used_calculator_id
+
+            # Record which calculator's code_id actually produced this
+            # case's outputs, for future cache:// identity checks (P0-1)
+            if calc_result and calc_result.get("status") == "done":
+                code_id = id_to_code_id_map.get(used_calculator)
+                if code_id:
+                    try:
+                        update_hash_file_code_id(hash_file, code_id)
+                    except Exception as e:
+                        log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Could not record code_id in cache hash: {e}")
         else:
             log_error(f"❌ [Thread {thread_id}] Case {case_index}: No non-cache calculators available")
             calc_result = {
@@ -1408,7 +1423,8 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                       var_names: List[str], output_keys: List[str], original_cwd: str = None,
                       has_input_variables: bool = True, callbacks: Optional[Dict[str, callable]] = None,
                       timeout: int = None, case_naming: str = "path",
-                      static_entries: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+                      static_entries: List[Dict[str, Any]] = None,
+                      calculator_code_ids: Optional[List[Optional[str]]] = None) -> List[Dict[str, Any]]:
     """
     Run multiple cases in parallel across available calculators
 
@@ -1423,6 +1439,10 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
         output_keys: List of output keys
         has_input_variables: Whether input_variables dict is non-empty
         callbacks: Optional dict of callback functions for progress monitoring
+        calculator_code_ids: Optional list parallel to `calculators`, each
+            entry the declared code_id (or None) of that calculator - see
+            fz.runners.resolve_calculators_with_metadata(). Used by cache://
+            entries to verify code identity before reusing a result (P0-1).
         timeout: Timeout in seconds for each calculation (None resolves via model["timeout"], then FZ_RUN_TIMEOUT config default, 3600)
         case_naming: Case directory naming scheme - "path", "hash", or "index" (see _case_subdir_name)
         static_entries: Pre-resolved input_static entries (see resolve_static_files),
@@ -1450,6 +1470,13 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
     # Map calculator IDs back to original URIs for case processing
     id_to_uri_map = {calc_id: calc_mgr.get_original_uri(calc_id) for calc_id in calculator_ids}
 
+    # Map calculator IDs to their declared code_id (P0-1 cache identity);
+    # calculator_code_ids is parallel to `calculators`, same order as calculator_ids
+    if calculator_code_ids and len(calculator_code_ids) == len(calculator_ids):
+        id_to_code_id_map = dict(zip(calculator_ids, calculator_code_ids))
+    else:
+        id_to_code_id_map = {}
+
     # Create spinner for case status tracking
     # Count non-cache calculators for accurate ETA estimation
     non_cache_calculators = [calc for calc in calculators if not calc.startswith("cache://")]
@@ -1467,6 +1494,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
             "calculators": calculators,  # Keep original for compatibility
             "calculator_ids": calculator_ids,  # Add unique calculator IDs
             "id_to_uri_map": id_to_uri_map,  # Add mapping for conversion
+            "id_to_code_id_map": id_to_code_id_map,  # Add mapping to declared code_id (P0-1)
             "model": model,
             "original_input_was_dir": original_input_was_dir,
             "output_keys": output_keys,
@@ -1748,8 +1776,8 @@ def resolve_static_files(input_static: Optional[List[str]], base_dir: Union[str,
             continue
         seen_names.add(name)
         try:
-            from .io import md5_file
-            file_hash = md5_file(source)
+            from .io import sha256_file
+            file_hash = sha256_file(source)
         except Exception as e:
             log_warning(f"⚠️  Could not hash input_static entry '{entry}' ({source}): {e}")
             continue
@@ -2102,6 +2130,17 @@ def _extract_calculator_uri(calc_data, model_name=None):
         return None
 
 
+def _calculator_dict_has_identity(calc_data) -> bool:
+    """
+    True if a calculator dict/alias declares a code identity (code_id or
+    version_cmd - P0-1). Collapsing such a dict down to a bare URI string (as
+    _extract_calculator_uri()'s callers otherwise do) would silently drop
+    that identity before fz.runners.resolve_calculators_with_metadata() gets
+    a chance to resolve it, so callers keep the dict instead in that case.
+    """
+    return isinstance(calc_data, dict) and bool(calc_data.get("code_id") or calc_data.get("version_cmd"))
+
+
 def _find_all_calculators(model_name=None):
     """
     Find all calculator JSON files in .fz/calculators/ directories.
@@ -2184,7 +2223,9 @@ def _resolve_calculators_arg(calculators, model_name=None):
     # Handle dict input
     if isinstance(calculators, dict):
         uri = _extract_calculator_uri(calculators, model_name)
-        return [uri] if uri else [calculators]
+        if uri and not _calculator_dict_has_identity(calculators):
+            return [uri]
+        return [calculators]
 
     # Handle list input - process each element
     if isinstance(calculators, list):
@@ -2196,7 +2237,7 @@ def _resolve_calculators_arg(calculators, model_name=None):
                 result.extend(resolved)
             elif isinstance(item, dict):
                 uri = _extract_calculator_uri(item, model_name)
-                result.append(uri if uri else item)
+                result.append(item if (uri and _calculator_dict_has_identity(item)) else (uri if uri else item))
             else:
                 result.append(item)
 
@@ -2293,7 +2334,7 @@ def find_items_by_pattern(pattern, item_type, model_name=None, use_regex=False):
                 # For calculators, extract URI; for models, return the dict
                 if item_type == 'calculators':
                     uri = _extract_calculator_uri(item_data, model_name)
-                    if uri:
+                    if uri and not _calculator_dict_has_identity(item_data):
                         items.append(uri)
                         log_debug(f"Pattern '{pattern}' matched {item_type}: {item_file.name} -> {uri}")
                     else:
@@ -2369,7 +2410,7 @@ def find_items_by_json_file_pattern(pattern, item_type, model_name=None, use_reg
 
 
                         uri = _extract_calculator_uri(item_data, model_name)
-                        if uri:
+                        if uri and not _calculator_dict_has_identity(item_data):
                             items.append(uri)
                             log_debug(f"JSON file pattern '{pattern}' matched: {rel_path} -> {uri}")
                         else:
@@ -2410,7 +2451,7 @@ def find_items_by_json_file_pattern(pattern, item_type, model_name=None, use_reg
 
 
                     uri = _extract_calculator_uri(item_data, model_name)
-                    if uri:
+                    if uri and not _calculator_dict_has_identity(item_data):
                         items.append(uri)
                         log_debug(f"JSON file pattern '{pattern}' matched: {json_file} -> {uri}")
                     else:
@@ -2462,7 +2503,9 @@ def resolve_single_item(item_str, item_type, model_name=None):
                 if item_type == 'calculators':
 
                     uri = _extract_calculator_uri(parsed, model_name)
-                    return [uri] if uri else [parsed]
+                    if uri and not _calculator_dict_has_identity(parsed):
+                        return [uri]
+                    return [parsed]
                 else:
                     # For models, return the dict
                     return [parsed]
@@ -2473,7 +2516,7 @@ def resolve_single_item(item_str, item_type, model_name=None):
                         if item_type == 'calculators':
     
                             uri = _extract_calculator_uri(item, model_name)
-                            result.append(uri if uri else item)
+                            result.append(item if (uri and _calculator_dict_has_identity(item)) else (uri if uri else item))
                         else:
                             result.append(item)
                     else:
@@ -2542,7 +2585,9 @@ def resolve_single_item(item_str, item_type, model_name=None):
                 if item_type == 'calculators':
 
                     uri = _extract_calculator_uri(parsed, model_name)
-                    return [uri] if uri else [parsed]
+                    if uri and not _calculator_dict_has_identity(parsed):
+                        return [uri]
+                    return [parsed]
                 else:
                     return [parsed]
             elif isinstance(parsed, list):
@@ -2553,7 +2598,7 @@ def resolve_single_item(item_str, item_type, model_name=None):
                         if item_type == 'calculators':
     
                             uri = _extract_calculator_uri(item, model_name)
-                            result.append(uri if uri else item)
+                            result.append(item if (uri and _calculator_dict_has_identity(item)) else (uri if uri else item))
                         else:
                             result.append(item)
                     else:
@@ -2581,7 +2626,7 @@ def resolve_single_item(item_str, item_type, model_name=None):
                     if item_type == 'calculators':
 
                         uri = _extract_calculator_uri(item, model_name)
-                        result.append(uri if uri else item)
+                        result.append(item if (uri and _calculator_dict_has_identity(item)) else (uri if uri else item))
                     elif isinstance(item, str):
                         result.append(item)
                     else:

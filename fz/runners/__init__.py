@@ -59,6 +59,7 @@ from .slurm import (
 from .resolve import (
     _validate_calculator_uri,
     resolve_calculators,
+    resolve_calculators_with_metadata,
 )  # noqa: F401
 
 from .sh import (
@@ -105,6 +106,7 @@ __all__ = [
     "run_slurm_calculation",
     "SlurmCalculator",
     "resolve_calculators",
+    "resolve_calculators_with_metadata",
     "resolve_all_paths_in_command",
     "run_local_calculation",
     "ShCalculator",

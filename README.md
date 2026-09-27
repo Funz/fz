@@ -1677,10 +1677,17 @@ calculators = "cache://archive/*/results"
 ```
 
 **Cache Matching**:
-- Based on MD5 hash of input files (`.fz_hash`)
+- Based on a SHA-256 hash of the compiled input files (`.fz_hash`, versioned "v2" format)
 - Validates outputs are not None
 - Falls through to next calculator on miss
 - No recalculation if cache hit
+- Checks the calculator's declared **code identity** (`code_id`, see Calculator
+  Aliases below), not its command or host: two calculators with different
+  commands but the same `code_id` share the cache; different `code_id` never
+  matches, even with the same command. Without a `code_id` declared on either
+  side, a match is still accepted (with a one-time warning) unless
+  `FZ_CACHE_STRICT=1`. A pre-v2 cache directory (written by an older `fz`) is
+  ignored unless `FZ_CACHE_ACCEPT_LEGACY=1`.
 
 ### Calculator Aliases
 
@@ -1700,6 +1707,28 @@ Store calculator configurations in `.fz/calculators/`:
 Use by name:
 ```python
 results = fz.fzr("input.txt", input_variables, "perfectgas", calculators="cluster")
+```
+
+**Code identity for `cache://`**: a calculator alias may declare an optional
+`code_id` - the identity of its code installation, not its command or host
+(e.g. two calculators can run the exact same code via a different command:
+`bash run.sh` locally vs. `/opt/telemac/v8p5/run.sh` over SSH). Calculators
+that declare the same `code_id` share `cache://` results with each other;
+declaring a different one refuses the match even if the command is
+identical. `version_cmd` resolves `code_id` by running a command on the
+calculator instead of hardcoding it (once per calculator per session):
+
+```json
+{
+    "uri": "ssh://user@cluster.university.edu/bash /opt/telemac/v8p5/run.sh",
+    "code_id": "telemac@v8p5"
+}
+```
+```json
+{
+    "uri": "sh://bash ./run.sh",
+    "version_cmd": "./run.sh --version"
+}
 ```
 
 ### Calculator-Model Compatibility
@@ -2505,6 +2534,13 @@ export FZ_STATIC_CANDIDATE_MIN_SIZE=1048576
 
 # RO-Crate written next to each campaign's manifest.json (default: 1; 0 disables)
 export FZ_RO_CRATE=0
+
+# cache:// identity checks (default: 0 for both): refuse a cache match whose
+# calculator code_id can't be verified on both sides, instead of a warning
+export FZ_CACHE_STRICT=1
+# Consider pre-v2 (MD5, no header, no code_id) cache directories at all;
+# ignored by default
+export FZ_CACHE_ACCEPT_LEGACY=1
 ```
 
 ### Shell Path Configuration (FZ_SHELL_PATH)

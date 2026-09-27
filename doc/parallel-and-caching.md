@@ -123,10 +123,12 @@ calculators = ["sh://bash calc.sh"] * max_workers
 
 ### Cache Basics
 
-FZ caches results based on MD5 hashes of input files:
+FZ caches results based on SHA-256 hashes of the compiled input files:
 
-**Cache file** (`.fz_hash`):
+**Cache file** (`.fz_hash`, versioned "v2" format):
 ```
+# fz-hash v2
+# code_id: telemac@v8p5
 a1b2c3d4e5f6...  input.txt
 f6e5d4c3b2a1...  config.dat
 ```
@@ -134,13 +136,46 @@ f6e5d4c3b2a1...  config.dat
 **Cache matching**:
 1. Compute hash of current input files
 2. Search cache directories for matching `.fz_hash`
-3. If match found and outputs are valid → reuse results
+3. If match found, outputs are valid, and the calculator's identity checks out (below) → reuse results
 4. If no match → run calculation
 
 Matching is by `.fz_hash` content, not by directory name, so it's unaffected by
 `case_naming` (see core-functions.md → "fzr") — a `cache://` calculator still finds
 matches whether the cache directory was written with `case_naming="path"`,
 `"hash"`, or `"index"`.
+
+The key deliberately does not include the calculator's command or host: the
+exact same code can be invoked differently per calculator (a local script vs.
+an absolute path over SSH), and requiring the same command would defeat the
+point of sharing a cache across calculators. What it *does* check is the
+calculator's declared **code identity** — see "Cache identity across
+calculators (code_id)" below.
+
+#### Cache identity across calculators (`code_id`)
+
+A calculator alias (`.fz/calculators/<name>.json`, or an inline dict) may
+declare an optional `code_id` naming its code installation, e.g.:
+
+```json
+{
+    "uri": "ssh://user@cluster/bash /opt/telemac/v8p5/run.sh",
+    "code_id": "telemac@v8p5"
+}
+```
+
+- Two calculators declaring the **same** `code_id` share `cache://` results,
+  regardless of their command.
+- Two calculators declaring **different** `code_id`s never match, even with
+  the identical command (different install paths on the same host can be
+  different versions).
+- With **no** `code_id` declared on either side, a match is still accepted
+  (backward compatible) but logs a one-time warning per campaign; set
+  `FZ_CACHE_STRICT=1` to refuse such unverifiable matches instead.
+- Instead of hardcoding `code_id`, `version_cmd` resolves it by running a
+  command on the calculator (once per calculator per session):
+  `{"uri": "sh://bash ./run.sh", "version_cmd": "./run.sh --version"}`.
+- A `.fz_hash` written by an older `fz` (no `# fz-hash v2` header, MD5) has no
+  identity at all; it's ignored by `cache://` unless `FZ_CACHE_ACCEPT_LEGACY=1`.
 
 ### Strategy 1: Resume Interrupted Runs
 

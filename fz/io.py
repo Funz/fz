@@ -6,8 +6,9 @@ import re
 import glob
 import json
 import hashlib
+import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import Dict, List, Optional, Any, Set, TYPE_CHECKING
 
 from .logging import log_info, log_warning
 from datetime import datetime
@@ -51,7 +52,7 @@ def ensure_unique_directory(directory_path: Path) -> tuple[Path, Optional[Path]]
 
 
 def md5_file(file_path: Path) -> str:
-    """Compute the MD5 hex digest of a file's content."""
+    """Compute the MD5 hex digest of a file's content (legacy .fz_hash v1 format)."""
     hasher = hashlib.md5()
     with open(file_path, 'rb') as f:
         for chunk in iter(lambda: f.read(4096), b""):
@@ -59,11 +60,59 @@ def md5_file(file_path: Path) -> str:
     return hasher.hexdigest()
 
 
-def create_hash_file(directory: Path, input_files_order: List[str] = None,
-                      static_file_hashes: List[tuple] = None) -> None:
+def sha256_file(file_path: Path) -> str:
+    """Compute the SHA-256 hex digest of a file's content."""
+    hasher = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+# .fz_hash format: a "v1" file (no header) is a bare list of "<md5>  <name>"
+# lines - the original, unversioned format. A "v2" file starts with the
+# _FZ_HASH_HEADER_V2 line, uses SHA-256, and may carry a second header line
+# declaring the code_id of the calculator that produced it (see
+# find_cache_match). Older caches are recognized by the absence of the v2
+# header and, unless FZ_CACHE_ACCEPT_LEGACY=1, are ignored by cache:// entirely.
+_FZ_HASH_HEADER_V2 = "# fz-hash v2"
+_FZ_HASH_CODE_ID_PREFIX = "# code_id: "
+
+
+def _parse_hash_file(path: Path) -> Dict[str, Any]:
     """
-    Create .fz_hash file containing MD5 checksums of all files in the directory
-    The input files are listed first in the order they were provided
+    Parse a .fz_hash file.
+
+    Returns:
+        {"version": "v1"|"v2", "code_id": Optional[str], "entries": {name: hash}}
+    """
+    lines = [line for line in path.read_text().splitlines() if line.strip()]
+    version = "v1"
+    code_id = None
+    content_lines = lines
+
+    if lines and lines[0].strip() == _FZ_HASH_HEADER_V2:
+        version = "v2"
+        content_lines = lines[1:]
+        if content_lines and content_lines[0].startswith(_FZ_HASH_CODE_ID_PREFIX):
+            code_id = content_lines[0][len(_FZ_HASH_CODE_ID_PREFIX):].strip() or None
+            content_lines = content_lines[1:]
+
+    entries = {}
+    for line in content_lines:
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            entries[parts[1]] = parts[0]
+
+    return {"version": version, "code_id": code_id, "entries": entries}
+
+
+def create_hash_file(directory: Path, input_files_order: List[str] = None,
+                      static_file_hashes: List[tuple] = None,
+                      code_id: Optional[str] = None) -> None:
+    """
+    Create the versioned (v2, SHA-256) .fz_hash file for all files in directory.
+    The input files are listed first in the order they were provided.
 
     Args:
         directory: Directory to hash all files in
@@ -74,6 +123,10 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None,
             (may not physically exist in `directory` - a symlink is placed there
             separately), or the absolute path itself for absolute static_files (which are
             never copied/symlinked into the case directory at all).
+        code_id: Optional identity of the calculator's code installation (e.g.
+            "telemac@v8p5", declared on the calculator alias). Usually unknown
+            at this point - see update_hash_file_code_id(), called once the
+            case has actually run.
     """
     hash_file = directory / ".fz_hash"
 
@@ -86,7 +139,9 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None,
         if f.is_file() and f.name != ".fz_hash" and f.name not in static_names
     ]
 
-    hash_content = []
+    hash_content = [_FZ_HASH_HEADER_V2]
+    if code_id:
+        hash_content.append(f"{_FZ_HASH_CODE_ID_PREFIX}{code_id}")
 
     if static_file_hashes:
         for name, file_hash in static_file_hashes:
@@ -99,13 +154,7 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None,
             file_path = directory / rel_path_str
             if file_path.exists() and file_path.is_file():
                 try:
-                    # Calculate MD5 hash of file content
-                    hasher = hashlib.md5()
-                    with open(file_path, 'rb') as f:
-                        for chunk in iter(lambda: f.read(4096), b""):
-                            hasher.update(chunk)
-
-                    file_hash = hasher.hexdigest()
+                    file_hash = sha256_file(file_path)
                     hash_content.append(f"{file_hash}  {rel_path_str}")
                     processed_files.add(file_path)
 
@@ -119,13 +168,7 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None,
 
     for file_path in remaining_files:
         try:
-            # Calculate MD5 hash of file content
-            hasher = hashlib.md5()
-            with open(file_path, 'rb') as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hasher.update(chunk)
-
-            file_hash = hasher.hexdigest()
+            file_hash = sha256_file(file_path)
             # Use relative path for consistent hashes across different locations
             rel_path = file_path.name
             hash_content.append(f"{file_hash}  {rel_path}")
@@ -139,6 +182,23 @@ def create_hash_file(directory: Path, input_files_order: List[str] = None,
         f.write('\n'.join(hash_content) + '\n')
 
     log_info(f"Created hash file: {hash_file}")
+
+
+def update_hash_file_code_id(hash_file: Path, code_id: str) -> None:
+    """
+    Record, after a successful (non-cache) calculation, which calculator's
+    code_id actually produced this case's outputs - unknown at
+    create_hash_file() time, since calculator selection/retries happen after
+    the hash file is written. No-op on a legacy (v1) hash file.
+    """
+    if not code_id or not hash_file.exists():
+        return
+    meta = _parse_hash_file(hash_file)
+    if meta["version"] != "v2":
+        return
+    lines = [_FZ_HASH_HEADER_V2, f"{_FZ_HASH_CODE_ID_PREFIX}{code_id}"]
+    lines.extend(f"{file_hash}  {name}" for name, file_hash in meta["entries"].items())
+    hash_file.write_text('\n'.join(lines) + '\n')
 
 
 def resolve_cache_paths(cache_pattern: str) -> List[Path]:
@@ -197,23 +257,108 @@ def resolve_cache_paths(cache_pattern: str) -> List[Path]:
     return []
 
 
-def find_cache_match(cache_base_path: Path, current_hash_file: Path) -> Optional[Path]:
+_code_id_warning_lock = threading.Lock()
+_code_id_warning_emitted = False
+
+
+def reset_cache_code_id_warning() -> None:
+    """Re-arm the once-per-campaign "unverifiable cache identity" warning; called at the start of each fzr()/fzd() campaign."""
+    global _code_id_warning_emitted
+    with _code_id_warning_lock:
+        _code_id_warning_emitted = False
+
+
+def _warn_unknown_code_id_once() -> None:
+    global _code_id_warning_emitted
+    with _code_id_warning_lock:
+        if _code_id_warning_emitted:
+            return
+        _code_id_warning_emitted = True
+    log_warning(
+        "⚠️  cache:// reused a result without being able to verify the calculator's code identity "
+        "(no 'code_id' declared on the calculator alias, or a legacy cache with no identity at all). "
+        "Declare 'code_id' on your calculator aliases to enable this check, or set FZ_CACHE_STRICT=1 "
+        "to refuse matches that can't be verified."
+    )
+
+
+def _code_id_allows_match(cache_code_id: Optional[str], code_ids: Optional[Set[str]], strict: bool) -> bool:
     """
-    Find a cache subdirectory with matching .fz_hash file
+    Decide whether a cache candidate's declared code_id is compatible with
+    the code_id(s) of the calculators available to the current run.
+
+    - Both sides declare a code_id: match iff equal (a real, verified mismatch
+      is always refused, strict or not).
+    - Either side has no declared identity: unverifiable - refuse in strict
+      mode, otherwise accept with a one-time warning.
+    """
+    if cache_code_id is not None and code_ids:
+        return cache_code_id in code_ids
+    if strict:
+        return False
+    _warn_unknown_code_id_once()
+    return True
+
+
+def _entries_match(current_entries: Dict[str, str], cache_meta: Dict[str, Any], current_dir: Path) -> bool:
+    """Compare a cache candidate's file entries against the current case's, recomputing with the candidate's own hash algorithm (SHA-256 for v2, MD5 for legacy v1)."""
+    cache_entries = cache_meta["entries"]
+    if set(cache_entries.keys()) != set(current_entries.keys()):
+        return False
+
+    if cache_meta["version"] == "v2":
+        return cache_entries == current_entries
+
+    # Legacy v1 cache: current_entries holds SHA-256 (this run's own .fz_hash
+    # is always v2) but the candidate was hashed with MD5 - recompute MD5 for
+    # the current files to compare like with like.
+    for name, cache_hash in cache_entries.items():
+        candidate_file = current_dir / name
+        if not candidate_file.is_file():
+            return False
+        try:
+            if md5_file(candidate_file) != cache_hash:
+                return False
+        except Exception:
+            return False
+    return True
+
+
+def find_cache_match(cache_base_path: Path, current_hash_file: Path,
+                      code_ids: Optional[Set[str]] = None,
+                      strict: Optional[bool] = None,
+                      accept_legacy: Optional[bool] = None) -> Optional[Path]:
+    """
+    Find a cache subdirectory with matching .fz_hash file and compatible code_id
 
     Args:
         cache_base_path: Base cache directory to search in
         current_hash_file: Hash file of current case to match against
+        code_ids: code_id values declared by the calculators available to
+            this run (see fz.runners.resolve_calculators_with_metadata);
+            None/empty means none of them declare one.
+        strict: refuse a match whose code_id can't be verified on both sides
+            (default: FZ_CACHE_STRICT)
+        accept_legacy: consider pre-v2 (MD5, no header, no identity) cache
+            directories at all (default: FZ_CACHE_ACCEPT_LEGACY)
 
     Returns:
         Path to matching cache subdirectory, or None if no match found
     """
+    if strict is None or accept_legacy is None:
+        from .config import get_config
+        config = get_config()
+        if strict is None:
+            strict = config.cache_strict
+        if accept_legacy is None:
+            accept_legacy = config.cache_accept_legacy
+
     if not current_hash_file.exists():
         log_info(f"Current hash file not found: {current_hash_file}")
         return None
 
     try:
-        current_hash = current_hash_file.read_text().strip()
+        current_meta = _parse_hash_file(current_hash_file)
     except Exception as e:
         log_warning(f"Could not read current hash file: {e}")
         return None
@@ -222,34 +367,31 @@ def find_cache_match(cache_base_path: Path, current_hash_file: Path) -> Optional
         log_info(f"Cache base path does not exist or is not a directory: {cache_base_path}")
         return None
 
-    # First check the base path itself for .fz_hash file
-    base_hash_file = cache_base_path / ".fz_hash"
-    if base_hash_file.exists():
-        try:
-            cache_hash = base_hash_file.read_text().strip()
-            if cache_hash == current_hash:
-                log_info(f"Cache match found in base path: {cache_base_path}")
-                return cache_base_path
-        except Exception as e:
-            log_warning(f"Could not read cache hash file {base_hash_file}: {e}")
+    # Base path itself, then every subdirectory, each with its own .fz_hash
+    candidates = [cache_base_path] + [d for d in cache_base_path.iterdir() if d.is_dir()]
 
-    # Then search through all subdirectories in cache
-    for cache_subdir in cache_base_path.iterdir():
-        if not cache_subdir.is_dir():
-            continue
-
-        cache_hash_file = cache_subdir / ".fz_hash"
+    for cache_dir in candidates:
+        cache_hash_file = cache_dir / ".fz_hash"
         if not cache_hash_file.exists():
             continue
 
         try:
-            cache_hash = cache_hash_file.read_text().strip()
-            if cache_hash == current_hash:
-                log_info(f"Cache match found in subdirectory: {cache_subdir}")
-                return cache_subdir
+            cache_meta = _parse_hash_file(cache_hash_file)
         except Exception as e:
             log_warning(f"Could not read cache hash file {cache_hash_file}: {e}")
             continue
+
+        if cache_meta["version"] == "v1" and not accept_legacy:
+            continue
+
+        if not _entries_match(current_meta["entries"], cache_meta, current_hash_file.parent):
+            continue
+
+        if not _code_id_allows_match(cache_meta["code_id"], code_ids, strict):
+            continue
+
+        log_info(f"Cache match found: {cache_dir}")
+        return cache_dir
 
     log_info(f"No cache match found in {cache_base_path} or its subdirectories")
     return None

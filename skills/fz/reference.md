@@ -236,12 +236,19 @@ Static files identical across every case (never templated) are declared via `fzr
     "uri": "ssh://user@cluster.edu",
     "models": {
         "mymodel": "bash /absolute/path/run_mymodel.sh"
-    }
+    },
+    "code_id": "mymodel@v1",
+    "version_cmd": "bash /absolute/path/run_mymodel.sh --version"
 }
 ```
 
 `models` maps model `id` → command on that machine (compiled input file/dir is passed as
 first argument). Search path: `./.fz/calculators/<alias>.json` then `~/.fz/calculators/`.
+`code_id` (optional) names the calculator's code installation, not its command/host - two
+calculators sharing the same `code_id` share `cache://` results even with different
+commands; different `code_id`s never match. `version_cmd` resolves `code_id` by running a
+command on the calculator instead (once per calculator per session). See
+`doc/parallel-and-caching.md` → "Cache identity across calculators".
 
 ## Calculator URI grammar
 
@@ -281,6 +288,8 @@ FZ_SSH_KEEPALIVE             SSH keepalive seconds
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)
 FZ_CASE_NAMING                fzr case dir naming: path (default) | hash | index
 FZ_STATIC_CANDIDATE_MIN_SIZE  bytes threshold for the input_static warning (default 1048576; 0 disables)
+FZ_CACHE_STRICT               1 to refuse a cache:// match whose code_id can't be verified (default 0: warn+accept)
+FZ_CACHE_ACCEPT_LEGACY        1 to let cache:// consider pre-v2 (MD5, no code_id) cache dirs (default 0: ignored)
 FZ_MCP_ROOT                   fz-mcp workspace root for file paths (default: cwd)
 FZ_MCP_TRUSTED                0 restricts fz-mcp to installed aliases and confined paths (default 1)
 FZ_MCP_TRANSPORT              fz-mcp transport: stdio (default) | sse | streamable-http
