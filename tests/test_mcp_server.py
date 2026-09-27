@@ -1,7 +1,9 @@
 """Tests for the MCP server policy layer (fz/mcp_server.py)."""
+import inspect
+
 import pytest
 
-from fz import mcp_server
+from fz import core, mcp_server
 from fz.mcp_server import FzTools, McpSecurityError
 
 MODEL = {"varprefix": "$", "delim": "()", "output": {"out": "cat out.txt"}}
@@ -12,23 +14,23 @@ def tools(tmp_path):
     return FzTools(root=str(tmp_path), trusted=True)
 
 
-def test_untrusted_fails_closed_without_core_support(tmp_path, monkeypatch):
-    monkeypatch.setattr(mcp_server, "_core_supports_trusted", lambda: False)
-    with pytest.raises(McpSecurityError, match="FZ_MCP_TRUSTED=0"):
-        FzTools(root=str(tmp_path), trusted=False)
-
-
 def test_trusted_env_default(tmp_path, monkeypatch):
     monkeypatch.delenv("FZ_MCP_TRUSTED", raising=False)
     assert FzTools(root=str(tmp_path)).trusted is True
-    monkeypatch.setattr(mcp_server, "_core_supports_trusted", lambda: True)
     monkeypatch.setenv("FZ_MCP_TRUSTED", "0")
     assert FzTools(root=str(tmp_path)).trusted is False
 
 
+def test_untrusted_mode_does_not_require_core_trusted_param(tmp_path):
+    """Untrusted mode restricts inputs to installed aliases at the MCP layer;
+    it must not depend on (or fail without) an fz core 'trusted' parameter,
+    which fz does not have and will not add (see README.md -> Threat Model)."""
+    assert "trusted" not in inspect.signature(core.fzr).parameters
+    FzTools(root=str(tmp_path), trusted=False)  # must not raise
+
+
 @pytest.fixture
-def untrusted(tmp_path, monkeypatch):
-    monkeypatch.setattr(mcp_server, "_core_supports_trusted", lambda: True)
+def untrusted(tmp_path):
     return FzTools(root=str(tmp_path), trusted=False)
 
 
@@ -45,10 +47,6 @@ def test_untrusted_rejects_calculator_uris(untrusted, calc):
 
 def test_untrusted_accepts_alias_calculators(untrusted):
     assert untrusted._calculators(["local", "cluster"]) == ["local", "cluster"]
-
-
-def test_untrusted_passes_trusted_false(untrusted):
-    assert untrusted._kw() == {"trusted": False}
 
 
 @pytest.mark.parametrize("bad", ["../etc/passwd", "/etc/passwd", "sub/../../x"])
@@ -88,3 +86,48 @@ def test_server_registers_five_tools(tmp_path):
     server = mcp_server.build_server(FzTools(root=str(tmp_path), trusted=True))
     names = {t.name for t in asyncio.run(server.list_tools())}
     assert names == {"fzi", "fzc", "fzr", "fzo", "fzl"}
+
+
+def test_tool_annotations_present(tmp_path):
+    """fzc/fzr are destructive+open-world; fzi/fzo/fzl are read-only (P0-7)."""
+    pytest.importorskip("mcp")
+    import asyncio
+
+    server = mcp_server.build_server(FzTools(root=str(tmp_path), trusted=True))
+    tools_by_name = {t.name: t for t in asyncio.run(server.list_tools())}
+
+    for name in ("fzc", "fzr"):
+        ann = tools_by_name[name].annotations
+        assert ann is not None
+        assert ann.destructive_hint is True
+        assert ann.open_world_hint is True
+
+    for name in ("fzi", "fzo", "fzl"):
+        ann = tools_by_name[name].annotations
+        assert ann is not None
+        assert ann.read_only_hint is True
+
+
+def test_resolve_transport_defaults_to_stdio(monkeypatch):
+    monkeypatch.delenv("FZ_MCP_TRANSPORT", raising=False)
+    assert mcp_server._resolve_transport() == "stdio"
+
+
+def test_resolve_transport_refuses_network_without_opt_in(monkeypatch):
+    monkeypatch.setenv("FZ_MCP_TRANSPORT", "sse")
+    monkeypatch.delenv("FZ_MCP_ALLOW_NETWORK_TRANSPORT", raising=False)
+    with pytest.raises(SystemExit, match="FZ_MCP_ALLOW_NETWORK_TRANSPORT"):
+        mcp_server._resolve_transport()
+
+
+def test_resolve_transport_allows_network_with_opt_in(monkeypatch, capsys):
+    monkeypatch.setenv("FZ_MCP_TRANSPORT", "streamable-http")
+    monkeypatch.setenv("FZ_MCP_ALLOW_NETWORK_TRANSPORT", "1")
+    assert mcp_server._resolve_transport() == "streamable-http"
+    assert "WARNING" in capsys.readouterr().err
+
+
+def test_resolve_transport_rejects_unknown_value(monkeypatch):
+    monkeypatch.setenv("FZ_MCP_TRANSPORT", "carrier-pigeon")
+    with pytest.raises(SystemExit, match="unknown FZ_MCP_TRANSPORT"):
+        mcp_server._resolve_transport()
