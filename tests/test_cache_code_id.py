@@ -160,14 +160,21 @@ def test_legacy_v1_cache_ignored_by_default_and_accepted_when_opted_in():
     _write_input()
     _write_counting_calculator("calc_a.sh", "A", "runs.txt")
 
-    # Simulate a v1 cache directory written by an older fz version
+    # Simulate a v1 cache directory written by an older fz version. Written
+    # with newline='\n' throughout: fz preserves each compiled file's
+    # original line ending (see helpers.py's compile_file), and the real
+    # input.txt here is created with a bare '\n' by _write_input(), so the
+    # legacy cache must match that exactly, or the MD5 comparison in
+    # _entries_match() spuriously fails on Windows (default text mode would
+    # write '\r\n', hashing differently from the '\n'-only compiled file).
     legacy_dir = Path("legacy_cache")
     legacy_dir.mkdir()
-    (legacy_dir / "input.txt").write_text("x = 1\n")
-    (legacy_dir / "output.txt").write_text("result = A_1\n")
-    (legacy_dir / ".fz_hash").write_text(
-        f"{md5_file(legacy_dir / 'input.txt')}  input.txt\n"
-    )
+    with open(legacy_dir / "input.txt", "w", newline='\n') as f:
+        f.write("x = 1\n")
+    with open(legacy_dir / "output.txt", "w", newline='\n') as f:
+        f.write("result = A_1\n")
+    with open(legacy_dir / ".fz_hash", "w", newline='\n') as f:
+        f.write(f"{md5_file(legacy_dir / 'input.txt')}  input.txt\n")
 
     fzr(
         "input.txt", {"x": [1]}, MODEL,
