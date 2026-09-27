@@ -33,7 +33,7 @@ def _write_counting_calculator(name: str, tag: str, counter_file: str):
     never runs it, can be told apart from an actual (re)computation).
     The calculator runs in a per-case temp directory, not the test's cwd, so
     the counter file is tracked by absolute path."""
-    counter_path = str(Path.cwd() / counter_file)
+    counter_path = (Path.cwd() / counter_file).as_posix()
     with open(name, "w", newline='\n') as f:
         f.write("#!/bin/bash\n")
         f.write(f"echo 1 >> {counter_path}\n")
