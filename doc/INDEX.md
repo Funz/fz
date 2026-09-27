@@ -111,6 +111,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Local shell (sh://) | calculators.md | "Local Shell Calculator" |
 | Remote SSH (ssh://) | calculators.md | "Remote SSH Calculator" |
 | SLURM (slurm://) | calculators.md | "SLURM Workload Manager" |
+| SLURM job arrays (slurm-array://) | calculators.md | "SLURM Job Arrays" |
 | Funz server (funz://) | calculators.md | "Funz Server Calculator" |
 | Cache (cache://) | calculators.md | "Cache Calculator" |
 | Parallel execution | calculators.md | "Multiple Calculators" → "Parallel Execution" |
@@ -252,7 +253,7 @@ Quick keyword search:
 - **Parallel**: parallel-and-caching.md
 - **Cache**: parallel-and-caching.md, calculators.md
 - **SSH**: calculators.md → "Remote SSH Calculator"
-- **SLURM**: calculators.md → "SLURM Workload Manager"
+- **SLURM**: calculators.md → "SLURM Workload Manager", "SLURM Job Arrays"
 - **Funz**: calculators.md → "Funz Server Calculator", funz-protocol.md
 - **UDP**: funz-protocol.md → "UDP Discovery"
 - **Shell path**: shell-path.md

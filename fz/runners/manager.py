@@ -84,6 +84,9 @@ class CalculatorManager:
         Returns:
             True if calculator was acquired, False if already in use
         """
+        if self.get_original_uri(calculator_id).startswith("slurm-array://"):
+            return True  # shareable: concurrent cases are batched into one job array
+
         calc_lock = self._calculator_locks[calculator_id]
 
         # Try to acquire the calculator lock (non-blocking)
@@ -113,6 +116,8 @@ class CalculatorManager:
             calculator_id: Calculator ID to release
             thread_id: Thread ID releasing the calculator
         """
+        if self.get_original_uri(calculator_id).startswith("slurm-array://"):
+            return
         try:
             with self._lock:
                 if calculator_id in self._calculator_owners:

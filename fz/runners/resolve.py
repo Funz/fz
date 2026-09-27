@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 from ..io import load_aliases
+from ..slurm_async import split_slurm_resources
 from .ssh import parse_ssh_uri
 from .slurm import parse_slurm_uri
 
@@ -34,7 +35,7 @@ def _validate_calculator_uri(calculator_uri: str) -> None:
 
     # Extract and validate scheme
     scheme = calculator_uri.split("://", 1)[0].lower()
-    supported_schemes = ["sh", "ssh", "cache", "slurm", "funz"]
+    supported_schemes = ["sh", "ssh", "cache", "slurm", "slurm-array", "funz"]
 
     if scheme not in supported_schemes:
         raise ValueError(
@@ -49,10 +50,11 @@ def _validate_calculator_uri(calculator_uri: str) -> None:
         except ValueError as e:
             raise ValueError(f"Invalid SSH calculator URI: {e}")
 
-    # Validate SLURM URI format if scheme is slurm
-    if scheme == "slurm":
+    # Validate SLURM URI format if scheme is slurm or slurm-array (resources stripped first)
+    if scheme in ("slurm", "slurm-array"):
         try:
-            parse_slurm_uri(calculator_uri)
+            base_uri, _ = split_slurm_resources(calculator_uri)
+            parse_slurm_uri(base_uri.replace("slurm-array://", "slurm://", 1))
         except ValueError as e:
             raise ValueError(f"Invalid SLURM calculator URI: {e}")
 
