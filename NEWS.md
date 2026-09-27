@@ -26,6 +26,36 @@
 - See `doc/parallel-and-caching.md` → "Cache identity across calculators" and
   `doc/calculators.md` → "Cache Identity (`code_id`)".
 
+### MCP server: tool annotations, stdio-only transport, decoupled restricted mode (P0-7)
+
+- `fzc`/`fzr` are registered with `destructiveHint`/`openWorldHint`; `fzi`/`fzo`/`fzl`
+  with `readOnlyHint`. These are advisory MCP hints for well-behaved clients, not a
+  security boundary - see `fz-mcp`'s module docstring and `doc/mcp-server.md`.
+- `fz-mcp` only starts a network transport (`sse`/`streamable-http`) when both
+  `FZ_MCP_TRANSPORT` and `FZ_MCP_ALLOW_NETWORK_TRANSPORT=1` are set explicitly (a
+  warning is logged); it refuses to start otherwise, rather than silently using
+  `stdio`. New env vars: `FZ_MCP_TRANSPORT`, `FZ_MCP_ALLOW_NETWORK_TRANSPORT`.
+- **Breaking change**: `FZ_MCP_TRUSTED=0` (restricted mode) no longer depends on,
+  or tries to pass, an fz core `trusted` parameter - fz core does not have one and
+  will not gain one (see P0-2 below). Previously this made restricted mode always
+  refuse to start (`_core_supports_trusted()` was always `False`); it now actually
+  works, restricting models/calculators to installed aliases at the MCP layer only.
+
+### Threat model documented; formula/template isolation not pursued (P0-2)
+
+- New "Threat Model" section in `README.md`: templates, `#@` preprocessing lines,
+  `@{...}` formulas, and output-parsing/calculator commands all run as code with
+  the user's privileges - don't run a model/algorithm/calculator alias from a
+  source you don't trust.
+- `fz install <url>` (and `fz install algorithm <url>`) now print a one-time
+  reminder of this when installing from a network source.
+- No code changes to `fz/interpreter.py`/`fz/outparsers.py`/`fz/algorithms.py`: a
+  restricted-language mode (AST whitelist) was evaluated and not pursued, since it
+  would break real usage in this repository (`#@import math`, multi-line
+  formulas, R formula contexts, `python -c` output parsers). Isolation is
+  deferred until there's a concrete need for it (network-facing exposure,
+  running third-party models), not built speculatively.
+
 ### SLURM: new `slurm-array://` calculator (sbatch job arrays)
 
 - `slurm-array://:partition/script` submits all cases as ONE `sbatch --array` job

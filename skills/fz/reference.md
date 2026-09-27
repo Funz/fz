@@ -83,9 +83,7 @@ fz.fzr(input_path: str,
   cwd at call time, identified by basename) are symlinked into every case directory and
   explicitly transferred to `ssh://`/`slurm://` (remote)/`funz://` calculators. `fzi()`
   never scans them for variables. See `doc/core-functions.md` → "fzr" → `input_static`
-  for the full write-up. A large (`FZ_MCP_ROOT                  fz-mcp workspace root for file paths (default: cwd)
-FZ_MCP_TRUSTED               0 restricts fz-mcp to installed aliases and confined paths (default 1)
-FZ_STATIC_CANDIDATE_MIN_SIZE`, default 1 MiB)
+  for the full write-up. A large (`FZ_STATIC_CANDIDATE_MIN_SIZE`, default 1 MiB)
   variable-free file left in `input_path` instead triggers a one-time warning
   suggesting `input_static`.
 - `callbacks` supports `on_start(total_cases, calculators)`, plus per-case progress
@@ -292,6 +290,10 @@ FZ_CASE_NAMING                fzr case dir naming: path (default) | hash | index
 FZ_STATIC_CANDIDATE_MIN_SIZE  bytes threshold for the input_static warning (default 1048576; 0 disables)
 FZ_CACHE_STRICT               1 to refuse a cache:// match whose code_id can't be verified (default 0: warn+accept)
 FZ_CACHE_ACCEPT_LEGACY        1 to let cache:// consider pre-v2 (MD5, no code_id) cache dirs (default 0: ignored)
+FZ_MCP_ROOT                   fz-mcp workspace root for file paths (default: cwd)
+FZ_MCP_TRUSTED                0 restricts fz-mcp to installed aliases and confined paths (default 1)
+FZ_MCP_TRANSPORT              fz-mcp transport: stdio (default) | sse | streamable-http
+FZ_MCP_ALLOW_NETWORK_TRANSPORT  1 to allow a non-stdio FZ_MCP_TRANSPORT (default 0: refused)
 ```
 
 ## Variable syntax in input files
@@ -308,5 +310,9 @@ ${name~default}   variable with default value
 ## MCP server
 
 `fz-mcp` (extra: `pip install 'funz-fz[mcp]'`) serves `fzi`, `fzc`, `fzr`, `fzo`, `fzl` over
-MCP stdio. Paths always confined to `FZ_MCP_ROOT`; trusted by default, `FZ_MCP_TRUSTED=0` requires
-installed aliases for models and calculators.
+MCP `stdio` only (network transport refused unless `FZ_MCP_TRANSPORT` + `FZ_MCP_ALLOW_NETWORK_TRANSPORT=1`
+are both set). `fzc`/`fzr` are tagged `destructiveHint`/`openWorldHint`, `fzi`/`fzo`/`fzl` are
+`readOnlyHint` (advisory - a client ignoring them can still trigger code execution via prompt
+injection in trusted mode). Paths always confined to `FZ_MCP_ROOT`; trusted by default (equivalent
+to shell access - see doc/mcp-server.md), `FZ_MCP_TRUSTED=0` restricts models/calculators to
+installed aliases only, independent of fz core (which has no `trusted` parameter and will not gain one).

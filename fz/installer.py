@@ -9,6 +9,7 @@ Supports installation from:
 
 import os
 import shutil
+import sys
 import tempfile
 import zipfile
 import json
@@ -80,6 +81,16 @@ def download_model(source: str, dest_dir: Path) -> Path:
     if url is None:
         raise ValueError(f"Invalid source: {source}")
 
+    # Informational only (not blocking): shown directly, independent of
+    # FZ_LOG_LEVEL, since it matters exactly once per install and log_info()
+    # is invisible at the CLI's default log level.
+    print(
+        "Note: this model/algorithm's templates, formulas, and output-parsing "
+        "commands will run as code with your user's privileges the first time "
+        "you use it. Only install from sources you trust. "
+        "See README.md -> \"Threat Model\".",
+        file=sys.stderr,
+    )
     log_info(f"Downloading from: {url}")
 
     # Generate a temporary filename
