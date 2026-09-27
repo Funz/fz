@@ -13,7 +13,8 @@ from fz.installer import (
     install_model,
     extract_model_files,
     uninstall_model,
-    list_installed_models
+    list_installed_models,
+    download_model,
 )
 
 
@@ -263,6 +264,31 @@ def test_install_model_merge_directories():
 
         finally:
             os.chdir(original_cwd)
+
+
+def test_download_model_warns_about_network_source(tmp_path, monkeypatch, capsys):
+    """fz install <url> prints a one-time threat-model reminder (P0-2); a
+    local file install (no network fetch) must not print it."""
+    import fz.installer as installer_mod
+
+    def fake_urlretrieve(url, dest_file):
+        Path(dest_file).write_bytes(b"")
+
+    monkeypatch.setattr(installer_mod, "urlretrieve", fake_urlretrieve)
+
+    download_model("https://github.com/Funz/fz-moret", tmp_path)
+    captured = capsys.readouterr()
+    assert "run as code" in captured.err
+    assert "trust" in captured.err
+
+
+def test_download_model_local_file_no_network_warning(tmp_path, capsys):
+    local_zip = tmp_path / "local.zip"
+    local_zip.write_bytes(b"")
+
+    download_model(str(local_zip), tmp_path)
+    captured = capsys.readouterr()
+    assert "run as code" not in captured.err
 
 
 def test_extract_model_files():

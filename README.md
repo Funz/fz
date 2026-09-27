@@ -48,6 +48,7 @@ A powerful Python package for parametric simulations and computational experimen
   - [Environment Variables](#environment-variables)
   - [Shell Path Configuration](#shell-path-configuration-fz_shell_path)
   - [Timeout Configuration](#timeout-configuration)
+- [Threat Model](#threat-model)
 - [Interrupt Handling](#interrupt-handling)
 - [Breaking Changes](#breaking-changes)
 - [Development](#development)
@@ -2867,6 +2868,35 @@ class MonteCarlo:
 
 See `examples/algorithms/demo_plugin_system.py` and `examples/algorithm_options_example.md` for the algorithm plugin system.
 
+## Threat Model
+
+fz does not sandbox the models, algorithms, or calculators it runs. This is a
+deliberate, current choice, not an oversight to be fixed later: any isolation
+(e.g. restricting formulas to a safe subset) would break real, existing usage
+of this repository (`#@import math` and other multi-line preprocessing
+directives, multi-line Python/R formulas, output-parsing commands that shell
+out, `python -c` calculator invocations). Isolation is deferred until there is
+a concrete need for it (network-facing exposure, running third-party models
+you did not author) rather than added speculatively.
+
+Concretely, everything below runs as code, with your user's privileges, when
+you call `fzi`/`fzc`/`fzr`/`fzd`:
+
+- **Template preprocessing lines** (`#@...`) and **formulas** (`@{...}`) in
+  input files are evaluated (Python `eval`/`exec`, or R).
+- **Output-parsing commands** declared in a model's `"output"` (e.g. a shell
+  pipeline, or a `python://`/`python -c` snippet) are executed to extract
+  results.
+- **Calculator commands** (`sh://`, `ssh://`, ...) run whatever command string
+  you or a model/calculator alias declare.
+
+**Don't run a model, algorithm, or calculator alias from a source you don't
+trust** — it is equivalent to running a shell script from that source.
+`fz install <url>` (see "Installing Plugins" above) prints a one-time
+reminder of this when installing from a network source. The same applies to
+`fz-mcp` (see "MCP server" below): giving an AI agent access to it in its
+default (trusted) mode is equivalent to giving that agent shell access.
+
 ## Interrupt Handling
 
 FZ supports graceful interrupt handling for long-running calculations:
@@ -3307,10 +3337,14 @@ See **[skills/howto.md](skills/howto.md)** for a complete walkthrough with examp
 
 ## MCP server (`fz-mcp`)
 
+**Trusted mode (the default) is equivalent to giving the agent shell access** -
+see "Threat Model" above and `doc/mcp-server.md` for the full picture (tool
+annotations and their limits, restricted mode, transport).
+
 `fz-mcp` exposes `fzi`, `fzc`, `fzr`, `fzo` and `fzl` as [MCP](https://modelcontextprotocol.io)
-tools over stdio, for any MCP-capable agent. Install with `pip install 'funz-fz[mcp]'`
-(Python >= 3.10), then register it, e.g. for Claude Code:
-`claude mcp add fz -- fz-mcp`.
+tools over `stdio` (the only transport used by default), for any MCP-capable
+agent. Install with `pip install 'funz-fz[mcp]'` (Python >= 3.10), then
+register it, e.g. for Claude Code: `claude mcp add fz -- fz-mcp`.
 
 Trusted by default (full API power: templates, formulas and models are evaluated without
 isolation, so use only with trusted agents and inputs). File paths are always confined
@@ -3318,8 +3352,10 @@ to `FZ_MCP_ROOT` (default: the working directory). Restricted mode is opt-in wit
 `FZ_MCP_TRUSTED=0`:
 
 - Models and calculators must be installed aliases (no inline model dict, no
-  `sh://`/`ssh://` URIs), and fz is called with `trusted=False`. If the installed fz core
-  has no `trusted` parameter yet, the server refuses to start in this mode.
+  `sh://`/`ssh://` URIs) - the agent can only run models/calculators a human
+  already installed and vetted. This restricts what the agent can pass through
+  MCP; it does not sandbox formula/template evaluation inside fz itself (fz
+  has no such mode, and this restriction does not depend on one).
 
 ## Documentation
 
