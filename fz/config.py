@@ -107,6 +107,17 @@ class Config:
         # Set to 0 to disable the warning entirely.
         self.static_candidate_min_size = self._parse_int_env('FZ_STATIC_CANDIDATE_MIN_SIZE', 1_048_576)
 
+        # Cache identity (cache://): a calculator alias may declare an
+        # optional "code_id" (e.g. "telemac@v8p5") recorded in .fz_hash
+        # alongside the input hash. FZ_CACHE_STRICT=1 refuses a cache match
+        # whenever that identity can't be verified on both sides (no code_id
+        # declared, or a legacy v1 cache with no identity at all) instead of
+        # falling back to a one-time warning. FZ_CACHE_ACCEPT_LEGACY=1 lets
+        # cache:// consider pre-v2 (MD5, no header) cache directories at all;
+        # by default they're ignored.
+        self.cache_strict = self._parse_bool_env('FZ_CACHE_STRICT', False)
+        self.cache_accept_legacy = self._parse_bool_env('FZ_CACHE_ACCEPT_LEGACY', False)
+
     def _parse_int_env(self, key: str, default: Optional[int]) -> Optional[int]:
         """Parse integer environment variable"""
         value = os.getenv(key)
@@ -155,7 +166,9 @@ class Config:
             'run_timeout_explicit': self.run_timeout_explicit,
             'shell_path': self.shell_path,
             'case_naming': self.case_naming,
-            'static_candidate_min_size': self.static_candidate_min_size
+            'static_candidate_min_size': self.static_candidate_min_size,
+            'cache_strict': self.cache_strict,
+            'cache_accept_legacy': self.cache_accept_legacy
         }
 
 
@@ -255,6 +268,10 @@ def print_config():
     print("\n📦 STATIC FILE DETECTION:")
     print(f"  FZ_STATIC_CANDIDATE_MIN_SIZE = {summary['static_candidate_min_size']} bytes "
           f"(0 = disabled)")
+
+    print("\n🗄️  CACHE IDENTITY (cache://):")
+    print(f"  FZ_CACHE_STRICT = {summary['cache_strict']}")
+    print(f"  FZ_CACHE_ACCEPT_LEGACY = {summary['cache_accept_legacy']}")
 
     print("\n" + "=" * 60)
     print("Set environment variables to customize these defaults")

@@ -106,7 +106,7 @@ from .interpreter import (
     _get_var_prefix,
     _get_formula_prefix,
 )
-from .runners import resolve_calculators, run_calculation
+from .runners import resolve_calculators, resolve_calculators_with_metadata, run_calculation
 from .algorithms import (
     parse_input_vars,
     parse_fixed_vars,
@@ -1618,8 +1618,14 @@ def fzr(
     # Pass model_id to filter calculators by model support
     calculators = _resolve_calculators_arg(calculators, model_name=model_id)
 
-    # Resolve calculators (convert aliases to URIs)
-    calculators = resolve_calculators(calculators, model_id)
+    # Resolve calculators (convert aliases to URIs), also resolving each
+    # one's declared code identity (code_id/version_cmd) for cache:// (P0-1)
+    calculators, calculator_code_ids = resolve_calculators_with_metadata(calculators, model_id)
+
+    # New campaign: re-arm the once-per-campaign "unverifiable cache
+    # identity" warning (see fz/io.py's find_cache_match)
+    from .io import reset_cache_code_id_warning
+    reset_cache_code_id_warning()
 
     # Convert to absolute paths immediately while we're in the correct working directory
     input_path = Path(input_path).resolve()
@@ -1757,6 +1763,7 @@ def fzr(
                 timeout,
                 case_naming,
                 static_entries,
+                calculator_code_ids,
             )
 
             # Collect results in the correct order, filtering out None (interrupted/incomplete cases)

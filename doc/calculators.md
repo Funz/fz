@@ -514,16 +514,21 @@ calculators = [
 
 ### How it Works
 
-1. **Compute input hash**: MD5 hash of all input files
+1. **Compute input hash**: SHA-256 hash of all compiled input files
 2. **Search cache**: Look for matching `.fz_hash` file
-3. **Validate outputs**: Check that outputs are not None
-4. **Copy results**: If match found, reuse cached results
-5. **Skip calculation**: No execution needed
+3. **Check code identity**: verify the calculator's declared `code_id` (below)
+4. **Validate outputs**: Check that outputs are not None
+5. **Copy results**: If match found, reuse cached results
+6. **Skip calculation**: No execution needed
 
 ### Cache Matching
 
-**`.fz_hash` file format**:
+**`.fz_hash` file format** (versioned "v2", SHA-256; `# code_id:` is only
+written once the calculator that produced these results is known - and only
+when that calculator declares one):
 ```
+# fz-hash v2
+# code_id: telemac@v8p5
 a1b2c3d4e5f6...  input.txt
 f6e5d4c3b2a1...  config.dat
 ```
@@ -531,8 +536,35 @@ f6e5d4c3b2a1...  config.dat
 **Matching criteria**:
 - All input file hashes must match
 - All output values must be non-None
+- The candidate's `code_id` must be compatible with the calculators available
+  to this run (see "Cache identity (`code_id`)" below) - **not** its command
+  or host, which routinely differ for the exact same code
 - If match: reuse results (no calculation)
 - If mismatch: fall through to next calculator
+
+### Cache Identity (`code_id`)
+
+The command is deliberately excluded from the cache key: the same code can be
+invoked as `bash run.sh` locally and `/opt/telemac/v8p5/run.sh` over SSH, and
+keying on the command would defeat cache sharing across calculators. Instead,
+a calculator alias may declare the identity of its code installation:
+
+```json
+{
+    "uri": "ssh://user@cluster/bash /opt/telemac/v8p5/run.sh",
+    "code_id": "telemac@v8p5"
+}
+```
+
+- Same `code_id` on both sides → match, whatever the command.
+- Different `code_id` → never matches, even with an identical command.
+- No `code_id` declared on either side → still matches (backward compatible),
+  with a one-time warning per campaign; `FZ_CACHE_STRICT=1` refuses instead.
+- `version_cmd` resolves `code_id` by running a command on the calculator
+  (once per calculator per session) instead of hardcoding it:
+  `{"uri": "sh://bash ./run.sh", "version_cmd": "./run.sh --version"}`.
+- A cache directory written by an older `fz` (no `# fz-hash v2` header) has no
+  identity at all and is ignored unless `FZ_CACHE_ACCEPT_LEGACY=1`.
 
 ### Cache Directory Structure
 
@@ -744,6 +776,10 @@ export FZ_MAX_WORKERS=8
 # SSH-specific
 export FZ_SSH_KEEPALIVE=300
 export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=0
+
+# cache:// identity checks (see Cache Identity above; both default to 0)
+export FZ_CACHE_STRICT=1
+export FZ_CACHE_ACCEPT_LEGACY=1
 ```
 
 ## Best Practices

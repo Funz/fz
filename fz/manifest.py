@@ -88,6 +88,13 @@ def build_manifest(
         hash_file = results_dir / str(rel) / ".fz_hash" if rel else None
         if hash_file is not None and hash_file.is_file():
             case["fz_hash_sha256"] = _sha256(hash_file)
+            try:
+                from .io import _parse_hash_file
+                code_id = _parse_hash_file(hash_file).get("code_id")
+                if code_id:
+                    case["code_id"] = code_id
+            except Exception:
+                pass
         cases.append(case)
 
     statuses = [c["status"] for c in cases]
