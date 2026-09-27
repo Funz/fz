@@ -274,6 +274,8 @@ FZ_RUN_TIMEOUT                per-calculation timeout in seconds (default 3600 =
                               a model's own "timeout" entry overrides this
 FZ_SLURM_POLL_INTERVAL       seconds between sacct/squeue polls for slurm-array:// (default 2)
 FZ_SLURM_ARRAY_WINDOW        seconds slurm-array:// gathers cases before one sbatch (default 1)
+FZ_RO_CRATE                  0 to disable the ro-crate-metadata.json written (default 1) next to
+                              each campaign's manifest.json (fzr and fzd always write manifest.json)
 FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip interactive host-key prompt (CI; use with care)
 FZ_SSH_KEEPALIVE             SSH keepalive seconds
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)
