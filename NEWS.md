@@ -56,6 +56,14 @@
   set `FZ_RO_CRATE=0` to disable. New files only; no existing behavior changes. Write
   failures log a warning and never fail the run.
 
+### MCP server for AI agents (`fz-mcp`)
+
+- New optional entry point `fz-mcp` (`pip install 'funz-fz[mcp]'`) exposing `fzi`, `fzc`,
+  `fzr`, `fzo`, `fzl` as MCP tools. Trusted by default (no isolation of templates/formulas);
+  `FZ_MCP_TRUSTED=0` opts into a restricted mode (models/calculators must be installed
+  aliases) that requires the fz core to support `trusted=False` (audit ticket P0-2) and
+  otherwise refuses to start. Paths are always confined to `FZ_MCP_ROOT`.
+
 ### Error reports no longer blame the command for a code's "not found" message
 
 - Any stderr containing "not found" or "No such file or directory" was reported as
