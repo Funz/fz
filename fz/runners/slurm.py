@@ -15,6 +15,7 @@ from ..config import get_config
 from ..shell import run_command
 from .manager import resolve_timeout, get_environment_info
 from .errors import classify_error
+from ..slurm_async import split_slurm_resources, srun_options
 from .ssh import (
     validate_ssh_connection_security,
     get_host_key_policy,
@@ -231,7 +232,8 @@ def run_slurm_calculation(
     env_info = get_environment_info()
 
     try:
-        # Parse SLURM URI
+        # Split optional resources (?cores=4&mem=2G&time=01:00:00) then parse the URI
+        slurm_uri, resources = split_slurm_resources(slurm_uri)
         host, port, username, password, partition, script = parse_slurm_uri(slurm_uri)
 
         log_info(f"SLURM calculation: partition={partition}, script={script}")
@@ -240,10 +242,13 @@ def run_slurm_calculation(
         if host is None:
             # Local SLURM execution
             return _run_local_slurm_calculation(
-                working_dir, partition, script, model, timeout, start_time, env_info, input_files_list
+                working_dir, partition, script, model, timeout, start_time, env_info,
+                input_files_list, resources=resources,
             )
         else:
             # Remote SLURM execution via SSH
+            if resources:
+                log_warning("SLURM resources in the URI are only applied to local SLURM execution")
             if not PARAMIKO_AVAILABLE:
                 return {
                     "status": "error",
@@ -274,6 +279,7 @@ def _run_local_slurm_calculation(
     start_time: datetime,
     env_info: Dict,
     input_files_list: List[str] = None,
+    resources: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Run SLURM calculation locally using srun
@@ -287,6 +293,7 @@ def _run_local_slurm_calculation(
         start_time: Calculation start time
         env_info: Environment information
         input_files_list: List of input file names in order
+        resources: Resource options parsed from the URI query string (cores, mem, ...)
 
     Returns:
         Dict containing calculation results and status
@@ -312,7 +319,8 @@ def _run_local_slurm_calculation(
 
         # Construct srun command
         # Use --partition for partition and execute the script
-        full_command = f"srun --partition={partition} {script} {input_argument}"
+        extra = srun_options(resources or {})
+        full_command = f"srun --partition={partition}{' ' + extra if extra else ''} {script} {input_argument}"
 
         log_info(f"Running SLURM command: {full_command}")
 

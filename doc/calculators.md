@@ -309,6 +309,31 @@ calculators = [
 - **Local**: SLURM installed (`srun` command available)
 - **Remote**: SSH access to SLURM cluster + `paramiko` library
 
+## SLURM Job Arrays (`slurm-array://`, local only)
+
+Asynchronous twin of `slurm://`. Cases submitted within a short window are batched
+into **one** `sbatch --array` job — a single calculator URI runs all N cases
+concurrently, and is not locked per case — instead of one blocking `srun` per case.
+A single shared monitor thread follows every task with one `sacct` call per poll
+(falling back to `squeue` when accounting is disabled).
+
+```python
+calculators = "slurm-array://:compute/bash script.sh?cores=4&mem=8G&time=01:00:00&maxrunning=20"
+```
+
+**Resources** (URI query string, for both `slurm://` and `slurm-array://`): `cores`
+(`--cpus-per-task`), `mem`, `time`, `nodes`, `ntasks`, `gres`, `account`, `qos`, plus
+`maxrunning` (array throttle, `--array=0-N%M`; `slurm-array://` only). Values are
+validated against a whitelist.
+
+**Environment variables**:
+```bash
+export FZ_SLURM_POLL_INTERVAL=2      # seconds between sacct/squeue polls (default: 2)
+export FZ_SLURM_ARRAY_WINDOW=1       # seconds cases are gathered before one sbatch (default: 1)
+```
+
+`slurm-array://` supports local SLURM only; remote SLURM stays on `slurm://`.
+
 ### Configuration
 
 **Environment variables**:

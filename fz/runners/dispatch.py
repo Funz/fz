@@ -8,6 +8,7 @@ from .cache import CacheCalculator
 from .sh import ShCalculator
 from .ssh import SshCalculator
 from .slurm import SlurmCalculator
+from .slurm_array import SlurmArrayCalculator
 from .funz import FunzCalculator
 
 
@@ -16,6 +17,7 @@ _CALCULATORS = {
     "sh": ShCalculator,
     "ssh": SshCalculator,
     "slurm": SlurmCalculator,
+    "slurm-array": SlurmArrayCalculator,
     "funz": FunzCalculator,
 }
 
