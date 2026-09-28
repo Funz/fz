@@ -139,6 +139,29 @@ def test_case_subdir_name_stable_for_safe_values():
     assert _case_subdir_name({"x": 1, "y": 2}, 0, 1, "path") == "x=1,y=2"
 
 
+def test_fzo_reconstructs_original_value_from_encoded_case_name(tmp_path):
+    """fzo()'s best-effort fallback parser (fz/core.py, reconstructing variable
+    columns from a "path"-scheme case directory name) must percent-decode each
+    component, or it returns the mangled on-disk form instead of the original
+    value for anything _case_subdir_name had to encode."""
+    model = _make_simple_model_files()
+
+    result = fz.fzr(
+        "input.txt",
+        {"x": ["a/b"]},
+        model,
+        calculators="sh://bash calc.sh",
+        results_dir="results",
+    )
+
+    values = list(result["x"])
+    assert values == ["a/b"], (
+        f"Expected the original value 'a/b' back from fzo(), got {values!r} "
+        "(the percent-encoded on-disk directory name leaking through un-decoded "
+        "would show up as 'a%2Fb')"
+    )
+
+
 def test_assert_dir_within_rejects_escape(tmp_path):
     base = tmp_path / "results"
     base.mkdir()

@@ -1611,7 +1611,20 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                     break
 
                 case_start_time = time.time()
-                result = run_single_case(case_info)
+                try:
+                    result = run_single_case(case_info)
+                except Exception as e:
+                    import traceback
+                    log_error(f"🏁 Case {i} failed with exception: {e}")
+                    log_error(f"🏁 Traceback: {traceback.format_exc()}")
+                    var_combo = case_info["var_combo"]
+                    result = {"var_combo": var_combo}
+                    for key in output_keys:
+                        result[key] = None
+                    result["calculator"] = "error"
+                    result["status"] = "error"
+                    result["error_message"] = str(e)
+                    result["command"] = None
                 results.append(result)
 
                 # Progress tracking for multiple cases (only if spinner is disabled)

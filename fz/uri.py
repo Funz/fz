@@ -24,24 +24,29 @@ def redact_uri(uri) -> str:
 
 
 _warned_hosts_lock = threading.Lock()
-_warned_hosts = set()
+_warned_messages = set()
 
 
-def warn_password_in_uri_once(host: str, warn_fn) -> None:
-    """Call ``warn_fn()`` the first time a password-bearing URI to *host* is seen.
+def warn_password_in_uri_once(host: str, warn_fn, message: str = "") -> None:
+    """Call ``warn_fn()`` the first time a given *message* for *host* is seen.
 
     Connections are made once per case (i.e. many times per campaign for a
     parameter study); without this the "password provided in URI" warning
-    would otherwise be repeated on every single connection attempt.
+    would otherwise be repeated on every single connection attempt. Keyed on
+    ``(host, message)`` rather than just ``host`` so distinct warnings for the
+    same host (e.g. "password in URI" and "no username provided") each still
+    get shown once, instead of the second one being silently dropped forever
+    because the host was already marked as warned by the first.
     """
+    key = (host, message)
     with _warned_hosts_lock:
-        if host in _warned_hosts:
+        if key in _warned_messages:
             return
-        _warned_hosts.add(host)
+        _warned_messages.add(key)
     warn_fn()
 
 
 def reset_password_warnings() -> None:
     """Clear the once-per-host warning dedup state (mainly for tests)."""
     with _warned_hosts_lock:
-        _warned_hosts.clear()
+        _warned_messages.clear()

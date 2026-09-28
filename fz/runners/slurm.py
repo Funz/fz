@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
-from .base import Calculator
+from .base import Calculator, safe_remote_rmrf
 from ..logging import log_warning, log_info, log_error
 from ..config import get_config
 from ..shell import run_command
@@ -525,7 +525,7 @@ def _run_remote_slurm_calculation(
     # per case/connection - P0-3, mirrors ssh.py's run_ssh_calculation)
     security_info = validate_ssh_connection_security(host, username, password)
     for warning in security_info["warnings"]:
-        warn_password_in_uri_once(host, lambda w=warning: log_warning(f"Security Warning: {w}"))
+        warn_password_in_uri_once(host, lambda w=warning: log_warning(f"Security Warning: {w}"), message=warning)
 
     log_info(f"Connecting to SSH for SLURM: {username}@{host}:{port}")
 
@@ -646,17 +646,7 @@ def _run_remote_slurm_calculation(
         finally:
             # Cleanup remote directory - refuse to delete anything outside the
             # fz-managed temp prefix (P0-3, mirrors ssh.py).
-            try:
-                if remote_temp_dir.startswith(_remote_tmp_prefix):
-                    ssh_client.exec_command(f"rm -rf {shlex.quote(remote_temp_dir)}")
-                    log_info(f"Cleaned up remote directory: {remote_temp_dir}")
-                else:
-                    log_error(
-                        f"Refusing to delete remote directory outside expected "
-                        f"prefix '{_remote_tmp_prefix}': {remote_temp_dir}"
-                    )
-            except Exception as e:
-                log_warning(f"Could not cleanup remote directory: {e}")
+            safe_remote_rmrf(ssh_client, remote_temp_dir, _remote_tmp_prefix, log_info, log_error, log_warning)
 
             sftp.close()
 

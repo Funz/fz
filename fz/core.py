@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import signal
 import sys
 import platform
+from urllib.parse import unquote
 from pathlib import Path
 from typing import Dict, List, Union, Any, Optional, Callable, TYPE_CHECKING
 
@@ -1219,7 +1220,15 @@ def fzo(
                     for part in parts:
                         if "=" in part:
                             key, val = part.split("=", 1)
-                            row_vars[key.strip()] = val.strip()
+                            # Case directory names are percent-encoded per
+                            # component (fz/helpers.py::_encode_case_name_part,
+                            # P0-3) so this best-effort fallback must decode
+                            # them back, or it returns the mangled on-disk
+                            # form (e.g. "a%2Fb") instead of the original
+                            # value ("a/b"). info.txt/cases.csv remain the
+                            # authoritative source; this is just a convenience
+                            # reconstruction from the directory name.
+                            row_vars[unquote(key.strip())] = unquote(val.strip())
                         else:
                             # Not a key=value pattern
                             all_parseable = False
