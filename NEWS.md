@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Breaking changes
+
+- **Dropped Python 3.8 support** (P0-5). `requires-python` is now `>=3.9` and
+  classifiers cover 3.9-3.13 (matching what CI actually tests). Python 3.8
+  reached end-of-life in October 2024 and was not exercised by CI; the code
+  likely still runs there, but it is no longer a declared or tested target.
+  Python 3.14 continues to be exercised in CI (Ubuntu only, as a `3.14-dev`
+  pre-release build) but is not yet declared via a classifier since it is
+  still pre-release upstream.
+
 ### `cache://` key: SHA-256, versioned `.fz_hash`, calculator `code_id` (P0-1)
 
 - `.fz_hash` is now a versioned ("v2") SHA-256 format with an optional
