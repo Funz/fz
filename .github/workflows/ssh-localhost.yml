@@ -34,7 +34,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .
-        pip install pytest
+        pip install pytest pytest-cov
         pip install getpass4
 
     - name: Setup SSH server
@@ -71,17 +71,25 @@ jobs:
 
     - name: Run SSH localhost test
       run: |
-        python -m pytest tests/test_ssh_localhost.py::test_ssh_localhost_with_dedicated_key -v -s
+        python -m pytest tests/test_ssh_localhost.py::test_ssh_localhost_with_dedicated_key -v -s --cov=fz --cov-report= --cov-append
 
     - name: Run SSH error reporting integration tests
       run: |
         pip install paramiko
-        python -m pytest tests/test_error_reporting.py::TestSSHIntegrationErrorReporting -v -s --tb=long
+        python -m pytest tests/test_error_reporting.py::TestSSHIntegrationErrorReporting -v -s --tb=long --cov=fz --cov-report= --cov-append
 
     - name: Run static_files over SSH test
       run: |
         pip install paramiko
-        python -m pytest tests/test_static_files_ssh.py -v -s --tb=long
+        python -m pytest tests/test_static_files_ssh.py -v -s --tb=long --cov=fz --cov-report=xml --cov-append
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: ssh
+        name: codecov-ssh
+        fail_ci_if_error: false
 
     - name: Test summary
       if: always()

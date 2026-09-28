@@ -182,12 +182,12 @@ jobs:
         cd ${{ github.workspace }}
         echo "Running protocol-level tests..."
         echo "Tests will discover TCP port via UDP broadcast on port 5555"
-        pytest tests/test_funz_protocol.py -v --tb=long -s
+        pytest tests/test_funz_protocol.py -v --tb=long -s --cov=fz --cov-report= --cov-append
 
     - name: Run Funz calculator integration tests
       run: |
         cd ${{ github.workspace }}
-        pytest tests/test_funz_integration.py -v --tb=long
+        pytest tests/test_funz_integration.py -v --tb=long --cov=fz --cov-report= --cov-append
 
     - name: Run Funz error reporting integration tests
       env:
@@ -195,7 +195,15 @@ jobs:
         FZ_LOG_LEVEL: DEBUG
       run: |
         cd ${{ github.workspace }}
-        pytest tests/test_error_reporting.py::TestFunzIntegrationErrorReporting -v -s --tb=long
+        pytest tests/test_error_reporting.py::TestFunzIntegrationErrorReporting -v -s --tb=long --cov=fz --cov-report=xml --cov-append
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: funz
+        name: codecov-funz
+        fail_ci_if_error: false
 
     - name: Show calculator logs on failure
       if: failure()

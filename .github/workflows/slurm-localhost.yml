@@ -32,7 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .
-        pip install pytest
+        pip install pytest pytest-cov
         pip install pandas
 
     - name: Install SLURM
@@ -476,7 +476,7 @@ jobs:
 
     - name: Run SLURM error reporting integration tests
       run: |
-        python -m pytest tests/test_error_reporting.py::TestSlurmIntegrationErrorReporting -v -s --tb=long
+        python -m pytest tests/test_error_reporting.py::TestSlurmIntegrationErrorReporting -v -s --tb=long --cov=fz --cov-report= --cov-append
 
     - name: Test slurm-array:// (job arrays) on real SLURM
       run: |
@@ -496,7 +496,15 @@ jobs:
 
     - name: Run async SLURM (job array) unit tests
       run: |
-        python -m pytest tests/test_slurm_async.py -v
+        python -m pytest tests/test_slurm_async.py -v --cov=fz --cov-report=xml --cov-append
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: slurm
+        name: codecov-slurm
+        fail_ci_if_error: false
 
     - name: Show SLURM logs on failure
       if: failure()

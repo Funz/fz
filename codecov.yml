@@ -1,0 +1,76 @@
+# Codecov configuration for fz.
+#
+# Coverage is uploaded from several independent GitHub Actions workflows, each
+# covering a different slice of the code (see CLAUDE.md's "CI" section for why
+# the workflows are split):
+#   - ci.yml              -> flag "unit"      (main cross-platform matrix; excludes
+#                                                examples/ssh/slurm/funz-protocol tests
+#                                                for speed - those are covered by the
+#                                                flags below)
+#   - ssh-localhost.yml    -> flag "ssh"       (fz/runners/ssh.py, resolve.py over a
+#                                                real local sshd)
+#   - slurm-localhost.yml  -> flag "slurm"     (fz/runners/slurm.py, fz/slurm_async.py
+#                                                against a real local SLURM cluster;
+#                                                note: several SLURM scenarios run as
+#                                                inline `python3` scripts rather than
+#                                                pytest, and are not captured by --cov)
+#   - examples.yml         -> flag "examples"  (tests/test_examples_*.py)
+#   - funz-calculator.yml  -> flag "funz"      (Funz TCP/UDP protocol + calculator
+#                                                integration)
+#   - cli-tests.yml        -> flag "cli-tests" (tests/test_cli_commands.py)
+#
+# Codecov merges all flags' reports for the "total" project status below, so the
+# merged report for a commit reflects coverage across all of these workflows, not
+# just the excerpt each one measures individually.
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+      total:
+        flags:
+          - unit
+          - ssh
+          - slurm
+          - examples
+          - funz
+          - cli-tests
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+flags:
+  unit:
+    paths:
+      - fz/
+    carryforward: true
+  ssh:
+    paths:
+      - fz/
+    carryforward: true
+  slurm:
+    paths:
+      - fz/
+    carryforward: true
+  examples:
+    paths:
+      - fz/
+    carryforward: true
+  funz:
+    paths:
+      - fz/
+    carryforward: true
+  cli-tests:
+    paths:
+      - fz/
+    carryforward: true
+
+comment:
+  layout: "header, diff, flags, files"
+  behavior: default
+  require_changes: false
