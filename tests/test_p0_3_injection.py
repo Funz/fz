@@ -14,6 +14,7 @@ Covers:
 
 import os
 import getpass
+import platform
 import subprocess
 import time
 from pathlib import Path
@@ -30,6 +31,19 @@ try:
     PARAMIKO_AVAILABLE = True
 except ImportError:
     PARAMIKO_AVAILABLE = False
+
+# conftest.SSH_AVAILABLE only checks that *some* SSH server answers on
+# localhost:22 (it accepts a plain "auth failed" as "available" - see its
+# docstring), not that our own generated/ssh-add-ed key can actually
+# authenticate. On GitHub-hosted macOS/Windows runners a system SSH server
+# does answer on port 22 (unlike the "Setup SSH server (Linux only)" step
+# in ci.yml, which only provisions one on Linux) but our key-based auth
+# fails there in practice (e.g. Windows OpenSSH Server ignores a plain
+# admin user's ~/.ssh/authorized_keys entirely in favor of
+# administrators_authorized_keys). The dedicated SSH test files
+# (test_ssh_localhost.py etc.) are excluded from non-Linux CI jobs for the
+# same reason; the two SSH-dependent tests below mirror that restriction.
+IS_LINUX = platform.system() == "Linux"
 
 from conftest import SSH_AVAILABLE
 
@@ -284,7 +298,15 @@ def _setup_ssh_key(test_dir: Path, marker: str):
     return key_path, authorized_keys_path, original, key_marker
 
 
-def _cleanup_authorized_keys(authorized_keys_path, original, key_marker):
+def _cleanup_authorized_keys(authorized_keys_path, original, key_marker, key_path=None):
+    # Remove the key from the agent too, not just authorized_keys: an agent
+    # that keeps accumulating identities across every SSH test in a long CI
+    # session (this file alone adds up to five) eventually offers more than
+    # sshd's MaxAuthTries before the right one, breaking *later*,
+    # unrelated SSH tests in the same job with "Too many authentication
+    # failures" - not a failure of this test itself, so best-effort only.
+    if key_path is not None:
+        subprocess.run(["ssh-add", "-d", str(key_path)], capture_output=True, text=True)
     try:
         if authorized_keys_path.exists():
             lines = authorized_keys_path.read_text().splitlines()
@@ -305,6 +327,7 @@ def _cleanup_authorized_keys(authorized_keys_path, original, key_marker):
 
 @pytest.mark.requires_ssh
 @pytest.mark.requires_paramiko
+@pytest.mark.skipif(not IS_LINUX, reason="key-based localhost SSH auth is unreliable on non-Linux CI runners (see IS_LINUX comment above)")
 @pytest.mark.skipif(not SSH_AVAILABLE, reason="SSH server not available on localhost")
 @pytest.mark.skipif(not PARAMIKO_AVAILABLE, reason="paramiko library not installed")
 @pytest.mark.parametrize("dangerous", DANGEROUS_VALUES)
@@ -335,11 +358,12 @@ def test_ssh_case_name_no_remote_injection(dangerous):
         for p in results_dir.rglob("*"):
             assert _is_within(p.resolve(), results_dir)
     finally:
-        _cleanup_authorized_keys(authorized_keys_path, original, key_marker)
+        _cleanup_authorized_keys(authorized_keys_path, original, key_marker, key_path)
 
 
 @pytest.mark.requires_ssh
 @pytest.mark.requires_paramiko
+@pytest.mark.skipif(not IS_LINUX, reason="key-based localhost SSH auth is unreliable on non-Linux CI runners (see IS_LINUX comment above)")
 @pytest.mark.skipif(not SSH_AVAILABLE, reason="SSH server not available on localhost")
 @pytest.mark.skipif(not PARAMIKO_AVAILABLE, reason="paramiko library not installed")
 def test_ssh_output_with_eof_line_not_truncated():
@@ -391,4 +415,4 @@ def test_ssh_output_with_eof_line_not_truncated():
         assert not list(Path.home().glob("PWNED_AFTER_EOF"))
         assert not _find_pwned(Path.cwd())
     finally:
-        _cleanup_authorized_keys(authorized_keys_path, original, key_marker)
+        _cleanup_authorized_keys(authorized_keys_path, original, key_marker, key_path)
