@@ -6,8 +6,8 @@ die mid-calculation for a subset of their assigned cases.
 
 "Disconnection" is emulated cheaply and deterministically with plain bash
 scripts (no real network drops needed):
-  - a script that kills its own process group (SIGKILL) partway through,
-    simulating a calculator process dying mid-calculation;
+  - a script that kills its own process (SIGKILL) partway through, simulating
+    a calculator process dying mid-calculation;
   - a script that hangs past a short timeout, simulating a calculator that
     stopped responding;
   - a script that always exits non-zero, simulating a calculator that is
@@ -37,7 +37,7 @@ from pathlib import Path
 import pytest
 
 from fz import fzr
-from fz.config import Config, reload_config
+from fz.config import reload_config
 
 try:
     import pandas as pd
@@ -87,7 +87,7 @@ def _restore_config():
 # ===========================================================================
 
 def test_disconnect_process_killed_failover_completes_campaign():
-    """One of two sh:// calculators dies (SIGKILLs its own process group) on
+    """One of two sh:// calculators dies (SIGKILLs its own process) on
     every case it is assigned; the campaign must still complete every case,
     either via failover to the healthy calculator or with a clear error --
     never a hang or an unhandled exception out of fzr()."""
@@ -171,7 +171,7 @@ def test_disconnect_hang_past_timeout_failover_completes_campaign():
     timeout configured, fzr() must time it out and fail over to the other
     calculator for every case, completing the whole campaign."""
     _write_input()
-    _write_script("HangingCalculator.sh", "sleep 30\necho 'result = 1' > output.txt\n")
+    _write_script("HangingCalculator.sh", "sleep 5\necho 'result = 1' > output.txt\n")
     _write_script(
         "ReliableCalculator.sh",
         "echo 'result = 99' > output.txt\nexit 0\n",
@@ -214,9 +214,9 @@ def test_all_calculators_exhausted_returns_error_row_not_crash():
     _write_script("AlwaysFailsB.sh", "kill -9 $$\n")
 
     # Keep the retry cap small so the exhaustion path is reached quickly.
-    os.environ["FZ_MAX_RETRIES"] = "2"
-    reload_config()
     try:
+        os.environ["FZ_MAX_RETRIES"] = "2"
+        reload_config()
         start = time.time()
         result = fzr(
             "input.txt",
@@ -258,7 +258,7 @@ def test_mixed_calculators_no_case_silently_dropped():
         "echo 'result = 7' > output.txt\nexit 0\n",
     )
     _write_script("DyingCalculator.sh", "kill -9 $$\n")
-    _write_script("HangingCalculator.sh", "sleep 30\necho 'result = 7' > output.txt\n")
+    _write_script("HangingCalculator.sh", "sleep 5\necho 'result = 7' > output.txt\n")
 
     n_cases = 9
     model = dict(MODEL, timeout=2)
@@ -304,19 +304,8 @@ def _paramiko_available():
         return False
 
 
-def _ssh_server_available():
-    try:
-        import socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        rc = sock.connect_ex(("localhost", 22))
-        sock.close()
-        return rc == 0
-    except Exception:
-        return False
+from conftest import SSH_AVAILABLE  # noqa: E402 (shared with test_ssh_many_cases.py etc.)
 
-
-SSH_AVAILABLE = _ssh_server_available()
 PARAMIKO_AVAILABLE = _paramiko_available()
 
 
@@ -414,7 +403,9 @@ def test_ssh_disconnect_failover_to_sh_completes_campaign():
         assert all(int(r) == 5 for r in result["result"])
         assert all("DyingRemote" not in c for c in result["calculator"])
     finally:
-        subprocess.run(["ssh-add", "-d", str(key_path)], capture_output=True, text=True)
+        # No ssh-agent is used by this test (the key is passed via -i directly),
+        # so there is nothing to remove from an agent here -- only the
+        # authorized_keys entry added above needs cleanup.
         if authorized_keys_path.exists():
             content = authorized_keys_path.read_text()
             lines = content.split("\n")
