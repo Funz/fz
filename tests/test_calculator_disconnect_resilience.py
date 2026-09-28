@@ -345,11 +345,38 @@ def test_ssh_disconnect_failover_to_sh_completes_campaign():
         authorized_keys_path.read_text() if authorized_keys_path.exists() else None
     )
 
+    # fzr()'s own paramiko connect() (fz/runners/ssh.py) takes no -i / key_filename:
+    # it only relies on look_for_keys (default-named keys under ~/.ssh) or an
+    # ssh-agent identity. Our preflight `ssh -i key_path` check below would pass
+    # regardless, so without this step the test could silently stop exercising
+    # DyingRemote.sh (falling back on some ambient identity) or fail outright in
+    # an environment with no ambient identity at all. Mirrors test_ssh_many_cases.py.
+    added_to_agent = False
+    std_key_path = None
+    std_key_pub_path = None
     try:
         with open(authorized_keys_path, "a") as f:
             f.write(key_entry)
         authorized_keys_path.chmod(0o600)
         time.sleep(0.5)
+
+        agent_result = subprocess.run(["ssh-add", str(key_path)], capture_output=True, text=True)
+        if agent_result.returncode == 0:
+            added_to_agent = True
+        else:
+            # No agent running (or it refused the key): fall back to a
+            # default-named key so paramiko's look_for_keys finds it.
+            std_key_path = home_ssh_dir / "id_rsa"
+            std_key_pub_path = home_ssh_dir / "id_rsa.pub"
+            if std_key_path.exists():
+                pytest.skip(
+                    "No SSH agent available and ~/.ssh/id_rsa already exists; "
+                    "refusing to overwrite it for this test"
+                )
+            std_key_path.write_bytes(key_path.read_bytes())
+            std_key_path.chmod(0o600)
+            std_key_pub_path.write_bytes(pub_key_path.read_bytes())
+            std_key_pub_path.chmod(0o644)
 
         known_hosts = ssh_dir / "known_hosts"
         scan = subprocess.run(["ssh-keyscan", "-H", "localhost"], capture_output=True, text=True)
@@ -403,9 +430,12 @@ def test_ssh_disconnect_failover_to_sh_completes_campaign():
         assert all(int(r) == 5 for r in result["result"])
         assert all("DyingRemote" not in c for c in result["calculator"])
     finally:
-        # No ssh-agent is used by this test (the key is passed via -i directly),
-        # so there is nothing to remove from an agent here -- only the
-        # authorized_keys entry added above needs cleanup.
+        if added_to_agent:
+            subprocess.run(["ssh-add", "-d", str(key_path)], capture_output=True, text=True)
+        if std_key_path is not None:
+            std_key_path.unlink(missing_ok=True)
+        if std_key_pub_path is not None:
+            std_key_pub_path.unlink(missing_ok=True)
         if authorized_keys_path.exists():
             content = authorized_keys_path.read_text()
             lines = content.split("\n")
