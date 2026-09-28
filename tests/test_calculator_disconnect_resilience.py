@@ -30,6 +30,7 @@ remote-side hard failure also fails over correctly.
 
 import getpass
 import os
+import platform
 import subprocess
 import time
 from pathlib import Path
@@ -37,6 +38,15 @@ from pathlib import Path
 import pytest
 
 from fz import fzr
+
+IS_WINDOWS = platform.system() == "Windows"
+_WINDOWS_KILL_SKIP_REASON = (
+    "kill -9 $$ inside a bash script goes through MSYS2/Git Bash's signal "
+    "emulation on Windows, which this repo already treats as fragile "
+    "(test_interrupt_handling.py is excluded from the Windows CI job for "
+    "the same reason); unverified here, so skip rather than risk an "
+    "-x-gated Windows CI run failing on an unrelated later test"
+)
 from fz.config import reload_config
 
 try:
@@ -86,6 +96,7 @@ def _restore_config():
 # 1. A calculator dies mid-calculation (process killed) -> failover
 # ===========================================================================
 
+@pytest.mark.skipif(IS_WINDOWS, reason=_WINDOWS_KILL_SKIP_REASON)
 def test_disconnect_process_killed_failover_completes_campaign():
     """One of two sh:// calculators dies (SIGKILLs its own process) on
     every case it is assigned; the campaign must still complete every case,
@@ -205,6 +216,7 @@ def test_disconnect_hang_past_timeout_failover_completes_campaign():
 # 3. Every calculator fails for a case -> well-formed error row, no crash
 # ===========================================================================
 
+@pytest.mark.skipif(IS_WINDOWS, reason=_WINDOWS_KILL_SKIP_REASON)
 def test_all_calculators_exhausted_returns_error_row_not_crash():
     """When every calculator fails for a case, fzr() must return a
     well-formed status='error' row (with a message) instead of hanging,
@@ -247,6 +259,7 @@ def test_all_calculators_exhausted_returns_error_row_not_crash():
 # 4. Mixed campaign: several cases, 3 differently-behaved sh:// calculators
 # ===========================================================================
 
+@pytest.mark.skipif(IS_WINDOWS, reason=_WINDOWS_KILL_SKIP_REASON)
 def test_mixed_calculators_no_case_silently_dropped():
     """N cases spread across three sh:// calculators with different natures
     (reliable, dies mid-calculation, hangs past timeout): the full campaign
