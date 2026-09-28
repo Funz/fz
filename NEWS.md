@@ -12,6 +12,42 @@
   pre-release build) but is not yet declared via a classifier since it is
   still pre-release upstream.
 
+### Case-name/remote-command injection and credential leakage fixed (P0-3)
+
+- **Breaking change**: `"path"`-scheme case directory names (the default) now
+  percent-encode `/ \ : * ? " < > | %` and control characters in each
+  variable's key/value, and a value that would otherwise encode to exactly
+  `.` or `..`. A case directory name for a value like `../../evil` or
+  `a/b` therefore looks different than before (e.g. `x=..%2F..%2Fevil`
+  instead of creating `x=..` and `evil` as separate directories - which
+  could previously land outside the results directory). The original,
+  un-encoded values are unaffected in `info.txt` and `cases.csv`. As an
+  additional guard, fz now refuses to create a case's result/temp directory
+  at all if it would resolve outside the results/temp directory.
+- `ssh://`/`slurm://` remote execution: `mkdir`, `cd`, `rm -rf`, and every
+  input file name passed to the remote shell are now `shlex.quote()`-d, and
+  a remote cleanup (`rm -rf`) is refused (logged as an error instead) unless
+  the target path is under fz's own `.fz/tmp/fz_calc_*` (or `fz_slurm_*`)
+  prefix. This does not affect the calculator/model's own command line
+  (`sh://`/`ssh://`/`slurm://` command text), which is intentionally left
+  as-is (see P0-2's documented threat model).
+- The remote `log.txt`/`out.txt`/`err.txt` write no longer uses a
+  `cat > file << 'EOF' ... EOF` heredoc on the remote shell: a calculation's
+  own stdout/stderr containing a line that is exactly `EOF` could close the
+  heredoc early and have the rest of the output executed as remote shell
+  commands. These files are now written directly from the already-fetched
+  local `stdout`/`stderr` data, with the timestamp computed in Python
+  instead of a remote `$(date)`.
+- A password embedded in an `ssh://user:pw@host` (or `slurm://user:pw@host`)
+  calculator URI is no longer written in plaintext to the results
+  DataFrame's `calculator`/`command` columns, `history.txt`, `info.txt`, or
+  the console/debug logs - `redact_uri()` (moved to the new `fz/uri.py`,
+  still re-exported from `fz/manifest.py`) is applied at every point a
+  calculator URI is persisted or printed. The full URI is still used, only
+  in memory, to actually open the connection. The "password provided in
+  URI" security warning is now emitted once per host per process instead of
+  once per connection attempt.
+
 ### `cache://` key: SHA-256, versioned `.fz_hash`, calculator `code_id` (P0-1)
 
 - `.fz_hash` is now a versioned ("v2") SHA-256 format with an optional

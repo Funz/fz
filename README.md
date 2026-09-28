@@ -1079,7 +1079,11 @@ print(results)
 - `results_dir`: Results directory path
 - `case_naming`: How each case's result/temp subdirectory is named (default `"path"`):
   - `"path"`: `var1=val1,var2=val2,...` - human-readable, but can exceed filesystem
-    filename length limits (~255 chars) with many variables
+    filename length limits (~255 chars) with many variables. Each key/value is
+    percent-encoded (`/ \ : * ? " < > | %`, control characters, and a value that
+    would otherwise be exactly `.`/`..`) so a variable value can never create an
+    extra path segment or escape the results directory - the *directory name* only;
+    `info.txt`/`cases.csv` always keep the original, un-encoded value.
   - `"hash"`: short content hash of the variable combination - always short and stable
   - `"index"`: `case_<i>` - shortest, order-dependent
 

@@ -26,6 +26,7 @@ from .logging import log_debug, log_info, log_warning, log_error, log_progress
 from .config import get_config
 from .spinner import CaseSpinner, CaseStatus
 from .history import CaseHistory, write_info_file
+from .uri import redact_uri
 
 
 def format_time(seconds):
@@ -82,6 +83,32 @@ def fz_temporary_directory(session_cwd=None):
         pass
 
 
+# Characters that are unsafe in a single filesystem path *component* (path
+# separators on Unix/Windows, Windows-reserved characters, and control
+# characters) - percent-encoded by _encode_case_name_part() below (P0-3).
+# "%" itself is included so the encoding cannot be made ambiguous by a value
+# that already contains a literal "%xx" sequence.
+import re as _re
+_UNSAFE_CASE_NAME_CHARS_RE = _re.compile(r'[\\/:*?"<>|%\x00-\x1f\x7f]')
+
+
+def _encode_case_name_part(value) -> str:
+    """
+    Percent-encode a single ``key`` or ``val`` string so it can never inject
+    an extra path segment (``/``, ``\\``), collide with a Windows-reserved
+    character, or - once encoded - equal exactly ``.`` or ``..``.
+
+    This only changes the *directory name* fz writes to disk; the original,
+    un-encoded value is still recoverable from each case's info.txt and from
+    cases.csv (see write_case_naming_manifest / read_case_naming_manifest).
+    """
+    s = str(value)
+    encoded = _UNSAFE_CASE_NAME_CHARS_RE.sub(lambda m: f"%{ord(m.group(0)):02X}", s)
+    if encoded in (".", ".."):
+        encoded = encoded.replace(".", "%2E")
+    return encoded
+
+
 def _case_subdir_name(var_combo: Dict, case_index: int, total_cases: int, case_naming: str = "path") -> str:
     """
     Compute the case subdirectory name for a variable combination.
@@ -96,6 +123,14 @@ def _case_subdir_name(var_combo: Dict, case_index: int, total_cases: int, case_n
                     always short and stable), or "index" (case_<i>, shortest and
                     fully order-dependent). Variable values remain recoverable
                     from each case's info.txt regardless of scheme.
+
+                    Under "path", key and value are percent-encoded per
+                    component so a variable value cannot introduce an extra
+                    path segment (e.g. "../../evil" or "a/b"), a
+                    Windows-reserved character, or a lone "."/".." segment -
+                    see _encode_case_name_part(). This changes the on-disk
+                    directory name (not the value recorded in info.txt/
+                    cases.csv) for values containing these characters.
 
     Returns:
         Subdirectory name (may be empty string if var_combo is empty under "path")
@@ -112,7 +147,11 @@ def _case_subdir_name(var_combo: Dict, case_index: int, total_cases: int, case_n
         return f"case_{case_index:0{width}d}"
     else:
         # "path" (default, backward-compatible): key=val,key2=val2,...
-        return ",".join(f"{k}={v}" for k, v in var_combo.items())
+        # (encoded per-component; see _encode_case_name_part)
+        return ",".join(
+            f"{_encode_case_name_part(k)}={_encode_case_name_part(v)}"
+            for k, v in var_combo.items()
+        )
 
 
 CASES_MANIFEST_FILENAME = "cases.csv"
@@ -182,6 +221,24 @@ def read_case_naming_manifest(resultsdir: Path) -> Optional[Dict[str, Dict]]:
         return None
 
 
+def _assert_dir_within(child: Path, base: Path, what: str = "case directory") -> None:
+    """
+    Raise ValueError if *child* would resolve outside *base* (P0-3 path
+    traversal guard). Belt-and-braces check on top of the case-name encoding
+    in _case_subdir_name(): even an unencoded/unexpected case name can never
+    cause fz to create or delete anything outside the results/temp tree.
+    """
+    child_resolved = Path(child).resolve()
+    base_resolved = Path(base).resolve()
+    try:
+        child_resolved.relative_to(base_resolved)
+    except ValueError:
+        raise ValueError(
+            f"Refusing to use {what} outside its base directory: "
+            f"{child_resolved} is not inside {base_resolved}"
+        )
+
+
 def _get_result_directory(var_combo: Dict, case_index: int, resultsdir: Path, total_cases: int, has_input_variables: bool = True, case_naming: str = "path") -> Tuple[Path, str]:
     """
     Get result directory path and case name for a given variable combination
@@ -204,6 +261,7 @@ def _get_result_directory(var_combo: Dict, case_index: int, resultsdir: Path, to
         case_subdir = _case_subdir_name(var_combo, case_index, total_cases, case_naming)
         result_dir = resultsdir / case_subdir
         case_name = case_subdir if case_subdir else "case_0"
+        _assert_dir_within(result_dir, resultsdir, "case result directory")
     else:
         # Only when input_variables is empty: use base results directory directly
         result_dir = resultsdir
@@ -239,6 +297,7 @@ def _get_case_directories(var_combo: Dict, case_index: int, temp_path: Path, res
         # Always create subdirectory in temp when input_variables is not empty
         case_subdir = _case_subdir_name(var_combo, case_index, total_cases, case_naming)
         tmp_dir = temp_path / case_subdir if case_subdir else temp_path / "case_0"
+        _assert_dir_within(tmp_dir, temp_path, "case temp directory")
     else:
         # When input_variables is empty, use base temp directory
         tmp_dir = temp_path
@@ -697,7 +756,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                     continue
                 else:
                     selected_calculator_uri = calc_mgr.get_original_uri(selected_calculator_id)
-                    log_info(f"✅ [Thread {thread_id}] Case {case_index}: Calculator became available: {selected_calculator_uri}")
+                    log_info(f"✅ [Thread {thread_id}] Case {case_index}: Calculator became available: {redact_uri(selected_calculator_uri)}")
                     break
 
         attempted_calculator_ids.append(selected_calculator_id)
@@ -706,7 +765,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         selected_calculator_uri = calc_mgr.get_original_uri(selected_calculator_id)
         if history:
             history.append(f"Trying calculator: {selected_calculator_uri}")
-        log_debug(f"🎯 [Thread {thread_id}] Case {case_index}: {attempt_label} attempt with calculator: {selected_calculator_uri}")
+        log_debug(f"🎯 [Thread {thread_id}] Case {case_index}: {attempt_label} attempt with calculator: {redact_uri(selected_calculator_uri)}")
 
         try:
             calc_start = time.time()
@@ -727,7 +786,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                 used_calculator = calc_result.get("calculator_uri", selected_calculator_uri)
                 elapsed = time.time() - start_time
                 calc_type = "LOCAL" if used_calculator.startswith("sh://") else "REMOTE" if used_calculator.startswith("ssh://") else "CALCULATOR"
-                success_label = f"✓ [Thread {thread_id}] Case {case_index}: {calc_type} ({used_calculator}) ({elapsed:.2f}s)"
+                success_label = f"✓ [Thread {thread_id}] Case {case_index}: {calc_type} ({redact_uri(used_calculator)}) ({elapsed:.2f}s)"
                 if total_attempts > 1:
                     success_label += f" [RETRY SUCCESS after {total_attempts - 1} failed attempts]"
                 log_info(success_label)
@@ -758,7 +817,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
 
                 if is_funz_udp_miss:
                     log_info(
-                        f"⏳ [Thread {thread_id}] Case {case_index}: Funz calculator {selected_calculator_uri} "
+                        f"⏳ [Thread {thread_id}] Case {case_index}: Funz calculator {redact_uri(selected_calculator_uri)} "
                         f"not available (UDP timeout), switching to another calculator..."
                     )
                     if history:
@@ -788,7 +847,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                     funz_udp_cycle_count = 0  # a real failure resets the UDP-miss cycle counter
                     hard_failure_count += 1
                     log_warning(
-                        f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} "
+                        f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {redact_uri(selected_calculator_uri)} "
                         f"failed ({failure_info}): {error_msg}"
                     )
                     if history:
@@ -797,12 +856,12 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
                         history.append(f"Error: {error_msg}")
                     last_error = calc_result
             else:
-                log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} returned None result")
+                log_warning(f"⚠️ [Thread {thread_id}] Case {case_index}: Calculator {redact_uri(selected_calculator_uri)} returned None result")
                 hard_failure_count += 1
                 last_error = {
                     "status": "error",
                     "error": "Calculator returned None result",
-                    "calculator_uri": selected_calculator_uri
+                    "calculator_uri": redact_uri(selected_calculator_uri)
                 }
                 # Release the calculator after failed calculation
                 calc_mgr.release_calculator(selected_calculator_id, thread_id)
@@ -811,15 +870,15 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
             import traceback
             elapsed = time.time() - start_time
             error_msg = str(e)
-            log_error(f"❌ [Thread {thread_id}] Case {case_index}: Calculator {selected_calculator_uri} failed with exception after {elapsed:.2f}s: {error_msg}")
+            log_error(f"❌ [Thread {thread_id}] Case {case_index}: Calculator {redact_uri(selected_calculator_uri)} failed with exception after {elapsed:.2f}s: {error_msg}")
 
             hard_failure_count += 1
             last_error = {
                 "status": "error",
                 "error": error_msg,
-                "calculator_uri": selected_calculator_uri,
+                "calculator_uri": redact_uri(selected_calculator_uri),
                 "error_details": {
-                    "calculator": selected_calculator_uri,
+                    "calculator": redact_uri(selected_calculator_uri),
                     "tmp_dir": str(tmp_dir),
                     "exception_type": type(e).__name__,
                     "exception_message": error_msg,
@@ -848,7 +907,7 @@ def try_calculators_with_retry(non_cache_calculator_ids: List[str], case_index: 
         f"exceeded limit ({max_hard_failures})"
     )
     # Convert calculator IDs back to URIs for logging
-    attempted_uris = [calc_mgr.get_original_uri(calc_id) for calc_id in attempted_calculator_ids]
+    attempted_uris = [redact_uri(calc_mgr.get_original_uri(calc_id)) for calc_id in attempted_calculator_ids]
     log_error(f"❌ [Thread {thread_id}] Case {case_index}: Attempted calculators: {attempted_uris}")
 
     # Return the final error and the last attempted calculator ID
@@ -938,7 +997,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
     used_calculator = None
     current_hash_file = result_dir / ".fz_hash"
 
-    log_debug(f"🔄 [Thread {thread_id}] {case_name}: Checking {len(calculators)} calculators: {calculators}")
+    log_debug(f"🔄 [Thread {thread_id}] {case_name}: Checking {len(calculators)} calculators: {[redact_uri(c) for c in calculators]}")
 
     # code_id(s) declared by the non-cache calculators available to this case
     # (computed upfront so cache:// entries can check identity against them,
@@ -1271,7 +1330,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
             if not parse_success:
                 error_message.append(f"Failed to parse output: {parse_error}")
             result["error"] = "; ".join(error_message)
-            result["calculator"] = used_calculator or "unknown"
+            result["calculator"] = redact_uri(used_calculator) if used_calculator else "unknown"
 
             # Preserve additional fields from the calculation result even in error case
             if calc_result:
@@ -1285,7 +1344,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                 spinner.update_status(case_index, CaseStatus.FAILED)
         else:
             # File copying and parsing successful - use original calculation status
-            result["calculator"] = used_calculator or "unknown"
+            result["calculator"] = redact_uri(used_calculator) if used_calculator else "unknown"
             original_status = calc_result.get("status", "unknown") if calc_result else "unknown"
             result["status"] = original_status
 
@@ -1320,7 +1379,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
 
             case_name = ",".join(f"{k}={v}" for k, v in var_combo.items()) if len(case_info["total_cases"]) > 1 else "single case"
             log_error(f"✗ Calculation FAILED for {case_name}")
-            log_error(f"  Calculator: {calculator_used}")
+            log_error(f"  Calculator: {redact_uri(calculator_used)}")
             log_error(f"  Status: {status}")
             log_error(f"  Error: {error_msg}")
 
@@ -1344,7 +1403,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
                         log_error(f"  Traceback: {error_details['traceback']}")
 
             # Store error in result using "error" key as specified
-            result["calculator"] = calculator_used
+            result["calculator"] = redact_uri(calculator_used)
             result["error"] = error_msg
             # Keep error_details for debugging purposes
             if error_details:
@@ -1384,7 +1443,7 @@ def run_single_case(case_info: Dict) -> Dict[str, Any]:
         write_info_file(
             result_dir,
             state=final_status,
-            calculator=result.get("calculator", used_calculator or "unknown"),
+            calculator=redact_uri(result.get("calculator", used_calculator or "unknown")),
             start_time=case_start_dt,
             end_time=datetime.now(),
             input_variables=var_combo,
@@ -1465,7 +1524,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
     calculator_ids = calc_mgr.register_calculator_instances(calculators)
 
     log_info(f"🚀 Starting parallel execution of {len(var_combinations)} cases")
-    log_info(f"🚀 Available calculators: {calculators}")
+    log_info(f"🚀 Available calculators: {[redact_uri(c) for c in calculators]}")
 
     # Map calculator IDs back to original URIs for case processing
     id_to_uri_map = {calc_id: calc_mgr.get_original_uri(calc_id) for calc_id in calculator_ids}

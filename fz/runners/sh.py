@@ -1,6 +1,7 @@
 """Local shell calculator."""
 
 import os
+import shlex
 import subprocess
 import time
 from datetime import datetime
@@ -283,8 +284,12 @@ def run_local_calculation(
     try:
         os.chdir(working_dir)
 
-        # Build arguments from input files list
-        input_argument = " ".join(input_files_list) if input_files_list else "."
+        # Build arguments from input files list (each name shell-quoted - P0-3;
+        # the calculation `command` itself is the model/calculator author's own
+        # command and is deliberately left as-is, see P0-2)
+        input_argument = (
+            " ".join(shlex.quote(f) for f in input_files_list) if input_files_list else "."
+        )
 
         # Construct command - resolve ALL file paths to absolute for reliable parallel execution
         if command:

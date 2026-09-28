@@ -72,7 +72,9 @@ fz.fzr(input_path: str,
   "cached"), `calculator`, `error`, `command`.
 - `case_naming` controls each case's result/temp subdirectory name: `"path"`
   (`var1=val1,var2=val2,...`, default, but can exceed filesystem filename length
-  limits with many variables), `"hash"` (short content hash, always short/stable), or
+  limits with many variables - unsafe characters in a key/value are percent-encoded
+  in the directory name only; `info.txt`/`cases.csv` keep the original value),
+  `"hash"` (short content hash, always short/stable), or
   `"index"` (`case_<i>`). With `"hash"`/`"index"`, a single `cases.csv` manifest is
   written at the results root (case dir name → variables); each case's own `info.txt`
   also has them, as a fallback. Defaults to the `FZ_CASE_NAMING` env var, or `"path"`.

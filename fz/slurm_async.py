@@ -63,8 +63,13 @@ def split_slurm_resources(slurm_uri: str) -> Tuple[str, Dict[str, str]]:
 
 
 def srun_options(resources: Dict[str, str]) -> str:
-    """Resource options for a blocking ``srun`` (slurm://); values are regex-validated."""
-    return " ".join(f"{RESOURCE_OPTIONS[k]}={v}" for k, v in resources.items() if k in RESOURCE_OPTIONS)
+    """Resource options for a blocking ``srun`` (slurm://); values are regex-validated.
+
+    Also shell-quoted (P0-3 defense in depth): the regex in split_slurm_resources()
+    already restricts values to a safe charset, so this is a no-op today, but it means
+    a future relaxation of that charset can't reopen a shell-injection path here.
+    """
+    return " ".join(f"{RESOURCE_OPTIONS[k]}={shlex.quote(v)}" for k, v in resources.items() if k in RESOURCE_OPTIONS)
 
 
 class ArrayTask:

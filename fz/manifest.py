@@ -7,12 +7,13 @@ hashes), and an optional RO-Crate (``ro-crate-metadata.json``) built from it.
 import hashlib
 import json
 import platform
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit
+
+from .uri import redact_uri
 
 MANIFEST_NAME = "manifest.json"
 RO_CRATE_NAME = "ro-crate-metadata.json"
@@ -21,11 +22,6 @@ MANIFEST_SCHEMA = "fz-manifest/1"
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def redact_uri(uri: str) -> str:
-    """Hide credentials in a calculator URI (``ssh://user:pw@host`` -> ``ssh://user:***@host``)."""
-    return re.sub(r"(://[^/:@\s]*:)[^@/\s]*@", r"\1***@", str(uri))
 
 
 def uri_host(uri: str) -> Optional[str]:

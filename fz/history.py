@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from .uri import redact_uri
+
 
 class CaseHistory:
     """Accumulates timestamped events for a single case execution."""
@@ -17,7 +19,10 @@ class CaseHistory:
         self._lines = [f"# {case_name}"]
 
     def append(self, message: str):
-        self._lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
+        # P0-3: messages often embed a calculator URI (e.g. "Trying calculator: ssh://user:pw@host/cmd");
+        # redact_uri() is a no-op on anything that isn't a "scheme://user:pw@" URI, so this is safe
+        # to apply unconditionally rather than auditing every call site.
+        self._lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] {redact_uri(message)}")
 
     def write(self, directory: Path):
         (directory / "history.txt").write_text("\n".join(self._lines) + "\n")
@@ -56,7 +61,8 @@ def write_info_file(directory: Path, *,
     """
     lines = []
     lines.append(f"state={state}")
-    lines.append(f"calc={calculator}")
+    # P0-3: never write a calculator URI's credentials to disk.
+    lines.append(f"calc={redact_uri(calculator)}")
 
     if error:
         lines.append(f"error={error}")
