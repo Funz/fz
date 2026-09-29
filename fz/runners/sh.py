@@ -15,7 +15,9 @@ from .manager import resolve_timeout, get_environment_info
 from .errors import classify_error
 
 
-def resolve_all_paths_in_command(command: str, original_cwd: str) -> tuple[str, bool]:
+def resolve_all_paths_in_command(
+    command: str, original_cwd: str, working_dir: str = None
+) -> tuple[str, bool]:
     """
     Resolve ALL file paths in a shell command to absolute paths
 
@@ -30,6 +32,10 @@ def resolve_all_paths_in_command(command: str, original_cwd: str) -> tuple[str, 
     Args:
         command: Original shell command
         original_cwd: Original working directory for resolving relative paths
+        working_dir: Case working directory. A word is resolved only if it exists
+            in ``original_cwd`` and does not exist in ``working_dir`` (compiled
+            input files take precedence). Output redirection targets are never
+            resolved. If None, only the existence check in ``original_cwd`` applies.
 
     Returns:
         Tuple of (resolved_command, was_changed) where:
@@ -62,7 +68,7 @@ def resolve_all_paths_in_command(command: str, original_cwd: str) -> tuple[str, 
 
             # Process this command segment
             resolved_segment, segment_changed = _resolve_paths_in_segment(
-                segment, original_cwd
+                segment, original_cwd, working_dir
             )
             resolved_segments.append(resolved_segment)
 
@@ -83,10 +89,15 @@ def resolve_all_paths_in_command(command: str, original_cwd: str) -> tuple[str, 
         return command, False
 
 
-def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, bool]:
+def _resolve_paths_in_segment(
+    segment: str, original_cwd: str, working_dir: str = None
+) -> tuple[str, bool]:
     """
-    Resolve ALL relative paths in a command segment to absolute paths.
-    Simple approach: convert any token that looks like a file path to absolute.
+    Resolve relative paths in a command segment to absolute paths.
+
+    A token that looks like a file path is converted only if it exists in
+    ``original_cwd`` and not in ``working_dir``; the target of ``>``/``>>``
+    redirections is never converted.
     """
     import shlex
     import re
@@ -103,8 +114,15 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
 
     resolved_parts = []
     was_changed = False
+    prev_part = ""
 
     for part in command_parts:
+        is_output_target = prev_part.lstrip("0123456789&") in (">", ">>", ">|")
+        prev_part = part
+        if is_output_target:
+            resolved_parts.append(part)
+            continue
+
         # Skip if already absolute path
         if os.path.isabs(part):
             resolved_parts.append(part)
@@ -210,8 +228,19 @@ def _resolve_paths_in_segment(segment: str, original_cwd: str) -> tuple[str, boo
             should_resolve = True
 
         if should_resolve:
-            # Convert to absolute path
             abs_path = os.path.abspath(os.path.join(original_cwd, part))
+
+            # Resolve only files really present in the launch directory and
+            # absent from the case directory (compiled inputs take precedence)
+            if not os.path.exists(abs_path):
+                resolved_parts.append(part)
+                continue
+            if working_dir is not None and os.path.exists(
+                os.path.join(str(working_dir), part)
+            ):
+                resolved_parts.append(part)
+                continue
+            log_info(f"Info: sh:// word resolved: {part} -> {abs_path}")
 
             # On Windows, convert path to forward slashes for bash compatibility
             # MSYS2/Git Bash/WSL all expect Unix-style paths
@@ -294,7 +323,7 @@ def run_local_calculation(
         # Construct command - resolve ALL file paths to absolute for reliable parallel execution
         if command:
             resolved_command, was_changed = resolve_all_paths_in_command(
-                command.replace("\\","/"), original_cwd
+                command.replace("\\","/"), original_cwd, "."  # cwd is the case dir after chdir
             )
 
             # Apply shell path resolution to command if FZ_SHELL_PATH is set

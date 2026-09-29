@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Fix: potentially wrong results with `sh://` commands (P0-8)
+
+- Path resolution in `sh://` commands converted every word that looked like a
+  file name to an absolute path in the launch directory without checking that
+  it exists. With `sh://cat in.txt > out.txt`, the calculation read the
+  **un-substituted** template from the launch directory instead of the case's
+  compiled file, and wrote `out.txt` outside the case directory (shared across
+  parallel cases), with no error. A word is now resolved only if it exists in
+  the launch directory and does not exist in the case directory; targets of
+  `>`/`>>` redirections are never resolved (stricter than "unless existing":
+  writing into the launch directory is the defect). Each resolved word is
+  logged at info level. Scripts located only in the launch directory
+  (`sh://bash script.sh`) still resolve. Results obtained earlier with
+  commands referencing input or output files by bare name should be re-checked.
+
 ### Breaking changes
 
 - **Dropped Python 3.8 support** (P0-5). `requires-python` is now `>=3.9` and
