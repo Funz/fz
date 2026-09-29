@@ -4,15 +4,17 @@ import os
 import time
 import hashlib
 import base64
+import shlex
 import uuid
 import getpass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
-from .base import Calculator
-from ..logging import log_warning, log_info
+from .base import Calculator, safe_remote_rmrf
+from ..logging import log_warning, log_info, log_error
 from ..config import get_config
+from ..uri import redact_uri, warn_password_in_uri_once
 from .manager import resolve_timeout, get_environment_info
 from .errors import classify_error
 
@@ -259,7 +261,7 @@ def run_ssh_calculation(
         return {
             "status": "interrupted",
             "error": "Execution interrupted by user",
-            "command": ssh_uri,
+            "command": redact_uri(ssh_uri),
         }
 
     if not PARAMIKO_AVAILABLE:
@@ -282,10 +284,12 @@ def run_ssh_calculation(
             # Try to get username from environment or use current user
             username = os.getenv("SSH_USER") or getpass.getuser()
 
-        # Validate connection security
+        # Validate connection security. Emitted once per host per process, not
+        # once per case/connection - a parameter study can open this connection
+        # hundreds of times (P0-3).
         security_info = validate_ssh_connection_security(host, username, password)
         for warning in security_info["warnings"]:
-            log_warning(f"Security Warning: {warning}")
+            warn_password_in_uri_once(host, lambda w=warning: log_warning(f"Security Warning: {w}"), message=warning)
 
         log_info(f"Connecting to SSH: {username}@{host}:{port}")
         if security_info["password_provided"]:
@@ -366,7 +370,11 @@ def run_ssh_calculation(
         remote_temp_dir = (
             f"{remote_root_dir}/.fz/tmp/fz_calc_{local_dir_identifier}_{unique_id}"
         )
-        ssh_client.exec_command(f"mkdir -p {remote_temp_dir}")
+        # Expected prefix any fz-created remote temp dir must have - checked again
+        # before the `rm -rf` cleanup below, so a directory name we did not build
+        # ourselves is never deleted (P0-3).
+        _remote_tmp_prefix = f"{remote_root_dir}/.fz/tmp/fz_calc_"
+        ssh_client.exec_command(f"mkdir -p {shlex.quote(remote_temp_dir)}")
 
         log_info(f"Created remote directory: {remote_temp_dir}")
         log_info(f"🌐 SSH calculation using remote directory: {username}@{host}:{remote_temp_dir}")
@@ -423,12 +431,11 @@ def run_ssh_calculation(
             return result
 
         finally:
-            # Cleanup remote directory
-            try:
-                ssh_client.exec_command(f"rm -rf {remote_temp_dir}")
-                log_info(f"Cleaned up remote directory: {remote_temp_dir}")
-            except Exception as e:
-                log_warning(f"Could not cleanup remote directory: {e}")
+            # Cleanup remote directory. Refuse to delete anything outside the
+            # fz-managed temp prefix we just built remote_temp_dir from (P0-3):
+            # this is the guard against a corrupted/unexpected remote_temp_dir
+            # value ever causing an out-of-target `rm -rf`.
+            safe_remote_rmrf(ssh_client, remote_temp_dir, _remote_tmp_prefix, log_info, log_error, log_warning)
 
             sftp.close()
 
@@ -438,10 +445,10 @@ def run_ssh_calculation(
         error_msg = classify_error(
             stderr=error_str,
             exit_code=None,
-            command=ssh_uri,
+            command=redact_uri(ssh_uri),
             protocol="ssh",
         )
-        return {"status": "error", "error": f"SSH calculation failed: {error_msg}", "command": ssh_uri}
+        return {"status": "error", "error": f"SSH calculation failed: {error_msg}", "command": redact_uri(ssh_uri)}
     finally:
         try:
             ssh_client.close()
@@ -534,14 +541,19 @@ def _execute_remote_command(
             "command": command,
         }
 
-    # Build arguments from input files list
-    input_argument = " ".join(input_files_list) if input_files_list else "."
+    # Build arguments from input files list (each name shell-quoted - P0-3;
+    # the calculation `command` itself is the model/calculator author's own
+    # command and is deliberately left as-is, see P0-2)
+    input_argument = (
+        " ".join(shlex.quote(f) for f in input_files_list) if input_files_list else "."
+    )
+    quoted_remote_dir = shlex.quote(remote_dir)
 
     # Construct full command
     if command:
-        full_command = f"cd {remote_dir} && {command} {input_argument}"
+        full_command = f"cd {quoted_remote_dir} && {command} {input_argument}"
     else:
-        full_command = f"cd {remote_dir} && ./{input_argument}"
+        full_command = f"cd {quoted_remote_dir} && ./{input_argument}"
 
     log_info(f"Executing remote command: {full_command}")
 
@@ -646,39 +658,37 @@ def _execute_remote_command(
             "unknown"
         )
 
-    # Create enhanced log files remotely
-    log_command = f"""cd {remote_dir}
-
-# Create enhanced log.txt
-cat > log.txt << 'EOF'
-Command: {full_command}
-Exit code: {exit_code}
-Time start: {start_time.isoformat() if start_time else 'unknown'}
-Time end: {command_end_time.isoformat()}
-Command execution time: {command_execution_time:.3f} seconds
-Total execution time: {total_execution_time:.3f} seconds
-Local user: {env_info.get('user', 'unknown') if env_info else 'unknown'}
-Local hostname: {env_info.get('hostname', 'unknown') if env_info else 'unknown'}
-Local operating system: {env_info.get('operating_system', 'unknown') if env_info else 'unknown'}
-Local working directory: {env_info.get('working_dir', 'unknown') if env_info else 'unknown'}
-Remote user: {remote_user}
-Remote hostname: {remote_hostname}
-Remote operating system: {remote_os}
-Remote platform: {remote_platform}
-Remote working directory: {remote_pwd}
-Timestamp: $(date)
-EOF
-
-# Create output files
-cat > out.txt << 'EOF'
-{stdout_data}
-EOF
-
-cat > err.txt << 'EOF'
-{stderr_data}
-EOF
-"""
-    ssh_client.exec_command(log_command, timeout=30)
+    # Write log.txt/out.txt/err.txt locally instead of via a remote heredoc
+    # (P0-3): a remote-produced output line that is exactly "EOF" would
+    # otherwise close the heredoc early and hand the rest of stdout/stderr to
+    # the remote shell as commands. We already have stdout_data/stderr_data
+    # fetched locally, so there is no need to round-trip them through the
+    # remote host at all; the timestamp is computed in Python, not via a
+    # remote `$(date)`.
+    log_lines = [
+        f"Command: {full_command}",
+        f"Exit code: {exit_code}",
+        f"Time start: {start_time.isoformat() if start_time else 'unknown'}",
+        f"Time end: {command_end_time.isoformat()}",
+        f"Command execution time: {command_execution_time:.3f} seconds",
+        f"Total execution time: {total_execution_time:.3f} seconds",
+        f"Local user: {env_info.get('user', 'unknown') if env_info else 'unknown'}",
+        f"Local hostname: {env_info.get('hostname', 'unknown') if env_info else 'unknown'}",
+        f"Local operating system: {env_info.get('operating_system', 'unknown') if env_info else 'unknown'}",
+        f"Local working directory: {env_info.get('working_dir', 'unknown') if env_info else 'unknown'}",
+        f"Remote user: {remote_user}",
+        f"Remote hostname: {remote_hostname}",
+        f"Remote operating system: {remote_os}",
+        f"Remote platform: {remote_platform}",
+        f"Remote working directory: {remote_pwd}",
+        f"Timestamp: {datetime.now().isoformat()}",
+    ]
+    try:
+        (local_dir / "log.txt").write_text("\n".join(log_lines) + "\n")
+        (local_dir / "out.txt").write_text(stdout_data)
+        (local_dir / "err.txt").write_text(stderr_data)
+    except Exception as e:
+        log_warning(f"Could not write local log/out/err files: {e}")
 
     if exit_code != 0:
         # Classify the error to provide a human-readable message

@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Dict, List, Any
 
+from ..uri import redact_uri
 from .base import Calculator
 from .cache import CacheCalculator
 from .sh import ShCalculator
@@ -137,14 +138,15 @@ def run_single_case_calculation(
             static_entries=static_entries,
         )
 
-        # Always add calculator URI to result
-        result["calculator_uri"] = calculator_uri
+        # Always add calculator URI to result (redacted - this is only used for
+        # reporting/classification downstream, never to open a new connection - P0-3)
+        result["calculator_uri"] = redact_uri(calculator_uri)
 
         # If calculation failed, enhance error information
         if result.get("status") not in ["done", "timeout"]:
             # Add more detailed error context
             result["error_details"] = {
-                "calculator": calculator_uri,
+                "calculator": redact_uri(calculator_uri),
                 "working_dir": str(working_dir),
                 "status": result.get("status", "unknown"),
                 "exit_code": result.get("exit_code"),
@@ -159,10 +161,10 @@ def run_single_case_calculation(
 
         return {
             "status": "error",
-            "calculator_uri": calculator_uri,
+            "calculator_uri": redact_uri(calculator_uri),
             "error": str(e),
             "error_details": {
-                "calculator": calculator_uri,
+                "calculator": redact_uri(calculator_uri),
                 "working_dir": str(working_dir),
                 "exception_type": type(e).__name__,
                 "exception_message": str(e),

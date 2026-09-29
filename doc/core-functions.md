@@ -385,11 +385,14 @@ results_df = fz.fzr(
 - `results_dir` (str): Results directory path (default: "results")
 - `case_naming` (str): How each case's result/temp subdirectory is named - `"path"`
   (`var1=val1,var2=val2,...`, default; human-readable but can exceed filesystem
-  filename length limits with many variables), `"hash"` (short content hash, always
-  short and stable), or `"index"` (`case_<i>`, shortest). With `"hash"`/`"index"`, a
-  single `cases.csv` manifest is written at the results root mapping each case
-  directory to its variables (each case's own `info.txt` also has them, as a
-  fallback). Defaults to the `FZ_CASE_NAMING` env var, or `"path"`.
+  filename length limits with many variables - each key/value is percent-encoded
+  for characters unsafe in a path component, so the *directory name* may differ
+  from the raw value; `info.txt`/`cases.csv` always keep the original value),
+  `"hash"` (short content hash, always short and stable), or `"index"` (`case_<i>`,
+  shortest). With `"hash"`/`"index"`, a single `cases.csv` manifest is written at
+  the results root mapping each case directory to its variables (each case's own
+  `info.txt` also has them, as a fallback). Defaults to the `FZ_CASE_NAMING` env
+  var, or `"path"`.
 - `input_static` (list of str, optional): Files identical across every case (e.g. a
   shared weather CSV or a large reference dataset) that are never templated/
   substituted, never re-hashed per case, and (for relative paths) not duplicated on

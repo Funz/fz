@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import shlex
 import time
 import uuid
 import getpass
@@ -9,10 +10,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
-from .base import Calculator
-from ..logging import log_warning, log_info
+from .base import Calculator, safe_remote_rmrf
+from ..logging import log_warning, log_info, log_error
 from ..config import get_config
 from ..shell import run_command
+from ..uri import redact_uri, warn_password_in_uri_once
 from .manager import resolve_timeout, get_environment_info
 from .errors import classify_error
 from ..slurm_async import split_slurm_resources, srun_options
@@ -225,7 +227,7 @@ def run_slurm_calculation(
         return {
             "status": "interrupted",
             "error": "Execution interrupted by user",
-            "command": slurm_uri,
+            "command": redact_uri(slurm_uri),
         }
 
     start_time = datetime.now()
@@ -305,7 +307,7 @@ def _run_local_slurm_calculation(
         return {
             "status": "interrupted",
             "error": "Execution interrupted by user",
-            "command": f"srun --partition={partition} {script}",
+            "command": f"srun --partition={shlex.quote(partition)} {script}",
         }
 
     original_cwd = os.getcwd()
@@ -314,13 +316,18 @@ def _run_local_slurm_calculation(
     try:
         os.chdir(working_dir)
 
-        # Build arguments from input files list
-        input_argument = " ".join(input_files_list) if input_files_list else "."
+        # Build arguments from input files list (each name shell-quoted - P0-3)
+        input_argument = (
+            " ".join(shlex.quote(f) for f in input_files_list) if input_files_list else "."
+        )
 
         # Construct srun command
         # Use --partition for partition and execute the script
         extra = srun_options(resources or {})
-        full_command = f"srun --partition={partition}{' ' + extra if extra else ''} {script} {input_argument}"
+        full_command = (
+            f"srun --partition={shlex.quote(partition)}"
+            f"{' ' + extra if extra else ''} {script} {input_argument}"
+        )
 
         log_info(f"Running SLURM command: {full_command}")
 
@@ -440,7 +447,7 @@ def _run_local_slurm_calculation(
         return {
             "status": "timeout",
             "error": f"SLURM job timed out after {timeout} seconds on partition '{partition}'",
-            "command": f"srun --partition={partition} {script}",
+            "command": f"srun --partition={shlex.quote(partition)} {script}",
         }
     except KeyboardInterrupt:
         if process and process.poll() is None:
@@ -455,13 +462,13 @@ def _run_local_slurm_calculation(
         return {
             "status": "interrupted",
             "error": "SLURM calculation interrupted by user",
-            "command": f"srun --partition={partition} {script}",
+            "command": f"srun --partition={shlex.quote(partition)} {script}",
         }
     except Exception as e:
         return {
             "status": "error",
             "error": str(e),
-            "command": f"srun --partition={partition} {script}",
+            "command": f"srun --partition={shlex.quote(partition)} {script}",
         }
     finally:
         os.chdir(original_cwd)
@@ -511,13 +518,14 @@ def _run_remote_slurm_calculation(
         return {
             "status": "interrupted",
             "error": "Execution interrupted by user",
-            "command": f"srun --partition={partition} {script}",
+            "command": f"srun --partition={shlex.quote(partition)} {script}",
         }
 
-    # Validate connection security
+    # Validate connection security (warning emitted once per host, not once
+    # per case/connection - P0-3, mirrors ssh.py's run_ssh_calculation)
     security_info = validate_ssh_connection_security(host, username, password)
     for warning in security_info["warnings"]:
-        log_warning(f"Security Warning: {warning}")
+        warn_password_in_uri_once(host, lambda w=warning: log_warning(f"Security Warning: {w}"), message=warning)
 
     log_info(f"Connecting to SSH for SLURM: {username}@{host}:{port}")
 
@@ -579,8 +587,11 @@ def _run_remote_slurm_calculation(
         local_dir_identifier = working_dir.name
         unique_id = uuid.uuid4().hex[:8]
         remote_temp_dir = f"{remote_root_dir}/.fz/tmp/fz_slurm_{local_dir_identifier}_{unique_id}"
+        # Expected prefix any fz-created remote temp dir must have - checked again
+        # before the `rm -rf` cleanup below (P0-3, mirrors ssh.py).
+        _remote_tmp_prefix = f"{remote_root_dir}/.fz/tmp/fz_slurm_"
 
-        ssh_client.exec_command(f"mkdir -p {remote_temp_dir}")
+        ssh_client.exec_command(f"mkdir -p {shlex.quote(remote_temp_dir)}")
         log_info(f"Created remote directory: {remote_temp_dir}")
         log_info(f"🖥️  SLURM calculation on remote: {username}@{host}:{remote_temp_dir}")
 
@@ -620,7 +631,7 @@ def _run_remote_slurm_calculation(
                     output_error = output_dict.pop("_output_error", None)
                     result.update(output_dict)
                     result["calculator"] = f"slurm://{host}:{partition}"
-                    result["command"] = f"srun --partition={partition} {script}"
+                    result["command"] = f"srun --partition={shlex.quote(partition)} {script}"
                     if output_error:
                         result["error"] = f"Missing output on remote SLURM node: {output_error}"
                 except Exception as e:
@@ -628,17 +639,14 @@ def _run_remote_slurm_calculation(
                     result["error"] = f"Output parsing failed after successful remote SLURM execution: {e}"
 
             if "command" not in result:
-                result["command"] = f"srun --partition={partition} {script}"
+                result["command"] = f"srun --partition={shlex.quote(partition)} {script}"
 
             return result
 
         finally:
-            # Cleanup remote directory
-            try:
-                ssh_client.exec_command(f"rm -rf {remote_temp_dir}")
-                log_info(f"Cleaned up remote directory: {remote_temp_dir}")
-            except Exception as e:
-                log_warning(f"Could not cleanup remote directory: {e}")
+            # Cleanup remote directory - refuse to delete anything outside the
+            # fz-managed temp prefix (P0-3, mirrors ssh.py).
+            safe_remote_rmrf(ssh_client, remote_temp_dir, _remote_tmp_prefix, log_info, log_error, log_warning)
 
             sftp.close()
 
@@ -687,14 +695,19 @@ def _execute_remote_slurm_command(
         return {
             "status": "interrupted",
             "error": "Execution interrupted by user",
-            "command": f"srun --partition={partition} {script}",
+            "command": f"srun --partition={shlex.quote(partition)} {script}",
         }
 
-    # Build arguments from input files list
-    input_argument = " ".join(input_files_list) if input_files_list else "."
+    # Build arguments from input files list (each name shell-quoted - P0-3)
+    input_argument = (
+        " ".join(shlex.quote(f) for f in input_files_list) if input_files_list else "."
+    )
 
     # Construct full SLURM command
-    full_command = f"cd {remote_dir} && srun --partition={partition} {script} {input_argument}"
+    full_command = (
+        f"cd {shlex.quote(remote_dir)} && srun --partition={shlex.quote(partition)} "
+        f"{script} {input_argument}"
+    )
 
     log_info(f"Executing remote SLURM command: {full_command}")
 
@@ -785,47 +798,43 @@ def _execute_remote_slurm_command(
     except:
         remote_hostname = remote_user = remote_pwd = remote_os = remote_platform = "unknown"
 
-    # Create enhanced log files remotely
-    log_command = f"""cd {remote_dir}
-
-# Create enhanced log.txt
-cat > log.txt << 'EOF'
-Command: {full_command}
-Exit code: {exit_code}
-SLURM partition: {partition}
-Time start: {start_time.isoformat()}
-Time end: {command_end_time.isoformat()}
-Command execution time: {command_execution_time:.3f} seconds
-Total execution time: {total_execution_time:.3f} seconds
-Local user: {env_info.get('user', 'unknown')}
-Local hostname: {env_info.get('hostname', 'unknown')}
-Local operating system: {env_info.get('operating_system', 'unknown')}
-Local working directory: {env_info.get('working_dir', 'unknown')}
-Remote user: {remote_user}
-Remote hostname: {remote_hostname}
-Remote operating system: {remote_os}
-Remote platform: {remote_platform}
-Remote working directory: {remote_pwd}
-Timestamp: $(date)
-EOF
-
-# Create output files
-cat > out.txt << 'EOF'
-{stdout_data}
-EOF
-
-cat > err.txt << 'EOF'
-{stderr_data}
-EOF
-"""
-    ssh_client.exec_command(log_command, timeout=30)
+    # Write log.txt/out.txt/err.txt locally instead of via a remote heredoc
+    # (P0-3): a remote-produced output line that is exactly "EOF" would
+    # otherwise close the heredoc early and hand the rest of stdout/stderr to
+    # the remote shell as commands. stdout_data/stderr_data are already fetched
+    # locally; the timestamp is computed in Python, not via a remote `$(date)`.
+    log_lines = [
+        f"Command: {full_command}",
+        f"Exit code: {exit_code}",
+        f"SLURM partition: {partition}",
+        f"Time start: {start_time.isoformat()}",
+        f"Time end: {command_end_time.isoformat()}",
+        f"Command execution time: {command_execution_time:.3f} seconds",
+        f"Total execution time: {total_execution_time:.3f} seconds",
+        f"Local user: {env_info.get('user', 'unknown')}",
+        f"Local hostname: {env_info.get('hostname', 'unknown')}",
+        f"Local operating system: {env_info.get('operating_system', 'unknown')}",
+        f"Local working directory: {env_info.get('working_dir', 'unknown')}",
+        f"Remote user: {remote_user}",
+        f"Remote hostname: {remote_hostname}",
+        f"Remote operating system: {remote_os}",
+        f"Remote platform: {remote_platform}",
+        f"Remote working directory: {remote_pwd}",
+        f"Timestamp: {datetime.now().isoformat()}",
+    ]
+    try:
+        (local_dir / "log.txt").write_text("\n".join(log_lines) + "\n")
+        (local_dir / "out.txt").write_text(stdout_data)
+        (local_dir / "err.txt").write_text(stderr_data)
+    except Exception as e:
+        log_warning(f"Could not write local log/out/err files: {e}")
 
     if exit_code != 0:
         # Classify the error to provide a human-readable message
         error_message = classify_error(
             stderr=stderr_data,
             exit_code=exit_code,
-            command=f"srun --partition={partition} {script}",
+            command=f"srun --partition={shlex.quote(partition)} {script}",
             protocol="slurm",
         )
         return {

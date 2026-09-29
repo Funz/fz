@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 
 from ..logging import log_warning, log_info, log_debug
 from ..config import get_config
+from ..uri import redact_uri
 
 
 def get_environment_info() -> Dict[str, str]:
@@ -97,14 +98,16 @@ class CalculatorManager:
                 self._calculator_owners[calculator_id] = thread_id
             original_uri = self.get_original_uri(calculator_id)
             log_debug(
-                f"🔒 [Thread {thread_id}] Acquired calculator: {original_uri} (ID: {calculator_id})"
+                f"🔒 [Thread {thread_id}] Acquired calculator: {redact_uri(original_uri)} "
+                f"(ID: {redact_uri(calculator_id)})"
             )
             return True
         else:
             current_owner = self._calculator_owners.get(calculator_id, "unknown")
             original_uri = self.get_original_uri(calculator_id)
             log_debug(
-                f"⏳ [Thread {thread_id}] Calculator {original_uri} (ID: {calculator_id}) is busy (owned by thread {current_owner})"
+                f"⏳ [Thread {thread_id}] Calculator {redact_uri(original_uri)} "
+                f"(ID: {redact_uri(calculator_id)}) is busy (owned by thread {current_owner})"
             )
             return False
 
@@ -127,12 +130,14 @@ class CalculatorManager:
             calc_lock.release()
             original_uri = self.get_original_uri(calculator_id)
             log_debug(
-                f"🔓 [Thread {thread_id}] Released calculator: {original_uri} (ID: {calculator_id})"
+                f"🔓 [Thread {thread_id}] Released calculator: {redact_uri(original_uri)} "
+                f"(ID: {redact_uri(calculator_id)})"
             )
         except Exception as e:
             original_uri = self.get_original_uri(calculator_id)
             log_warning(
-                f"⚠️ [Thread {thread_id}] Error releasing calculator {original_uri} (ID: {calculator_id}): {e}"
+                f"⚠️ [Thread {thread_id}] Error releasing calculator {redact_uri(original_uri)} "
+                f"(ID: {redact_uri(calculator_id)}): {e}"
             )
 
     def get_available_calculator(

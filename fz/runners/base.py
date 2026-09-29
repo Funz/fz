@@ -56,3 +56,28 @@ class Calculator(ABC):
     def cancel(self, handle: Future) -> bool:
         """Best-effort cancel; only effective before the calculation has started."""
         return handle.cancel()
+
+
+def safe_remote_rmrf(ssh_client, path: str, expected_prefix: str, log_info, log_error, log_warning) -> None:
+    """Remove a remote directory over an open SSH channel, refusing anything
+    that doesn't start with ``expected_prefix`` (P0-3).
+
+    Shared by ssh.py's and slurm.py's remote cleanup, both of which build
+    ``path`` from a prefix under the remote ``.fz/tmp/`` directory: this is
+    the guard against a corrupted/unexpected value ever causing an
+    out-of-target ``rm -rf``. Best-effort: exceptions from the remote command
+    itself are logged as a warning (the connection may already be closing),
+    but the prefix check always runs first.
+    """
+    import shlex
+    try:
+        if path.startswith(expected_prefix):
+            ssh_client.exec_command(f"rm -rf {shlex.quote(path)}")
+            log_info(f"Cleaned up remote directory: {path}")
+        else:
+            log_error(
+                f"Refusing to delete remote directory outside expected "
+                f"prefix '{expected_prefix}': {path}"
+            )
+    except Exception as e:
+        log_warning(f"Could not cleanup remote directory: {e}")
