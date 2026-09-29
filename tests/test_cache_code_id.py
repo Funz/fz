@@ -196,3 +196,70 @@ def test_legacy_v1_cache_ignored_by_default_and_accepted_when_opted_in():
         config.cache_accept_legacy = False
     # Opted in: legacy cache reused, calculator not run again
     assert _count("runs.txt") == 1
+
+
+def test_legacy_v1_cache_refusal_warns_once_per_campaign(capsys):
+    """A refused v1 cache is reported (once per campaign), not skipped silently."""
+    old_level = get_log_level()
+    set_log_level("WARNING")
+    try:
+        _write_input()
+        _write_counting_calculator("calc_a.sh", "A", "runs.txt")
+        legacy_dir = Path("legacy_cache")
+        legacy_dir.mkdir()
+        with open(legacy_dir / "input.txt", "w", newline='\n') as f:
+            f.write("x = 1\n")
+        with open(legacy_dir / ".fz_hash", "w", newline='\n') as f:
+            f.write(f"{md5_file(legacy_dir / 'input.txt')}  input.txt\n")
+        # a second legacy candidate in the same base directory
+        other = legacy_dir / "other"
+        other.mkdir()
+        with open(other / "input.txt", "w", newline='\n') as f:
+            f.write("x = 2\n")
+        with open(other / ".fz_hash", "w", newline='\n') as f:
+            f.write(f"{md5_file(other / 'input.txt')}  input.txt\n")
+        capsys.readouterr()
+
+        fzr("input.txt", {"x": [1, 2]}, MODEL,
+            calculators=[f"cache://{legacy_dir}", "sh://bash ./calc_a.sh"],
+            results_dir="results_w")
+
+        err = capsys.readouterr().err
+        assert err.count("legacy (v1") == 1
+        assert "FZ_CACHE_ACCEPT_LEGACY" in err
+    finally:
+        set_log_level(old_level)
+
+
+def _fake_docker(bin_dir: Path, exit_code: int, output: str):
+    bin_dir.mkdir(exist_ok=True)
+    script = bin_dir / "docker"
+    with open(script, "w", newline='\n') as f:
+        f.write("#!/bin/bash\n")
+        f.write(f"echo '{output}'\n" if exit_code == 0 else f"echo '{output}' >&2\n")
+        f.write(f"exit {exit_code}\n")
+    os.chmod(script, 0o755)
+
+
+def _telemac_alias():
+    import json
+    root = Path(__file__).resolve().parent.parent
+    return json.loads((root / "examples/Telemac/.fz/calculators/localhost.json").read_text())
+
+
+def test_telemac_example_version_cmd_resolves_to_image_id(monkeypatch):
+    from fz.runners.resolve import _resolve_calculator_code_id, _code_id_cache
+    _code_id_cache.clear()
+    _fake_docker(Path("bin"), 0, "sha256:abc123")
+    monkeypatch.setenv("PATH", f"{Path('bin').resolve().as_posix()}{os.pathsep}{os.environ['PATH']}")
+    alias = _telemac_alias()
+    assert _resolve_calculator_code_id(alias, "sh://bash .fz/calculators/Telemac.sh") == "sha256:abc123"
+
+
+def test_failing_version_cmd_leaves_code_id_undeclared(monkeypatch):
+    """docker missing/daemon down: the error message must not become a code_id."""
+    from fz.runners.resolve import _resolve_calculator_code_id, _code_id_cache
+    _code_id_cache.clear()
+    _fake_docker(Path("bin"), 1, "Cannot connect to the Docker daemon")
+    monkeypatch.setenv("PATH", f"{Path('bin').resolve().as_posix()}{os.pathsep}{os.environ['PATH']}")
+    assert _resolve_calculator_code_id(_telemac_alias(), "sh://bash .fz/calculators/Telemac.sh") is None

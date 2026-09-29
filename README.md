@@ -1720,7 +1720,8 @@ results = fz.fzr("input.txt", input_variables, "perfectgas", calculators="cluste
 that declare the same `code_id` share `cache://` results with each other;
 declaring a different one refuses the match even if the command is
 identical. `version_cmd` resolves `code_id` by running a command on the
-calculator instead of hardcoding it (once per calculator per session):
+calculator instead of hardcoding it (once per calculator per session); if it
+exits with a non-zero status, the calculator is treated as having no `code_id`:
 
 ```json
 {
@@ -2929,6 +2930,11 @@ you call `fzi`/`fzc`/`fzr`/`fzd`:
   results.
 - **Calculator commands** (`sh://`, `ssh://`, ...) run whatever command string
   you or a model/calculator alias declare.
+- **`version_cmd`** of a calculator alias (used to resolve `code_id` for
+  `cache://`, see "Calculator Aliases") is a shell command run by fz itself,
+  locally for `sh://` or on the remote host for `ssh://`, when a campaign
+  resolves its calculators (once per calculator and process, before any case
+  runs). It carries the same trust requirement as the calculator command.
 
 **Don't run a model, algorithm, or calculator alias from a source you don't
 trust** — it is equivalent to running a shell script from that source.

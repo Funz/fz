@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 
 from ..io import load_aliases
 from ..logging import log_warning
+from ..uri import redact_uri
 from ..slurm_async import split_slurm_resources
 from .ssh import parse_ssh_uri
 from .slurm import parse_slurm_uri
@@ -70,6 +71,21 @@ _code_id_cache: Dict[Tuple[str, str], Optional[str]] = {}
 _code_id_cache_lock = threading.Lock()
 
 
+def _version_cmd_output(uri: str, version_cmd: str, returncode: int, stdout: str, stderr: str) -> Optional[str]:
+    """Return the identity printed by a version_cmd, or None if it failed (non-zero exit) or printed nothing.
+
+    The output of a failing command is an error message, never a code identity:
+    using it would make two broken installations share cache results."""
+    if returncode != 0:
+        log_warning(
+            f"⚠️  version_cmd {version_cmd!r} for calculator '{redact_uri(uri)}' exited with status "
+            f"{returncode}; code identity left undeclared"
+        )
+        return None
+    # Some tools print their version on stderr with a zero exit (e.g. `java -version`)
+    return (stdout or "").strip() or (stderr or "").strip() or None
+
+
 def _run_version_cmd(uri: str, version_cmd: str) -> Optional[str]:
     """Run a calculator alias's version_cmd to resolve its code_id (sh:// and ssh:// only)."""
     scheme = uri.split("://", 1)[0].lower() if "://" in uri else ""
@@ -80,8 +96,7 @@ def _run_version_cmd(uri: str, version_cmd: str) -> Optional[str]:
             result = subprocess.run(
                 [shell, "-c", version_cmd], capture_output=True, text=True, timeout=30
             )
-            output = (result.stdout or "").strip() or (result.stderr or "").strip()
-            return output or None
+            return _version_cmd_output(uri, version_cmd, result.returncode, result.stdout, result.stderr)
 
         if scheme == "ssh":
             return _run_version_cmd_ssh(uri, version_cmd)
@@ -120,8 +135,9 @@ def _run_version_cmd_ssh(uri: str, version_cmd: str) -> Optional[str]:
     try:
         client.connect(host, port=port, username=username, password=password, timeout=15)
         _, stdout, stderr = client.exec_command(version_cmd, timeout=30)
-        output = stdout.read().decode(errors="replace").strip() or stderr.read().decode(errors="replace").strip()
-        return output or None
+        out = stdout.read().decode(errors="replace")
+        err = stderr.read().decode(errors="replace")
+        return _version_cmd_output(uri, version_cmd, stdout.channel.recv_exit_status(), out, err)
     finally:
         client.close()
 

@@ -391,6 +391,10 @@ fz.fzr("t2d_breach.cas",
     calculators="sh://bash .fz/calculators/Telemac.sh", results_dir="result")
 ```
 
+`localhost.json` declares a `version_cmd` (the id of the local `irsn/telemac-mascaret:latest`
+docker image) because `latest` moves: `cache://` then only reuses results computed with
+that same image. See "Calculator Aliases" in the README (`code_id`, `version_cmd`).
+
 use cache and aliases for Telemac:
 ```python
 fz.fzr("t2d_breach.cas", input_variables={}, model="Telemac", calculators="*", results_dir="result")

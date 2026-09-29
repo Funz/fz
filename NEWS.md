@@ -17,6 +17,18 @@
   (`sh://bash script.sh`) still resolve. Results obtained earlier with
   commands referencing input or output files by bare name should be re-checked.
 
+### Cache identity follow-ups (P0-1)
+
+- `cache://` now logs a one-time warning per campaign when it ignores a legacy
+  (v1, MD5) cache entry, naming `FZ_CACHE_ACCEPT_LEGACY=1` (previously skipped silently).
+- README "Threat Model" now lists `version_cmd` as executed code (locally for
+  `sh://`, on the remote host for `ssh://`).
+- A `version_cmd` that exits with a non-zero status (e.g. docker daemon down)
+  no longer yields its error message as `code_id`; the calculator is treated
+  as having no declared identity, with a warning.
+- `examples/Telemac` calculator alias declares a `version_cmd` (docker image id),
+  since the image tag `latest` moves.
+
 ### Breaking changes
 
 - **Dropped Python 3.8 support** (P0-5). `requires-python` is now `>=3.9` and
