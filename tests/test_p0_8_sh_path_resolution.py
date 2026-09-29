@@ -23,9 +23,9 @@ def test_resolver_skips_nonexistent_and_case_files(tmp_path):
     cmd, _ = resolve_all_paths_in_command(
         "bash tool.sh in.txt > out.txt", str(launch), str(case)
     )
-    assert f"{launch}/tool.sh" in cmd          # only in launch dir: resolved
-    assert f"{launch}/in.txt" not in cmd       # in case dir: compiled file wins
-    assert f"{launch}/out.txt" not in cmd      # redirection target untouched
+    assert f"{launch.as_posix()}/tool.sh" in cmd          # only in launch dir: resolved
+    assert f"{launch.as_posix()}/in.txt" not in cmd       # in case dir: compiled file wins
+    assert f"{launch.as_posix()}/out.txt" not in cmd      # redirection target untouched
     assert cmd.endswith("> out.txt")
 
 
@@ -39,12 +39,12 @@ def test_resolver_never_resolves_output_redirect_even_if_exists(tmp_path):
         cmd, _ = resolve_all_paths_in_command(
             f"echo hi {op} out.txt", str(launch), str(case)
         )
-        assert str(launch) not in cmd
+        assert launch.as_posix() not in cmd
 
 
 def test_resolver_nonexistent_word_kept(tmp_path):
     cmd, _ = resolve_all_paths_in_command("bash ghost.sh ./x", str(tmp_path), None)
-    assert str(tmp_path) not in cmd
+    assert tmp_path.as_posix() not in cmd
 
 
 def test_fzr_sh_cat_redirect_two_cases(tmp_path):
