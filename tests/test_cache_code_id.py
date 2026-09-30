@@ -272,3 +272,19 @@ def test_failing_version_cmd_leaves_code_id_undeclared():
     _fake_docker(Path("bin"), 1, "Cannot connect to the Docker daemon")
     alias = _alias_with_fake_docker(Path("bin") / "docker")
     assert _resolve_calculator_code_id(alias, "sh://bash .fz/calculators/Telemac.sh") is None
+
+
+def test_version_cmd_works_when_fz_shell_path_is_set():
+    """FZ_SHELL_PATH is a list of directories to search for tools, not a shell
+    executable: setting it (as the Windows CI does) must not break version_cmd."""
+    from fz.runners.resolve import _resolve_calculator_code_id, _code_id_cache
+    _code_id_cache.clear()
+    _fake_docker(Path("bin"), 0, "sha256:def456")
+    alias = _alias_with_fake_docker(Path("bin") / "docker")
+    config = get_config()
+    old = config.shell_path
+    config.shell_path = Path("bin").resolve().as_posix()
+    try:
+        assert _resolve_calculator_code_id(alias, "sh://bash .fz/calculators/Telemac.sh") == "sha256:def456"
+    finally:
+        config.shell_path = old

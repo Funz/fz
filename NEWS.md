@@ -26,6 +26,10 @@
 - A `version_cmd` that exits with a non-zero status (e.g. docker daemon down)
   no longer yields its error message as `code_id`; the calculator is treated
   as having no declared identity, with a warning.
+- `version_cmd` was executed with the value of `FZ_SHELL_PATH` as the shell
+  program (it is a list of directories, not an executable), so it always failed
+  when `FZ_SHELL_PATH` was set (e.g. Windows/MSYS2); it now goes through fz's
+  regular shell handling.
 - `examples/Telemac` calculator alias declares a `version_cmd` (docker image id),
   since the image tag `latest` moves.
 

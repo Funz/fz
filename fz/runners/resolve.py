@@ -1,7 +1,6 @@
 """Calculator URI validation and resolution, timeout resolution."""
 
 import os
-import subprocess
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -91,11 +90,10 @@ def _run_version_cmd(uri: str, version_cmd: str) -> Optional[str]:
     scheme = uri.split("://", 1)[0].lower() if "://" in uri else ""
     try:
         if scheme == "sh":
-            from ..config import get_config
-            shell = get_config().shell_path or "bash"
-            result = subprocess.run(
-                [shell, "-c", version_cmd], capture_output=True, text=True, timeout=30
-            )
+            # FZ_SHELL_PATH lists directories to search for tools; it is not a
+            # shell executable, so let fz's own shell handling pick bash.
+            from ..shell import run_command
+            result = run_command(version_cmd, capture_output=True, timeout=30)
             return _version_cmd_output(uri, version_cmd, result.returncode, result.stdout, result.stderr)
 
         if scheme == "ssh":
