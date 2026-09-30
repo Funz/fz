@@ -365,7 +365,7 @@ resolved_cmd = replace_commands_in_string("grep file.txt")
 
 ```python
 # requirements.txt or README
-"""
+r"""
 Windows users: Install MSYS2 and set:
     SET FZ_SHELL_PATH=C:\msys64\usr\bin
 

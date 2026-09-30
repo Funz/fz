@@ -305,6 +305,25 @@ fzd --input_dir input/ \
   --calculators '["sh://bash calc.sh", "sh://bash calc.sh"]' \
   --options '{"max_iter": 20, "tol": 1e-4}' \
   --results_dir optimization_results/
+
+# Monte Carlo sampling of the perfect-gas study, several batches
+fzd --input_dir input/ \
+  --model perfectgas \
+  --input_vars '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": "1"}' \
+  --calculators "sh://bash PerfectGazPressure.sh" \
+  --output_expression "pressure" \
+  --algorithm examples/algorithms/montecarlo_uniform.py \
+  --options '{"batch_sample_size": 20, "max_iterations": 10}' \
+  --results_dir fzd_results/
+
+# Fixed and variable inputs (V_L fixed at 5.0, T_celsius explored by algorithm)
+fzd --input_dir input/ \
+  --model perfectgas \
+  --input_vars '{"T_celsius": "[10;50]", "V_L": "5.0", "n_mol": "1"}' \
+  --calculators "sh://bash calc.sh" \
+  --output_expression "pressure" \
+  --algorithm examples/algorithms/brent.py \
+  --results_dir brent_results/
 ```
 
 **Algorithm options from file:**
@@ -322,7 +341,15 @@ fzd -i input/ -m perfectgas \
   -o algo_config.json
 ```
 
-Also available as subcommand: `fz design ...`
+Short form: `fzd -i input/ -m perfectgas -v '...' -e "pressure" -a algo.py -o options.json`.
+Also available as subcommand: `fz design --input_dir input/ ...`.
+
+**Key differences from fzr**:
+- `--input_vars` uses `"[min;max]"` for ranges (the algorithm decides the values) or `"value"` (a string) for fixed values
+- Requires `--algorithm`: an algorithm name (`randomsampling`, `brent`, `bfgs`, ...) or the path to a `.py` file
+- Algorithm options via `--options` (JSON dict or file)
+- Results directory via `--results_dir` (default: `results_fzd`); if it already exists it is renamed with a timestamp and its cached results are still reused
+- Duplicate design points within a batch are automatically deduplicated and their results reused
 
 ## fz install / uninstall
 
@@ -594,73 +621,12 @@ fzr input.txt \
 # Only runs the remaining cases
 ```
 
-## fzd - Run Design of Experiments
-
-Run iterative design of experiments with adaptive algorithms:
-
-```bash
-# Basic usage with Monte Carlo algorithm
-fzd --input_dir input/ \
-  --model perfectgas \
-  --input_vars '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": "1"}' \
-  --calculators "sh://bash PerfectGazPressure.sh" \
-  --output_expression "pressure" \
-  --algorithm examples/algorithms/montecarlo_uniform.py \
-  --options '{"batch_sample_size": 20, "max_iterations": 10}' \
-  --results_dir fzd_results/
-
-# With optimization algorithm (BFGS)
-fzd --input_dir input/ \
-  --model perfectgas \
-  --input_vars '{"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": "1"}' \
-  --calculators "sh://bash calc.sh" \
-  --output_expression "pressure" \
-  --algorithm examples/algorithms/bfgs.py \
-  --options '{"minimize": true, "max_iterations": 50}' \
-  --results_dir optimization_results/
-
-# Fixed and variable inputs (V_L fixed at 5.0, T_celsius explored by algorithm)
-fzd --input_dir input/ \
-  --model perfectgas \
-  --input_vars '{"T_celsius": "[10;50]", "V_L": "5.0", "n_mol": "1"}' \
-  --calculators "sh://bash calc.sh" \
-  --output_expression "pressure" \
-  --algorithm examples/algorithms/brent.py \
-  --results_dir brent_results/
-```
-
-Short form: `fzd -i input/ -m perfectgas -v '...' -e "pressure" -a algo.py`
-
-Also available as subcommand: `fz design --input_dir input/ ...`
-
-**Key Differences from fzr**:
-- `--input_vars` uses `"[min;max]"` for ranges (algorithm decides values) or `"value"` (string) for fixed
-- Requires `--algorithm` with algorithm name (`randomsampling`, `brent`, `bfgs`, ...) or path to `.py` file
-- Algorithm options via `--options` (JSON dict or file)
-- Results directory via `--results_dir` (default: `results_fzd`); if it already exists it is renamed with a timestamp and its cached results are still reused
-- Duplicate design points within a batch are automatically deduplicated and results reused
-
 ## Environment Variables for CLI
 
+The `FZ_*` environment variables (logging, workers, retries, timeouts, SSH, shell path, caching,
+...) apply to the CLI exactly as to the Python API; they are listed in [Configuration](configuration.md).
+For example:
+
 ```bash
-# Set logging level
-export FZ_LOG_LEVEL=DEBUG
-fzr input.txt --model perfectgas ...
-
-# Set maximum parallel workers
-export FZ_MAX_WORKERS=4
-fzr input.txt --model perfectgas --calculator "sh://calc.sh" ...
-
-# Set retry attempts
-export FZ_MAX_RETRIES=3
-fzr input.txt --model perfectgas ...
-
-# SSH configuration
-export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1  # Use with caution
-export FZ_SSH_KEEPALIVE=300
-fzr input.txt --calculator "ssh://user@host/bash calc.sh" ...
-
-# Shell path for binary resolution (Windows)
-export FZ_SHELL_PATH="C:\msys64\usr\bin;C:\msys64\mingw64\bin"
-fzr input.txt --model perfectgas ...
+FZ_LOG_LEVEL=DEBUG FZ_MAX_WORKERS=4 fzr input.txt --model perfectgas --calculators "sh://bash calc.sh" ...
 ```

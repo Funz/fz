@@ -47,6 +47,9 @@
   `custom-algorithms.md`, `installation.md`, `quick-start.md`, `interrupt-handling.md`,
   `breaking-changes.md`, `troubleshooting.md`, `development.md`, `ai-agents.md`,
   `resources.md`); see `doc/INDEX.md`.
+- The two `fzd` sections of `cli-usage.md` were merged, the CLI snippets of `core-functions.md` replaced
+  by links to it, and every ```python block of `README.md` and `doc/` is now valid Python
+  (protocol transcripts are ```text; `tests/test_docs_python_blocks.py` guards it).
 - Documentation errors found and fixed while merging: `fzr(callbacks=...)` takes a dict of
   named callbacks (`on_start`, `on_case_start`, `on_case_complete`, `on_progress`,
   `on_complete`), not a list of functions; there is no `fz list algorithms/models` CLI

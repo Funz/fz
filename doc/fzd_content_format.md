@@ -99,7 +99,7 @@ confidence_interval=[40.1, 44.9]''',
 - Return structure: `{'md_file': 'analysis_<iteration>.md'}`
 
 **Algorithm Example**:
-```python
+````python
 def get_analysis(self, X, Y):
     return {
         'text': '''# Analysis Results
@@ -115,7 +115,7 @@ samples = 100
 ''',
         'data': {'mean': 42.5, 'std': 3.2}
     }
-```
+````
 
 **Result**:
 - File created: `results_fzd/analysis_1.md`

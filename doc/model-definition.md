@@ -306,7 +306,12 @@ walk-through.
 Unique identifier for the model, useful for documentation and logging.
 
 ```python
-model = {"id": "perfectgas", ...}
+model = {
+    "id": "perfectgas",
+    "varprefix": "$",
+    "delim": "{}",
+    "output": {"pressure": "cat pressure.txt"},
+}
 ```
 
 ### timeout (optional)
@@ -318,8 +323,9 @@ explicit `timeout=` argument passed to `fzr()`/`fzc()`/the CLI. Set it to
 calculation is allowed to run indefinitely).
 
 ```python
-model = {"timeout": 7200, ...}   # this model gets 2h instead of the 1h default
-model = {"timeout": None, ...}   # no timeout for this model
+output = {"result": "cat output.txt"}
+model = {"timeout": 7200, "output": output}   # this model gets 2h instead of the 1h default
+model = {"timeout": None, "output": output}   # no timeout for this model
 ```
 
 ## Complete Examples

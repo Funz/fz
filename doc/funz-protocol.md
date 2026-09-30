@@ -200,7 +200,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 RESERVE
 R
@@ -235,7 +235,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 NEWCASE
 abc123secret
@@ -270,7 +270,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 PUTFILE
 abc123secret
@@ -305,7 +305,7 @@ Y    # Success - calculation complete
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 EXECUTE
 abc123secret
@@ -338,7 +338,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 ARCHIVE
 abc123secret

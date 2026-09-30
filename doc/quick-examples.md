@@ -704,7 +704,7 @@ display(results.head())
 display(results.describe())
 
 # Interactive plots
-%matplotlib inline
+# %matplotlib inline   (Jupyter magic, not valid in a plain .py file)
 import matplotlib.pyplot as plt
 
 plt.figure(figsize=(10, 6))

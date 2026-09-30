@@ -72,21 +72,7 @@ result = fz.fzl(check=True)
 # Failed items include check_error with details
 ```
 
-**Example 4: CLI usage**
-
-```bash
-# List all
-fzl
-
-# List with validation
-fzl --check
-
-# Filter and format
-fzl --models "navier*" --format table
-
-# JSON output
-fzl --format json > config.json
-```
+**Example 4: CLI usage**: `fzl`, `fzl --check`, `fzl --models "navier*" --format table`, ... see [CLI](cli-usage.md#fzl---list-and-validate-modelscalculators).
 
 ### Use Cases
 
@@ -703,22 +689,7 @@ result = fz.fzd(
 )
 ```
 
-**Example 4: CLI usage**
-
-```bash
-# Random sampling
-fzd -i input/ -m perfectgas \
-  -v '{"x": "[-2;2]", "y": "[-2;2]"}' \
-  -e "result" \
-  -a examples/algorithms/randomsampling.py \
-  -o '{"nvalues": 20, "seed": 42}'
-
-# Also available as subcommand
-fz design -i input/ -m perfectgas \
-  -v '{"x": "[-2;2]"}' \
-  -e "result" \
-  -a examples/algorithms/brent.py
-```
+**Example 4: CLI usage**: `fzd -i input/ -m perfectgas -v '{"x": "[-2;2]"}' -e result -a randomsampling`, also available as `fz design`; see [CLI](cli-usage.md#fzd---design-of-experiments).
 
 ### Fixed vs. Range Variables
 
@@ -732,7 +703,10 @@ fz design -i input/ -m perfectgas \
 result = fz.fzd(
     input_path="input/",
     input_variables={"x": "[-2;2]", "y": "[-2;2]", "z": "1.5"},
-    ...
+    model=model,
+    output_expression="result",
+    algorithm="randomsampling",
+    calculators=["sh://bash calc.sh"],
 )
 ```
 
@@ -756,7 +730,10 @@ If `analysis_dir` already exists when `fzd` starts, it is **renamed** with a tim
 result = fz.fzd(
     input_path="input/",
     input_variables={"x": "[-2;2]"},
-    ...
+    model=model,
+    output_expression="result",
+    algorithm="randomsampling",
+    calculators=["sh://bash calc.sh"],
     analysis_dir="my_analysis"   # if exists, renamed; its cache is still consulted
 )
 ```
