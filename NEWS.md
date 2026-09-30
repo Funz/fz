@@ -42,13 +42,14 @@
   passed through `shlex.quote` (`fz.runners.ssh.build_kill_cmd`). The
   `version_cmd` warning also no longer prints a password embedded in the URI.
 
-### Project metadata (P0-5, P1-5)
+### Project metadata (P1-5)
 
-- `pyproject.toml` now declares the Python 3.14 classifier. Note: 3.14 is
-  exercised in CI on Ubuntu only (`3.14-dev`), not on macOS/Windows.
 - Added `CITATION.cff` (author and repository metadata only; no version, DOI
-  or ORCID declared yet). `tests/test_project_metadata.py` checks that classifiers
-  cover every Python version in the CI matrix and that `CITATION.cff` parses.
+  or ORCID declared yet). `tests/test_project_metadata.py` checks that it parses.
+- Python 3.14 is deliberately **not** declared yet: the project's own guard
+  (`tests/test_python_version_support.py`) only allows classifiers for versions
+  in CI's stable matrix, and 3.14 runs on Ubuntu only (`3.14-dev`). Declaring
+  it requires promoting 3.14 to the stable matrix on all OSes first.
 
 ### Breaking changes
 
