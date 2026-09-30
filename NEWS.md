@@ -33,6 +33,15 @@
 - `examples/Telemac` calculator alias declares a `version_cmd` (docker image id),
   since the image tag `latest` moves.
 
+### Remote interrupt command quoting (P0-3 follow-up)
+
+- On interrupt, the best-effort remote `pkill -P $(pgrep -f '<pattern>')` for
+  `ssh://` (command prefix) and `slurm://` (partition from the URI) interpolated
+  its pattern inside single quotes without quoting: a `'` in the URI partition
+  or command allowed remote shell injection on that path. The pattern is now
+  passed through `shlex.quote` (`fz.runners.ssh.build_kill_cmd`). The
+  `version_cmd` warning also no longer prints a password embedded in the URI.
+
 ### Project metadata (P0-5, P1-5)
 
 - `pyproject.toml` now declares the Python 3.14 classifier. Note: 3.14 is
