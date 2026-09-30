@@ -66,23 +66,37 @@ def test_relative_links_in_doc_resolve():
 
 
 def test_former_readme_content_is_in_doc():
-    """The former README sections moved into doc/: each expected file and its main 'Guide' heading exist."""
-    expected = {
+    """The former README sections live in doc/, merged into one page per topic (no 'Guide' duplicates)."""
+    expected = {  # file -> heading that must exist in it
         "cli-usage.md": "# CLI Usage", "configuration.md": "# Configuration",
         "custom-algorithms.md": "# Writing Custom Algorithms for fzd", "installation.md": "# Installation",
         "quick-start.md": "# Quick Start", "interrupt-handling.md": "# Interrupt Handling",
-        "output-structure.md": "# Output File Structure", "breaking-changes.md": "# Breaking Changes",
-        "troubleshooting.md": "# Troubleshooting", "development.md": "# Development",
-        "ai-agents.md": "# Using fz with AI Coding Agents", "resources.md": "# Documentation",
-        "core-functions.md": "## Guide: Core Functions", "calculators.md": "## Guide: Calculator Types",
-        "model-definition.md": "## Guide: Model Definition", "parallel-and-caching.md": "## Guide: Advanced Features",
-        "quick-examples.md": "## Guide: Complete Examples", "installing-models.md": "## Guide: Installing Plugins",
-        "overview.md": "## Guide: Features", "mcp-server.md": "## Guide: MCP server (`fz-mcp`)",
+        "breaking-changes.md": "# Breaking Changes", "troubleshooting.md": "# Troubleshooting",
+        "development.md": "# Development", "ai-agents.md": "# Using fz with AI Coding Agents",
+        "resources.md": "# Documentation",
+        "core-functions.md": "## Input Variables: Factorial vs Non-Factorial Designs",
+        "calculators.md": "### Calculator-Model Compatibility",
+        "parallel-and-caching.md": "### Progress callbacks",
+        "quick-examples.md": "## Interactive Jupyter Notebooks",
+        "installing-models.md": "## Creating an algorithm plugin",
+        "overview.md": "## Output Structure",
     }
     missing = [f for f, h in expected.items()
                if h not in (REPO / "doc" / f).read_text(encoding="utf-8").split("\n")]
     assert not missing, f"missing former-README content in doc/: {missing}"
     assert not (REPO / "doc" / "guide").exists(), "doc/guide/ was merged into doc/"
+    assert not (REPO / "doc" / "output-structure.md").exists(), "merged into overview.md"
+    leftovers = [p.name for p in (REPO / "doc").glob("*.md")
+                 if re.search(r"^## Guide: ", p.read_text(encoding="utf-8"), flags=re.M)]
+    assert not leftovers, f"un-merged 'Guide:' sections remain in: {leftovers}"
+
+
+def test_fzr_callbacks_documented_as_dict():
+    """fzr(callbacks=...) takes a dict keyed by event name; docs must not show a list."""
+    text = "\n".join(p.read_text(encoding="utf-8") for p in (REPO / "doc").glob("*.md"))
+    for name in ("on_start", "on_case_start", "on_case_complete", "on_progress", "on_complete"):
+        assert name in text, name
+    assert "callbacks=[" not in text and "callbacks=[progress_callback]" not in text
 
 
 # Anchors of the former README's table of contents (external links may still use them)

@@ -50,52 +50,25 @@ export FZ_CACHE_STRICT=1
 # Consider pre-v2 (MD5, no header, no code_id) cache directories at all;
 # ignored by default
 export FZ_CACHE_ACCEPT_LEGACY=1
+
+# slurm-array:// (local SLURM job arrays): seconds between sacct/squeue polls (default 2)
+# and seconds during which cases are gathered before one sbatch (default 1)
+export FZ_SLURM_POLL_INTERVAL=2
+export FZ_SLURM_ARRAY_WINDOW=1
+
+# fz-mcp server (see mcp-server.md): workspace root, trusted mode, transport
+#   FZ_MCP_ROOT, FZ_MCP_TRUSTED, FZ_MCP_TRANSPORT, FZ_MCP_ALLOW_NETWORK_TRANSPORT
 ```
 
 ## Shell Path Configuration (FZ_SHELL_PATH)
 
-The `FZ_SHELL_PATH` environment variable allows you to specify custom locations for shell binaries (grep, awk, sed, etc.) used in model output expressions and calculator commands. This is particularly important on Windows where Unix-like tools may be installed in non-standard locations.
-
-**Why use FZ_SHELL_PATH?**
-- **Windows compatibility**: Locate tools in MSYS2, Git Bash, Cygwin, or WSL
-- **Custom installations**: Use specific versions of tools from custom directories
-- **Priority control**: Override system PATH to ensure correct tool versions
-- **Performance**: Cached binary paths for faster resolution
-
-**Usage examples:**
-
-```bash
-# Windows with MSYS2 (use semicolon separator)
-SET FZ_SHELL_PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin
-
-# Windows with Git Bash
-SET FZ_SHELL_PATH=C:\Program Files\Git\usr\bin;C:\Program Files\Git\bin
-
-# Linux/macOS (use colon separator)
-export FZ_SHELL_PATH=/opt/homebrew/bin:/usr/local/bin
-
-# Priority: FZ_SHELL_PATH paths are checked BEFORE system PATH
-```
-
-**How it works:**
-1. Commands in model `output` dictionaries are parsed for binary names (grep, awk, etc.)
-2. Binary names are resolved to absolute paths using FZ_SHELL_PATH
-3. Commands in `sh://` calculators are similarly resolved
-4. Windows: Automatically tries both `command` and `command.exe`
-5. Resolved paths are cached for performance
-
-**Example in model:**
-```python
-model = {
-    "output": {
-        "pressure": "grep 'pressure' output.txt | awk '{print $2}'"
-    }
-}
-# With FZ_SHELL_PATH=C:\msys64\usr\bin, executes:
-# C:\msys64\usr\bin\grep.exe 'pressure' output.txt | C:\msys64\usr\bin\awk.exe '{print $2}'
-```
-
-See `doc/shell-path.md` and `examples/shell_path_example.md` for detailed documentation.
+`FZ_SHELL_PATH` lists directories (separated by `;` on Windows, `:` elsewhere) searched **before**
+the system `PATH` for the shell tools (grep, awk, sed, ...) used by model `output` commands
+and `sh://` calculators. It matters mainly on Windows, where the Unix tools live in MSYS2, Git
+Bash, Cygwin or WSL directories (for example `SET FZ_SHELL_PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin`).
+Binary names are resolved to absolute paths (also trying `command.exe` on Windows) and the
+results are cached. fz needs `bash` everywhere. Full description, resolution rules and
+troubleshooting: [Shell path](shell-path.md) and `examples/shell_path_example.md`.
 
 ## Campaign manifest and RO-Crate (traceability)
 

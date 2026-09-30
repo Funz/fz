@@ -38,16 +38,21 @@
 - `README.md` reduced from ~3 450 to ~290 lines: an entry point with features,
   installation, quick start, the six functions, key concepts, configuration
   essentials, the Threat Model, AI-agent/MCP pointers and links.
-- All the documentation is now in `doc/`, one file per topic. The former README
-  sections were moved unchanged (same text, headings demoted as needed, internal links
-  rewritten): appended as "Guide: ..." sections to the existing page of the same topic
+- All the documentation is now in `doc/`, one file per topic, **deduplicated**. The former
+  README sections were merged into the page that already covered the same topic
   (`core-functions.md`, `model-definition.md`, `calculators.md`, `parallel-and-caching.md`,
-  `quick-examples.md`, `installing-models.md`, `overview.md`, `mcp-server.md`), or as new
-  files (`cli-usage.md`, `configuration.md`, `custom-algorithms.md`, `installation.md`,
-  `quick-start.md`, `interrupt-handling.md`, `output-structure.md`, `breaking-changes.md`,
-  `troubleshooting.md`, `development.md`, `ai-agents.md`, `resources.md`); see `doc/INDEX.md`.
-  Reference text and guide text of a same page were not rewritten or deduplicated (measured
-  line overlap <= 16 %), so some topics are described twice on one page.
+  `quick-examples.md`, `installing-models.md`, `overview.md`, `interrupt-handling.md`,
+  `configuration.md`): only what the page lacked was added; duplicates were dropped. Topics
+  without an existing page became new files (`cli-usage.md`, `configuration.md`,
+  `custom-algorithms.md`, `installation.md`, `quick-start.md`, `interrupt-handling.md`,
+  `breaking-changes.md`, `troubleshooting.md`, `development.md`, `ai-agents.md`,
+  `resources.md`); see `doc/INDEX.md`.
+- Documentation errors found and fixed while merging: `fzr(callbacks=...)` takes a dict of
+  named callbacks (`on_start`, `on_case_start`, `on_case_complete`, `on_progress`,
+  `on_complete`), not a list of functions; there is no `fz list algorithms/models` CLI
+  command nor `fz.list_algorithms()` (use `fz list` and `fz.list_installed_algorithms()`);
+  an alias without an entry for the requested model does not raise a "does not support
+  model" error (the bare URI is used); the `.fz_hash` example now shows the v2 format.
 - Old links `README.md#<section>` still land on a "Former README sections" list that
   points to the new pages. `tests/test_readme_structure.py` and
   `tests/test_docs_consistency.py` guard the README size, the links, the legacy anchors and

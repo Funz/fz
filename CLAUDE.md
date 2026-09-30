@@ -69,7 +69,7 @@ R-dependent code or tests.
   semantics, and CLI output must stay parseable with `--format json`.
 - When changing the public API or CLI flags, update **all three** doc surfaces:
   `README.md` (overview only, kept under 300 lines: `tests/test_readme_structure.py`),
-  `doc/` (the whole documentation, one file per topic: reference first, then the "Guide" sections),
+  `doc/` (the whole documentation, one file per topic; do not duplicate a topic across pages),
   and
   `skills/fz/reference.md` (the agent skill ships to users).
 - Default values live in `fz/config.py` and are env-overridable (`FZ_LOG_LEVEL`,

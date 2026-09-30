@@ -1,19 +1,20 @@
 # FZ Framework Overview
 
-> **Contents**: the reference description comes first; the tutorial-style text that used to live in the README follows in the "Guide" sections below.
-
-
-
-
 ## What is FZ?
 
 FZ is a parametric scientific computing framework that automates running computational experiments with different parameter combinations. It wraps simulation codes to handle:
 
-- **Parametric studies**: Automatically generate and run all combinations of parameter values
-- **Parallel execution**: Run multiple cases concurrently
-- **Smart caching**: Reuse previous results to avoid redundant computation
-- **Remote execution**: Run calculations on remote servers via SSH
-- **Result management**: Organize and parse results into structured DataFrames
+- **Parametric studies**: Automatically generate and run all combinations of parameter values (factorial designs: a dict, Cartesian product) or explicit non-factorial designs (a DataFrame with specific cases)
+- **Parallel execution**: Run multiple cases concurrently across multiple calculators with automatic load balancing
+- **Smart caching**: Reuse previous results, based on input file hashes, to avoid redundant computation
+- **Retry mechanism**: Automatically retry failed calculations with alternative calculators
+- **Remote execution**: Run calculations on remote servers via SSH (automatic file transfer), SLURM or a Funz server
+- **Result management**: Organize and parse results into structured DataFrames (DataFrame input and output, automatic type casting and variable extraction), with an automatic directory per case for inputs, outputs and logs
+- **Formula evaluation**: Calculated parameters using Python or R expressions
+- **Adaptive algorithms**: Iterative design of experiments with intelligent sampling strategies (`fzd`)
+- **Interrupt handling**: Gracefully stop long-running calculations with Ctrl+C while preserving partial results
+- **Error reporting**: Protocol-specific error classification, with descriptive messages recorded in the results
+- **Cross-platform**: Linux, macOS and Windows (MSYS2/Git Bash) with configurable shell paths
 
 ## What's New in 1.0
 
@@ -164,16 +165,54 @@ calculators = [
 
 ## Output Structure
 
-Each case creates a directory:
+Each case creates a directory (named `var1=val1,var2=val2,...` by default; see `case_naming` in
+[Core functions](core-functions.md)):
+
 ```
 results/
+├── manifest.json            # campaign manifest (fz/Python versions, model hash, calculators
+│                            #   with credentials masked, hosts, dates, per-case hash)
+├── ro-crate-metadata.json   # RO-Crate description (FZ_RO_CRATE=0 disables it)
 ├── temp=100,pressure=1/
-│   ├── input.txt        # Compiled input
-│   ├── output.txt       # Calculation output
-│   ├── log.txt          # Execution metadata
-│   └── .fz_hash         # File checksums (for caching)
+│   ├── input.txt            # Compiled input
+│   ├── output.txt           # Files written by the calculation
+│   ├── out.txt, err.txt     # Captured stdout and stderr
+│   ├── log.txt              # Execution metadata
+│   ├── info.txt, history.txt  # Case variables (original values) and execution history
+│   └── .fz_hash             # Input file checksums (for caching)
 └── temp=100,pressure=2/
     └── ...
+```
+
+With `case_naming="hash"` or `"index"`, a `cases.csv` at the root maps each case directory to
+its variables.
+
+### `log.txt` - execution metadata
+
+```
+Command: bash calculate.sh input.txt
+Exit code: 0
+Time start: 2024-03-15T10:30:45.123456
+Time end: 2024-03-15T10:32:12.654321
+Execution time: 87.531 seconds
+User: john_doe
+Hostname: compute-01
+Operating system: Linux
+Platform: Linux-5.15.0-x86_64
+Working directory: /tmp/fz_temp_abc123/case1
+Original directory: /home/john/project
+```
+
+### `.fz_hash` - input file checksums
+
+Used for `cache://` matching. Versioned format (`# fz-hash v2`): one SHA-256 per input file,
+plus an optional `# code_id: ...` line naming the calculator's code identity (see
+[Calculators](calculators.md), "Cache Calculator"):
+
+```
+# fz-hash v2
+a1b2c3d4e5f6...  input.txt
+f6e5d4c3b2a1...  config.dat
 ```
 
 ## Common Patterns
@@ -222,33 +261,3 @@ results = fz.fzr(
     calculators="ssh://user@cluster.edu/bash /path/to/submit.sh"
 )
 ```
-
----
-
-## Guide: Features
-
-
-
-### Core Capabilities
-
-- **🔄 Parametric Studies**: Factorial designs (dict with Cartesian product) or non-factorial designs (DataFrame with specific cases)
-- **⚡ Parallel Execution**: Run multiple cases concurrently across multiple calculators with automatic load balancing
-- **💾 Smart Caching**: Reuse previous calculation results based on input file hashes to avoid redundant computations
-- **🔁 Retry Mechanism**: Automatically retry failed calculations with alternative calculators
-- **🌐 Remote Execution**: Execute calculations on remote servers via SSH with automatic file transfer
-- **📊 DataFrame I/O**: Input and output using pandas DataFrames with automatic type casting and variable extraction
-- **🛑 Interrupt Handling**: Gracefully stop long-running calculations with Ctrl+C while preserving partial results
-- **🔍 Formula Evaluation**: Support for calculated parameters using Python or R expressions
-- **📁 Directory Management**: Automatic organization of inputs, outputs, and logs for each case
-- **🎯 Adaptive Algorithms**: Iterative design of experiments with intelligent sampling strategies (fzd)
-- **⚠️ Error Reporting**: Protocol-specific error classification with descriptive messages recorded in results
-- **🖥️ Cross-Platform**: Works on Linux, macOS, and Windows (MSYS2/Git Bash) with configurable shell paths
-
-### Six Core Functions
-
-1. **`fzi`** - Parse **I**nput files to identify variables
-2. **`fzc`** - **C**ompile input files by substituting variable values
-3. **`fzo`** - Parse **O**utput files from calculations
-4. **`fzr`** - **R**un complete parametric calculations end-to-end
-5. **`fzd`** - Run iterative **D**esign of experiments with adaptive algorithms
-6. **`fzl`** - **L**ist and validate installed models and calculators

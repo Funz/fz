@@ -155,7 +155,7 @@ doc/
 ├── README.md                           # This file
 ├── INDEX.md                            # Table of contents with sections
 ├── cli-usage.md, configuration.md, custom-algorithms.md, installation.md, quick-start.md,
-├── interrupt-handling.md, output-structure.md, breaking-changes.md, troubleshooting.md,
+├── interrupt-handling.md, breaking-changes.md, troubleshooting.md,
 ├── development.md, ai-agents.md, resources.md   # former README sections (see INDEX.md)
 ├── overview.md                         # High-level framework introduction
 ├── syntax-guide.md                     # Variable and formula syntax

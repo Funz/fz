@@ -4,7 +4,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 
 ## Table of Contents
 
-- [Full guides (former README)](#full-guides-former-readme)
+- [Where the former README went](#where-the-former-readme-went)
 - [Getting Started](#getting-started)
 - [Installing Models & Algorithms](#installing-models--algorithms)
 - [Variable Substitution](#variable-substitution)
@@ -19,34 +19,34 @@ Quick reference index for finding specific topics in the FZ context documentatio
 - [CLI Usage](#cli-usage)
 - [Troubleshooting](#troubleshooting)
 
-## Full guides (former README)
+## Where the former README went
 
-The former single-file README now lives in `doc/`, one file per topic. Pages that already
-existed keep their reference text first, followed by "Guide" sections (tutorial-style text,
-unchanged); topics without an earlier page are new files.
+The former single-file README now lives in `doc/`, one file per topic, **deduplicated**: its
+sections were merged into the page that already covered the same topic (only what that page
+lacked was added, and statements that contradicted the code were corrected), or became new
+files when no page existed.
 
 | Topic | File |
 |-------|------|
-| Features | overview.md ("Guide: Features") |
+| Features | overview.md |
 | Installation, extended quick start | installation.md, quick-start.md |
 | Command line (`fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`, `fz install`) | cli-usage.md |
-| Python API | core-functions.md ("Guide: Core Functions") |
-| Model definition, formulas, old Funz syntax | model-definition.md ("Guide: Model Definition") |
-| Calculators (sh, ssh, slurm, funz, cache, aliases) | calculators.md ("Guide: Calculator Types") |
-| Parallelism, retries, caching, output casting, callbacks, performance tips | parallel-and-caching.md ("Guide: Advanced Features", "Guide: Performance Tips") |
-| Complete examples and notebooks | quick-examples.md ("Guide: Complete Examples") |
+| Python API, factorial vs non-factorial designs, output type casting | core-functions.md |
+| Model definition, formulas, old Funz syntax | model-definition.md, syntax-guide.md, formulas-and-interpreters.md |
+| Calculators (sh, ssh, slurm, funz, cache, aliases, model compatibility) | calculators.md |
+| Parallelism, retries, caching, progress callbacks, performance tips | parallel-and-caching.md |
+| Examples and notebooks | quick-examples.md |
 | Custom `fzd` algorithms | custom-algorithms.md |
-| Configuration (environment variables, shell path, timeouts) | configuration.md (see also shell-path.md) |
-| Installing plugins | installing-models.md ("Guide: Installing Plugins") |
-| Interrupt handling, output structure | interrupt-handling.md, output-structure.md |
+| Configuration (environment variables, timeouts, manifest); shell path | configuration.md, shell-path.md |
+| Installing plugins | installing-models.md |
+| Interrupt handling | interrupt-handling.md |
+| Output structure (`log.txt`, `.fz_hash`, manifest) | overview.md ("Output Structure") |
 | Breaking changes (0.9.1), troubleshooting | breaking-changes.md, troubleshooting.md |
 | Development and CI | development.md |
-| AI agents, MCP server, resources index | ai-agents.md, mcp-server.md ("Guide: MCP server"), resources.md |
+| AI agents, MCP server, resources index | ai-agents.md, mcp-server.md, resources.md |
 
-Some topics are described twice on the same page (reference text, then guide text): the
-measured line overlap between the two was <= 16 %, so they were kept as they are instead of
-being rewritten. `tests/test_docs_consistency.py` checks that every `FZ_*` variable cited in
-the documentation exists in the code and that all relative links in `doc/` resolve.
+`tests/test_docs_consistency.py` checks that every `FZ_*` variable cited in the documentation
+exists in the code and that all relative links in `doc/` resolve.
 
 ## Getting Started
 
