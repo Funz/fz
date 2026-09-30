@@ -247,19 +247,28 @@ def _telemac_alias():
     return json.loads((root / "examples/Telemac/.fz/calculators/localhost.json").read_text())
 
 
-def test_telemac_example_version_cmd_resolves_to_image_id(monkeypatch):
+def _alias_with_fake_docker(fake: Path) -> dict:
+    """The real Telemac alias, with the `docker` executable replaced by the
+    absolute path of a fake script (a PATH override is not reliably honoured
+    by the MSYS bash used on Windows)."""
+    alias = _telemac_alias()
+    assert alias["version_cmd"].startswith("docker image inspect")
+    alias["version_cmd"] = alias["version_cmd"].replace("docker", f"bash {fake.resolve().as_posix()}", 1)
+    return alias
+
+
+def test_telemac_example_version_cmd_resolves_to_image_id():
     from fz.runners.resolve import _resolve_calculator_code_id, _code_id_cache
     _code_id_cache.clear()
     _fake_docker(Path("bin"), 0, "sha256:abc123")
-    monkeypatch.setenv("PATH", f"{Path('bin').resolve().as_posix()}{os.pathsep}{os.environ['PATH']}")
-    alias = _telemac_alias()
+    alias = _alias_with_fake_docker(Path("bin") / "docker")
     assert _resolve_calculator_code_id(alias, "sh://bash .fz/calculators/Telemac.sh") == "sha256:abc123"
 
 
-def test_failing_version_cmd_leaves_code_id_undeclared(monkeypatch):
+def test_failing_version_cmd_leaves_code_id_undeclared():
     """docker missing/daemon down: the error message must not become a code_id."""
     from fz.runners.resolve import _resolve_calculator_code_id, _code_id_cache
     _code_id_cache.clear()
     _fake_docker(Path("bin"), 1, "Cannot connect to the Docker daemon")
-    monkeypatch.setenv("PATH", f"{Path('bin').resolve().as_posix()}{os.pathsep}{os.environ['PATH']}")
-    assert _resolve_calculator_code_id(_telemac_alias(), "sh://bash .fz/calculators/Telemac.sh") is None
+    alias = _alias_with_fake_docker(Path("bin") / "docker")
+    assert _resolve_calculator_code_id(alias, "sh://bash .fz/calculators/Telemac.sh") is None
