@@ -105,7 +105,7 @@ def _run_version_cmd(uri: str, version_cmd: str) -> Optional[str]:
         )
         return None
     except Exception as e:
-        log_warning(f"⚠️  Could not resolve version_cmd for calculator '{uri}': {e}")
+        log_warning(f"⚠️  Could not resolve version_cmd for calculator '{redact_uri(uri)}': {e}")
         return None
 
 

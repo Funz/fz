@@ -19,6 +19,7 @@ from .manager import resolve_timeout, get_environment_info
 from .errors import classify_error
 from ..slurm_async import split_slurm_resources, srun_options
 from .ssh import (
+    build_kill_cmd,
     validate_ssh_connection_security,
     get_host_key_policy,
     _transfer_files_to_remote,
@@ -735,7 +736,7 @@ def _execute_remote_slurm_command(
                         # Try to cancel the SLURM job
                         # Note: This is a best-effort attempt. In production, you might want to
                         # track the SLURM job ID and use scancel
-                        kill_cmd = f"pkill -P $(pgrep -f 'srun.*{partition}')"
+                        kill_cmd = build_kill_cmd(f"srun.*{partition}")
                         try:
                             ssh_client.exec_command(kill_cmd, timeout=2)
                         except:
