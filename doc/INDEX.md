@@ -4,6 +4,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 
 ## Table of Contents
 
+- [Full guides (`guide/`)](#full-guides-guide)
 - [Getting Started](#getting-started)
 - [Installing Models & Algorithms](#installing-models--algorithms)
 - [Variable Substitution](#variable-substitution)
@@ -18,6 +19,30 @@ Quick reference index for finding specific topics in the FZ context documentatio
 - [CLI Usage](#cli-usage)
 - [Troubleshooting](#troubleshooting)
 
+## Full guides (`guide/`)
+
+The former single-file README, split by topic (content unchanged):
+
+| Topic | File |
+|-------|------|
+| Features, installation, extended quick start | guide/features.md, guide/installation.md, guide/quick-start.md |
+| Command line (`fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`, `fz install`) | guide/cli-usage.md |
+| Python API | guide/python-api.md |
+| Model definition, formulas, old Funz syntax | guide/model-definition.md |
+| Calculators (sh, ssh, slurm, funz, cache, aliases) | guide/calculator-types.md |
+| Parallelism, retries, caching, output casting, callbacks | guide/advanced-features.md |
+| Complete examples and notebooks | guide/complete-examples.md |
+| Custom `fzd` algorithms | guide/custom-algorithms.md |
+| Configuration (environment variables, shell path, timeouts) | guide/configuration.md |
+| Installing plugins | guide/installing-plugins.md |
+| Interrupt handling, output structure | guide/interrupt-handling.md, guide/output-structure.md |
+| Breaking changes (0.9.1), troubleshooting, performance | guide/breaking-changes.md, guide/troubleshooting.md, guide/performance-tips.md |
+| Development and CI | guide/development.md |
+| AI agents, MCP server, resources index | guide/ai-agents.md, guide/mcp-server.md, guide/resources.md |
+
+Note: some topics overlap with the modular pages below (`core-functions.md`,
+`calculators.md`, ...); the two sets have not been merged yet.
+
 ## Getting Started
 
 | Topic | File | Section |
@@ -27,7 +52,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Quick example | overview.md | "Quick Example" |
 | Core functions | overview.md | "Core Functions" |
 | Typical workflow | overview.md | "Typical Workflow" |
-| Installation | *(see README.md)* | - |
+| Installation | guide/installation.md | - |
 
 ## Installing Models & Algorithms
 

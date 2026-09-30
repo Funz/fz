@@ -154,6 +154,7 @@ Task: How do I speed up my parametric study with 1000 cases?
 doc/
 ├── README.md                           # This file
 ├── INDEX.md                            # Table of contents with sections
+├── guide/                              # Full reference (former README), one file per topic
 ├── overview.md                         # High-level framework introduction
 ├── syntax-guide.md                     # Variable and formula syntax
 ├── core-functions.md                   # API reference (fzi, fzc, fzo, fzr, fzl, fzd)

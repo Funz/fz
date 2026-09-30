@@ -18,12 +18,13 @@ extract outputs; *calculators* (URIs like `sh://cmd`, `ssh://user@host/cmd`,
   calculator JSON schemas, calculator URI grammar, environment variables, input syntax
 - [Agent workflow guide](skills/fz/SKILL.md): step-by-step process to wrap a simulation
   code and run a study, with verification at each step
-- [Custom fzd algorithms](skills/fz/algorithms.md): interface for adaptive
+- [Custom fzd algorithms](skills/fz/algorithm-wrapper.md): interface for adaptive
   design-of-experiments / optimization algorithms
 
 ## Documentation
 
-- [README](README.md): complete user guide with examples
+- [README](README.md): overview, quick start, threat model and links
+- [Full guides](doc/guide/cli-usage.md): CLI, Python API, models, calculators, configuration, troubleshooting (see doc/INDEX.md for the list)
 - [Core functions](doc/core-functions.md): fzi, fzc, fzo, fzr, fzl, fzd in detail
 - [Installing models and algorithms](doc/installing-models.md): fz install model|algorithm, the fz-<code> convention
 - [Input syntax guide](doc/syntax-guide.md): variables, formulas, defaults

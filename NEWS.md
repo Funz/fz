@@ -33,6 +33,17 @@
 - `examples/Telemac` calculator alias declares a `version_cmd` (docker image id),
   since the image tag `latest` moves.
 
+### Documentation (P1-5)
+
+- `README.md` reduced from ~3 450 to ~260 lines: an entry point with features,
+  installation, quick start, the six functions, key concepts, configuration
+  essentials, the Threat Model, AI-agent/MCP pointers and links. The previous
+  content was moved unchanged (same text, headings demoted one level, internal
+  links rewritten) to `doc/guide/` (one file per former section; see
+  `doc/INDEX.md`). Anchors such as `README.md#cli-usage` now live in
+  `doc/guide/cli-usage.md`. `tests/test_readme_structure.py` guards the size and
+  the links.
+
 ### Timeout warning (P0-4 follow-up)
 
 - The "No timeout set for ssh:// / slurm:// calculations (unlimited)" warning is

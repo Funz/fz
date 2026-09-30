@@ -68,7 +68,9 @@ R-dependent code or tests.
   Python signatures consistent — every core function has a CLI twin with the same
   semantics, and CLI output must stay parseable with `--format json`.
 - When changing the public API or CLI flags, update **all three** doc surfaces:
-  `README.md`, `doc/`, and `skills/fz/reference.md` (the agent skill ships to users).
+  `README.md` (overview only, kept under 300 lines: `tests/test_readme_structure.py`),
+  `doc/` (full reference in `doc/guide/`, plus the modular pages), and
+  `skills/fz/reference.md` (the agent skill ships to users).
 - Default values live in `fz/config.py` and are env-overridable (`FZ_LOG_LEVEL`,
   `FZ_MAX_WORKERS`, `FZ_MAX_RETRIES` (default 5), `FZ_SSH_*`, `FZ_SHELL_PATH`).
 - User-facing release notes go in `NEWS.md`.
