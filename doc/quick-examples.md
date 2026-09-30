@@ -1,5 +1,9 @@
 # FZ Quick Examples and Common Patterns
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/complete-examples.md`](guide/complete-examples.md). When behaviour changes, update both.
+
+
 ## Quick Start Examples
 
 ### Example 1: Minimal Parametric Study

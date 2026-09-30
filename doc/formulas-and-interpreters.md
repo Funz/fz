@@ -1,5 +1,9 @@
 # FZ Formulas and Interpreters
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/model-definition.md`](guide/model-definition.md). When behaviour changes, update both.
+
+
 ## Formula Evaluation Overview
 
 FZ supports evaluating formulas in input templates using Python or R interpreters. This allows:

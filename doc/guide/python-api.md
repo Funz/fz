@@ -1,5 +1,9 @@
 # Core Functions
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`core-functions.md`](../core-functions.md). When behaviour changes, update both.
+
+
 ## fzi - Parse Input Variables
 
 Identify all variables in an input file or directory:

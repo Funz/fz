@@ -1,5 +1,9 @@
 # Advanced Features
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`parallel-and-caching.md`](../parallel-and-caching.md). When behaviour changes, update both.
+
+
 ## Parallel Execution
 
 FZ automatically parallelizes when you have multiple cases and calculators:

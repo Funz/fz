@@ -1,5 +1,9 @@
 # Installing Models and Algorithms
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/installing-plugins.md`](guide/installing-plugins.md). When behaviour changes, update both.
+
+
 fz can install ready-made **models** (simulation-code wrappers) and **fzd algorithms**
 (design-of-experiments / optimization strategies) from GitHub or local zip files, so you
 don't have to author them by hand. This is the first thing to try when wrapping a known

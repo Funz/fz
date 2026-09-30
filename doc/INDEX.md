@@ -40,8 +40,12 @@ The former single-file README, split by topic (content unchanged):
 | Development and CI | guide/development.md |
 | AI agents, MCP server, resources index | guide/ai-agents.md, guide/mcp-server.md, guide/resources.md |
 
-Note: some topics overlap with the modular pages below (`core-functions.md`,
-`calculators.md`, ...); the two sets have not been merged yet.
+The modular pages below are the **reference** descriptions; `guide/` holds the
+tutorial-style text from the former README. The two sets describe the same topics in
+different words (measured line overlap <= 16 %), so they were cross-linked rather than
+merged: each page starts with a pointer to its counterpart, and behaviour changes must
+update both. `tests/test_docs_consistency.py` checks that every `FZ_*` variable cited in
+the documentation exists in the code and that all relative links in `doc/` resolve.
 
 ## Getting Started
 

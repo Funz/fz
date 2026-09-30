@@ -1,5 +1,9 @@
 # Installing Plugins
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`installing-models.md`](../installing-models.md), [`fzd_content_format.md`](../fzd_content_format.md). When behaviour changes, update both.
+
+
 FZ supports installing models and algorithms as plugins from GitHub repositories, local zip files, or URLs.
 
 ## Installing Algorithm Plugins

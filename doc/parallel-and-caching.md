@@ -1,5 +1,9 @@
 # FZ Parallel Execution and Caching
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/advanced-features.md`](guide/advanced-features.md). When behaviour changes, update both.
+
+
 ## Parallel Execution
 
 ### How Parallelization Works

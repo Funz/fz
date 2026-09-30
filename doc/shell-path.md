@@ -1,5 +1,9 @@
 # Shell Path Configuration (FZ_SHELL_PATH)
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/configuration.md`](guide/configuration.md). When behaviour changes, update both.
+
+
 ## Overview
 
 The `FZ_SHELL_PATH` environment variable allows you to specify custom locations for shell binaries (grep, awk, sed, cut, tr, etc.) used in model output expressions and calculator commands. This is essential for cross-platform compatibility, especially on Windows where Unix-like tools may be installed in non-standard locations.

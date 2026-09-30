@@ -1,5 +1,9 @@
 # MCP server (`fz-mcp`)
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`mcp-server.md`](../mcp-server.md). When behaviour changes, update both.
+
+
 **Trusted mode (the default) is equivalent to giving the agent shell access** -
 see "Threat Model" above and `doc/mcp-server.md` for the full picture (tool
 annotations and their limits, restricted mode, transport).

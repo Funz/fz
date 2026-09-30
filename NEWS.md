@@ -43,6 +43,13 @@
   `doc/INDEX.md`). Anchors such as `README.md#cli-usage` now live in
   `doc/guide/cli-usage.md`. `tests/test_readme_structure.py` guards the size and
   the links.
+  Old links `README.md#<section>` still land on a "Former README sections" list that
+  points to the new pages. The guide pages and the modular `doc/*.md` pages describe the
+  same topics in different words (measured line overlap <= 16 %): they are cross-linked
+  rather than merged (`doc/INDEX.md`), and `tests/test_docs_consistency.py` checks that
+  every `FZ_*` variable cited exists in the code and that relative links resolve. The
+  `sh://` file-resolution rule (P0-8) is now documented in `doc/calculators.md` and
+  `doc/guide/calculator-types.md`.
 
 ### Timeout warning (P0-4 follow-up)
 

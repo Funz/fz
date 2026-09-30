@@ -1,5 +1,9 @@
 # FZ Model Definition
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/model-definition.md`](guide/model-definition.md). When behaviour changes, update both.
+
+
 ## What is a Model?
 
 A model defines how FZ parses input files and extracts output results. It specifies:

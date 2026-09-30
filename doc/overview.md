@@ -1,5 +1,9 @@
 # FZ Framework Overview
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/features.md`](guide/features.md). When behaviour changes, update both.
+
+
 ## What is FZ?
 
 FZ is a parametric scientific computing framework that automates running computational experiments with different parameter combinations. It wraps simulation codes to handle:

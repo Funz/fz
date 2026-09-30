@@ -1,5 +1,9 @@
 # Funz Server Protocol and UDP Discovery
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/calculator-types.md`](guide/calculator-types.md). When behaviour changes, update both.
+
+
 ## Overview
 
 The Funz protocol enables FZ to communicate with legacy Java Funz calculator servers via TCP socket communication. It provides:

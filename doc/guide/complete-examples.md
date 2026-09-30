@@ -1,5 +1,9 @@
 # Complete Examples
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`quick-examples.md`](../quick-examples.md). When behaviour changes, update both.
+
+
 ## Interactive Jupyter Notebooks
 
 Explore fz features hands-on with these notebooks — open directly in Google Colab, no local install needed:

@@ -1,5 +1,9 @@
 # Features
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`overview.md`](../overview.md). When behaviour changes, update both.
+
+
 ## Core Capabilities
 
 - **🔄 Parametric Studies**: Factorial designs (dict with Cartesian product) or non-factorial designs (DataFrame with specific cases)

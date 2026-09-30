@@ -234,6 +234,32 @@ Details: [MCP server](doc/guide/mcp-server.md).
 - **All resources and test examples**: [Resources](doc/guide/resources.md).
 - **Release notes**: [`NEWS.md`](NEWS.md).
 
+### Former README sections
+
+Links such as `README.md#cli-usage` land here: the sections below moved to `doc/guide/` (text unchanged).
+
+- <a id="cli-usage"></a><a id="installation-of-cli-tools"></a><a id="fzi---parse-input-variables"></a><a id="fzc---compile-input-files"></a><a id="fzo---read-output-files"></a><a id="fzl---list-and-validate-modelscalculators"></a><a id="fzr---run-parametric-calculations"></a><a id="fzd---design-of-experiments"></a><a id="fz-install--uninstall"></a><a id="cli-options-reference"></a><a id="common-options-all-commands"></a><a id="exit-codes-and-output-streams"></a><a id="argument-formats"></a><a id="model-definition-options"></a><a id="fzr-specific-options"></a><a id="complete-cli-examples"></a><a id="example-1-quick-variable-discovery"></a><a id="example-2-quick-compilation-test"></a><a id="example-3-parse-existing-results"></a><a id="example-4-end-to-end-parametric-study"></a><a id="example-5-using-model-and-calculator-aliases"></a><a id="example-6-interrupt-and-resume"></a><a id="fzd---run-design-of-experiments"></a><a id="environment-variables-for-cli"></a>[CLI usage](doc/guide/cli-usage.md)
+- <a id="core-functions"></a><a id="input-variables-factorial-vs-non-factorial-designs"></a><a id="factorial-design-dict"></a><a id="non-factorial-design-dataframe"></a>[Python API (Core Functions)](doc/guide/python-api.md)
+- <a id="model-definition"></a><a id="model-aliases"></a><a id="formula-evaluation"></a><a id="python-interpreter-default"></a><a id="r-interpreter"></a><a id="variable-default-values"></a><a id="old-funz-syntax-compatibility"></a>[Model definition](doc/guide/model-definition.md)
+- <a id="calculator-types"></a><a id="local-shell-execution"></a><a id="ssh-remote-execution"></a><a id="slurm-workload-manager"></a><a id="funz-server-execution"></a><a id="cache-calculator"></a><a id="calculator-aliases"></a><a id="calculator-model-compatibility"></a>[Calculator types](doc/guide/calculator-types.md)
+- <a id="advanced-features"></a><a id="parallel-execution"></a><a id="retry-mechanism"></a><a id="caching-strategy"></a><a id="output-type-casting"></a><a id="vector-array-outputs"></a><a id="progress-callbacks"></a>[Advanced features](doc/guide/advanced-features.md)
+- <a id="complete-examples"></a><a id="interactive-jupyter-notebooks"></a><a id="example-1-perfect-gas-pressure-study"></a><a id="example-2-remote-hpc-calculation"></a><a id="example-3-multi-calculator-with-failover"></a><a id="example-4-design-of-experiments-with-adaptive-sampling"></a><a id="example-5-optimization-with-bfgs"></a>[Complete examples](doc/guide/complete-examples.md)
+- <a id="writing-custom-algorithms-for-fzd"></a><a id="algorithm-interface"></a><a id="algorithm-examples"></a><a id="1-monte-carlo-sampling"></a><a id="2-bfgs-optimization"></a><a id="3-brents-method-1d-optimization"></a><a id="algorithm-features"></a><a id="content-format-detection"></a><a id="dependency-management"></a>[Custom algorithms for fzd](doc/guide/custom-algorithms.md)
+- <a id="environment-variables"></a><a id="shell-path-configuration-fz_shell_path"></a><a id="campaign-manifest-and-ro-crate-traceability"></a><a id="timeout-configuration"></a><a id="1-environment-variable-global-default"></a><a id="2-model-configuration-per-model"></a><a id="3-fzrfzc-timeout-argument-per-call"></a><a id="priority-order-highest-to-lowest"></a><a id="python-configuration"></a><a id="directory-structure"></a>[Configuration details](doc/guide/configuration.md)
+- <a id="installing-plugins"></a><a id="installing-algorithm-plugins"></a><a id="from-github-repository-name"></a><a id="from-github-url"></a><a id="from-local-zip-file"></a><a id="using-installed-algorithms"></a><a id="installing-model-plugins"></a><a id="from-github-repository-name-1"></a><a id="from-github-url-or-local-zip"></a><a id="listing-installed-plugins"></a><a id="uninstalling-plugins"></a><a id="plugin-priority"></a><a id="creating-algorithm-plugins"></a>[Installing plugins](doc/guide/installing-plugins.md)
+- <a id="interrupt-handling"></a><a id="how-to-interrupt"></a><a id="what-happens"></a><a id="resuming-after-interrupt"></a><a id="example-with-interrupt-handling"></a>[Interrupt handling](doc/guide/interrupt-handling.md)
+- <a id="output-file-structure"></a><a id="logtxt---execution-metadata"></a><a id="fz_hash---input-file-checksums"></a>[Output file structure](doc/guide/output-structure.md)
+- <a id="breaking-changes"></a><a id="version-091"></a><a id="fzr-directory-structure-change"></a>[Breaking changes](doc/guide/breaking-changes.md)
+- <a id="development"></a><a id="running-tests"></a><a id="project-structure"></a><a id="testing-your-own-models"></a>[Development](doc/guide/development.md)
+- <a id="troubleshooting"></a><a id="common-issues"></a><a id="windows--cross-platform"></a><a id="debug-mode"></a>[Troubleshooting](doc/guide/troubleshooting.md)
+- <a id="performance-tips"></a>[Performance tips](doc/guide/performance-tips.md)
+- <a id="core-capabilities"></a><a id="six-core-functions"></a>[Features (full)](doc/guide/features.md)
+- <a id="using-pip"></a><a id="using-pipx-recommended-for-cli-tools"></a><a id="from-source"></a><a id="dependencies"></a>[Installation (full)](doc/guide/installation.md)
+- <a id="1-create-an-input-template"></a><a id="2-create-a-calculation-script"></a><a id="3-run-parametric-study"></a>[Quick Start (full)](doc/guide/quick-start.md)
+- [AI coding agents (full)](doc/guide/ai-agents.md)
+- [MCP server (full)](doc/guide/mcp-server.md)
+- <a id="main-documentation"></a><a id="context-documentation"></a><a id="examples"></a><a id="test-examples"></a>[Resources](doc/guide/resources.md)
+
 ## Development and contributing
 
 ```bash

@@ -1,5 +1,9 @@
 # Model Definition
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`model-definition.md`](../model-definition.md), [`syntax-guide.md`](../syntax-guide.md), [`formulas-and-interpreters.md`](../formulas-and-interpreters.md). When behaviour changes, update both.
+
+
 A model defines how to parse inputs and extract outputs:
 
 ```python

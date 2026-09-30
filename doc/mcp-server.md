@@ -1,5 +1,9 @@
 # MCP server
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/mcp-server.md`](guide/mcp-server.md). When behaviour changes, update both.
+
+
 **Giving an agent access to `fz-mcp` in its default (trusted) mode is
 equivalent to giving that agent shell access**: templates, formulas,
 output-parsing commands and calculator commands all run as code, with your

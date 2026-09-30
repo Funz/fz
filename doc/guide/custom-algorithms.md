@@ -1,5 +1,9 @@
 # Writing Custom Algorithms for fzd
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`fzd_content_format.md`](../fzd_content_format.md). When behaviour changes, update both.
+
+
 FZ provides an extensible framework for implementing adaptive algorithms. Each algorithm is a Python class with specific methods.
 
 ## Algorithm Interface

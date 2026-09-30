@@ -1,5 +1,9 @@
 # FZ Core Functions
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/python-api.md`](guide/python-api.md). When behaviour changes, update both.
+
+
 ## The Core Functions
 
 FZ provides six main functions for parametric computing:

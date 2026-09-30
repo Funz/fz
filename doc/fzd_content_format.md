@@ -1,5 +1,9 @@
 # FZD Content Format Handling
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/installing-plugins.md`](guide/installing-plugins.md), [`guide/custom-algorithms.md`](guide/custom-algorithms.md). When behaviour changes, update both.
+
+
 ## Overview
 
 `fzd` (Design of Experiments) intelligently detects and processes different content formats returned by algorithm's `get_analysis()` and `get_analysis_tmp()` methods. Content is automatically saved to appropriate files and parsed into structured Python objects.

@@ -1,5 +1,9 @@
 # FZ Calculators
 
+<!-- counterpart-note -->
+> Guide counterpart (tutorial-style, from the former README): [`guide/calculator-types.md`](guide/calculator-types.md). When behaviour changes, update both.
+
+
 ## What is a Calculator?
 
 A calculator is an execution backend that runs your computational code. FZ supports three types:
@@ -75,6 +79,15 @@ bash calculate.sh input.txt
 # Multiple input files:
 bash calculate.sh file1.txt file2.dat config.ini
 ```
+
+**Files named in the command** (`sh://cat in.txt > res.txt`): a bare word such as `script.sh`
+or `data.txt` is turned into an absolute path in the *launch* directory only if it exists
+there **and** does not exist in the case directory (the compiled input files win). Targets
+of `>`, `>>` and `2>` redirections are never rewritten, so outputs stay in the case
+directory. Each rewritten word is logged at info level. A helper script that lives only next
+to the caller (`sh://bash calc.sh`) therefore works, while per-case files must be referred to
+by bare name. Earlier versions rewrote every file-looking word, which could make a command
+read the un-substituted template and write outside the case directory (see `NEWS.md`).
 
 ### Example Calculator Script
 

@@ -1,5 +1,9 @@
 # Calculator Types
 
+<!-- counterpart-note -->
+> Guide page (from the former README). Reference counterpart in `doc/`: [`calculators.md`](../calculators.md), [`funz-protocol.md`](../funz-protocol.md), [`slurm-architecture.md`](../slurm-architecture.md). When behaviour changes, update both.
+
+
 ## Local Shell Execution
 
 Execute calculations locally:
@@ -24,6 +28,15 @@ calculators = [
 2. Command executed in that directory with input files as arguments
 3. Outputs parsed from result directory
 4. Temporary files cleaned up (preserved in DEBUG mode)
+
+**Files named in the command** (`sh://cat in.txt > res.txt`): a bare word such as `script.sh`
+or `data.txt` is turned into an absolute path in the *launch* directory only if it exists
+there **and** does not exist in the case directory (the compiled input files win). Targets
+of `>`, `>>` and `2>` redirections are never rewritten, so outputs stay in the case
+directory. Each rewritten word is logged at info level. A helper script that lives only next
+to the caller (`sh://bash calc.sh`) therefore works, while per-case files must be referred to
+by bare name. Earlier versions rewrote every file-looking word, which could make a command
+read the un-substituted template and write outside the case directory (see `NEWS.md`).
 
 ## SSH Remote Execution
 
