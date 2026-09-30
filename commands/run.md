@@ -8,14 +8,18 @@ Request: $ARGUMENTS
 
 - If the simulation is not wrapped and verified yet, do that first (`fzi` → `fzc` →
   one manual run → `fzo` on a single case) before launching the batch.
-- Build `input_variables` as a dict of lists (full factorial — Cartesian product) or
-  as a DataFrame / CSV with one row per case (LHS, constrained or imported designs).
+- Build `input_variables` as a dict of lists (full factorial — Cartesian product) or,
+  from Python only, as a DataFrame with one row per case (LHS, constrained or imported
+  designs; read a CSV with `pandas.read_csv`). The CLI only takes the dict form.
 - Choose calculators: `sh://` local, `ssh://user@host/command` remote, `slurm://`
   for HPC. Repeat a URI or pass a list to run cases in parallel. Put
   `cache://<previous results dir>` first in the list to resume or extend a run —
   only the missing cases are computed.
 - Use `--format json` on the CLI (data → stdout, logs → stderr; `fzr` exits 1 when no
   case succeeds).
-- After the run, report the `status` counts (`done`/`error`/`cached`) and show the
-  results table. For any `error` or `null`-output case, read that case's
+- In Python, pass `calculators=` and `results_dir=` as keywords (`results_dir` is the
+  4th positional parameter of `fz.fzr`).
+- After the run, report the `status` counts (`done`/`failed`/`error`/`timeout`/
+  `interrupted`; cache hits are `done` with a `cache://` calculator) and show the
+  results table. For any non-`done` or `null`-output case, read that case's
   `err.txt` / `log.txt` before concluding.

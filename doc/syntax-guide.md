@@ -22,7 +22,7 @@ Pressure: ${pressure}
 ```python
 model = {
     "varprefix": "$",     # Variable prefix
-    "delim": "{}"         # Optional delimiters (can be empty)
+    "delim": "{}"         # Delimiters; if omitted, variables use "()" and formulas "{}"
 }
 ```
 
@@ -34,26 +34,20 @@ model = {
 
 ### Legacy Funz Syntax Compatibility
 
-FZ supports the legacy Java Funz variable syntax for backward compatibility:
+Templates written for the Java Funz framework use `$(var)` for variables and `@{expr}` for
+formulas. This is exactly what fz applies when the model has **no `delim` key**
+(variables delimited by `()`, formulas by `{}`), or explicitly:
 
-```text
-# Old Funz syntax (question mark prefix)
-Temperature: ?T_celsius
-Pressure: ?pressure
-
-# Equivalent to modern FZ syntax
-Temperature: $T_celsius
-Pressure: $pressure
+```python
+model = {"var_prefix": "$", "var_delim": "()", "formula_prefix": "@", "formula_delim": "{}"}
 ```
 
-**Automatic detection**: `?var` is automatically converted to `$var` internally. No configuration is needed, and both syntaxes can be mixed in the same file.
+Also supported from Java Funz: `$(var~default;comment;bounds)` metadata (only the default
+is used), `#@: code` static context lines, `#@? ...` test lines (skipped), and
+`@{expr | 0.00}` number formats. See `examples/java_funz_syntax_example.py`.
 
-**Use cases**:
-- Migrating from Java Funz to Python FZ
-- Reusing existing Funz input templates
-- Backward compatibility with legacy projects
-
-See `examples/java_funz_syntax_example.py` for complete examples.
+A template using `?var` as variable marker needs `"varprefix": "?"`; `?var` is **not**
+converted to `$var` automatically.
 
 ### Default Values
 

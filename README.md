@@ -225,7 +225,7 @@ Details: [MCP server](doc/mcp-server.md).
 
 ## Documentation
 
-- **Documentation in `doc/`** (one file per topic; start at [`doc/INDEX.md`](doc/INDEX.md)): [CLI](doc/cli-usage.md), [Python API](doc/core-functions.md), [models](doc/model-definition.md), [calculators](doc/calculators.md), [parallelism and caching](doc/parallel-and-caching.md), [configuration](doc/configuration.md), [troubleshooting](doc/troubleshooting.md), [examples](doc/quick-examples.md), [custom `fzd` algorithms](doc/custom-algorithms.md), [plugins](doc/installing-models.md), [development](doc/development.md), [breaking changes](doc/breaking-changes.md), [MCP server](doc/mcp-server.md).
+- **Documentation in `doc/`** (one file per topic; start at [`doc/INDEX.md`](doc/INDEX.md)): [CLI](doc/cli-usage.md), [Python API](doc/core-functions.md), [models](doc/model-definition.md), [calculators](doc/calculators.md), [parallelism and caching](doc/parallel-and-caching.md), [configuration](doc/configuration.md), [troubleshooting](doc/troubleshooting.md), [examples](doc/quick-examples.md), [custom `fzd` algorithms](doc/custom-algorithms.md), [plugins](doc/installing-models.md), [development](doc/development.md), [breaking changes](doc/breaking-changes.md), [MCP server](doc/mcp-server.md), [constraints and pitfalls](doc/limitations.md).
 - **Examples**: [`examples/examples.md`](examples/examples.md), [`examples/`](examples/) notebooks and scripts.
 - **All resources and test examples**: [Resources](doc/resources.md).
 - **Release notes**: [`NEWS.md`](NEWS.md).

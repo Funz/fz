@@ -111,13 +111,17 @@ From a scratch directory, install and run a known problem whose answer you can c
 
 ```bash
 fz install algorithm ./fz-myalgo.zip     # or the repo path / URL
-fz list                                   # algorithm available?
+ls .fz/algorithms/                        # installed? (fz list shows models/calculators only;
+                                          # Python: fz.list_installed_algorithms())
 
 # drive it through fzd on a simple input (see code-wrapper.md for wrapping the code)
 fzd --input_path tests/input.txt --model MyCode \
     --input_variables '{"x": "[0;10]"}' --output_expression "result" \
-    --algorithm myalgo --options '{"max_iter": 20}' --format json
+    --algorithm myalgo --options '{"max_iter": 20}' --results_dir results_fzd
 ```
+
+`fzd` has no `--format` option: it prints a summary on stdout and writes the design and
+analysis under `--results_dir` (default `results_fzd`).
 
 Ship that as `tests/test.sh` in the repo. Publish conventions match code wrappers: repo
 named `fz-<name>`, default branch `main` (the installer fetches

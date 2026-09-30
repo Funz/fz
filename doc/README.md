@@ -106,6 +106,22 @@ Ready-to-use examples for:
 
 **Use when**: Looking for example code for specific use cases
 
+### 9. `limitations.md` - Constraints, Limits and Pitfalls
+Verified list of behaviors that surprise users:
+- `fzr` argument order (`results_dir` before `calculators`), config read at import
+- Parallelism = number of calculator entries; timeout rules (`0` does not disable)
+- `sh://` argument appending; reserved file names in case directories
+- Cache key contents, CLI/Python differences, SSH host keys, security model
+
+**Use when**: Before writing a model/calculator, or when a run behaves unexpectedly
+
+### Other files
+- `mcp-server.md` - the `fz-mcp` MCP server for AI agents
+- `slurm-architecture.md` - design notes on `slurm://` vs `slurm-array://`
+- `funz-protocol.md` - legacy Java Funz TCP/UDP protocol
+- `shell-path.md` - `FZ_SHELL_PATH` (bash location, Windows)
+- `fzd_content_format.md` - formats of `fzd` analysis content
+
 ## How to Use This Documentation
 
 ### For LLM Integration
@@ -126,7 +142,7 @@ These files can be used as context for LLMs in several ways:
 | Configuring models | model-definition.md, syntax-guide.md |
 | Setting up execution | calculators.md, parallel-and-caching.md |
 | Performance tuning | parallel-and-caching.md, calculators.md |
-| Troubleshooting | quick-examples.md (troubleshooting section) |
+| Troubleshooting | limitations.md, quick-examples.md (troubleshooting section) |
 
 ### Example Usage in LLM Prompts
 
@@ -167,6 +183,9 @@ doc/
 ├── parallel-and-caching.md             # Parallel execution and caching
 ├── fzd_content_format.md               # fzd analysis content formats
 ├── quick-examples.md                   # Common patterns and examples
+├── limitations.md                      # Constraints, limits and pitfalls
+├── mcp-server.md                       # fz-mcp server for AI agents
+├── slurm-architecture.md               # slurm:// vs slurm-array:// design notes
 ├── funz-protocol.md                    # Legacy Funz server protocol
 └── shell-path.md                       # FZ_SHELL_PATH configuration
 ```
@@ -198,6 +217,6 @@ To improve this documentation:
 
 ## Version
 
-These docs are for **fz version 1.0+**
+These docs are for **fz version 1.2+** (including unreleased changes listed in `NEWS.md`)
 
-Last updated: 2026-06-13
+Last updated: 2026-09-30

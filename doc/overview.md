@@ -24,7 +24,7 @@ FZ is a parametric scientific computing framework that automates running computa
 - **Formula variable prefix fix**: configurable `varprefix` now correctly applied inside `@{...}` formulas
 - **Variable defaults**: `${var~default}` syntax for default values
 - **Progress callbacks**: Real-time monitoring of calculation progress
-- **Old Funz syntax**: Backward compatibility with `?var` syntax
+- **Java Funz syntax**: `$(var)` variables and `@{expr}` formulas (the default when a model sets no `delim`)
 
 See `NEWS.md` for complete release notes.
 
@@ -240,15 +240,15 @@ results = fz.fzr(
 ### Pattern 3: Cache and Resume
 ```python
 # First run (may be interrupted)
-fz.fzr("input.txt", vars, model, "sh://bash calc.sh", "run1/")
+fz.fzr("input.txt", vars, model, calculators="sh://bash calc.sh", results_dir="run1/")
 
 # Resume from cache
 fz.fzr(
     "input.txt",
     vars,
     model,
-    ["cache://run1", "sh://bash calc.sh"],  # Try cache first
-    "run2/"
+    calculators=["cache://run1", "sh://bash calc.sh"],  # Try cache first
+    results_dir="run2/"
 )
 ```
 

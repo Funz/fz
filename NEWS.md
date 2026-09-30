@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### Documentation: constraints page, corrected examples, skill review
+
+- New `doc/limitations.md`: constraints and pitfalls checked by running fz (argument
+  order, parallelism, timeouts, `sh://` argument appending, reserved file names, cache
+  key, CLI/Python differences, SSH, `fz list`, `--global` installs, security).
+- Fixed ~130 `fz.fzr(...)` examples in `doc/` and `examples/` that passed the calculator
+  as the 4th positional argument (that slot is `results_dir`: a directory named after the
+  URI was created and every case failed); they now use `calculators=`/`results_dir=`.
+- Examples changing `os.environ["FZ_..."]` after `import fz` now call
+  `fz.reload_config()` / `fz.set_log_level()`; `fz.shell_path` imports replaced by
+  `fz.shell`; nonexistent `funz://...?timeout=` removed.
+- Behaviors now documented as they are:
+  - a model without `delim` delimits variables with `()` (`${x}` is not a variable) and
+    formulas with `{}`; the CLI without `--model` uses `{}`;
+  - `?var` is not converted to `$var` (needs `"varprefix": "?"`); notebook 02 fixed;
+  - `fzc` writes one sub-directory per case even for scalar values; `fzo` must target
+    case directories (the skill's verification ladder used `compiled/input.txt`);
+  - `FZ_RUN_TIMEOUT=0` / `timeout=0` time out immediately (only a model `timeout` of
+    `null`/`0` disables it);
+  - first Ctrl+C terminates running cases and `fzr` returns (it does not wait for them);
+  - `cache://_` resumes into the same `results_dir`;
+  - `fz list` shows calculators by `uri` and flags installed-wrapper aliases as failed;
+  - `fz install --global` leaves runner paths relative (runs fail elsewhere);
+  - no interactive SSH password prompt; `funz://` port is the UDP discovery port;
+  - `fzd` has no `--format`; `fz list` does not list algorithms; DataFrame designs are
+    Python-only.
+- Agent skill and `/fz:run`: status values, `FZ_MAX_WORKERS` only caps, function-model
+  `fzd` concurrency, `slurm-array://`, reserved file names, timeouts.
+
 ### Fix: potentially wrong results with `sh://` commands (P0-8)
 
 - Path resolution in `sh://` commands converted every word that looked like a

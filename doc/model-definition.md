@@ -33,6 +33,27 @@ model = {
 }
 ```
 
+## Defaults and key aliases
+
+Every syntax field is optional. The defaults, as applied by the code
+(`fz/interpreter.py`, `fz/core.py`), are:
+
+| Field (aliases, in precedence order) | Default |
+|--------------------------------------|---------|
+| `var_prefix`, `varprefix`, `var_char`, `varchar` | `$` |
+| `formula_prefix`, `formulaprefix`, `form_prefix`, `formprefix`, `formula_char`, `form_char` | `@` |
+| `var_delim`, then `delim` (delimiters of **variables**) | **`()`** |
+| `formula_delim`, then `delim` (delimiters of **formulas**) | `{}` |
+| `commentline`, `comment_line`, `comment_char`, `commentchar`, `comment` | `#` |
+| `interpreter` | `FZ_INTERPRETER` (default `python`) |
+
+> **Set `delim` explicitly.** Without a `delim` key, `${x}` is **not** a variable (only
+> `$x` and `$(x)` are), while formulas use `@{...}`. The CLI used *without* `--model`
+> applies `delim: "{}"` instead, so the same template can behave differently from Python
+> and from the CLI. `"delim": "{}"` sets both delimiters to braces; `var_delim` /
+> `formula_delim` set them separately (the Java-Funz convention is
+> `var_delim: "()"`, `formula_delim: "{}"`).
+
 ## Model Fields
 
 ### varprefix (required for fzi, fzc, fzr)
@@ -46,8 +67,9 @@ Prefix that marks variables in input files.
 
 **Example**:
 ```python
-model = {"varprefix": "$"}
+model = {"varprefix": "$", "delim": "{}"}
 # Matches: $temp, $pressure, ${volume}
+# (with no "delim" key, variables use "()": $(volume) matches, ${volume} does not)
 ```
 
 ### delim (optional)
@@ -592,7 +614,7 @@ model = {
     }
 }
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 ```
 
 ## Best Practices

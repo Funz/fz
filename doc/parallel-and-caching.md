@@ -4,11 +4,11 @@
 
 ### How Parallelization Works
 
-FZ automatically parallelizes calculations when you provide multiple calculators or use environment variables to control worker threads.
+FZ parallelizes calculations when you provide several calculator entries: the number of workers is the number of non-cache calculator entries (capped by the number of cases and, optionally, by `FZ_MAX_WORKERS`). `slurm-array://` is the exception: one waiting thread per case, so that cases batch into one job array.
 
 **Key principles**:
 - Each calculator can run one case at a time (thread-safe locking)
-- Cases are distributed round-robin across calculators
+- Case `i` prefers calculator `i mod n`; if it is busy, the first free calculator is used
 - Progress tracking with ETA updates
 - Graceful interrupt handling (Ctrl+C)
 
@@ -48,12 +48,13 @@ results = fz.fzr(
 N = 4
 calculators = ["sh://bash calc.sh"] * N
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 ```
 
 ### Load Balancing
 
-Cases are distributed round-robin:
+Case `i` first tries calculator `i mod n`; when that one is busy, the first free
+calculator takes it. With equal case durations this gives a round-robin distribution:
 
 ```python
 # 10 cases, 3 calculators
@@ -75,8 +76,9 @@ calculators = ["sh://bash calc.sh"] * 8
 
 **Method 2: Environment variable**
 ```python
-import os
+import os, fz
 os.environ['FZ_MAX_WORKERS'] = '8'
+fz.reload_config()   # FZ_* variables are read at import time; FZ_MAX_WORKERS only caps
 
 # Or from shell:
 # export FZ_MAX_WORKERS=8
@@ -236,15 +238,15 @@ results2 = fz.fzr(
 
 ```python
 # Method 1: Fast but approximate
-fz.fzr("input.txt", variables, model, "sh://fast.sh", "results_fast/")
+fz.fzr("input.txt", variables, model, calculators="sh://fast.sh", results_dir="results_fast/")
 
 # Method 2: Slow but accurate (reuses same inputs)
 fz.fzr(
     "input.txt",
     variables,
     model,
-    "sh://accurate.sh",  # Different calculator, same inputs
-    "results_accurate/"
+    calculators="sh://accurate.sh",  # Different calculator, same inputs
+    results_dir="results_accurate/"
 )
 
 # Compare results
@@ -264,25 +266,25 @@ calculators = [
     "sh://bash calc.sh"             # Last resort: compute
 ]
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 ```
 
 ### Strategy 5: Selective Recalculation
 
 ```python
 # Run full study
-fz.fzr("input.txt", variables, model, "sh://bash calc.sh", "run1/")
+fz.fzr("input.txt", variables, model, calculators="sh://bash calc.sh", results_dir="run1/")
 
 # Modify only the calculation script (not inputs)
 # edit calc.sh...
 
 # Re-run with different script but same inputs won't use cache
 # because cache matches input files, not calculator
-fz.fzr("input.txt", variables, model, "sh://bash calc_v2.sh", "run2/")
+fz.fzr("input.txt", variables, model, calculators="sh://bash calc_v2.sh", results_dir="run2/")
 
 # To force re-calculation even with same inputs:
 # Don't use cache calculator
-fz.fzr("input.txt", variables, model, "sh://bash calc.sh", "run3/")
+fz.fzr("input.txt", variables, model, calculators="sh://bash calc.sh", results_dir="run3/")
 ```
 
 ## Combining Parallel and Cache
@@ -300,7 +302,7 @@ calculators = [
 # First tries cache
 # If cache miss, distributes across 4 parallel workers
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 ```
 
 ### Pattern 2: Mixed Remote and Local with Cache
@@ -314,7 +316,7 @@ calculators = [
     "ssh://user@robust-cluster/bash robust.sh"  # Robust remote
 ]
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 ```
 
 ### Pattern 3: Staged Execution
@@ -365,15 +367,16 @@ set `FZ_RO_CRATE=0` to disable it. A failure to write either file only logs a wa
 FZ automatically retries failed calculations:
 
 ```python
-import os
+import os, fz
 os.environ['FZ_MAX_RETRIES'] = '3'
+fz.reload_config()   # FZ_* variables are read at import time
 
 calculators = [
     "sh://bash may_fail.sh",
     "sh://bash backup.sh"
 ]
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 ```
 
 **Retry behavior**:
@@ -393,8 +396,9 @@ calculators = [
 ]
 
 os.environ['FZ_MAX_RETRIES'] = '5'
+fz.reload_config()
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 
 # Check retry statistics
 print(results[['status', 'calculator', 'error']].value_counts())
@@ -410,13 +414,13 @@ results are kept) and `cache://` resumes it later: see [Interrupt handling](inte
 ### 1. Profile to Find Bottlenecks
 
 ```python
-import os
+import fz
 import time
 
-os.environ['FZ_LOG_LEVEL'] = 'DEBUG'
+fz.set_log_level('DEBUG')  # or FZ_LOG_LEVEL=DEBUG before starting Python
 
 start = time.time()
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 elapsed = time.time() - start
 
 print(f"Total time: {elapsed:.2f}s")
@@ -434,8 +438,8 @@ def benchmark_workers(n_workers):
         "input.txt",
         {"param": list(range(100))},
         model,
-        ["sh://bash calc.sh"] * n_workers,
-        f"benchmark_{n_workers}_workers"
+        calculators=["sh://bash calc.sh"] * n_workers,
+        results_dir=f"benchmark_{n_workers}_workers"
     )
     return time.time() - start
 
@@ -475,8 +479,8 @@ results_light = fz.fzr(
     "input.txt",
     light_cases,
     model,
-    ["sh://bash calc.sh"] * 8,  # Many local workers
-    "results_light"
+    calculators=["sh://bash calc.sh"] * 8,  # Many local workers
+    results_dir="results_light"
 )
 
 # Run heavy cases on HPC
@@ -484,8 +488,8 @@ results_heavy = fz.fzr(
     "input.txt",
     heavy_cases,
     model,
-    "ssh://user@hpc/sbatch heavy.sh",
-    "results_heavy"
+    calculators="ssh://user@hpc/sbatch heavy.sh",
+    results_dir="results_heavy"
 )
 
 # Combine results
@@ -554,7 +558,7 @@ systems, UI updates for long-running studies, profiling. Give only the keys you 
 
 ```python
 # In one terminal: run calculations
-results = fz.fzr("input.txt", variables, model, calculators, "results/")
+results = fz.fzr("input.txt", variables, model, calculators=calculators, results_dir="results/")
 
 # In another terminal: monitor progress
 import os

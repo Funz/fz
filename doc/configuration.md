@@ -118,6 +118,9 @@ model (the calculation may run indefinitely):
 model = {"timeout": None, "output": {"result": "cat output.txt"}}
 ```
 
+`FZ_RUN_TIMEOUT=0` and `timeout=0` do **not** disable the timeout: every case then times
+out immediately. Only the model entry disables it.
+
 ### 3. `fzr()`/`fzc()` `timeout=` Argument (Per-Call)
 
 ```python

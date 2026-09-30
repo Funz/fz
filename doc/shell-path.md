@@ -66,7 +66,8 @@ export FZ_SHELL_PATH=/opt/tools/bin:/usr/local/bin:/usr/bin
 **Python:**
 ```python
 import os
-os.environ['FZ_SHELL_PATH'] = '/opt/custom/bin:/usr/local/bin'
+os.environ['FZ_SHELL_PATH'] = '/opt/custom/bin:/usr/local/bin'  # before `import fz`
+import fz
 ```
 
 ### Path Separators
@@ -217,7 +218,7 @@ print(f"Shell path: {config.shell_path}")
 ### Resolving Commands Manually
 
 ```python
-from fz.shell_path import resolve_command, replace_commands_in_string
+from fz.shell import resolve_command, replace_commands_in_string
 
 # Resolve single command
 grep_path = resolve_command("grep")
@@ -232,7 +233,7 @@ print(f"Resolved: {resolved}")
 ### Listing Available Binaries
 
 ```python
-from fz.shell_path import get_resolver
+from fz.shell import get_resolver
 
 resolver = get_resolver()
 binaries = resolver.list_available_binaries()
@@ -243,12 +244,14 @@ print(f"Available binaries: {binaries}")
 
 ```python
 import os
-from fz.shell_path import reinitialize_resolver
+import fz
+from fz.shell import reinitialize_resolver
 
 # Change shell path
 os.environ['FZ_SHELL_PATH'] = '/new/path/bin'
 
-# Reinitialize resolver to pick up new path
+# Re-read FZ_* variables, then rebuild the resolver from the new configuration
+fz.reload_config()
 reinitialize_resolver()
 ```
 
@@ -329,7 +332,7 @@ Cache is cleared when:
 
 ### ShellPathResolver Class
 
-Located in `fz/shell_path.py`:
+Located in `fz/shell.py`:
 
 ```python
 class ShellPathResolver:
@@ -350,11 +353,11 @@ class ShellPathResolver:
 
 ```python
 # Get singleton resolver instance
-from fz.shell_path import get_resolver
+from fz.shell import get_resolver
 resolver = get_resolver()
 
 # Convenience functions
-from fz.shell_path import resolve_command, replace_commands_in_string
+from fz.shell import resolve_command, replace_commands_in_string
 path = resolve_command("grep")
 resolved_cmd = replace_commands_in_string("grep file.txt")
 ```
@@ -425,5 +428,5 @@ jobs:
 - **Shell path example**: `examples/shell_path_example.md`
 - **Configuration guide**: `doc/overview.md`
 - **Calculator types**: `doc/calculators.md`
-- **Source code**: `fz/shell_path.py`
+- **Source code**: `fz/shell.py`
 - **Tests**: `tests/test_shell_path.py`

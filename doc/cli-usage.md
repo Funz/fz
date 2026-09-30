@@ -72,7 +72,8 @@ fzi input.txt \
 Substitute variables and create compiled input files:
 
 ```bash
-# Basic usage
+# Basic usage (writes compiled/T_celsius=25,V_L=10,n_mol=1/input.txt:
+# one sub-directory per case, even for scalar values)
 fzc input.txt \
   --model perfectgas \
   --variables '{"T_celsius": 25, "V_L": 10, "n_mol": 1}' \
@@ -88,11 +89,11 @@ fzc input.txt \
 **Directory structure created:**
 ```
 compiled_grid/
-├── T_celsius=10,V_L=1/
+├── T_celsius=10,V_L=1,n_mol=1/
 │   └── input.txt
-├── T_celsius=10,V_L=2/
+├── T_celsius=10,V_L=2,n_mol=1/
 │   └── input.txt
-├── T_celsius=20,V_L=1/
+├── T_celsius=20,V_L=1,n_mol=1/
 │   └── input.txt
 ...
 ```
@@ -380,7 +381,8 @@ fz uninstall algorithm myalgo
 --version                 Show version
 --model MODEL             Model alias or inline definition
 --varprefix PREFIX        Variable prefix (default: $)
---delim DELIMITERS        Formula delimiters (default: {})
+--delim DELIMITERS        Variable and formula delimiters ({} when --model is absent;
+                          a --model without "delim" keeps () for variables)
 --formulaprefix PREFIX    Formula prefix (default: @)
 --commentline CHAR        Comment character (default: #)
 --format FORMAT           Output format: json, table, csv, markdown, html

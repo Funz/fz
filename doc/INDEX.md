@@ -18,6 +18,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 - [Examples by Use Case](#examples-by-use-case)
 - [CLI Usage](#cli-usage)
 - [Troubleshooting](#troubleshooting)
+- [Constraints and pitfalls](limitations.md)
 
 ## Where the former README went
 
@@ -211,6 +212,7 @@ exists in the code and that all relative links in `doc/` resolve.
 
 | Topic | File | Section |
 |-------|------|---------|
+| Constraints and pitfalls (checked against the code) | limitations.md | - |
 | Debug single case | quick-examples.md | "Troubleshooting Examples" → "Debug Single Case" |
 | Test calculator manually | quick-examples.md | "Troubleshooting Examples" → "Test Calculator Manually" |
 | Verify cache matching | quick-examples.md | "Troubleshooting Examples" → "Verify Cache Matching" |

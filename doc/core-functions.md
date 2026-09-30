@@ -198,7 +198,9 @@ input_variables = {
 }
 
 fz.fzc("input.txt", input_variables, model, "compiled/")
-# Creates: compiled/input.txt with values substituted
+# Creates: compiled/temp=25,pressure=101.3,volume=1.0/input.txt
+# (fzc always writes one sub-directory per case when the input declares variables,
+#  even for scalar values; an existing compiled/ is renamed with a timestamp first)
 ```
 
 **Example 2: Multiple compilations (Cartesian product)**
@@ -213,12 +215,12 @@ input_variables = {
 fz.fzc("input.txt", input_variables, model, "compiled_grid/")
 
 # Creates 6 subdirectories:
-# compiled_grid/temp=10,pressure=1/input.txt
-# compiled_grid/temp=10,pressure=10/input.txt
-# compiled_grid/temp=20,pressure=1/input.txt
-# compiled_grid/temp=20,pressure=10/input.txt
-# compiled_grid/temp=30,pressure=1/input.txt
-# compiled_grid/temp=30,pressure=10/input.txt
+# compiled_grid/temp=10,pressure=1,volume=1.0/input.txt
+# compiled_grid/temp=10,pressure=10,volume=1.0/input.txt
+# compiled_grid/temp=20,pressure=1,volume=1.0/input.txt
+# compiled_grid/temp=20,pressure=10,volume=1.0/input.txt
+# compiled_grid/temp=30,pressure=1,volume=1.0/input.txt
+# compiled_grid/temp=30,pressure=10,volume=1.0/input.txt
 ```
 
 **Example 3: With formula evaluation**
@@ -233,7 +235,7 @@ input_variables = {"T_celsius": 25}
 
 fz.fzc("input.txt", input_variables, model, "compiled/")
 
-# compiled/input.txt:
+# compiled/T_celsius=25/input.txt:
 # Temperature: 25 C
 # Temperature (K): 298.15
 ```
@@ -368,7 +370,7 @@ results_df = fz.fzr(
     input_path,
     input_variables,
     model,
-    calculators,
+    calculators=calculators,
     results_dir="results"
 )
 ```
@@ -866,7 +868,7 @@ input_variables = {
 # Creates 6 cases: 3 × 2 = 6
 # (100,1.0), (100,2.0), (200,1.0), (200,2.0), (300,1.0), (300,2.0)
 
-results = fz.fzr(input_file, input_variables, model, calculators)
+results = fz.fzr(input_file, input_variables, model, calculators=calculators)
 ```
 
 **Use factorial design when:**
@@ -890,7 +892,7 @@ input_variables = pd.DataFrame({
 # (100,1.0), (200,1.0), (100,2.0), (300,1.5)
 # Note: (100,2.0) is included but (200,2.0) is not
 
-results = fz.fzr(input_file, input_variables, model, calculators)
+results = fz.fzr(input_file, input_variables, model, calculators=calculators)
 ```
 
 **Use non-factorial design when:**
@@ -947,7 +949,7 @@ results = fz.fzr(
     "input.txt",
     {var: [1, 2, 3] for var in vars},  # Use discovered variables
     model,
-    "sh://bash calc.sh"
+    calculators="sh://bash calc.sh"
 )
 ```
 
@@ -975,5 +977,5 @@ test_results = fz.fzo("test_results/", model)
 print(test_results)
 
 # 3. Run full study
-results = fz.fzr("input.txt", variables, model, calculators, "results/")
+results = fz.fzr("input.txt", variables, model, calculators=calculators, results_dir="results/")
 ```
