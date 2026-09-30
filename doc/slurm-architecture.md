@@ -1,5 +1,7 @@
 # SLURM execution: architecture note
 
+
+
 **Decision (P1-2)**: keep a native `sbatch`/`sacct` implementation for now; do not add PSI/J yet.
 
 - `slurm://` (`fz/runners/slurm.py`) = blocking `srun` per case (unchanged).

@@ -55,7 +55,7 @@ R-dependent code or tests.
 
 ## CI
 
-- `ci.yml` — main matrix (Linux/macOS/Windows × Python 3.9–3.13, plus 3.14-dev). It
+- `ci.yml` — main matrix (Linux/macOS/Windows × Python 3.9–3.14; Windows 3.9 excluded). It
   excludes the example/SSH/funz-protocol test files (see the `pytest --ignore` list in
   the workflow); those run in dedicated workflows: `ssh-localhost.yml`,
   `slurm-localhost.yml`, `cli-tests.yml`, `examples.yml`, `funz-calculator.yml`.
@@ -68,7 +68,10 @@ R-dependent code or tests.
   Python signatures consistent — every core function has a CLI twin with the same
   semantics, and CLI output must stay parseable with `--format json`.
 - When changing the public API or CLI flags, update **all three** doc surfaces:
-  `README.md`, `doc/`, and `skills/fz/reference.md` (the agent skill ships to users).
+  `README.md` (overview only, kept under 300 lines: `tests/test_readme_structure.py`),
+  `doc/` (the whole documentation, one file per topic; do not duplicate a topic across pages),
+  and
+  `skills/fz/reference.md` (the agent skill ships to users).
 - Default values live in `fz/config.py` and are env-overridable (`FZ_LOG_LEVEL`,
   `FZ_MAX_WORKERS`, `FZ_MAX_RETRIES` (default 5), `FZ_SSH_*`, `FZ_SHELL_PATH`).
 - User-facing release notes go in `NEWS.md`.

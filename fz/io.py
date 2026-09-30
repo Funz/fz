@@ -259,13 +259,28 @@ def resolve_cache_paths(cache_pattern: str) -> List[Path]:
 
 _code_id_warning_lock = threading.Lock()
 _code_id_warning_emitted = False
+_legacy_cache_warning_emitted = False
 
 
 def reset_cache_code_id_warning() -> None:
-    """Re-arm the once-per-campaign "unverifiable cache identity" warning; called at the start of each fzr()/fzd() campaign."""
-    global _code_id_warning_emitted
+    """Re-arm the once-per-campaign cache warnings ("unverifiable cache identity", "legacy cache ignored"); called at the start of each fzr()/fzd() campaign."""
+    global _code_id_warning_emitted, _legacy_cache_warning_emitted
     with _code_id_warning_lock:
         _code_id_warning_emitted = False
+        _legacy_cache_warning_emitted = False
+
+
+def _warn_legacy_cache_ignored_once(cache_dir: Path) -> None:
+    global _legacy_cache_warning_emitted
+    with _code_id_warning_lock:
+        if _legacy_cache_warning_emitted:
+            return
+        _legacy_cache_warning_emitted = True
+    log_warning(
+        f"⚠️  cache:// ignored a legacy (v1, MD5, no code identity) cache entry: {cache_dir}. "
+        "Legacy caches are refused by default; set FZ_CACHE_ACCEPT_LEGACY=1 to accept them explicitly "
+        "(results are then reused without any check of the code version)."
+    )
 
 
 def _warn_unknown_code_id_once() -> None:
@@ -382,6 +397,7 @@ def find_cache_match(cache_base_path: Path, current_hash_file: Path,
             continue
 
         if cache_meta["version"] == "v1" and not accept_legacy:
+            _warn_legacy_cache_ignored_once(cache_dir)
             continue
 
         if not _entries_match(current_meta["entries"], cache_meta, current_hash_file.parent):

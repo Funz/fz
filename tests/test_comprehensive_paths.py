@@ -115,7 +115,9 @@ def test_comprehensive_path_resolution():
         {
             "name": "Archive operations",
             "calculator": "sh://tar -czf archive.tar.gz subdir/ && echo 'result = 600'",
-            "expected_status": "done" if platform.system() != "Windows" else "failed"
+            # P0-8: "failed" on Windows came from the old resolver rewriting the
+            # (non-existent) archive name to the launch directory
+            "expected_status": "done"
         },
         #{ NO: awk with file argument and redirection inside command line is not supported
         #    "name": "Multiple file arguments",

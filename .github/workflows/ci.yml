@@ -15,11 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
-        include:
-          # Test Python 3.14 on Ubuntu only (as it may not be available on all platforms yet)
-          - os: ubuntu-latest
-            python-version: '3.14-dev'
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         exclude:
           # Disable Windows + Python 3.9 combination
           - os: windows-latest

@@ -1464,7 +1464,9 @@ def fzr(
     # New campaign: re-arm the once-per-campaign "unverifiable cache
     # identity" warning (see fz/io.py's find_cache_match)
     from .io import reset_cache_code_id_warning
+    from .runners.manager import reset_timeout_warnings
     reset_cache_code_id_warning()
+    reset_timeout_warnings()
 
     # Convert to absolute paths immediately while we're in the correct working directory
     input_path = Path(input_path).resolve()

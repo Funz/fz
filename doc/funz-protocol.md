@@ -1,5 +1,7 @@
 # Funz Server Protocol and UDP Discovery
 
+
+
 ## Overview
 
 The Funz protocol enables FZ to communicate with legacy Java Funz calculator servers via TCP socket communication. It provides:
@@ -198,7 +200,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 RESERVE
 R
@@ -233,7 +235,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 NEWCASE
 abc123secret
@@ -268,7 +270,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 PUTFILE
 abc123secret
@@ -303,7 +305,7 @@ Y    # Success - calculation complete
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 EXECUTE
 abc123secret
@@ -336,7 +338,7 @@ Y
 ```
 
 **Example:**
-```python
+```text
 # Client sends:
 ARCHIVE
 abc123secret

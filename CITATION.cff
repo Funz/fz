@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use fz in your research, please cite it using these metadata."
+title: "FZ: Parametric Scientific Computing Framework"
+type: software
+authors:
+  - family-names: "Richet"
+    given-names: "Yann"
+repository-code: "https://github.com/Funz/fz"
+url: "https://github.com/Funz/fz"
+license: BSD-3-Clause
+keywords:
+  - parametric studies
+  - scientific computing
+  - design of experiments
+  - simulation

@@ -145,6 +145,58 @@ results2 = fz.fzr(
 )
 ```
 
+### Example 6: Perfect Gas Study with a Plot
+
+The input template and `PerfectGazPressure.sh` are the ones of [Quick Start](quick-start.md).
+
+```python
+import fz
+import matplotlib.pyplot as plt
+
+model = {
+    "varprefix": "$",
+    "formulaprefix": "@",
+    "delim": "{}",
+    "commentline": "#",
+    "output": {
+        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
+    }
+}
+
+results = fz.fzr(
+    "input.txt",
+    {"n_mol": [1, 2, 3], "T_celsius": [10, 20, 30], "V_L": [5, 10]},
+    model,
+    calculators="sh://bash PerfectGazPressure.sh",
+    results_dir="perfectgas_results"
+)
+
+# Pressure vs temperature for each (volume, amount) pair
+for volume in results['V_L'].unique():
+    for n in results['n_mol'].unique():
+        data = results[(results['V_L'] == volume) & (results['n_mol'] == n)]
+        plt.plot(data['T_celsius'], data['pressure'], marker='o', label=f'n={n} mol, V={volume} L')
+
+plt.xlabel('Temperature (°C)')
+plt.ylabel('Pressure (Pa)')
+plt.title('Ideal Gas: Pressure vs Temperature')
+plt.legend()
+plt.grid(True)
+plt.savefig('perfectgas_results.png')
+```
+
+## Interactive Jupyter Notebooks
+
+Explore fz features hands-on with these notebooks — open directly in Google Colab, no local install needed:
+
+| Notebook | Topic | Colab |
+|----------|-------|-------|
+| 01 Getting Started | fzl, fzi, fzc, fzo, fzr — Perfect Gas PV=nRT | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/01_getting_started.ipynb) |
+| 02 Variable Syntax & Formulas | All syntax styles, `@{}` formulas, `#@` context | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/02_variable_syntax_and_formulas.ipynb) |
+| 03 Parametric Studies (fzr) | Grid inputs, DataFrame inputs, callbacks, parallel calculators | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/03_parametric_studies_fzr.ipynb) |
+| 04 Design of Experiments (fzd) | Random sampling, Brent 1D minimization, BFGS 2D, Monte Carlo | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/04_design_of_experiments_fzd.ipynb) |
+| 05 Caching & Advanced | Cache reuse, multi-output, logging, coarse-to-fine DOE | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Funz/fz/blob/main/examples/05_caching_and_advanced.ipynb) |
+
 ## Common Patterns by Use Case
 
 ### Pattern 1: Temperature Sweep
@@ -417,6 +469,47 @@ print(f"Optimal parameters: x={result.x[0]:.2f}, y={result.x[1]:.2f}")
 print(f"Optimal result: {result.fun:.2f}")
 ```
 
+### Pattern 9: fzd Sampling and Optimization, with Plots
+
+`fzd` explores ranges (`"[min;max]"`) instead of a fixed grid; `results['XY']` holds every
+evaluated point. Same model and input template as Example 6 (see [Core functions](core-functions.md), "fzd",
+for all parameters).
+
+```python
+import fz
+import matplotlib.pyplot as plt
+
+input_variables = {"T_celsius": "[10;50]", "V_L": "[1;10]", "n_mol": "1.0"}  # n_mol fixed
+
+# Monte Carlo sampling of the design space
+mc = fz.fzd(
+    input_path="input.txt", input_variables=input_variables, model=model,
+    output_expression="pressure",
+    algorithm="examples/algorithms/montecarlo_uniform.py",
+    calculators=["sh://bash PerfectGazPressure.sh"],
+    algorithm_options={"batch_sample_size": 20, "max_iterations": 10},
+    analysis_dir="monte_carlo_results",
+)
+df = mc['XY']
+plt.scatter(df['T_celsius'], df['V_L'], c=df['pressure'], cmap='viridis')
+plt.colorbar(label='Pressure (Pa)')
+plt.savefig('monte_carlo_analysis.png')
+
+# Minimization with BFGS (requires scipy)
+opt = fz.fzd(
+    input_path="input.txt", input_variables=input_variables, model=model,
+    output_expression="pressure",
+    algorithm="examples/algorithms/bfgs.py",
+    calculators=["sh://bash PerfectGazPressure.sh"],
+    algorithm_options={"minimize": True, "max_iterations": 50},
+    analysis_dir="optimization_results",
+)
+df = opt['XY']
+best = df.loc[df['pressure'].idxmin()]
+print(f"Optimum: T={best['T_celsius']:.2f} C, V={best['V_L']:.2f} L, "
+      f"P={best['pressure']:.2f} Pa after {opt['total_evaluations']} evaluations")
+```
+
 ## CLI Quick Examples
 
 ### Example 1: Quick Variable Check
@@ -611,7 +704,7 @@ display(results.head())
 display(results.describe())
 
 # Interactive plots
-%matplotlib inline
+# %matplotlib inline   (Jupyter magic, not valid in a plain .py file)
 import matplotlib.pyplot as plt
 
 plt.figure(figsize=(10, 6))

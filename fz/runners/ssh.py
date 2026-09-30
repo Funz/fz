@@ -176,6 +176,14 @@ def validate_ssh_connection_security(
     return security_info
 
 
+def build_kill_cmd(pattern: str) -> str:
+    """Best-effort remote ``pkill`` of the children of processes matching ``pattern``.
+
+    ``pattern`` can come from a URI or a command string, so it is shell-quoted (P0-3):
+    it must reach ``pgrep -f`` as one literal argument, never as shell syntax."""
+    return f"pkill -P $(pgrep -f {shlex.quote(pattern)})"
+
+
 def parse_ssh_uri(ssh_uri: str) -> Tuple[str, int, str, Optional[str], str]:
     """
     Parse SSH URI into components
@@ -584,7 +592,7 @@ def _execute_remote_command(
                     # If still running, force kill
                     if not channel.exit_status_ready():
                         # Try killing the process tree
-                        kill_cmd = f"pkill -P $(pgrep -f '{command[:50]}')"  # Kill process tree
+                        kill_cmd = build_kill_cmd(command[:50])  # Kill process tree
                         try:
                             ssh_client.exec_command(kill_cmd, timeout=2)
                         except:

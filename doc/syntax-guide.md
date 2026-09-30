@@ -1,5 +1,7 @@
 # FZ Syntax Guide
 
+
+
 ## Variable Substitution
 
 ### Basic Syntax
@@ -44,7 +46,7 @@ Temperature: $T_celsius
 Pressure: $pressure
 ```
 
-**Automatic detection**: `?var` is automatically converted to `$var` internally.
+**Automatic detection**: `?var` is automatically converted to `$var` internally. No configuration is needed, and both syntaxes can be mixed in the same file.
 
 **Use cases**:
 - Migrating from Java Funz to Python FZ

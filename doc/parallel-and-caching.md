@@ -402,54 +402,8 @@ print(results[['status', 'calculator', 'error']].value_counts())
 
 ## Interrupt Handling
 
-### Graceful Shutdown
-
-Press **Ctrl+C** during execution:
-
-```python
-results = fz.fzr(
-    "input.txt",
-    {"param": list(range(1000))},  # Many cases
-    model,
-    calculators=["sh://bash calc.sh"] * 4,
-    results_dir="results"
-)
-# Press Ctrl+C...
-# ⚠️  Interrupt received (Ctrl+C). Gracefully shutting down...
-# Currently running cases complete
-# No new cases start
-```
-
-**What happens**:
-1. Currently running cases finish
-2. No new cases start
-3. Partial results are saved
-4. Can resume from cache later
-
-### Resume After Interrupt
-
-```python
-# First run (interrupted)
-try:
-    results = fz.fzr(
-        "input.txt",
-        variables,
-        model,
-        "sh://bash calc.sh",
-        "run1"
-    )
-except KeyboardInterrupt:
-    print("Interrupted, partial results saved")
-
-# Resume
-results = fz.fzr(
-    "input.txt",
-    variables,
-    model,
-    ["cache://run1", "sh://bash calc.sh"],
-    "run1_resumed"
-)
-```
+Ctrl+C stops a campaign gracefully (running cases finish, no new case starts, partial
+results are kept) and `cache://` resumes it later: see [Interrupt handling](interrupt-handling.md).
 
 ## Performance Optimization
 
@@ -549,6 +503,11 @@ find results/ -type d -mtime +30 -exec rm -rf {} \;
 find results/ -type f ! -name '.fz_hash' -delete
 ```
 
+### 6. Keep Long Remote Runs Alive
+
+For long-running `ssh://` calculations, set `FZ_SSH_KEEPALIVE` (seconds between SSH
+keepalive messages, default 300) so idle connections are not dropped by firewalls.
+
 ## Monitoring Progress
 
 ### Built-in Progress Tracking
@@ -557,6 +516,39 @@ FZ shows progress automatically:
 ```
 Running calculations... [████████░░░░░░░░] 45/100 (45.0%) - ETA: 2m 30s
 ```
+
+### Progress callbacks
+
+`fzr` accepts a `callbacks` **dict** of functions, keyed by event name (a list raises
+`TypeError`; an unknown name raises `ValueError`):
+
+| Key | Called | Arguments |
+|-----|--------|-----------|
+| `on_start` | once, before the first case | `(total_cases, calculators)` |
+| `on_case_start` | when a case starts | `(case_index, total_cases, var_combo)` |
+| `on_case_complete` | when a case finishes | `(case_index, total_cases, var_combo, status, result)` |
+| `on_progress` | after each completed case | `(completed, total, eta_seconds)` |
+| `on_complete` | once, after all cases | `(total_cases, completed_cases, results)` |
+
+```python
+def on_case_complete(case_index, total_cases, var_combo, status, result):
+    print(f"[{case_index + 1}/{total_cases}] {var_combo}: {status}")
+
+def on_progress(completed, total, eta_seconds):
+    print(f"{completed}/{total} done, about {eta_seconds:.0f}s left")
+
+results = fz.fzr(
+    "input.txt",
+    {"param": [1, 2, 3, 4, 5]},
+    model,
+    calculators="sh://bash calc.sh",
+    results_dir="results",
+    callbacks={"on_case_complete": on_case_complete, "on_progress": on_progress},
+)
+```
+
+Uses: custom progress bars, real-time logging, integration with external monitoring
+systems, UI updates for long-running studies, profiling. Give only the keys you need.
 
 ### Check Results During Execution
 

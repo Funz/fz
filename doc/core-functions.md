@@ -72,21 +72,7 @@ result = fz.fzl(check=True)
 # Failed items include check_error with details
 ```
 
-**Example 4: CLI usage**
-
-```bash
-# List all
-fzl
-
-# List with validation
-fzl --check
-
-# Filter and format
-fzl --models "navier*" --format table
-
-# JSON output
-fzl --format json > config.json
-```
+**Example 4: CLI usage**: `fzl`, `fzl --check`, `fzl --models "navier*" --format table`, ... see [CLI](cli-usage.md#fzl---list-and-validate-modelscalculators).
 
 ### Use Cases
 
@@ -180,7 +166,10 @@ fz.fzc(input_path, input_variables, model, output_dir, input_static=None)
 
 **Parameters**:
 - `input_path` (str): Path to input file or directory
-- `input_variables` (dict): Variable values (scalar or list)
+- `input_variables` (dict): Variable values (scalar or list). Optional (default `None`) when the
+  input files declare no variables (non-parametric dataset): omit it and pass `model` as a
+  keyword argument, `fz.fzc(input_path, model=model, output_dir=...)`. If the input files do
+  declare variables and it is omitted, `fzc` raises a `ValueError` naming them.
 - `model` (dict or str): Model definition or alias
 - `output_dir` (str): Output directory path
 - `input_static` (list of str, optional): Files identical across every case (see `fzr`'s
@@ -353,6 +342,13 @@ Values are automatically cast to appropriate types:
 # "[42]" → 42 (single-element list simplified)
 ```
 
+**Casting rules** (plain shell-command outputs), applied in order:
+1. Try JSON parsing
+2. Try Python literal evaluation
+3. Try numeric conversion (int/float)
+4. Keep as string
+5. Single-element arrays become scalars (this simplification does not apply to `python://`, `jq://`, `yq://` or `xpath://` outputs, see "Vector / array outputs" in [Model definition](model-definition.md))
+
 ### Use Cases
 
 - **Post-processing**: Extract results from existing calculations
@@ -379,9 +375,10 @@ results_df = fz.fzr(
 
 **Parameters**:
 - `input_path` (str): Input file or directory path
-- `input_variables` (dict): Variable values (creates Cartesian product of lists)
+- `input_variables` (dict or DataFrame): Variable values: a dict creates the Cartesian product of its lists (factorial design), a DataFrame lists the cases explicitly, one per row (see "Input Variables: Factorial vs Non-Factorial Designs" below). Optional (default `None`) when the input files declare no variables (non-parametric dataset): omit it and pass `model` as a keyword argument, `fz.fzr(input_path, model=model, calculators=calculators)`. If the input files do declare variables and it is omitted, `fzr` raises a `ValueError` naming them.
 - `model` (dict or str): Model definition or alias
 - `calculators` (str or list): Calculator URI(s)
+- `callbacks` (dict, optional): progress callbacks keyed by event name (`on_start`, `on_case_start`, `on_case_complete`, `on_progress`, `on_complete`); see "Progress callbacks" in [Parallel execution and caching](parallel-and-caching.md)
 - `results_dir` (str): Results directory path (default: "results")
 - `case_naming` (str): How each case's result/temp subdirectory is named - `"path"`
   (`var1=val1,var2=val2,...`, default; human-readable but can exceed filesystem
@@ -692,22 +689,7 @@ result = fz.fzd(
 )
 ```
 
-**Example 4: CLI usage**
-
-```bash
-# Random sampling
-fzd -i input/ -m perfectgas \
-  -v '{"x": "[-2;2]", "y": "[-2;2]"}' \
-  -e "result" \
-  -a examples/algorithms/randomsampling.py \
-  -o '{"nvalues": 20, "seed": 42}'
-
-# Also available as subcommand
-fz design -i input/ -m perfectgas \
-  -v '{"x": "[-2;2]"}' \
-  -e "result" \
-  -a examples/algorithms/brent.py
-```
+**Example 4: CLI usage**: `fzd -i input/ -m perfectgas -v '{"x": "[-2;2]"}' -e result -a randomsampling`, also available as `fz design`; see [CLI](cli-usage.md#fzd---design-of-experiments).
 
 ### Fixed vs. Range Variables
 
@@ -721,7 +703,10 @@ fz design -i input/ -m perfectgas \
 result = fz.fzd(
     input_path="input/",
     input_variables={"x": "[-2;2]", "y": "[-2;2]", "z": "1.5"},
-    ...
+    model=model,
+    output_expression="result",
+    algorithm="randomsampling",
+    calculators=["sh://bash calc.sh"],
 )
 ```
 
@@ -745,7 +730,10 @@ If `analysis_dir` already exists when `fzd` starts, it is **renamed** with a tim
 result = fz.fzd(
     input_path="input/",
     input_variables={"x": "[-2;2]"},
-    ...
+    model=model,
+    output_expression="result",
+    algorithm="randomsampling",
+    calculators=["sh://bash calc.sh"],
     analysis_dir="my_analysis"   # if exists, renamed; its cache is still consulted
 )
 ```
@@ -860,6 +848,79 @@ class MyAlgorithm:
 - **Sensitivity analysis**: Adaptively explore parameter space
 - **Uncertainty quantification**: Monte Carlo sampling with convergence checks
 - **Root finding**: Find input values where output equals a target
+
+## Input Variables: Factorial vs Non-Factorial Designs
+
+FZ supports two types of parametric study designs through different `input_variables` formats:
+
+### Factorial Design (Dict)
+
+Use a **dict** to create a full factorial design (Cartesian product of all variable values):
+
+```python
+# Dict with lists creates ALL combinations (factorial)
+input_variables = {
+    "temp": [100, 200, 300],      # 3 values
+    "pressure": [1.0, 2.0]         # 2 values
+}
+# Creates 6 cases: 3 × 2 = 6
+# (100,1.0), (100,2.0), (200,1.0), (200,2.0), (300,1.0), (300,2.0)
+
+results = fz.fzr(input_file, input_variables, model, calculators)
+```
+
+**Use factorial design when:**
+- You want to explore all possible combinations
+- Variables are independent
+- You need a complete design space exploration
+
+### Non-Factorial Design (DataFrame)
+
+Use a **pandas DataFrame** to specify exactly which cases to run (non-factorial):
+
+```python
+import pandas as pd
+
+# DataFrame: each row is ONE case (non-factorial)
+input_variables = pd.DataFrame({
+    "temp":     [100, 200, 100, 300],
+    "pressure": [1.0, 1.0, 2.0, 1.5]
+})
+# Creates 4 cases ONLY:
+# (100,1.0), (200,1.0), (100,2.0), (300,1.5)
+# Note: (100,2.0) is included but (200,2.0) is not
+
+results = fz.fzr(input_file, input_variables, model, calculators)
+```
+
+**Use non-factorial design when:**
+- You have specific combinations to test
+- Variables are coupled or have constraints
+- You want to import a design from another tool
+- You need an irregular or optimized sampling pattern
+
+**Examples of non-factorial patterns:**
+```python
+# Latin Hypercube Sampling
+import pandas as pd
+from scipy.stats import qmc
+
+sampler = qmc.LatinHypercube(d=2)
+sample = sampler.random(n=10)
+input_variables = pd.DataFrame({
+    "x": sample[:, 0] * 100,  # Scale to [0, 100]
+    "y": sample[:, 1] * 10    # Scale to [0, 10]
+})
+
+# Constraint-based design (only valid combinations)
+input_variables = pd.DataFrame({
+    "rpm": [1000, 1500, 2000, 2500],
+    "load": [10, 20, 40, 50]  # load increases with rpm
+})
+
+# Imported from design of experiments tool
+input_variables = pd.read_csv("doe_design.csv")
+```
 
 ## Function Comparison
 

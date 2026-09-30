@@ -1,5 +1,7 @@
 # FZD Content Format Handling
 
+
+
 ## Overview
 
 `fzd` (Design of Experiments) intelligently detects and processes different content formats returned by algorithm's `get_analysis()` and `get_analysis_tmp()` methods. Content is automatically saved to appropriate files and parsed into structured Python objects.
@@ -97,7 +99,7 @@ confidence_interval=[40.1, 44.9]''',
 - Return structure: `{'md_file': 'analysis_<iteration>.md'}`
 
 **Algorithm Example**:
-```python
+````python
 def get_analysis(self, X, Y):
     return {
         'text': '''# Analysis Results
@@ -113,7 +115,7 @@ samples = 100
 ''',
         'data': {'mean': 42.5, 'std': 3.2}
     }
-```
+````
 
 **Result**:
 - File created: `results_fzd/analysis_1.md`

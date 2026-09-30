@@ -4,6 +4,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 
 ## Table of Contents
 
+- [Where the former README went](#where-the-former-readme-went)
 - [Getting Started](#getting-started)
 - [Installing Models & Algorithms](#installing-models--algorithms)
 - [Variable Substitution](#variable-substitution)
@@ -18,6 +19,35 @@ Quick reference index for finding specific topics in the FZ context documentatio
 - [CLI Usage](#cli-usage)
 - [Troubleshooting](#troubleshooting)
 
+## Where the former README went
+
+The former single-file README now lives in `doc/`, one file per topic, **deduplicated**: its
+sections were merged into the page that already covered the same topic (only what that page
+lacked was added, and statements that contradicted the code were corrected), or became new
+files when no page existed.
+
+| Topic | File |
+|-------|------|
+| Features | overview.md |
+| Installation, extended quick start | installation.md, quick-start.md |
+| Command line (`fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`, `fz install`) | cli-usage.md |
+| Python API, factorial vs non-factorial designs, output type casting | core-functions.md |
+| Model definition, formulas, old Funz syntax | model-definition.md, syntax-guide.md, formulas-and-interpreters.md |
+| Calculators (sh, ssh, slurm, funz, cache, aliases, model compatibility) | calculators.md |
+| Parallelism, retries, caching, progress callbacks, performance tips | parallel-and-caching.md |
+| Examples and notebooks | quick-examples.md |
+| Custom `fzd` algorithms | custom-algorithms.md |
+| Configuration (environment variables, timeouts, manifest); shell path | configuration.md, shell-path.md |
+| Installing plugins | installing-models.md |
+| Interrupt handling | interrupt-handling.md |
+| Output structure (`log.txt`, `.fz_hash`, manifest) | overview.md ("Output Structure") |
+| Breaking changes (0.9.1), troubleshooting | breaking-changes.md, troubleshooting.md |
+| Development and CI | development.md |
+| AI agents, MCP server, resources index | ai-agents.md, mcp-server.md, resources.md |
+
+`tests/test_docs_consistency.py` checks that every `FZ_*` variable cited in the documentation
+exists in the code and that all relative links in `doc/` resolve.
+
 ## Getting Started
 
 | Topic | File | Section |
@@ -27,7 +57,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 | Quick example | overview.md | "Quick Example" |
 | Core functions | overview.md | "Core Functions" |
 | Typical workflow | overview.md | "Typical Workflow" |
-| Installation | *(see README.md)* | - |
+| Installation | installation.md | - |
 
 ## Installing Models & Algorithms
 

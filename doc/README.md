@@ -154,6 +154,9 @@ Task: How do I speed up my parametric study with 1000 cases?
 doc/
 ├── README.md                           # This file
 ├── INDEX.md                            # Table of contents with sections
+├── cli-usage.md, configuration.md, custom-algorithms.md, installation.md, quick-start.md,
+├── interrupt-handling.md, breaking-changes.md, troubleshooting.md,
+├── development.md, ai-agents.md, resources.md   # former README sections (see INDEX.md)
 ├── overview.md                         # High-level framework introduction
 ├── syntax-guide.md                     # Variable and formula syntax
 ├── core-functions.md                   # API reference (fzi, fzc, fzo, fzr, fzl, fzd)

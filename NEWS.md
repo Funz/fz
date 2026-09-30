@@ -2,6 +2,89 @@
 
 ## Unreleased
 
+### Fix: potentially wrong results with `sh://` commands (P0-8)
+
+- Path resolution in `sh://` commands converted every word that looked like a
+  file name to an absolute path in the launch directory without checking that
+  it exists. With `sh://cat in.txt > out.txt`, the calculation read the
+  **un-substituted** template from the launch directory instead of the case's
+  compiled file, and wrote `out.txt` outside the case directory (shared across
+  parallel cases), with no error. A word is now resolved only if it exists in
+  the launch directory and does not exist in the case directory; targets of
+  `>`/`>>` redirections are never resolved (stricter than "unless existing":
+  writing into the launch directory is the defect). Each resolved word is
+  logged at info level. Scripts located only in the launch directory
+  (`sh://bash script.sh`) still resolve. Results obtained earlier with
+  commands referencing input or output files by bare name should be re-checked.
+
+### Cache identity follow-ups (P0-1)
+
+- `cache://` now logs a one-time warning per campaign when it ignores a legacy
+  (v1, MD5) cache entry, naming `FZ_CACHE_ACCEPT_LEGACY=1` (previously skipped silently).
+- README "Threat Model" now lists `version_cmd` as executed code (locally for
+  `sh://`, on the remote host for `ssh://`).
+- A `version_cmd` that exits with a non-zero status (e.g. docker daemon down)
+  no longer yields its error message as `code_id`; the calculator is treated
+  as having no declared identity, with a warning.
+- `version_cmd` was executed with the value of `FZ_SHELL_PATH` as the shell
+  program (it is a list of directories, not an executable), so it always failed
+  when `FZ_SHELL_PATH` was set (e.g. Windows/MSYS2); it now goes through fz's
+  regular shell handling.
+- `examples/Telemac` calculator alias declares a `version_cmd` (docker image id),
+  since the image tag `latest` moves.
+
+### Documentation (P1-5)
+
+- `README.md` reduced from ~3 450 to ~290 lines: an entry point with features,
+  installation, quick start, the six functions, key concepts, configuration
+  essentials, the Threat Model, AI-agent/MCP pointers and links.
+- All the documentation is now in `doc/`, one file per topic, **deduplicated**. The former
+  README sections were merged into the page that already covered the same topic
+  (`core-functions.md`, `model-definition.md`, `calculators.md`, `parallel-and-caching.md`,
+  `quick-examples.md`, `installing-models.md`, `overview.md`, `interrupt-handling.md`,
+  `configuration.md`): only what the page lacked was added; duplicates were dropped. Topics
+  without an existing page became new files (`cli-usage.md`, `configuration.md`,
+  `custom-algorithms.md`, `installation.md`, `quick-start.md`, `interrupt-handling.md`,
+  `breaking-changes.md`, `troubleshooting.md`, `development.md`, `ai-agents.md`,
+  `resources.md`); see `doc/INDEX.md`.
+- The two `fzd` sections of `cli-usage.md` were merged, the CLI snippets of `core-functions.md` replaced
+  by links to it, and every ```python block of `README.md` and `doc/` is now valid Python
+  (protocol transcripts are ```text; `tests/test_docs_python_blocks.py` guards it).
+- Documentation errors found and fixed while merging: `fzr(callbacks=...)` takes a dict of
+  named callbacks (`on_start`, `on_case_start`, `on_case_complete`, `on_progress`,
+  `on_complete`), not a list of functions; there is no `fz list algorithms/models` CLI
+  command nor `fz.list_algorithms()` (use `fz list` and `fz.list_installed_algorithms()`);
+  an alias without an entry for the requested model does not raise a "does not support
+  model" error (the bare URI is used); the `.fz_hash` example now shows the v2 format.
+- Old links `README.md#<section>` still land on a "Former README sections" list that
+  points to the new pages. `tests/test_readme_structure.py` and
+  `tests/test_docs_consistency.py` guard the README size, the links, the legacy anchors and
+  that every `FZ_*` variable cited exists in the code. The `sh://` file-resolution rule
+  (P0-8) is now documented in `doc/calculators.md`.
+
+### Timeout warning (P0-4 follow-up)
+
+- The "No timeout set for ssh:// / slurm:// calculations (unlimited)" warning is
+  now logged once per scheme and `fzr()` campaign instead of once per case.
+
+### Remote interrupt command quoting (P0-3 follow-up)
+
+- On interrupt, the best-effort remote `pkill -P $(pgrep -f '<pattern>')` for
+  `ssh://` (command prefix) and `slurm://` (partition from the URI) interpolated
+  its pattern inside single quotes without quoting: a `'` in the URI partition
+  or command allowed remote shell injection on that path. The pattern is now
+  passed through `shlex.quote` (`fz.runners.ssh.build_kill_cmd`). The
+  `version_cmd` warning also no longer prints a password embedded in the URI.
+
+### Project metadata (P1-5)
+
+- Added `CITATION.cff` (author and repository metadata only; no version, DOI
+  or ORCID declared yet). `tests/test_project_metadata.py` checks that it parses.
+- Python 3.14 is promoted from an Ubuntu-only `3.14-dev` job to CI's stable
+  matrix (Linux, macOS, Windows) and declared via a classifier (P0-5). The
+  project's guard `tests/test_python_version_support.py` requires the two to
+  match. Dependency wheel availability on 3.14 is verified by that CI run only.
+
 ### Breaking changes
 
 - **Dropped Python 3.8 support** (P0-5). `requires-python` is now `>=3.9` and

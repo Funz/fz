@@ -76,6 +76,15 @@ bash calculate.sh input.txt
 bash calculate.sh file1.txt file2.dat config.ini
 ```
 
+**Files named in the command** (`sh://cat in.txt > res.txt`): a bare word such as `script.sh`
+or `data.txt` is turned into an absolute path in the *launch* directory only if it exists
+there **and** does not exist in the case directory (the compiled input files win). Targets
+of `>`, `>>` and `2>` redirections are never rewritten, so outputs stay in the case
+directory. Each rewritten word is logged at info level. A helper script that lives only next
+to the caller (`sh://bash calc.sh`) therefore works, while per-case files must be referred to
+by bare name. Earlier versions rewrote every file-looking word, which could make a command
+read the un-substituted template and write outside the case directory (see `NEWS.md`).
+
 ### Example Calculator Script
 
 **`calculate.sh`**:
@@ -717,6 +726,24 @@ FZ searches for calculators in:
 1. Current directory: `./.fz/calculators/`
 2. Home directory: `~/.fz/calculators/`
 
+### Calculator-Model Compatibility
+
+An alias's `models` table maps each model id to the command to run for it. When a campaign
+uses an alias with model `perfectgas`, fz takes the command from `models["perfectgas"]`
+and appends it to the alias `uri`.
+
+- If the calculators are **auto-discovered** (`calculators="*"`),
+  aliases whose `models` table does not list the model are skipped.
+- If an alias is named explicitly and its `models` table has **no entry** for the model,
+  no command is added: the bare `uri` is used. For `sh://` this leaves nothing to run, and
+  the case fails (typically with a "Permission denied when executing './input.txt'"
+  error, since fz tries to execute the input file itself).
+- Direct URIs (`sh://bash any_script.sh`) are never checked: you are responsible for the
+  compatibility between the command and the model.
+
+Use `fz list --check` (`fzl`) to validate installed models and calculators; its output
+lists the calculators that support each model (see [Core functions](core-functions.md)).
+
 ## Advanced Patterns
 
 ### Pattern 1: Multi-tier Execution
@@ -766,21 +793,10 @@ else:
 
 ## Environment Variables
 
-```bash
-# Maximum retry attempts per case
-export FZ_MAX_RETRIES=5
-
-# Thread pool size (parallel execution)
-export FZ_MAX_WORKERS=8
-
-# SSH-specific
-export FZ_SSH_KEEPALIVE=300
-export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=0
-
-# cache:// identity checks (see Cache Identity above; both default to 0)
-export FZ_CACHE_STRICT=1
-export FZ_CACHE_ACCEPT_LEGACY=1
-```
+The variables that affect calculators (`FZ_MAX_RETRIES`, `FZ_MAX_WORKERS`, `FZ_RUN_TIMEOUT`,
+`FZ_SSH_KEEPALIVE`, `FZ_SSH_AUTO_ACCEPT_HOSTKEYS`, `FZ_CACHE_STRICT`, `FZ_CACHE_ACCEPT_LEGACY`,
+`FZ_SLURM_POLL_INTERVAL`, `FZ_SLURM_ARRAY_WINDOW`, ...) are listed, with their defaults, in
+[Configuration](configuration.md); `cache://` identity checks are described in "Cache Calculator" above.
 
 ## Best Practices
 

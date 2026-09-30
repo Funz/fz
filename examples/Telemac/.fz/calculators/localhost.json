@@ -1,5 +1,6 @@
 {
     "uri": "sh://",
+    "version_cmd": "docker image inspect --format '{{.Id}}' irsn/telemac-mascaret:latest",
     "models": {
       "Telemac":"bash .fz/calculators/Telemac.sh"
     }
