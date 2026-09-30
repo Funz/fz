@@ -80,10 +80,26 @@ class TestSchemeDefaultTimeout:
         assert resolve_timeout({"timeout": 120}, timeout=30, scheme=scheme) == 30
 
     def test_unlimited_remote_logs_warning(self, default_config, monkeypatch):
+        from fz.runners.manager import reset_timeout_warnings
+        reset_timeout_warnings()
         msgs = []
         monkeypatch.setattr("fz.runners.manager.log_warning", msgs.append)
         resolve_timeout({}, scheme="slurm")
         assert msgs and "unlimited" in msgs[0]
+
+    def test_unlimited_warning_once_per_campaign_and_scheme(self, default_config, monkeypatch):
+        from fz.runners.manager import reset_timeout_warnings
+        reset_timeout_warnings()
+        msgs = []
+        monkeypatch.setattr("fz.runners.manager.log_warning", msgs.append)
+        for _ in range(5):                      # five cases of one campaign
+            resolve_timeout({}, scheme="slurm")
+        assert len(msgs) == 1
+        resolve_timeout({}, scheme="ssh")       # other scheme: its own warning
+        assert len(msgs) == 2
+        reset_timeout_warnings()                # next campaign
+        resolve_timeout({}, scheme="slurm")
+        assert len(msgs) == 3
 
 
 class TestRunLocalCalculationTimeoutBehavior:

@@ -217,6 +217,16 @@ class CalculatorManager:
 _calculator_manager = CalculatorManager()
 
 
+_unlimited_timeout_warned = set()
+_unlimited_timeout_lock = threading.Lock()
+
+
+def reset_timeout_warnings() -> None:
+    """Re-arm the once-per-campaign "no timeout set" warning; called at the start of each fzr() campaign."""
+    with _unlimited_timeout_lock:
+        _unlimited_timeout_warned.clear()
+
+
 def resolve_timeout(
     model: Optional[Dict], timeout: Optional[int] = None, scheme: str = "sh"
 ) -> Optional[int]:
@@ -247,10 +257,14 @@ def resolve_timeout(
             effective = config.run_timeout
     if effective is None:
         if scheme in ("ssh", "slurm"):
-            log_warning(
-                f"No timeout set for {scheme}:// calculation (unlimited); "
-                "set FZ_RUN_TIMEOUT, model['timeout'] or timeout= to bound it"
-            )
+            with _unlimited_timeout_lock:
+                first = scheme not in _unlimited_timeout_warned
+                _unlimited_timeout_warned.add(scheme)
+            if first:
+                log_warning(
+                    f"No timeout set for {scheme}:// calculations (unlimited); "
+                    "set FZ_RUN_TIMEOUT, model['timeout'] or timeout= to bound it"
+                )
         else:
             log_info(f"Run timeout: unlimited ({scheme}://)")
     else:

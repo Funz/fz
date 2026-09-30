@@ -33,6 +33,11 @@
 - `examples/Telemac` calculator alias declares a `version_cmd` (docker image id),
   since the image tag `latest` moves.
 
+### Timeout warning (P0-4 follow-up)
+
+- The "No timeout set for ssh:// / slurm:// calculations (unlimited)" warning is
+  now logged once per scheme and `fzr()` campaign instead of once per case.
+
 ### Remote interrupt command quoting (P0-3 follow-up)
 
 - On interrupt, the best-effort remote `pkill -P $(pgrep -f '<pattern>')` for
