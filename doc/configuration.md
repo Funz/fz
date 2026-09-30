@@ -1,7 +1,5 @@
 # Configuration
 
-<!-- counterpart-note -->
-> Guide page (from the former README). Reference counterpart in `doc/`: [`shell-path.md`](../shell-path.md). When behaviour changes, update both.
 
 
 ## Environment Variables

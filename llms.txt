@@ -24,7 +24,7 @@ extract outputs; *calculators* (URIs like `sh://cmd`, `ssh://user@host/cmd`,
 ## Documentation
 
 - [README](README.md): overview, quick start, threat model and links
-- [Full guides](doc/guide/cli-usage.md): CLI, Python API, models, calculators, configuration, troubleshooting (see doc/INDEX.md for the list)
+- [Full guides](doc/cli-usage.md): CLI, Python API, models, calculators, configuration, troubleshooting (see doc/INDEX.md for the list)
 - [Core functions](doc/core-functions.md): fzi, fzc, fzo, fzr, fzl, fzd in detail
 - [Installing models and algorithms](doc/installing-models.md): fz install model|algorithm, the fz-<code> convention
 - [Input syntax guide](doc/syntax-guide.md): variables, formulas, defaults

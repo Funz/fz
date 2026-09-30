@@ -1,7 +1,5 @@
 # FZ Syntax Guide
 
-<!-- counterpart-note -->
-> Guide counterpart (tutorial-style, from the former README): [`guide/model-definition.md`](guide/model-definition.md). When behaviour changes, update both.
 
 
 ## Variable Substitution

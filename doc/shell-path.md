@@ -1,7 +1,5 @@
 # Shell Path Configuration (FZ_SHELL_PATH)
 
-<!-- counterpart-note -->
-> Guide counterpart (tutorial-style, from the former README): [`guide/configuration.md`](guide/configuration.md). When behaviour changes, update both.
 
 
 ## Overview

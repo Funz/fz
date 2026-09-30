@@ -35,7 +35,7 @@ pip install -e .             # from a clone of https://github.com/Funz/fz
 Required dependencies (`paramiko`, `pandas`, `charset-normalizer`) are installed
 automatically. Optional extras: `funz-fz[r]` (R formulas, needs R), `funz-fz[mcp]`
 (MCP server, Python >= 3.10). Python 3.9 to 3.14 are supported. More options:
-[Installation](doc/guide/installation.md).
+[Installation](doc/installation.md).
 
 ## Quick Start
 
@@ -103,7 +103,7 @@ print(results)
 Each case runs in its own directory under `results/` with its compiled input, `out.txt`,
 `err.txt` and `log.txt`. More examples: [`examples/examples.md`](examples/examples.md)
 and the notebooks in [`examples/`](examples/). Extended version (R formulas, other output
-extractors): [Quick Start](doc/guide/quick-start.md).
+extractors): [Quick Start](doc/quick-start.md).
 
 ## The six functions
 
@@ -119,15 +119,15 @@ CLI output is parseable with `--format json`.
 | `fzd` | Iterative **d**esign of experiments with adaptive algorithms |
 | `fzl` | **L**ist and validate installed models and calculators |
 
-Full reference: [Python API](doc/guide/python-api.md) and [CLI](doc/guide/cli-usage.md).
-`fz install <name|url>` installs models and algorithms ([details](doc/guide/installing-plugins.md)).
+Full reference: [Python API](doc/core-functions.md) and [CLI](doc/cli-usage.md).
+`fz install <name|url>` installs models and algorithms ([details](doc/installing-models.md)).
 
 ## Key concepts
 
 **Model**: a dict or JSON file (or installed alias) telling fz how to read templates
 (`varprefix`, `formulaprefix`, `delim`, `commentline`) and how to extract results
 (`output`: shell commands, or shell-free `python://`, `jq://`, `yq://`, `xpath://`).
-See [Model definition](doc/guide/model-definition.md).
+See [Model definition](doc/model-definition.md).
 
 **Calculator**: where and how a case runs, given as a URI (or an installed alias):
 
@@ -139,16 +139,16 @@ See [Model definition](doc/guide/model-definition.md).
 | `funz://host:port/Code` | legacy Java Funz server |
 | `cache://path` | reuse results of a previous run (matched by input hash and, if declared, code identity) |
 
-Pass a list to spread cases over several calculators. See [Calculator types](doc/guide/calculator-types.md).
+Pass a list to spread cases over several calculators. See [Calculator types](doc/calculators.md).
 
 **Execution**: cases run in parallel with automatic load balancing, failed cases are
 retried on another calculator, `cache://` resumes an interrupted or extended study, and
-Ctrl+C stops gracefully. See [Advanced features](doc/guide/advanced-features.md) and
-[Interrupt handling](doc/guide/interrupt-handling.md).
+Ctrl+C stops gracefully. See [Advanced features](doc/parallel-and-caching.md) and
+[Interrupt handling](doc/interrupt-handling.md).
 
 ## Configuration
 
-Main environment variables (all optional; full list in [Configuration](doc/guide/configuration.md)):
+Main environment variables (all optional; full list in [Configuration](doc/configuration.md)):
 
 | Variable | Meaning |
 |----------|---------|
@@ -181,14 +181,14 @@ you call `fzi`/`fzc`/`fzr`/`fzd`:
 - **Calculator commands** (`sh://`, `ssh://`, ...) run whatever command string
   you or a model/calculator alias declare.
 - **`version_cmd`** of a calculator alias (used to resolve `code_id` for
-  `cache://`, see [Calculator Aliases](doc/guide/calculator-types.md#calculator-aliases)) is a shell command run by fz itself,
+  `cache://`, see [Calculator Aliases](doc/calculators.md#calculator-aliases)) is a shell command run by fz itself,
   locally for `sh://` or on the remote host for `ssh://`, when a campaign
   resolves its calculators (once per calculator and process, before any case
   runs). It carries the same trust requirement as the calculator command.
 
 **Don't run a model, algorithm, or calculator alias from a source you don't
 trust** — it is equivalent to running a shell script from that source.
-`fz install <url>` (see [Installing Plugins](doc/guide/installing-plugins.md)) prints a one-time
+`fz install <url>` (see [Installing Plugins](doc/installing-models.md)) prints a one-time
 reminder of this when installing from a network source. The same applies to
 `fz-mcp` (see [MCP server](#mcp-server-fz-mcp) below): giving an AI agent access to it in its
 default (trusted) mode is equivalent to giving that agent shell access.
@@ -209,7 +209,7 @@ or copy `skills/fz/` into `.claude/skills/` (project) or `~/.claude/skills/` (us
 skill holds the workflow ([`skills/fz/SKILL.md`](skills/fz/SKILL.md)), a condensed
 API/CLI reference ([`skills/fz/reference.md`](skills/fz/reference.md)) and wrapper guides.
 Walkthrough with example prompts: [`skills/howto.md`](skills/howto.md); plugin slash commands
-and manual install: [AI agents](doc/guide/ai-agents.md).
+and manual install: [AI agents](doc/ai-agents.md).
 
 ### MCP server (`fz-mcp`)
 
@@ -221,44 +221,40 @@ tools over `stdio` (the only transport by default). Install with `pip install 'f
 (Python >= 3.10), then e.g. `claude mcp add fz -- fz-mcp`. File paths are confined to
 `FZ_MCP_ROOT` (default: working directory). `FZ_MCP_TRUSTED=0` restricts models and
 calculators to installed aliases; it does not sandbox formula evaluation inside fz.
-Details: [MCP server](doc/guide/mcp-server.md).
+Details: [MCP server](doc/mcp-server.md).
 
 ## Documentation
 
-- **Guides** (full reference, split by topic): [`doc/guide/`](doc/guide/) - CLI, Python API,
-  model definition, calculator types, advanced features, configuration, troubleshooting,
-  complete examples, custom `fzd` algorithms, plugins, development, breaking changes.
-- **Modular reference**: [`doc/INDEX.md`](doc/INDEX.md) (overview, syntax guide, formulas,
-  caching, SLURM architecture, Funz protocol, shell path, MCP).
+- **Documentation in `doc/`** (one file per topic; start at [`doc/INDEX.md`](doc/INDEX.md)): [CLI](doc/cli-usage.md), [Python API](doc/core-functions.md), [models](doc/model-definition.md), [calculators](doc/calculators.md), [parallelism and caching](doc/parallel-and-caching.md), [configuration](doc/configuration.md), [troubleshooting](doc/troubleshooting.md), [examples](doc/quick-examples.md), [custom `fzd` algorithms](doc/custom-algorithms.md), [plugins](doc/installing-models.md), [development](doc/development.md), [breaking changes](doc/breaking-changes.md), [MCP server](doc/mcp-server.md).
 - **Examples**: [`examples/examples.md`](examples/examples.md), [`examples/`](examples/) notebooks and scripts.
-- **All resources and test examples**: [Resources](doc/guide/resources.md).
+- **All resources and test examples**: [Resources](doc/resources.md).
 - **Release notes**: [`NEWS.md`](NEWS.md).
 
 ### Former README sections
 
-Links such as `README.md#cli-usage` land here: the sections below moved to `doc/guide/` (text unchanged).
+Links such as `README.md#cli-usage` land here: the sections below moved to `doc/` (text unchanged).
 
-- <a id="cli-usage"></a><a id="installation-of-cli-tools"></a><a id="fzi---parse-input-variables"></a><a id="fzc---compile-input-files"></a><a id="fzo---read-output-files"></a><a id="fzl---list-and-validate-modelscalculators"></a><a id="fzr---run-parametric-calculations"></a><a id="fzd---design-of-experiments"></a><a id="fz-install--uninstall"></a><a id="cli-options-reference"></a><a id="common-options-all-commands"></a><a id="exit-codes-and-output-streams"></a><a id="argument-formats"></a><a id="model-definition-options"></a><a id="fzr-specific-options"></a><a id="complete-cli-examples"></a><a id="example-1-quick-variable-discovery"></a><a id="example-2-quick-compilation-test"></a><a id="example-3-parse-existing-results"></a><a id="example-4-end-to-end-parametric-study"></a><a id="example-5-using-model-and-calculator-aliases"></a><a id="example-6-interrupt-and-resume"></a><a id="fzd---run-design-of-experiments"></a><a id="environment-variables-for-cli"></a>[CLI usage](doc/guide/cli-usage.md)
-- <a id="core-functions"></a><a id="input-variables-factorial-vs-non-factorial-designs"></a><a id="factorial-design-dict"></a><a id="non-factorial-design-dataframe"></a>[Python API (Core Functions)](doc/guide/python-api.md)
-- <a id="model-definition"></a><a id="model-aliases"></a><a id="formula-evaluation"></a><a id="python-interpreter-default"></a><a id="r-interpreter"></a><a id="variable-default-values"></a><a id="old-funz-syntax-compatibility"></a>[Model definition](doc/guide/model-definition.md)
-- <a id="calculator-types"></a><a id="local-shell-execution"></a><a id="ssh-remote-execution"></a><a id="slurm-workload-manager"></a><a id="funz-server-execution"></a><a id="cache-calculator"></a><a id="calculator-aliases"></a><a id="calculator-model-compatibility"></a>[Calculator types](doc/guide/calculator-types.md)
-- <a id="advanced-features"></a><a id="parallel-execution"></a><a id="retry-mechanism"></a><a id="caching-strategy"></a><a id="output-type-casting"></a><a id="vector-array-outputs"></a><a id="progress-callbacks"></a>[Advanced features](doc/guide/advanced-features.md)
-- <a id="complete-examples"></a><a id="interactive-jupyter-notebooks"></a><a id="example-1-perfect-gas-pressure-study"></a><a id="example-2-remote-hpc-calculation"></a><a id="example-3-multi-calculator-with-failover"></a><a id="example-4-design-of-experiments-with-adaptive-sampling"></a><a id="example-5-optimization-with-bfgs"></a>[Complete examples](doc/guide/complete-examples.md)
-- <a id="writing-custom-algorithms-for-fzd"></a><a id="algorithm-interface"></a><a id="algorithm-examples"></a><a id="1-monte-carlo-sampling"></a><a id="2-bfgs-optimization"></a><a id="3-brents-method-1d-optimization"></a><a id="algorithm-features"></a><a id="content-format-detection"></a><a id="dependency-management"></a>[Custom algorithms for fzd](doc/guide/custom-algorithms.md)
-- <a id="environment-variables"></a><a id="shell-path-configuration-fz_shell_path"></a><a id="campaign-manifest-and-ro-crate-traceability"></a><a id="timeout-configuration"></a><a id="1-environment-variable-global-default"></a><a id="2-model-configuration-per-model"></a><a id="3-fzrfzc-timeout-argument-per-call"></a><a id="priority-order-highest-to-lowest"></a><a id="python-configuration"></a><a id="directory-structure"></a>[Configuration details](doc/guide/configuration.md)
-- <a id="installing-plugins"></a><a id="installing-algorithm-plugins"></a><a id="from-github-repository-name"></a><a id="from-github-url"></a><a id="from-local-zip-file"></a><a id="using-installed-algorithms"></a><a id="installing-model-plugins"></a><a id="from-github-repository-name-1"></a><a id="from-github-url-or-local-zip"></a><a id="listing-installed-plugins"></a><a id="uninstalling-plugins"></a><a id="plugin-priority"></a><a id="creating-algorithm-plugins"></a>[Installing plugins](doc/guide/installing-plugins.md)
-- <a id="interrupt-handling"></a><a id="how-to-interrupt"></a><a id="what-happens"></a><a id="resuming-after-interrupt"></a><a id="example-with-interrupt-handling"></a>[Interrupt handling](doc/guide/interrupt-handling.md)
-- <a id="output-file-structure"></a><a id="logtxt---execution-metadata"></a><a id="fz_hash---input-file-checksums"></a>[Output file structure](doc/guide/output-structure.md)
-- <a id="breaking-changes"></a><a id="version-091"></a><a id="fzr-directory-structure-change"></a>[Breaking changes](doc/guide/breaking-changes.md)
-- <a id="development"></a><a id="running-tests"></a><a id="project-structure"></a><a id="testing-your-own-models"></a>[Development](doc/guide/development.md)
-- <a id="troubleshooting"></a><a id="common-issues"></a><a id="windows--cross-platform"></a><a id="debug-mode"></a>[Troubleshooting](doc/guide/troubleshooting.md)
-- <a id="performance-tips"></a>[Performance tips](doc/guide/performance-tips.md)
-- <a id="core-capabilities"></a><a id="six-core-functions"></a>[Features (full)](doc/guide/features.md)
-- <a id="using-pip"></a><a id="using-pipx-recommended-for-cli-tools"></a><a id="from-source"></a><a id="dependencies"></a>[Installation (full)](doc/guide/installation.md)
-- <a id="1-create-an-input-template"></a><a id="2-create-a-calculation-script"></a><a id="3-run-parametric-study"></a>[Quick Start (full)](doc/guide/quick-start.md)
-- [AI coding agents (full)](doc/guide/ai-agents.md)
-- [MCP server (full)](doc/guide/mcp-server.md)
-- <a id="main-documentation"></a><a id="context-documentation"></a><a id="examples"></a><a id="test-examples"></a>[Resources](doc/guide/resources.md)
+- <a id="cli-usage"></a><a id="installation-of-cli-tools"></a><a id="fzi---parse-input-variables"></a><a id="fzc---compile-input-files"></a><a id="fzo---read-output-files"></a><a id="fzl---list-and-validate-modelscalculators"></a><a id="fzr---run-parametric-calculations"></a><a id="fzd---design-of-experiments"></a><a id="fz-install--uninstall"></a><a id="cli-options-reference"></a><a id="common-options-all-commands"></a><a id="exit-codes-and-output-streams"></a><a id="argument-formats"></a><a id="model-definition-options"></a><a id="fzr-specific-options"></a><a id="complete-cli-examples"></a><a id="example-1-quick-variable-discovery"></a><a id="example-2-quick-compilation-test"></a><a id="example-3-parse-existing-results"></a><a id="example-4-end-to-end-parametric-study"></a><a id="example-5-using-model-and-calculator-aliases"></a><a id="example-6-interrupt-and-resume"></a><a id="fzd---run-design-of-experiments"></a><a id="environment-variables-for-cli"></a>[CLI usage](doc/cli-usage.md)
+- <a id="core-functions"></a><a id="input-variables-factorial-vs-non-factorial-designs"></a><a id="factorial-design-dict"></a><a id="non-factorial-design-dataframe"></a>[Python API (Core Functions)](doc/core-functions.md)
+- <a id="model-definition"></a><a id="model-aliases"></a><a id="formula-evaluation"></a><a id="python-interpreter-default"></a><a id="r-interpreter"></a><a id="variable-default-values"></a><a id="old-funz-syntax-compatibility"></a>[Model definition](doc/model-definition.md)
+- <a id="calculator-types"></a><a id="local-shell-execution"></a><a id="ssh-remote-execution"></a><a id="slurm-workload-manager"></a><a id="funz-server-execution"></a><a id="cache-calculator"></a><a id="calculator-aliases"></a><a id="calculator-model-compatibility"></a>[Calculator types](doc/calculators.md)
+- <a id="advanced-features"></a><a id="parallel-execution"></a><a id="retry-mechanism"></a><a id="caching-strategy"></a><a id="output-type-casting"></a><a id="vector-array-outputs"></a><a id="progress-callbacks"></a>[Advanced features](doc/parallel-and-caching.md)
+- <a id="complete-examples"></a><a id="interactive-jupyter-notebooks"></a><a id="example-1-perfect-gas-pressure-study"></a><a id="example-2-remote-hpc-calculation"></a><a id="example-3-multi-calculator-with-failover"></a><a id="example-4-design-of-experiments-with-adaptive-sampling"></a><a id="example-5-optimization-with-bfgs"></a>[Complete examples](doc/quick-examples.md)
+- <a id="writing-custom-algorithms-for-fzd"></a><a id="algorithm-interface"></a><a id="algorithm-examples"></a><a id="1-monte-carlo-sampling"></a><a id="2-bfgs-optimization"></a><a id="3-brents-method-1d-optimization"></a><a id="algorithm-features"></a><a id="content-format-detection"></a><a id="dependency-management"></a>[Custom algorithms for fzd](doc/custom-algorithms.md)
+- <a id="environment-variables"></a><a id="shell-path-configuration-fz_shell_path"></a><a id="campaign-manifest-and-ro-crate-traceability"></a><a id="timeout-configuration"></a><a id="1-environment-variable-global-default"></a><a id="2-model-configuration-per-model"></a><a id="3-fzrfzc-timeout-argument-per-call"></a><a id="priority-order-highest-to-lowest"></a><a id="python-configuration"></a><a id="directory-structure"></a>[Configuration details](doc/configuration.md)
+- <a id="installing-plugins"></a><a id="installing-algorithm-plugins"></a><a id="from-github-repository-name"></a><a id="from-github-url"></a><a id="from-local-zip-file"></a><a id="using-installed-algorithms"></a><a id="installing-model-plugins"></a><a id="from-github-repository-name-1"></a><a id="from-github-url-or-local-zip"></a><a id="listing-installed-plugins"></a><a id="uninstalling-plugins"></a><a id="plugin-priority"></a><a id="creating-algorithm-plugins"></a>[Installing plugins](doc/installing-models.md)
+- <a id="interrupt-handling"></a><a id="how-to-interrupt"></a><a id="what-happens"></a><a id="resuming-after-interrupt"></a><a id="example-with-interrupt-handling"></a>[Interrupt handling](doc/interrupt-handling.md)
+- <a id="output-file-structure"></a><a id="logtxt---execution-metadata"></a><a id="fz_hash---input-file-checksums"></a>[Output file structure](doc/output-structure.md)
+- <a id="breaking-changes"></a><a id="version-091"></a><a id="fzr-directory-structure-change"></a>[Breaking changes](doc/breaking-changes.md)
+- <a id="development"></a><a id="running-tests"></a><a id="project-structure"></a><a id="testing-your-own-models"></a>[Development](doc/development.md)
+- <a id="troubleshooting"></a><a id="common-issues"></a><a id="windows--cross-platform"></a><a id="debug-mode"></a>[Troubleshooting](doc/troubleshooting.md)
+- <a id="performance-tips"></a>[Performance tips](doc/parallel-and-caching.md)
+- <a id="core-capabilities"></a><a id="six-core-functions"></a>[Features (full)](doc/overview.md)
+- <a id="using-pip"></a><a id="using-pipx-recommended-for-cli-tools"></a><a id="from-source"></a><a id="dependencies"></a>[Installation (full)](doc/installation.md)
+- <a id="1-create-an-input-template"></a><a id="2-create-a-calculation-script"></a><a id="3-run-parametric-study"></a>[Quick Start (full)](doc/quick-start.md)
+- [AI coding agents (full)](doc/ai-agents.md)
+- [MCP server (full)](doc/mcp-server.md)
+- <a id="main-documentation"></a><a id="context-documentation"></a><a id="examples"></a><a id="test-examples"></a>[Resources](doc/resources.md)
 
 ## Development and contributing
 
@@ -267,7 +263,7 @@ pip install -e ".[dev]"
 pytest tests/ -x
 ```
 
-See [Development](doc/guide/development.md) for the test layout and CI. Contributions
+See [Development](doc/development.md) for the test layout and CI. Contributions
 welcome: fork, create a feature branch, add tests, make sure they pass, open a pull request.
 
 ## Citation
@@ -286,5 +282,5 @@ If you use FZ in your research, please cite it (see [`CITATION.cff`](CITATION.cf
 
 ## License and support
 
-BSD 3-Clause License, see [`LICENSE`](LICENSE). Issues: https://github.com/Funz/fz/issues ·
+<a id="support"></a><a id="license"></a><a id="contributing"></a>BSD 3-Clause License, see [`LICENSE`](LICENSE). Issues: https://github.com/Funz/fz/issues ·
 Repository: https://github.com/Funz/fz

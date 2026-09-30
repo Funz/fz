@@ -1,7 +1,5 @@
 # SLURM execution: architecture note
 
-<!-- counterpart-note -->
-> Guide counterpart (tutorial-style, from the former README): [`guide/calculator-types.md`](guide/calculator-types.md). When behaviour changes, update both.
 
 
 **Decision (P1-2)**: keep a native `sbatch`/`sacct` implementation for now; do not add PSI/J yet.

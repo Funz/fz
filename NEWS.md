@@ -35,21 +35,24 @@
 
 ### Documentation (P1-5)
 
-- `README.md` reduced from ~3 450 to ~260 lines: an entry point with features,
+- `README.md` reduced from ~3 450 to ~290 lines: an entry point with features,
   installation, quick start, the six functions, key concepts, configuration
-  essentials, the Threat Model, AI-agent/MCP pointers and links. The previous
-  content was moved unchanged (same text, headings demoted one level, internal
-  links rewritten) to `doc/guide/` (one file per former section; see
-  `doc/INDEX.md`). Anchors such as `README.md#cli-usage` now live in
-  `doc/guide/cli-usage.md`. `tests/test_readme_structure.py` guards the size and
-  the links.
-  Old links `README.md#<section>` still land on a "Former README sections" list that
-  points to the new pages. The guide pages and the modular `doc/*.md` pages describe the
-  same topics in different words (measured line overlap <= 16 %): they are cross-linked
-  rather than merged (`doc/INDEX.md`), and `tests/test_docs_consistency.py` checks that
-  every `FZ_*` variable cited exists in the code and that relative links resolve. The
-  `sh://` file-resolution rule (P0-8) is now documented in `doc/calculators.md` and
-  `doc/guide/calculator-types.md`.
+  essentials, the Threat Model, AI-agent/MCP pointers and links.
+- All the documentation is now in `doc/`, one file per topic. The former README
+  sections were moved unchanged (same text, headings demoted as needed, internal links
+  rewritten): appended as "Guide: ..." sections to the existing page of the same topic
+  (`core-functions.md`, `model-definition.md`, `calculators.md`, `parallel-and-caching.md`,
+  `quick-examples.md`, `installing-models.md`, `overview.md`, `mcp-server.md`), or as new
+  files (`cli-usage.md`, `configuration.md`, `custom-algorithms.md`, `installation.md`,
+  `quick-start.md`, `interrupt-handling.md`, `output-structure.md`, `breaking-changes.md`,
+  `troubleshooting.md`, `development.md`, `ai-agents.md`, `resources.md`); see `doc/INDEX.md`.
+  Reference text and guide text of a same page were not rewritten or deduplicated (measured
+  line overlap <= 16 %), so some topics are described twice on one page.
+- Old links `README.md#<section>` still land on a "Former README sections" list that
+  points to the new pages. `tests/test_readme_structure.py` and
+  `tests/test_docs_consistency.py` guard the README size, the links, the legacy anchors and
+  that every `FZ_*` variable cited exists in the code. The `sh://` file-resolution rule
+  (P0-8) is now documented in `doc/calculators.md`.
 
 ### Timeout warning (P0-4 follow-up)
 

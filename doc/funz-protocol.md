@@ -1,7 +1,5 @@
 # Funz Server Protocol and UDP Discovery
 
-<!-- counterpart-note -->
-> Guide counterpart (tutorial-style, from the former README): [`guide/calculator-types.md`](guide/calculator-types.md). When behaviour changes, update both.
 
 
 ## Overview

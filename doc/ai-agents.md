@@ -1,6 +1,6 @@
 # Using fz with AI Coding Agents
 
-An [Agent Skill](https://agentskills.io) is bundled in [`skills/fz/`](../../skills/fz/) to teach
+An [Agent Skill](https://agentskills.io) is bundled in [`skills/fz/`](../skills/fz/) to teach
 AI coding agents (Claude Code, and other agents supporting the skills format) the fz
 workflow: parameterizing input files, defining models, choosing calculators, and running
 parametric studies.
@@ -38,5 +38,5 @@ The skill contains:
 - **skills/fz/reference.md** - Condensed API/CLI reference, JSON schemas, environment variables
 - **skills/fz/algorithm-wrapper.md** - Interface for writing custom fzd algorithms
 
-See **[skills/howto.md](../../skills/howto.md)** for a complete walkthrough with example prompts
+See **[skills/howto.md](../skills/howto.md)** for a complete walkthrough with example prompts
 (parametric studies, SSH execution, cache reuse, optimization, headless usage).

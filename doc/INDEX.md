@@ -4,7 +4,7 @@ Quick reference index for finding specific topics in the FZ context documentatio
 
 ## Table of Contents
 
-- [Full guides (`guide/`)](#full-guides-guide)
+- [Full guides (former README)](#full-guides-former-readme)
 - [Getting Started](#getting-started)
 - [Installing Models & Algorithms](#installing-models--algorithms)
 - [Variable Substitution](#variable-substitution)
@@ -19,32 +19,33 @@ Quick reference index for finding specific topics in the FZ context documentatio
 - [CLI Usage](#cli-usage)
 - [Troubleshooting](#troubleshooting)
 
-## Full guides (`guide/`)
+## Full guides (former README)
 
-The former single-file README, split by topic (content unchanged):
+The former single-file README now lives in `doc/`, one file per topic. Pages that already
+existed keep their reference text first, followed by "Guide" sections (tutorial-style text,
+unchanged); topics without an earlier page are new files.
 
 | Topic | File |
 |-------|------|
-| Features, installation, extended quick start | guide/features.md, guide/installation.md, guide/quick-start.md |
-| Command line (`fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`, `fz install`) | guide/cli-usage.md |
-| Python API | guide/python-api.md |
-| Model definition, formulas, old Funz syntax | guide/model-definition.md |
-| Calculators (sh, ssh, slurm, funz, cache, aliases) | guide/calculator-types.md |
-| Parallelism, retries, caching, output casting, callbacks | guide/advanced-features.md |
-| Complete examples and notebooks | guide/complete-examples.md |
-| Custom `fzd` algorithms | guide/custom-algorithms.md |
-| Configuration (environment variables, shell path, timeouts) | guide/configuration.md |
-| Installing plugins | guide/installing-plugins.md |
-| Interrupt handling, output structure | guide/interrupt-handling.md, guide/output-structure.md |
-| Breaking changes (0.9.1), troubleshooting, performance | guide/breaking-changes.md, guide/troubleshooting.md, guide/performance-tips.md |
-| Development and CI | guide/development.md |
-| AI agents, MCP server, resources index | guide/ai-agents.md, guide/mcp-server.md, guide/resources.md |
+| Features | overview.md ("Guide: Features") |
+| Installation, extended quick start | installation.md, quick-start.md |
+| Command line (`fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`, `fz install`) | cli-usage.md |
+| Python API | core-functions.md ("Guide: Core Functions") |
+| Model definition, formulas, old Funz syntax | model-definition.md ("Guide: Model Definition") |
+| Calculators (sh, ssh, slurm, funz, cache, aliases) | calculators.md ("Guide: Calculator Types") |
+| Parallelism, retries, caching, output casting, callbacks, performance tips | parallel-and-caching.md ("Guide: Advanced Features", "Guide: Performance Tips") |
+| Complete examples and notebooks | quick-examples.md ("Guide: Complete Examples") |
+| Custom `fzd` algorithms | custom-algorithms.md |
+| Configuration (environment variables, shell path, timeouts) | configuration.md (see also shell-path.md) |
+| Installing plugins | installing-models.md ("Guide: Installing Plugins") |
+| Interrupt handling, output structure | interrupt-handling.md, output-structure.md |
+| Breaking changes (0.9.1), troubleshooting | breaking-changes.md, troubleshooting.md |
+| Development and CI | development.md |
+| AI agents, MCP server, resources index | ai-agents.md, mcp-server.md ("Guide: MCP server"), resources.md |
 
-The modular pages below are the **reference** descriptions; `guide/` holds the
-tutorial-style text from the former README. The two sets describe the same topics in
-different words (measured line overlap <= 16 %), so they were cross-linked rather than
-merged: each page starts with a pointer to its counterpart, and behaviour changes must
-update both. `tests/test_docs_consistency.py` checks that every `FZ_*` variable cited in
+Some topics are described twice on the same page (reference text, then guide text): the
+measured line overlap between the two was <= 16 %, so they were kept as they are instead of
+being rewritten. `tests/test_docs_consistency.py` checks that every `FZ_*` variable cited in
 the documentation exists in the code and that all relative links in `doc/` resolve.
 
 ## Getting Started
@@ -56,7 +57,7 @@ the documentation exists in the code and that all relative links in `doc/` resol
 | Quick example | overview.md | "Quick Example" |
 | Core functions | overview.md | "Core Functions" |
 | Typical workflow | overview.md | "Typical Workflow" |
-| Installation | guide/installation.md | - |
+| Installation | installation.md | - |
 
 ## Installing Models & Algorithms
 

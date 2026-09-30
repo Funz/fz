@@ -1,7 +1,5 @@
 # FZD Content Format Handling
 
-<!-- counterpart-note -->
-> Guide counterpart (tutorial-style, from the former README): [`guide/installing-plugins.md`](guide/installing-plugins.md), [`guide/custom-algorithms.md`](guide/custom-algorithms.md). When behaviour changes, update both.
 
 
 ## Overview

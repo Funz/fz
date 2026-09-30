@@ -1,4 +1,4 @@
-"""README is an entry point: keep it short, and keep its (and doc/guide's) links valid."""
+"""README is an entry point: keep it short, and keep its (and doc/'s) links valid."""
 import glob
 import re
 from pathlib import Path
@@ -25,11 +25,11 @@ def _anchors(path: Path) -> set:
 
 def test_readme_stays_short():
     n = len((REPO / "README.md").read_text(encoding="utf-8").split("\n"))
-    assert n <= MAX_README_LINES, f"README.md has {n} lines (max {MAX_README_LINES}); move detail to doc/guide/"
+    assert n <= MAX_README_LINES, f"README.md has {n} lines (max {MAX_README_LINES}); move detail to doc/"
 
 
 def test_relative_links_and_anchors_resolve():
-    files = [REPO / "README.md"] + [Path(p) for p in glob.glob(str(REPO / "doc" / "guide" / "*.md"))]
+    files = [REPO / "README.md"] + [Path(p) for p in glob.glob(str(REPO / "doc" / "*.md"))]
     bad = []
     for f in files:
         for m in re.finditer(r"\]\(([^)\s]+)\)", f.read_text(encoding="utf-8")):

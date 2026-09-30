@@ -1,5 +1,5 @@
-"""Documentation consistency: the former README lives in doc/guide/ next to the modular
-reference pages in doc/, so facts must not drift apart silently."""
+"""Documentation consistency: all documentation lives in doc/ (reference text, then "Guide"
+sections that used to be the README), so facts must not drift apart silently."""
 import glob
 import re
 from pathlib import Path
@@ -13,7 +13,6 @@ def _doc_files():
     return (
         [REPO / "README.md"]
         + [Path(p) for p in glob.glob(str(REPO / "doc" / "*.md"))]
-        + [Path(p) for p in glob.glob(str(REPO / "doc" / "guide" / "*.md"))]
         + [Path(p) for p in glob.glob(str(REPO / "skills" / "fz" / "*.md"))]
         + [Path(p) for p in glob.glob(str(REPO / "examples" / "*.md"))]
     )
@@ -52,7 +51,7 @@ def test_relative_links_in_doc_resolve():
     bad = []
     for f in _doc_files():
         if f.parent.name == "examples" or f.parent.name == "fz":
-            continue  # scope: README, doc/, doc/guide/ (skills have their own test)
+            continue  # scope: README and doc/ (skills have their own test)
         for m in re.finditer(r"\]\(([^)\s]+)\)", f.read_text(encoding="utf-8")):
             target = m.group(1)
             if target.startswith(("http://", "https://", "mailto:")):
@@ -66,22 +65,42 @@ def test_relative_links_in_doc_resolve():
     assert not bad, "broken links:\n" + "\n".join(bad)
 
 
-def test_every_guide_page_points_to_its_reference_counterpart_or_is_standalone():
-    """Guide pages with a modular counterpart carry the pointer note, and vice versa."""
-    marker = "<!-- counterpart-note -->"
-    with_note = {p.name for p in (REPO / "doc" / "guide").glob("*.md") if marker in p.read_text(encoding="utf-8")}
-    assert {"python-api.md", "calculator-types.md", "model-definition.md", "advanced-features.md"} <= with_note
-    for m in ("core-functions.md", "calculators.md", "parallel-and-caching.md", "model-definition.md"):
-        assert marker in (REPO / "doc" / m).read_text(encoding="utf-8"), m
+def test_former_readme_content_is_in_doc():
+    """The former README sections moved into doc/: each expected file and its main 'Guide' heading exist."""
+    expected = {
+        "cli-usage.md": "# CLI Usage", "configuration.md": "# Configuration",
+        "custom-algorithms.md": "# Writing Custom Algorithms for fzd", "installation.md": "# Installation",
+        "quick-start.md": "# Quick Start", "interrupt-handling.md": "# Interrupt Handling",
+        "output-structure.md": "# Output File Structure", "breaking-changes.md": "# Breaking Changes",
+        "troubleshooting.md": "# Troubleshooting", "development.md": "# Development",
+        "ai-agents.md": "# Using fz with AI Coding Agents", "resources.md": "# Documentation",
+        "core-functions.md": "## Guide: Core Functions", "calculators.md": "## Guide: Calculator Types",
+        "model-definition.md": "## Guide: Model Definition", "parallel-and-caching.md": "## Guide: Advanced Features",
+        "quick-examples.md": "## Guide: Complete Examples", "installing-models.md": "## Guide: Installing Plugins",
+        "overview.md": "## Guide: Features", "mcp-server.md": "## Guide: MCP server (`fz-mcp`)",
+    }
+    missing = [f for f, h in expected.items()
+               if h not in (REPO / "doc" / f).read_text(encoding="utf-8").split("\n")]
+    assert not missing, f"missing former-README content in doc/: {missing}"
+    assert not (REPO / "doc" / "guide").exists(), "doc/guide/ was merged into doc/"
+
+
+# Anchors of the former README's table of contents (external links may still use them)
+LEGACY_TOC_ANCHORS = """features installation quick-start cli-usage argument-formats fzi---parse-input-variables
+fzc---compile-input-files fzo---read-output-files fzl---list-and-validate-modelscalculators
+fzr---run-parametric-calculations fzd---design-of-experiments fz-install--uninstall core-functions
+model-definition variable-default-values old-funz-syntax-compatibility formula-evaluation calculator-types
+local-shell-execution ssh-remote-execution slurm-workload-manager funz-server-execution cache-calculator
+calculator-model-compatibility advanced-features parallel-execution retry-mechanism caching-strategy
+output-type-casting progress-callbacks complete-examples interactive-jupyter-notebooks
+writing-custom-algorithms-for-fzd configuration environment-variables shell-path-configuration-fz_shell_path
+timeout-configuration threat-model interrupt-handling breaking-changes development troubleshooting
+performance-tips documentation support""".split()
 
 
 def test_legacy_readme_anchors_are_kept():
-    """Old links README.md#<heading> for sections that moved to doc/guide/ still land on the README."""
+    """Old links README.md#<heading> still land in the README (heading or hidden anchor)."""
     readme = (REPO / "README.md").read_text(encoding="utf-8")
     present = _anchors(REPO / "README.md") | set(re.findall(r'<a id="([^"]+)"></a>', readme))
-    missing = []
-    for f in glob.glob(str(REPO / "doc" / "guide" / "*.md")):
-        for a in _anchors(Path(f)):
-            if a not in present:
-                missing.append(f"{Path(f).name}#{a}")
-    assert not missing, f"README lacks legacy anchors for: {missing[:10]}"
+    missing = [a for a in LEGACY_TOC_ANCHORS if a not in present]
+    assert not missing, f"README lacks legacy anchors for: {missing}"
