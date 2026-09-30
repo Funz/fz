@@ -299,6 +299,15 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
 - Always prefer `--format json` (or `csv`) on CLI commands for parseable output; default
   output is a human table. Data goes to stdout; logs, progress, and errors go to stderr.
   Exit codes are non-zero on errors, and `fzr` exits 1 when no case succeeded.
+- Models, calculators (`sh://`, `ssh://` commands, `version_cmd`) and `output` commands are
+  **executed code with the user's privileges**: never run an alias or model of unknown origin
+  (`fz install <url>` prints a reminder). See "Threat Model" in the README.
+- In an `sh://` command, a bare word (`script.sh`, `data.txt`) is turned into an absolute path
+  in the launch directory **only if it exists there and not in the case directory** (compiled
+  inputs win). Redirection targets (`> out.txt`) always stay in the case directory. A helper
+  script that lives only next to the caller works (`sh://bash calc.sh`); anything the code
+  reads or writes per case must be a bare name in the case directory. Earlier versions could
+  silently read the un-substituted template from the launch directory (see NEWS.md, P0-8).
 - fz requires bash: native on Linux/macOS; MSYS2/Git Bash on Windows (`FZ_SHELL_PATH`).
 - Installed wrappers may invoke `python` (not `python3`) in their `output` commands and
   import pandas — if output parsing returns nothing, run fz with a suitable interpreter

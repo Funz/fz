@@ -83,6 +83,9 @@ The contract (see "Per-case execution lifecycle" in [reference.md](reference.md)
 - receives the compiled input file (or directory) as **first argument** `$1`;
 - must write the output files that the model's `output` commands parse;
 - exit status `0` = case done, non-zero = case failed (fz retries it elsewhere);
+- the command is written relative to the case directory: bare names (`input.txt`, `out.dat`)
+  refer to the case's own files; a bare word is resolved to the launch directory only when it
+  exists there and not in the case directory, and `>` targets are never resolved;
 - stdout/stderr are captured to `out.txt`/`err.txt` automatically — print freely;
 - if the code spawns long-lived subprocesses, write their PID to a `PID` file so
   interrupts can kill them.
