@@ -33,6 +33,14 @@
 - `examples/Telemac` calculator alias declares a `version_cmd` (docker image id),
   since the image tag `latest` moves.
 
+### Project metadata (P0-5, P1-5)
+
+- `pyproject.toml` now declares the Python 3.14 classifier. Note: 3.14 is
+  exercised in CI on Ubuntu only (`3.14-dev`), not on macOS/Windows.
+- Added `CITATION.cff` (author and repository metadata only; no version, DOI
+  or ORCID declared yet). `tests/test_project_metadata.py` checks that classifiers
+  cover every Python version in the CI matrix and that `CITATION.cff` parses.
+
 ### Breaking changes
 
 - **Dropped Python 3.8 support** (P0-5). `requires-python` is now `>=3.9` and
