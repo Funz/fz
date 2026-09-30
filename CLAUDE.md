@@ -55,7 +55,7 @@ R-dependent code or tests.
 
 ## CI
 
-- `ci.yml` — main matrix (Linux/macOS/Windows × Python 3.9–3.13, plus 3.14-dev). It
+- `ci.yml` — main matrix (Linux/macOS/Windows × Python 3.9–3.14; Windows 3.9 excluded). It
   excludes the example/SSH/funz-protocol test files (see the `pytest --ignore` list in
   the workflow); those run in dedicated workflows: `ssh-localhost.yml`,
   `slurm-localhost.yml`, `cli-tests.yml`, `examples.yml`, `funz-calculator.yml`.

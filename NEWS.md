@@ -46,10 +46,10 @@
 
 - Added `CITATION.cff` (author and repository metadata only; no version, DOI
   or ORCID declared yet). `tests/test_project_metadata.py` checks that it parses.
-- Python 3.14 is deliberately **not** declared yet: the project's own guard
-  (`tests/test_python_version_support.py`) only allows classifiers for versions
-  in CI's stable matrix, and 3.14 runs on Ubuntu only (`3.14-dev`). Declaring
-  it requires promoting 3.14 to the stable matrix on all OSes first.
+- Python 3.14 is promoted from an Ubuntu-only `3.14-dev` job to CI's stable
+  matrix (Linux, macOS, Windows) and declared via a classifier (P0-5). The
+  project's guard `tests/test_python_version_support.py` requires the two to
+  match. Dependency wheel availability on 3.14 is verified by that CI run only.
 
 ### Breaking changes
 
