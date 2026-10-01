@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Upgrading from 1.2: behavior changes at a glance
+
+Each item is detailed in its section below.
+
+- Python 3.8 is no longer supported (`requires-python >= 3.9`).
+- `"path"` case directory names percent-encode unsafe characters (`a/b` -> `a%2Fb`).
+- `cache://` uses a SHA-256 `.fz_hash` ("v2"); caches written by fz <= 1.2 are ignored
+  unless `FZ_CACHE_ACCEPT_LEGACY=1`.
+- `ssh://` and `slurm://` have no default timeout (was 3600 s); `timeout=0` and
+  `FZ_RUN_TIMEOUT=0` now mean "no timeout" (they timed every case out immediately).
+- A model without `delim` reads both `$(x)` and `${x}` as variables (Python read only
+  `$(x)`, the CLI only `${x}`).
+- `fzr()` raises `ValueError` when `results_dir` looks like a calculator URI.
+- `sh://` resolves a word to the launch directory only if the file exists there and not
+  in the case directory (results of commands such as `cat in.txt > out.txt` obtained
+  with 1.2 should be re-checked).
+- `fz list --format json`: calculators are keyed by alias name (with `path`, `uri`).
+- `fz-mcp`: `FZ_MCP_TRUSTED=0` restricts at the MCP layer; network transports need
+  `FZ_MCP_ALLOW_NETWORK_TRANSPORT=1`.
+- Code that patched `fz.runners.run_command` must patch `fz.runners.sh.run_command`.
+
 ### Usability fixes found while reviewing the documentation
 
 - **`0` means "no timeout" everywhere**: `timeout=0` and `FZ_RUN_TIMEOUT=0` made every
@@ -26,7 +47,7 @@
   (`bash .fz/calculators/<X>.sh`) run from any directory.
 - **`.fz/tmp/`**: empty `fz_temp_*` directories are removed after each run (files left
   behind are still kept for inspection).
-- New `tests/test_usability_fixes.py`.
+- New `tests/test_usability_fixes.py` (also covers the exception handling below).
 
 ### Documentation: constraints page, corrected examples, skill review
 
@@ -125,6 +146,18 @@
   passed through `shlex.quote` (`fz.runners.ssh.build_kill_cmd`). The
   `version_cmd` warning also no longer prints a password embedded in the URI.
 
+### Claude Code plugin and Agent Skill
+
+- `skills/fz/` (shipped by the `fz` Claude Code plugin) follows the changes above:
+  `slurm-array://`, `manifest.json`/RO-Crate, `fz-mcp` and its variables, cache
+  identity (`code_id`, `version_cmd`, `FZ_CACHE_STRICT`, `FZ_CACHE_ACCEPT_LEGACY`),
+  the threat model, `sh://` path resolution (P0-8), `version_cmd` failures, and the
+  documentation review (keyword arguments for `fzr`, `fzc` sub-directories, status
+  values, timeouts, default delimiters, `cache://_`, reserved file names).
+- `/fz:run` reports all status values and warns about `fzr`'s argument order.
+- The plugin manifests (`.claude-plugin/plugin.json`, `marketplace.json`) still say
+  `1.2.0`: bump them with the release.
+
 ### Project metadata (P1-5)
 
 - Added `CITATION.cff` (author and repository metadata only; no version, DOI
@@ -137,12 +170,11 @@
 ### Breaking changes
 
 - **Dropped Python 3.8 support** (P0-5). `requires-python` is now `>=3.9` and
-  classifiers cover 3.9-3.13 (matching what CI actually tests). Python 3.8
-  reached end-of-life in October 2024 and was not exercised by CI; the code
-  likely still runs there, but it is no longer a declared or tested target.
-  Python 3.14 continues to be exercised in CI (Ubuntu only, as a `3.14-dev`
-  pre-release build) but is not yet declared via a classifier since it is
-  still pre-release upstream.
+  classifiers cover 3.9-3.14 (matching what CI tests: Linux, macOS and Windows,
+  except Python 3.9 on Windows). Python 3.8 reached end-of-life in October 2024
+  and was not exercised by CI; the code likely still runs there, but it is no
+  longer a declared or tested target. (3.14 was first exercised as an
+  Ubuntu-only `3.14-dev` job, then promoted: see "Project metadata".)
 
 ### Case-name/remote-command injection and credential leakage fixed (P0-3)
 
@@ -153,7 +185,9 @@
   `a/b` therefore looks different than before (e.g. `x=..%2F..%2Fevil`
   instead of creating `x=..` and `evil` as separate directories - which
   could previously land outside the results directory). The original,
-  un-encoded values are unaffected in `info.txt` and `cases.csv`. As an
+  un-encoded values are unaffected in `info.txt` and `cases.csv`, and `fzo()`
+  decodes directory names back when it rebuilds variable columns from them
+  (`x=a%2Fb` -> `x = "a/b"`). As an
   additional guard, fz now refuses to create a case's result/temp directory
   at all if it would resolve outside the results/temp directory.
 - `ssh://`/`slurm://` remote execution: `mkdir`, `cd`, `rm -rf`, and every
@@ -179,6 +213,19 @@
   in memory, to actually open the connection. The "password provided in
   URI" security warning is now emitted once per host per process instead of
   once per connection attempt.
+
+### Robustness: an unexpected exception in one case no longer aborts the campaign
+
+- When fewer than two workers run (a single case or a single calculator),
+  `fzr()` ran cases without catching unexpected exceptions from fz itself: one
+  such error aborted the whole campaign. Each case is now isolated, as in the
+  parallel path: the case gets `status="error"` and the others continue.
+- In both paths the message of such an exception now reaches the `error` column
+  (`Unexpected error: ...`); it was stored under an `error_message` key that the
+  results table did not read, leaving `error` empty.
+- The once-per-host de-duplication of SSH/SLURM security warnings (P0-3 below) is keyed
+  by host *and* message, so a second distinct warning for the same host (e.g. "no
+  username provided" after "password in URI") is still shown.
 
 ### `cache://` key: SHA-256, versioned `.fz_hash`, calculator `code_id` (P0-1)
 
@@ -291,10 +338,11 @@
 ### MCP server for AI agents (`fz-mcp`)
 
 - New optional entry point `fz-mcp` (`pip install 'funz-fz[mcp]'`) exposing `fzi`, `fzc`,
-  `fzr`, `fzo`, `fzl` as MCP tools. Trusted by default (no isolation of templates/formulas);
-  `FZ_MCP_TRUSTED=0` opts into a restricted mode (models/calculators must be installed
-  aliases) that requires the fz core to support `trusted=False` (audit ticket P0-2) and
-  otherwise refuses to start. Paths are always confined to `FZ_MCP_ROOT`.
+  `fzr`, `fzo`, `fzl` as MCP tools (`fzd` is not exposed). Trusted by default (no
+  isolation of templates/formulas); `FZ_MCP_TRUSTED=0` restricts models/calculators to
+  installed aliases (as revised by P0-7 above: the initial version of this mode required
+  an fz core `trusted` parameter and therefore never started). Paths are always confined
+  to `FZ_MCP_ROOT`. Requires Python >= 3.10.
 
 ### Error reports no longer blame the command for a code's "not found" message
 

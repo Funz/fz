@@ -1637,6 +1637,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                         result[key] = None
                     result["calculator"] = "error"
                     result["status"] = "error"
+                    result["error"] = f"Unexpected error: {e}"
                     result["error_message"] = str(e)
                     result["command"] = None
                 results.append(result)
@@ -1749,6 +1750,7 @@ def run_cases_parallel(var_combinations: List[Dict], temp_path: Path, resultsdir
                             failed_result[key] = None
                         failed_result["calculator"] = "error"
                         failed_result["status"] = "error"
+                        failed_result["error"] = f"Unexpected error: {e}"
                         failed_result["error_message"] = str(e)
                         failed_result["command"] = None
                         case_results[index] = failed_result

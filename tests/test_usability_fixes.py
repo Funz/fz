@@ -185,3 +185,29 @@ def test_no_empty_temp_directories_left():
     tmp = Path(".fz") / "tmp"
     leftovers = [p for p in tmp.iterdir()] if tmp.exists() else []
     assert leftovers == []
+
+
+# Unexpected exception inside a case ------------------------------------------------
+
+@pytest.mark.parametrize("calculators", [["sh://bash calc.sh"], ["sh://bash calc.sh"] * 2])
+def test_case_exception_is_reported_in_error_column(monkeypatch, calculators):
+    """An exception raised while running one case gives that case status "error" with
+    the message in the "error" column, without aborting the other cases (sequential and
+    parallel paths)."""
+    import fz.helpers as helpers
+
+    _write_case_files()
+    real_run_single_case = helpers.run_single_case
+
+    def flaky(case_info):
+        if case_info["var_combo"]["x"] == 2:
+            raise RuntimeError("boom")
+        return real_run_single_case(case_info)
+
+    monkeypatch.setattr(helpers, "run_single_case", flaky)
+    results = fz.fzr("input.txt", {"x": [1, 2]}, MODEL,
+                     calculators=calculators, results_dir="results")
+    by_x = {row["x"]: row for _, row in results.iterrows()}
+    assert by_x[1]["status"] == "done"
+    assert by_x[2]["status"] == "error"
+    assert "boom" in by_x[2]["error"]
