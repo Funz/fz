@@ -2,6 +2,55 @@
 
 ## Unreleased
 
+### Usability fixes found while reviewing the documentation
+
+- **`0` means "no timeout" everywhere**: `timeout=0` and `FZ_RUN_TIMEOUT=0` made every
+  case time out immediately; they now disable the timeout, like a model `"timeout": 0`.
+  A negative `timeout=` raises `ValueError`.
+- **Default variable delimiters**: a model without `delim`/`var_delim` now recognizes
+  both `$(x)` and `${x}` (it only recognized `$(x)`, so `${x}` was silently left in the
+  compiled files), and the CLI without `--model` uses the same default (it used `{}`
+  only). A model with an explicit `delim` is unchanged. Templates containing other
+  `${...}` text (e.g. shell snippets) with a model that sets no `delim` now report those
+  names as variables: set `delim` in such models.
+- **`fzr()` rejects a `results_dir` that looks like a calculator URI** (`ValueError`):
+  `fzr(path, vars, model, "sh://bash run.sh")` used to create a directory named after the
+  URI and run every case without calculator.
+- **`fz list` / `fzl`**: calculator aliases are listed by file name with their `uri`
+  and `path`; `--check` validates the command of each entry of an alias's `models` map,
+  so installed-wrapper aliases (`{"uri": "sh://", "models": {...}}`) no longer fail with
+  `Empty sh:// command`. A project alias shadows a global one with the same name.
+  The `fzl` and `fz list` output code is shared.
+- **Global installs**: `.fz/...` paths in a calculator alias are resolved against the
+  `.fz/` directory the alias was loaded from, so `fz install model <X> --global` wrappers
+  (`bash .fz/calculators/<X>.sh`) run from any directory.
+- **`.fz/tmp/`**: empty `fz_temp_*` directories are removed after each run (files left
+  behind are still kept for inspection).
+- New `tests/test_usability_fixes.py`.
+
+### Documentation: constraints page, corrected examples, skill review
+
+- New `doc/limitations.md`: constraints and pitfalls checked by running fz (argument
+  order, parallelism, timeouts, `sh://` argument appending, reserved file names, cache
+  key, CLI/Python differences, SSH, `fz list`, `--global` installs, security).
+- Fixed ~130 `fz.fzr(...)` examples in `doc/` and `examples/` that passed the calculator
+  as the 4th positional argument (that slot is `results_dir`: a directory named after the
+  URI was created and every case failed); they now use `calculators=`/`results_dir=`.
+- Examples changing `os.environ["FZ_..."]` after `import fz` now call
+  `fz.reload_config()` / `fz.set_log_level()`; `fz.shell_path` imports replaced by
+  `fz.shell`; nonexistent `funz://...?timeout=` removed.
+- Behaviors now documented as they are:
+  - `?var` is not converted to `$var` (needs `"varprefix": "?"`); notebook 02 fixed;
+  - `fzc` writes one sub-directory per case even for scalar values; `fzo` must target
+    case directories (the skill's verification ladder used `compiled/input.txt`);
+  - first Ctrl+C terminates running cases and `fzr` returns (it does not wait for them);
+  - `cache://_` resumes into the same `results_dir`;
+  - no interactive SSH password prompt; `funz://` port is the UDP discovery port;
+  - `fzd` has no `--format`; `fz list` does not list algorithms; DataFrame designs are
+    Python-only.
+- Agent skill and `/fz:run`: status values, `FZ_MAX_WORKERS` only caps, function-model
+  `fzd` concurrency, `slurm-array://`, reserved file names, timeouts.
+
 ### Fix: potentially wrong results with `sh://` commands (P0-8)
 
 - Path resolution in `sh://` commands converted every word that looked like a

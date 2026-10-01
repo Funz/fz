@@ -19,7 +19,7 @@ fz install model perfectgas --global
 
 # Install an fzd algorithm (into ./.fz/algorithms/ or, with --global, ~/.fz/algorithms/)
 fz install algorithm brent
-fz install algorithm https://github.com/Funz/fz-montecarlo
+fz install algorithm https://github.com/Funz/fz-PSO
 
 # Remove an installed resource (by name)
 fz uninstall model perfectgas
@@ -27,6 +27,7 @@ fz uninstall algorithm brent
 fz uninstall model perfectgas --global
 
 # See what is installed (models and calculators), optionally validating each
+# (fz list does not show algorithms: ls .fz/algorithms, or fz.list_installed_algorithms())
 fz list
 fz list --check
 ```
@@ -80,6 +81,10 @@ repository may ship several related models) into `.fz/models/` (or `~/.fz/models
 alongside it.
 
 ## Install location and discovery
+
+> **Runner paths.** Installed calculator aliases run `bash .fz/calculators/<X>.sh`; such
+> `.fz/...` paths are resolved against the `.fz/` directory the alias was loaded from, so a
+> `--global` install (in `~/.fz/`) works from any project directory.
 
 - **Project-local** (default): `./.fz/` — visible only inside the current project.
 - **Global** (`--global`): `~/.fz/` — visible from every project for the current user.

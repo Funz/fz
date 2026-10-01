@@ -76,10 +76,24 @@ def fz_temporary_directory(session_cwd=None):
     try:
         yield str(temp_dir)
     finally:
-        # Skip cleanup of temporary directory to allow inspection of case contents
-        # if temp_dir.exists():
-        #     shutil.rmtree(temp_dir)
-        log_debug(f"🔍 Temporary directory preserved for inspection: {temp_dir}")
+        # Files left in the temporary directory are kept for inspection, but empty
+        # directories (the usual case: case contents are moved to the results) are
+        # removed so that .fz/tmp/ does not accumulate one fz_temp_* per run.
+        _remove_empty_dirs(temp_dir)
+        if temp_dir.exists():
+            log_debug(f"🔍 Temporary directory preserved for inspection: {temp_dir}")
+
+
+def _remove_empty_dirs(root: Path) -> None:
+    """Remove root and its sub-directories when they contain no file (best effort)."""
+    try:
+        if not root.is_dir() or root.is_symlink():
+            return
+        for child in root.iterdir():
+            if child.is_dir() and not child.is_symlink():
+                _remove_empty_dirs(child)
+        root.rmdir()  # fails (and is ignored) if anything remains
+    except OSError:
         pass
 
 
@@ -1902,8 +1916,9 @@ def compile_to_result_directories(input_path: str, model: Dict, input_variables:
 
     # Variable prefix: use var_prefix if set, else varprefix (old name), else default to "$"
     varprefix = model.get("var_prefix", model.get("varprefix", "$"))
-    # Variable delimiters: use var_delim if set, else delim if set, else default to ()
-    delim = model.get("var_delim", model.get("delim", "()"))
+    # Variable delimiters: var_delim, else delim, else both () and {} (DEFAULT_VAR_DELIM)
+    from .interpreter import get_var_delim
+    delim = get_var_delim(model)
     input_path = Path(input_path)
 
     # Determine if input_variables is non-empty
@@ -2337,6 +2352,47 @@ def _resolve_calculators_arg(calculators, model_name=None):
 # Generic item resolution functions (used by calculators, can be reused for other types)
 # ============================================================================
 
+def _anchor_fz_paths(calc_data, alias_file):
+    """
+    Make the ".fz/..." paths of a calculator alias absolute, relative to the
+    directory holding the .fz/ directory the alias was loaded from.
+
+    Installed wrappers ship aliases such as
+    {"uri": "sh://", "models": {"X": "bash .fz/calculators/X.sh"}}. Left
+    relative, ".fz/calculators/X.sh" is looked up in the launch directory, so an
+    alias installed with `fz install --global` (in ~/.fz/) only worked when fz
+    was launched from the home directory. Only words starting with ".fz/" that
+    exist under that root are rewritten; anything else is left untouched.
+    """
+    if not isinstance(calc_data, dict):
+        return calc_data
+    alias_file = Path(alias_file)
+    fz_dir = alias_file.parent.parent
+    if alias_file.parent.name != "calculators" or fz_dir.name != ".fz":
+        return calc_data
+    root = fz_dir.parent
+
+    import shlex
+
+    def anchor(text):
+        if not isinstance(text, str) or ".fz/" not in text:
+            return text
+
+        def repl(match):
+            target = root / match.group(0)
+            return shlex.quote(target.as_posix()) if target.exists() else match.group(0)
+
+        return _re.sub(r"(?<![\w./-])\.fz/[^\s'\";|&<>]+", repl, text)
+
+    anchored = dict(calc_data)
+    for key in ("uri", "command", "version_cmd"):
+        if key in anchored:
+            anchored[key] = anchor(anchored[key])
+    if isinstance(anchored.get("models"), dict):
+        anchored["models"] = {k: anchor(v) for k, v in anchored["models"].items()}
+    return anchored
+
+
 def find_items_by_pattern(pattern, item_type, model_name=None, use_regex=False):
     """
     Find items (models or calculators) matching a glob or regex pattern.
@@ -2396,6 +2452,8 @@ def find_items_by_pattern(pattern, item_type, model_name=None, use_regex=False):
             try:
                 with open(item_file, 'r') as f:
                     item_data = json.load(f)
+                if item_type == 'calculators':
+                    item_data = _anchor_fz_paths(item_data, item_file)
 
                 # For calculators, check model support
                 if item_type == 'calculators' and model_name:
@@ -2464,6 +2522,8 @@ def find_items_by_json_file_pattern(pattern, item_type, model_name=None, use_reg
                 try:
                     with open(json_file, 'r') as f:
                         item_data = json.load(f)
+                    if item_type == 'calculators':
+                        item_data = _anchor_fz_paths(item_data, json_file)
 
                     # Check if it's a valid item definition
                     if not isinstance(item_data, dict):
@@ -2505,6 +2565,8 @@ def find_items_by_json_file_pattern(pattern, item_type, model_name=None, use_reg
             try:
                 with open(json_file, 'r') as f:
                     item_data = json.load(f)
+                if item_type == 'calculators':
+                    item_data = _anchor_fz_paths(item_data, json_file)
 
                 # Check if it's a valid item definition
                 if not isinstance(item_data, dict):

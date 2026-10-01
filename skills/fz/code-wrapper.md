@@ -80,13 +80,16 @@ Rules and choices:
 The contract (see "Per-case execution lifecycle" in [reference.md](reference.md)):
 
 - invoked **inside a fresh case directory** containing the compiled input file(s);
-- receives the compiled input file (or directory) as **first argument** `$1`;
+- receives the compiled input file names as arguments (`$1`, `$2`, ... — appended after
+  the command of the calculator alias);
 - must write the output files that the model's `output` commands parse;
 - exit status `0` = case done, non-zero = case failed (fz retries it elsewhere);
 - the command is written relative to the case directory: bare names (`input.txt`, `out.dat`)
   refer to the case's own files; a bare word is resolved to the launch directory only when it
   exists there and not in the case directory, and `>` targets are never resolved;
-- stdout/stderr are captured to `out.txt`/`err.txt` automatically — print freely;
+- stdout/stderr are captured to `out.txt`/`err.txt` automatically — print freely, but
+  never make the code write its own results to `out.txt`, `err.txt`, `log.txt`,
+  `info.txt` or `history.txt`: fz overwrites these names;
 - if the code spawns long-lived subprocesses, write their PID to a `PID` file so
   interrupts can kill them.
 
@@ -154,7 +157,8 @@ worked wrapper of this kind.
 
 **Definition of done** — the wrapper is finished only when both hold:
 
-1. `fz list --check --format json` shows the model AND a calculator supporting it;
+1. `fz list --check --format json` shows the model and its `localhost_<Code>` calculator
+   alias, both with `check_status: passed`;
 2. `fzr --model MyCode ...` **without any `--calculators` argument** runs a case
    successfully (proves alias discovery works, not just a hand-built `sh://` URI).
 
@@ -170,8 +174,8 @@ fz list --check --format json           # model + calculator must validate
 fzi --input_path tests/input.txt --model MyCode --format json     # variables found?
 fzc --input_path tests/input.txt --model MyCode \
     --input_variables '{"x": 1}' --output_dir compiled/           # compiles?
-(cd compiled && bash .fz/calculators/MyCode.sh input.txt)         # runs?
-fzo --output_path compiled/ --model MyCode --format json          # outputs parse?
+(cd compiled/*/ && bash "$OLDPWD/.fz/calculators/MyCode.sh" input.txt)  # runs? (case sub-dir)
+fzo --output_path 'compiled/*' --model MyCode --format json       # outputs parse?
 fzr --input_path tests/input.txt --model MyCode \
     --input_variables '{"x": [1, 2]}' --format json               # end to end
 ```

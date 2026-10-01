@@ -17,19 +17,24 @@ python run_study.py
 ## What Happens
 
 1. **First Ctrl+C**:
-   - Currently running calculations complete
    - No new calculations start
-   - Partial results are saved
-   - Resources are cleaned up
+   - Running local processes are terminated (killed after 5 s); remote and SLURM jobs
+     are cancelled
+   - Interrupted cases get `status="interrupted"`
+   - `fzr` **returns** the DataFrame of partial results (no exception); the manifest
+     records `interrupted: true`
    - Signal handlers restored
 
 2. **Second Ctrl+C** (not recommended):
-   - Immediate termination
+   - `KeyboardInterrupt` is raised immediately
    - May leave resources in inconsistent state
 
 ## Resuming After Interrupt
 
-Use caching to resume from where you left off:
+Use caching to resume from where you left off. To resume **into the same**
+`results_dir`, use the special entry `cache://_` (the previous content of `results_dir`,
+renamed with a timestamp before the run); `cache://results` with `results_dir="results"`
+points to the new, empty directory and never hits.
 
 ```python
 # First run (interrupted after 50/100 cases)

@@ -308,7 +308,7 @@ fz supports a rich template language for input files:
 | Formula | `@{expression}` | `@{x * 2 + 1}` |
 | Context code line | `#@ code` | `#@ import math` |
 | Static constant | `#@: NAME = value` | `#@: PI = 3.14159` |
-| Legacy Java syntax | `?(name)` | `?(x)` |
+| `?` prefix (model `varprefix: "?"`) | `?(name)` | `?(x)` |
 
 This notebook exhaustively tests each feature.
 """))
@@ -458,21 +458,23 @@ print("\\nCompiled:")
 print(read_compiled(out, "static.in"))
 """))
 
-    cells.append(md("## 6 · Legacy Java/Funz syntax: `?(name)`"))
+    cells.append(md("## 6 · Templates using `?(name)`\n\n"
+"`?(name)` is not converted automatically: declare `?` as the variable prefix and "
+"`()` as delimiters in the model."))
 
     cells.append(code("""\
 tmpl = WORK / "legacy.in"
 tmpl.write_text(
-    "# Legacy Funz Java variable syntax — fz auto-converts it\\n"
     "x = ?(x)\\n"
     "y = ?(y)\\n"
     "z = ?(z~0.0)\\n"
 )
-vars_ = fz.fzi(str(tmpl), MODEL)
-print("Variables from legacy syntax:", vars_)
+LEGACY_MODEL = {"varprefix": "?", "formulaprefix": "@", "delim": "()", "commentline": "#", "output": {}}
+vars_ = fz.fzi(str(tmpl), LEGACY_MODEL)
+print("Variables from ?(name) syntax:", vars_)
 
 out = WORK / "legacy_out"
-fz.fzc(str(tmpl), {"x": 1.0, "y": 2.0}, MODEL, output_dir=str(out))
+fz.fzc(str(tmpl), {"x": 1.0, "y": 2.0}, LEGACY_MODEL, output_dir=str(out))
 print("\\nCompiled:")
 print(read_compiled(out, "legacy.in"))
 """))

@@ -26,9 +26,12 @@ fz.fzc(input_path: str, input_variables: dict, model: str | dict,
        output_dir: str = "output", input_static: list[str] = None) -> None
 ```
 
-Substitutes variables and evaluates formulas. Scalar values produce a single compiled
-copy in `output_dir/`; list values produce one subdirectory per combination, named
-`var1=val1,var2=val2,...`.
+Substitutes variables and evaluates formulas. Whenever the input declares variables,
+the result goes to one sub-directory per case, `output_dir/var1=val1,var2=val2,.../`, even
+when every value is a scalar (one case → one sub-directory); lists produce one
+sub-directory per combination. An existing `output_dir` is renamed with a timestamp
+suffix first. To parse outputs of a compiled case, point `fzo` at the case sub-directory
+or a glob (`output_dir/*`), not at `output_dir` itself.
 
 ### fz.fzo — parse output files
 
@@ -68,8 +71,13 @@ fz.fzr(input_path: str,
 ```
 
 - dict `input_variables` ⇒ factorial (Cartesian product); DataFrame ⇒ one case per row.
-- Returns a DataFrame: variable columns + output columns + `status` ("done", "error",
-  "cached"), `calculator`, `error`, `command`.
+- **Pass `calculators=` and `results_dir=` by keyword**: `results_dir` is the 4th
+  positional parameter; `fzr(path, vars, model, "sh://bash run.sh")` raises
+  `ValueError: results_dir looks like a calculator URI`.
+- Returns a DataFrame: variable columns + output columns + `status` (`done`, `failed`,
+  `error`, `timeout`, `interrupted`; a cache hit is `done` with a `cache://...`
+  `calculator`; a run without parsable outputs stays `done` with `Missing output: ...`
+  in `error`), `calculator`, `error`, `command`.
 - `case_naming` controls each case's result/temp subdirectory name: `"path"`
   (`var1=val1,var2=val2,...`, default, but can exceed filesystem filename length
   limits with many variables - unsafe characters in a key/value are percent-encoded
@@ -88,8 +96,14 @@ fz.fzr(input_path: str,
   for the full write-up. A large (`FZ_STATIC_CANDIDATE_MIN_SIZE`, default 1 MiB)
   variable-free file left in `input_path` instead triggers a one-time warning
   suggesting `input_static`.
-- `callbacks` supports `on_start(total_cases, calculators)`, plus per-case progress
-  callbacks (see docstring of `fz.fzr`).
+- `callbacks` is a **dict** (not a list) with any of: `on_start(total_cases,
+  calculators)`, `on_case_start(case_index, total_cases, var_combo)`,
+  `on_case_complete(case_index, total_cases, var_combo, status, result)`,
+  `on_progress(completed, total, eta_seconds)`, `on_complete(total_cases,
+  completed_cases, results_df)`. Unknown keys raise `ValueError`; callbacks run in worker
+  threads and their exceptions are logged, not raised.
+- `timeout` (seconds) overrides the model's `"timeout"` and `FZ_RUN_TIMEOUT`; `0` means
+  no timeout, negative values raise `ValueError`.
 - Ctrl+C interrupts gracefully; completed cases stay in `results_dir` and can be reused
   with a `cache://results_dir` calculator.
 
@@ -129,10 +143,12 @@ callable as `model` instead of a dict/alias. Then `input_path` must be `None`;
 `input_variables` keys must match the function's parameters; `output_expression`
 may be `None` (defaults to the first value of the function's return — scalar,
 first list/tuple item, or first dict/namedtuple key); `calculators` must be an
-`int` (default `1`), accepted for API compatibility — calls always run
-sequentially in-process, never in parallel, so the model function is safe to
-call even if it's only usable from the calling thread (e.g. an R function
-bridged in via reticulate). Each iteration's directory then contains
+`int` (default `1`): the number of points evaluated concurrently. `1` calls the
+function sequentially in the calling thread (required for callables usable only
+from that thread, e.g. an R function bridged in via reticulate); `N > 1` uses a
+thread pool of N threads (thread-safe functions only), and any error raised then
+aborts `fzd` with `fz.FunctionModelParallelError` instead of marking one point
+failed. Each iteration's directory then contains
 only a `values.csv` of that iteration's function inputs/outputs (no case dirs).
 
 ### fz.fzl — list and validate models/calculators
@@ -140,6 +156,11 @@ only a `values.csv` of that iteration's function inputs/outputs (no case dirs).
 ```python
 fz.fzl(models: str = "*", calculators: str = "*", check: bool = False) -> dict
 ```
+
+Returns `{"models": {name: {"path", "properties", "supported_calculators",
+"check_status"...}}, "calculators": {alias_name: {"path", "uri", "supports_models",
+"check_status"...}}}`. With `check=True`, each command of an alias's `models` map is
+validated. Algorithms are not listed (`fz.list_installed_algorithms()`).
 
 ### Configuration helpers
 
@@ -184,7 +205,11 @@ repeatable to add several. See `input_static` in `fz.fzr`'s signature above.
   `--input_variables`, `--calculator` = `--calculators` (repeatable), `--results` =
   `--results_dir`, `--output` = `--output_dir`. (fz 1.0 required the canonical flag names
   and had no positional form; the canonical flags work everywhere — prefer them.)
-- `--format` accepts: `json`, `csv`, `html`, `markdown`, `table`.
+- `--format` accepts: `json`, `csv`, `html`, `markdown`, `table`. `fzl`/`fz list` only
+  offer `json`, `markdown` and `table`; `fzc` and `fzd` have no `--format`.
+- No CLI flag sets a timeout: use the model's `"timeout"` or `FZ_RUN_TIMEOUT`.
+- `fzd --output_expression` takes one expression: the multi-objective list form is
+  Python-only.
 - `--input_variables` (fzc/fzr only) can be omitted when the input files declare no
   variables (a non-parametric dataset) — omitting it otherwise errors out listing the
   variable(s) found, so it's still required whenever the model actually has any.
@@ -198,6 +223,8 @@ repeatable to add several. See `input_static` in `fz.fzr`'s signature above.
   `--formulaprefix`, `--delim`, `--commentline`, `--interpreter`, and repeatable
   `--output-cmd NAME=COMMAND` for output parsers.
 - `--input_vars` (fzd) takes JSON with `"[min;max]"` range strings for varied variables.
+- `--input_variables` also accepts the short form `'a=1,b=[4,5,6]'` (fzd: `'x=[0;1],y=2'`).
+  It is always a full factorial: a list of explicit cases (DataFrame) is Python-only.
 
 Stream discipline: results go to stdout; logs (`FZ_LOG_LEVEL`), progress bar, and error
 messages go to stderr (the progress bar is disabled when stderr is not a TTY). Exit codes:
@@ -221,10 +248,13 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
 }
 ```
 
-All fields optional except `output` (required to parse results). `id` links the model to
+All fields optional except `output` (required to parse results). Defaults when absent:
+`varprefix` `$`, `formulaprefix` `@`, `commentline` `#`, `interpreter` python; variables
+accept both `$(x)` and `${x}`, formulas use `@{...}` (`delim` restricts both to one pair;
+`var_delim` / `formula_delim` set them separately). `id` links the model to
 calculator alias files. Search path for aliases: `./.fz/models/<alias>.json` then
 `~/.fz/models/<alias>.json`. `timeout` (int seconds, or `null`/`0` to disable) overrides
-`FZ_RUN_TIMEOUT` for this model; an explicit `timeout=` argument to `fzr()`/`fzc()` still
+`FZ_RUN_TIMEOUT` for this model; an explicit `timeout=` argument to `fzr()` still
 wins over both.
 
 Static files identical across every case (never templated) are declared via `fzr`'s
@@ -244,8 +274,8 @@ Static files identical across every case (never templated) are declared via `fzr
 }
 ```
 
-`models` maps model `id` → command on that machine (compiled input file/dir is passed as
-first argument). Search path: `./.fz/calculators/<alias>.json` then `~/.fz/calculators/`.
+`models` maps model `id` → command on that machine (the compiled input file names are
+appended to the end of the command). Search path: `./.fz/calculators/<alias>.json` then `~/.fz/calculators/`.
 `code_id` (optional) names the calculator's code installation, not its command/host - two
 calculators sharing the same `code_id` share `cache://` results even with different
 commands; different `code_id`s never match. `version_cmd` resolves `code_id` by running a
@@ -261,6 +291,8 @@ its calculators); a `version_cmd` that exits non-zero leaves the calculator with
 sh://command                                  local shell (default when omitted)
 ssh://user[:password]@host[:port]/command     remote SSH (paramiko, SFTP transfer)
 slurm://[user@host[:port]]:partition/command  SLURM srun; local form slurm://:partition/cmd
+                                              (both SLURM forms accept ?cores=&mem=&time=&nodes=
+                                               &ntasks=&gres=&account=&qos=)
 slurm-array://:partition/command[?cores=N&maxrunning=M]  local SLURM: all cases batched in one sbatch job array
 cache://path                                  reuse prior results by input-file hash
 funz://[host]:port/ModelName                  legacy Java Funz server protocol
@@ -269,27 +301,44 @@ funz://[host]:port/ModelName                  legacy Java Funz server protocol
 ## Per-case execution lifecycle
 
 For each case, fz: compiles inputs into `results_dir/<case>/`; copies them to a temp dir
-on the calculator (under `.fz/tmp/`); runs the command with the input file as first
-argument; captures `out.txt` (stdout), `err.txt` (stderr), `log.txt` (command, host, env,
-timings, exit status); copies everything back; runs the `output` parsing commands; sets
-`status` to `done` or `error`. Failed cases are retried on another calculator
-(default 5 attempts).
+on the calculator (under `.fz/tmp/`); runs the command with the input file names appended
+at the end of the command line; captures `out.txt` (stdout), `err.txt` (stderr), `log.txt`
+(command, host, env, timings, exit status), plus `info.txt`, `history.txt`, `.fz_hash`;
+copies everything back; runs the `output` parsing commands; sets `status`. Failed cases
+are retried on another calculator (default 5 attempts).
+
+Constraints worth knowing (full list: `doc/limitations.md` in the fz repo):
+
+- **Reserved file names**: a code output named `out.txt`, `err.txt`, `log.txt`,
+  `info.txt` or `history.txt` is overwritten by fz. Results root: `manifest.json`,
+  `ro-crate-metadata.json`, `cases.csv`.
+- **`sh://` command line**: the compiled input names are appended to the end of the whole
+  command (after pipes/redirections); a bare file name is made absolute in the launch
+  directory only if it exists there and not in the case directory. Put file handling in a
+  script run as `sh://bash run.sh`.
+- **Parallelism** = number of non-cache calculator entries; `FZ_MAX_WORKERS` only caps it.
+- **Config is read at import**: after changing `os.environ["FZ_..."]`, call
+  `fz.reload_config()`.
+- **Cache key** = SHA-256 of input files (+ `code_id` when declared), never the command.
 
 ## Environment variables
 
 ```
-FZ_LOG_LEVEL                 DEBUG | INFO | WARNING | ERROR
-FZ_MAX_WORKERS               max parallel cases
+FZ_LOG_LEVEL                 QUIET | ERROR (default) | WARNING | INFO | DEBUG
+FZ_MAX_WORKERS               cap on parallel cases (never above the number of calculator entries,
+                              except slurm-array://)
 FZ_MAX_RETRIES               attempts for failed cases (default 5)
 FZ_RUN_TIMEOUT                per-calculation timeout in seconds (default 3600 = 1h for sh://,
                               funz://; unlimited for ssh://, slurm:// when unset);
-                              a model's own "timeout" entry overrides this
+                              a model's own "timeout" entry overrides this; 0 = no timeout
 FZ_SLURM_POLL_INTERVAL       seconds between sacct/squeue polls for slurm-array:// (default 2)
 FZ_SLURM_ARRAY_WINDOW        seconds slurm-array:// gathers cases before one sbatch (default 1)
 FZ_RO_CRATE                  0 to disable the ro-crate-metadata.json written (default 1) next to
                               each campaign's manifest.json (fzr and fzd always write manifest.json)
-FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip interactive host-key prompt (CI; use with care)
+FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip the interactive host-key prompt shown with password auth
+                              (key auth already auto-adds unknown hosts)
 FZ_SSH_KEEPALIVE             SSH keepalive seconds
+FZ_INTERPRETER               default formula interpreter: python (default) | R
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)
 FZ_CASE_NAMING                fzr case dir naming: path (default) | hash | index
 FZ_STATIC_CANDIDATE_MIN_SIZE  bytes threshold for the input_static warning (default 1048576; 0 disables)
@@ -310,7 +359,8 @@ ${name}           variable, explicit delimiters
 ${name~default}   variable with default value
 @{expr}           formula, evaluated at compile time (may reference $vars)
 #@ code           interpreter context line (imports, constants, function defs)
-?name             legacy Java-Funz syntax, auto-converted to $name
+$(name)           variable with the Java-Funz "()" delimiters (the default when the model has
+                  no "delim"/"var_delim" key; ${name} is then NOT a variable)
 ```
 
 ## MCP server

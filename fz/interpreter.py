@@ -9,6 +9,25 @@ from pathlib import Path
 from typing import Dict, List, Union, Any, Set, Optional
 
 
+# Variable delimiters used when a model sets neither "var_delim" nor "delim":
+# both $(x) (Java Funz convention) and ${x} are recognized. A delimiter string
+# longer than 2 characters is read as consecutive pairs ("(){}" -> "()", "{}").
+DEFAULT_VAR_DELIM = "(){}"
+
+
+def _delim_pairs(delim: str) -> List[str]:
+    """Split a delimiter string into 2-character pairs ("" -> [], "()" -> ["()"])."""
+    if not delim or len(delim) % 2:
+        return []
+    return [delim[i:i + 2] for i in range(0, len(delim), 2)]
+
+
+def get_var_delim(model: Dict) -> str:
+    """Variable delimiters of a model: var_delim, else delim, else DEFAULT_VAR_DELIM."""
+    return model.get("var_delim", model.get("delim", DEFAULT_VAR_DELIM))
+
+
+
 def _format_decimal_pattern(value: float, pattern: str) -> str:
     """
     Format a number using a (non-scientific) Java DecimalFormat-like pattern,
@@ -205,6 +224,12 @@ def parse_variables_from_content(content: str, varprefix: str = "$", delim: str 
     Returns:
         Set of variable names found (without default values and metadata)
     """
+    if len(delim) > 2:
+        found = set()
+        for pair in _delim_pairs(delim):
+            found |= parse_variables_from_content(content, varprefix, pair)
+        return found
+
     variables = set()
 
     # Pattern to match variables: varprefix + optional delim + varname + optional default + optional delim
@@ -255,6 +280,11 @@ def parse_variable_defaults_from_content(content: str, varprefix: str = "$",
     compilation, so both use the same defaults.
     """
     defaults: Dict[str, Any] = {}
+
+    if len(delim) > 2:
+        for pair in _delim_pairs(delim):
+            defaults.update(parse_variable_defaults_from_content(content, varprefix, pair))
+        return defaults
 
     if len(delim) != 2:
         return defaults
@@ -356,6 +386,11 @@ def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
     Returns:
         Content with variables replaced
     """
+    if len(delim) > 2:
+        for pair in _delim_pairs(delim):
+            content = replace_variables_in_content(content, input_variables, varprefix, pair)
+        return content
+
     if len(delim) == 2:
         left_delim, right_delim = delim[0], delim[1]
         esc_varprefix = re.escape(varprefix)
@@ -686,7 +721,7 @@ def evaluate_single_formula(formula: str, model: Dict, input_variables: Dict, in
     """
     commentline = _get_comment_char(model)
     varprefix = _get_var_prefix(model)
-    var_delim = model.get("var_delim", model.get("delim", "()"))
+    var_delim = get_var_delim(model)
 
     # Extract context lines from model if available
     context_lines = []
@@ -714,10 +749,8 @@ def evaluate_single_formula(formula: str, model: Dict, input_variables: Dict, in
         # Replace variables in formula using the model's variable prefix
         # Handle both delimited and non-delimited variables
         for var, val in input_variables.items():
-            if len(var_delim) == 2:
+            for left_delim, right_delim in _delim_pairs(var_delim):
                 # Try with delimiters first: $(...) or V(...)
-                left_delim = var_delim[0]
-                right_delim = var_delim[1]
                 var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(left_delim)}{re.escape(var)}{re.escape(right_delim)}'
                 formula = re.sub(var_pattern_delim, str(val), formula)
             
@@ -779,10 +812,8 @@ def evaluate_single_formula(formula: str, model: Dict, input_variables: Dict, in
         # Handle both delimited and non-delimited variables
         r_formula = formula
         for var in input_variables.keys():
-            if len(var_delim) == 2:
+            for left_delim, right_delim in _delim_pairs(var_delim):
                 # Try with delimiters first
-                left_delim = var_delim[0]
-                right_delim = var_delim[1]
                 var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(left_delim)}{re.escape(var)}{re.escape(right_delim)}'
                 r_formula = re.sub(var_pattern_delim, var, r_formula)
             
@@ -833,7 +864,7 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
     delim = model.get("formula_delim", model.get("delim", "{}"))
     commentline = _get_comment_char(model)
     varprefix = _get_var_prefix(model)
-    var_delim = model.get("var_delim", model.get("delim", "()"))
+    var_delim = get_var_delim(model)
 
     # Only validate delim if it will be used (when we have delimiters)
     if len(delim) != 2 and len(delim) != 0:
@@ -918,8 +949,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
 
                 # Replace variables in formula with their values
                 for var, val in input_variables.items():
-                    if len(var_delim) == 2:
-                        var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(var_delim[0])}{re.escape(var)}{re.escape(var_delim[1])}'
+                    for pair in _delim_pairs(var_delim):
+                        var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(pair[0])}{re.escape(var)}{re.escape(pair[1])}'
                         formula = re.sub(var_pattern_delim, str(val), formula)
                     var_pattern = rf'{re.escape(varprefix)}{re.escape(var)}\b'
                     formula = re.sub(var_pattern, str(val), formula)
@@ -1014,8 +1045,8 @@ def evaluate_formulas(content: str, model: Dict, input_variables: Dict, interpre
                 # So we just remove the varprefix for R
                 r_formula = formula
                 for var in input_variables.keys():
-                    if len(var_delim) == 2:
-                        var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(var_delim[0])}{re.escape(var)}{re.escape(var_delim[1])}'
+                    for pair in _delim_pairs(var_delim):
+                        var_pattern_delim = rf'{re.escape(varprefix)}{re.escape(pair[0])}{re.escape(var)}{re.escape(pair[1])}'
                         r_formula = re.sub(var_pattern_delim, var, r_formula)
                     var_pattern = rf'{re.escape(varprefix)}{re.escape(var)}\b'
                     r_formula = re.sub(var_pattern, var, r_formula)

@@ -426,12 +426,15 @@ model = {
     "output": {"result": "cat output.txt"}
 }
 
-# Calculator-level timeout
-calculators = "funz://:19001/R?timeout=7200"  # 2 hours
+# Per-call timeout (overrides the model entry and FZ_RUN_TIMEOUT)
+results = fz.fzr("input.R", variables, model,
+                 calculators="funz://:19001/R", timeout=7200)  # 2 hours
 
-# Environment variable (default)
+# Environment variable (default 3600 s); read at import, so either set it
+# before starting Python or reload the configuration:
 import os
 os.environ['FZ_RUN_TIMEOUT'] = '3600'
+fz.reload_config()
 ```
 
 ### Multiple Servers

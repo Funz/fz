@@ -72,6 +72,7 @@ from .helpers import (
     _resolve_algorithm_options,
     _resolve_calculators_arg,
     _calculator_supports_model,
+    _extract_calculator_uri,
     run_cases_parallel,
     compile_to_result_directories,
     prepare_temp_directories,
@@ -104,6 +105,8 @@ from .interpreter import (
     _get_comment_char,
     _get_var_prefix,
     _get_formula_prefix,
+    _delim_pairs,
+    get_var_delim,
 )
 from .runners import resolve_calculators, resolve_calculators_with_metadata, run_calculation
 from .algorithms import (
@@ -640,7 +643,9 @@ def fzl(models: str = "*", calculators: str = "*", check: bool = False) -> Dict[
                 ...
             },
             "calculators": {
-                "calculator_name_or_uri": {
+                "alias_name": {   # or a URI: the default "sh://" when no alias exists
+                    "path": "path/to/alias.json",
+                    "uri": "sh://",
                     "supports_models": ["model1", "model2", ...] or "all",
                     "check_status": "passed" | "failed" | "not_checked",  # if check=True
                     "check_error": "error message"  # if check failed
@@ -653,129 +658,118 @@ def fzl(models: str = "*", calculators: str = "*", check: bool = False) -> Dict[
         >>> result = fzl(models="*", calculators="*")
         >>> print(result["models"])
         >>> result = fzl(models="*", calculators="*", check=True)
-        >>> print(result["calculators"]["sh://"]["check_status"])
+        >>> print(result["calculators"]["localhost_mymodel"]["check_status"])
     """
-    # Find all matching models
-    models_list = []
-    search_dirs = [Path.cwd() / ".fz" / "models", Path.home() / ".fz" / "models"]
+    import fnmatch
 
-    for model_dir in search_dirs:
-        if not model_dir.exists() or not model_dir.is_dir():
-            continue
-
-        for model_file in model_dir.glob("*.json"):
-            import fnmatch
-            model_name = model_file.stem
-
-            # Match against pattern
-            if not fnmatch.fnmatch(model_name, models):
-                continue
-
+    def _name_matches(name, pattern):
+        if fnmatch.fnmatch(name, pattern):
+            return True
+        if any(c in pattern for c in "^$+()|\\"):
             try:
-                with open(model_file, 'r') as f:
-                    model_data = json.load(f)
+                return re.search(pattern, name) is not None
+            except re.error:
+                return False
+        return False
 
-                models_list.append({
-                    "name": model_name,
-                    "path": str(model_file),
-                    "properties": model_data
-                })
-            except (json.JSONDecodeError, IOError) as e:
-                log_warning(f"Could not load model file {model_file}: {e}")
+    def _load_aliases(kind, pattern):
+        """Alias JSON files of ./.fz/<kind> then ~/.fz/<kind>; the project wins on a name clash."""
+        found = {}
+        for alias_dir in (Path.cwd() / ".fz" / kind, Path.home() / ".fz" / kind):
+            if not alias_dir.is_dir():
                 continue
+            for alias_file in sorted(alias_dir.glob("*.json")):
+                name = alias_file.stem
+                if name in found or not _name_matches(name, pattern):
+                    continue
+                try:
+                    with open(alias_file, 'r') as f:
+                        data = json.load(f)
+                except (json.JSONDecodeError, IOError) as e:
+                    log_warning(f"Could not load {kind[:-1]} file {alias_file}: {e}")
+                    continue
+                found[name] = {"name": name, "path": str(alias_file), "data": data}
+        return found
 
-    # Find all matching calculators
-    calc_specs = _resolve_calculators_arg(calculators, model_name=None)
+    models_found = _load_aliases("models", models)
+    calcs_found = _load_aliases("calculators", calculators)
 
-    # Build result structure
-    result = {
-        "models": {},
-        "calculators": {}
-    }
+    # Calculators given as URIs (not alias names) are listed as such
+    extra_uris = []
+    if "://" in calculators:
+        extra_uris.append(calculators)
+    elif not calcs_found and calculators == "*":
+        extra_uris.append("sh://")  # default calculator when no alias is installed
 
-    # Process models and find which calculators support them
-    for model_info in models_list:
-        model_name = model_info["name"]
+    def _model_id(info):
+        props = info["data"] if isinstance(info["data"], dict) else {}
+        return props.get("id", info["name"])
 
-        # Find calculators that support this model
-        supported_calcs = []
+    def _supports(calc_data, model_id):
+        return isinstance(calc_data, dict) and _calculator_supports_model(calc_data, model_id)
 
-        for calc_spec in calc_specs:
-            if isinstance(calc_spec, dict):
-                # Dict calculator - check if it supports this model
-                if _calculator_supports_model(calc_spec, model_name):
-                    # Extract a displayable name
-                    calc_display = calc_spec.get("uri", calc_spec.get("command", str(calc_spec)))
-                    supported_calcs.append(calc_display)
-            else:
-                # String URI - assume it supports all models (we don't have metadata)
-                supported_calcs.append(calc_spec)
+    result = {"models": {}, "calculators": {}}
 
+    for model_name, info in models_found.items():
+        model_id = _model_id(info)
+        supported = [name for name, c in calcs_found.items() if _supports(c["data"], model_id)]
+        supported += extra_uris
         model_result = {
-            "path": model_info["path"],
-            "properties": model_info["properties"],
-            "supported_calculators": supported_calcs
+            "path": info["path"],
+            "properties": info["data"],
+            "supported_calculators": supported,
         }
-
-        # Add check status if requested
         if check:
-            check_status, check_error = _validate_model(model_info["properties"], model_name)
-            model_result["check_status"] = check_status
-            if check_error:
-                model_result["check_error"] = check_error
+            status, error = _validate_model(info["data"], model_name)
+            model_result["check_status"] = status
+            if error:
+                model_result["check_error"] = error
         else:
             model_result["check_status"] = "not_checked"
-
         result["models"][model_name] = model_result
 
-    # Process calculators and find which models they support
-    for calc_spec in calc_specs:
-        if isinstance(calc_spec, dict):
-            calc_display = calc_spec.get("uri", calc_spec.get("command", str(calc_spec)))
-
-            # Check which models this calculator supports
-            if "models" not in calc_spec:
-                # No models field - supports all models
-                calc_result = {
-                    "supports_models": "all"
-                }
-            else:
-                # Has models field - check which models it supports
-                supported_models = []
-                for model_info in models_list:
-                    if _calculator_supports_model(calc_spec, model_info["name"]):
-                        supported_models.append(model_info["name"])
-
-                calc_result = {
-                    "supports_models": supported_models
-                }
-
-            # Add check status if requested
-            if check:
-                check_status, check_error = _validate_calculator(calc_spec, calc_display)
-                calc_result["check_status"] = check_status
-                if check_error:
-                    calc_result["check_error"] = check_error
-            else:
-                calc_result["check_status"] = "not_checked"
-
-            result["calculators"][calc_display] = calc_result
+    for calc_name, info in calcs_found.items():
+        data = info["data"]
+        calc_models = data.get("models") if isinstance(data, dict) else None
+        if calc_models is None:
+            supports = "all"
         else:
-            # String URI - assume it supports all models
-            calc_result = {
-                "supports_models": "all"
-            }
-
-            # Add check status if requested
-            if check:
-                check_status, check_error = _validate_calculator(calc_spec, calc_spec)
-                calc_result["check_status"] = check_status
-                if check_error:
-                    calc_result["check_error"] = check_error
+            supports = [m for m, mi in models_found.items() if _supports(data, _model_id(mi))]
+        calc_result = {
+            "path": info["path"],
+            "uri": data.get("uri", data.get("command")) if isinstance(data, dict) else data,
+            "supports_models": supports,
+        }
+        if check:
+            # An alias whose command lives in its "models" map is checked per model
+            # (uri + that model's command), not as a bare "sh://" URI.
+            if isinstance(calc_models, dict) and calc_models:
+                errors = []
+                for model_id in calc_models:
+                    uri = _extract_calculator_uri(data, model_id)
+                    status, error = _validate_calculator(uri, f"{calc_name}[{model_id}]")
+                    if status != "passed":
+                        errors.append(f"{model_id}: {error}")
+                status, error = ("failed", "; ".join(errors)) if errors else ("passed", None)
             else:
-                calc_result["check_status"] = "not_checked"
+                status, error = _validate_calculator(data, calc_name)
+            calc_result["check_status"] = status
+            if error:
+                calc_result["check_error"] = error
+        else:
+            calc_result["check_status"] = "not_checked"
+        result["calculators"][calc_name] = calc_result
 
-            result["calculators"][calc_spec] = calc_result
+    for uri in extra_uris:
+        calc_result = {"uri": uri, "supports_models": "all"}
+        if check:
+            status, error = _validate_calculator(uri, uri)
+            calc_result["check_status"] = status
+            if error:
+                calc_result["check_error"] = error
+        else:
+            calc_result["check_status"] = "not_checked"
+        result["calculators"][uri] = calc_result
 
     return result
 
@@ -821,8 +815,8 @@ def fzi(input_path: str, model: Union[str, Dict], input_static: Optional[List[st
 
         # Variable prefix: support multiple aliases
         varprefix = _get_var_prefix(model)
-        # Variable delimiters: use var_delim if set, else delim if set, else default to ()
-        var_delim = model.get("var_delim", model.get("delim", "()"))
+        # Variable delimiters: var_delim, else delim, else both () and {} (DEFAULT_VAR_DELIM)
+        var_delim = get_var_delim(model)
 
         # Formula prefix: support multiple aliases
         formulaprefix = _get_formula_prefix(model)
@@ -912,9 +906,9 @@ def fzi(input_path: str, model: Union[str, Dict], input_static: Optional[List[st
             clean_expr = formula_expr
             
             # Remove variable references with delimiters: $(var) or V(var)
-            if len(var_delim) == 2:
-                left_d = re.escape(var_delim[0])
-                right_d = re.escape(var_delim[1])
+            for pair in _delim_pairs(var_delim):
+                left_d = re.escape(pair[0])
+                right_d = re.escape(pair[1])
                 var_prefix_esc = re.escape(varprefix)
                 # Pattern: $(...) or V(...)
                 pattern = rf'{var_prefix_esc}{left_d}([a-zA-Z_][a-zA-Z0-9_]*){right_d}'
@@ -1403,6 +1397,17 @@ def fzr(
 
     if not isinstance(results_dir, (str, Path)):
         raise TypeError(f"results_dir must be a string or Path, got {type(results_dir).__name__}")
+    if isinstance(results_dir, str) and re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", results_dir):
+        raise ValueError(
+            f"results_dir looks like a calculator URI: {results_dir!r}. The 4th positional "
+            "argument of fzr() is results_dir; pass the calculator by keyword: "
+            "fzr(input_path, input_variables, model, calculators=..., results_dir=...)"
+        )
+    if timeout is not None:
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+            raise TypeError(f"timeout must be a number of seconds, got {type(timeout).__name__}")
+        if timeout < 0:
+            raise ValueError(f"timeout must be >= 0 seconds (0 = no timeout), got {timeout}")
 
     from .helpers import _validate_input_static
     _validate_input_static(input_static)

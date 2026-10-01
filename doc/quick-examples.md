@@ -30,8 +30,8 @@ results = fz.fzr(
     "input.txt",
     {"x": [1, 2, 3], "y": [10, 20]},  # 6 cases
     model,
-    "sh://bash calc.sh",
-    "results"
+    calculators="sh://bash calc.sh",
+    results_dir="results"
 )
 
 print(results)
@@ -72,8 +72,8 @@ results = fz.fzr(
     "input.txt",
     {"T_celsius": [0, 25, 100]},
     model,
-    "sh://bash calc.sh",
-    "results"
+    calculators="sh://bash calc.sh",
+    results_dir="results"
 )
 ```
 
@@ -92,8 +92,8 @@ results = fz.fzr(
     "input.txt",
     {"param": list(range(100))},
     model,
-    ["sh://bash calc.sh"] * 4,  # 4 parallel calculators
-    "results"
+    calculators=["sh://bash calc.sh"] * 4,  # 4 parallel calculators
+    results_dir="results"
 )
 
 print(f"Completed {len(results)} calculations")
@@ -116,8 +116,8 @@ results = fz.fzr(
     "input.txt",
     {"mesh_size": [100, 200, 400, 800]},
     model,
-    "ssh://user@cluster.edu/bash /path/to/submit.sh",
-    "hpc_results"
+    calculators="ssh://user@cluster.edu/bash /path/to/submit.sh",
+    results_dir="hpc_results"
 )
 ```
 
@@ -131,8 +131,8 @@ results1 = fz.fzr(
     "input.txt",
     {"param": list(range(50))},
     model,
-    "sh://bash slow_calc.sh",
-    "run1"
+    calculators="sh://bash slow_calc.sh",
+    results_dir="run1"
 )
 
 # Resume with cache
@@ -140,8 +140,8 @@ results2 = fz.fzr(
     "input.txt",
     {"param": list(range(50))},
     model,
-    ["cache://run1", "sh://bash slow_calc.sh"],  # Cache first
-    "run2"
+    calculators=["cache://run1", "sh://bash slow_calc.sh"],  # Cache first
+    results_dir="run2"
 )
 ```
 
@@ -217,8 +217,8 @@ results = fz.fzr(
     "input.txt",
     {"temperature": list(range(0, 101, 10))},  # [0, 10, 20, ..., 100]
     model,
-    "sh://bash thermal_analysis.sh",
-    "temp_sweep"
+    calculators="sh://bash thermal_analysis.sh",
+    results_dir="temp_sweep"
 )
 
 # Plot results
@@ -247,8 +247,8 @@ results = fz.fzr(
         "pressure": pressures.tolist()
     },  # 10×10 = 100 cases
     model,
-    ["sh://bash calc.sh"] * 4,  # 4 parallel workers
-    "grid_search"
+    calculators=["sh://bash calc.sh"] * 4,  # 4 parallel workers
+    results_dir="grid_search"
 )
 
 # Create heatmap
@@ -288,8 +288,8 @@ results = fz.fzr(
     "input.txt",
     variations,
     model,
-    "sh://bash calc.sh",
-    "sensitivity"
+    calculators="sh://bash calc.sh",
+    results_dir="sensitivity"
 )
 
 # Analyze sensitivity
@@ -322,8 +322,8 @@ results = fz.fzr(
     "input.txt",
     samples,
     model,
-    ["sh://bash calc.sh"] * 8,  # 8 parallel workers
-    "monte_carlo"
+    calculators=["sh://bash calc.sh"] * 8,  # 8 parallel workers
+    results_dir="monte_carlo"
 )
 
 # Statistical analysis
@@ -358,8 +358,8 @@ results = fz.fzr(
     "input.txt",
     cases,
     model,
-    ["sh://bash experiment.sh"] * 4,
-    "doe_results"
+    calculators=["sh://bash experiment.sh"] * 4,
+    results_dir="doe_results"
 )
 
 # ANOVA or regression analysis
@@ -378,8 +378,8 @@ results = fz.fzr(
     "input.txt",
     {"mesh": mesh_sizes},
     model,
-    "sh://bash simulation.sh",
-    "convergence"
+    calculators="sh://bash simulation.sh",
+    results_dir="convergence"
 )
 
 # Check convergence
@@ -414,8 +414,8 @@ for method_name, calculator in methods.items():
         "input.txt",
         variables,
         model,
-        calculator,
-        f"results_{method_name}"
+        calculators=calculator,
+        results_dir=f"results_{method_name}"
     )
     results['method'] = method_name
     all_results.append(results)
@@ -451,8 +451,8 @@ def objective(params):
         "input.txt",
         {"x": params[0], "y": params[1]},
         model,
-        "sh://bash calc.sh",
-        "optimization"
+        calculators="sh://bash calc.sh",
+        results_dir="optimization"
     )
     return results.iloc[0]['result']
 
@@ -536,8 +536,8 @@ fzc input.txt \
   --variables '{"temp": 25, "pressure": 101}' \
   --output compiled/
 
-# Check compiled result
-cat compiled/input.txt
+# Check compiled result (one sub-directory per case, named after the values)
+cat compiled/*/input.txt
 ```
 
 ### Example 3: Run Parametric Study from CLI
@@ -584,15 +584,15 @@ import fz
 import os
 
 # Enable debug logging
-os.environ['FZ_LOG_LEVEL'] = 'DEBUG'
+fz.set_log_level('DEBUG')  # or FZ_LOG_LEVEL=DEBUG before starting Python
 
 # Run single case
 results = fz.fzr(
     "input.txt",
     {"param": 1},  # Single case
     model,
-    "sh://bash calc.sh",
-    "debug_test"
+    calculators="sh://bash calc.sh",
+    results_dir="debug_test"
 )
 
 # Check debug directory
@@ -621,18 +621,18 @@ cat output.txt
 import fz
 import os
 
-os.environ['FZ_LOG_LEVEL'] = 'DEBUG'
+fz.set_log_level('DEBUG')  # or FZ_LOG_LEVEL=DEBUG before starting Python
 
 # First run
-fz.fzr("input.txt", {"param": 1}, model, "sh://bash calc.sh", "run1/")
+fz.fzr("input.txt", {"param": 1}, model, calculators="sh://bash calc.sh", results_dir="run1/")
 
 # Second run with cache (check debug logs)
 fz.fzr(
     "input.txt",
     {"param": 1},
     model,
-    ["cache://run1", "sh://bash calc.sh"],
-    "run2/"
+    calculators=["cache://run1", "sh://bash calc.sh"],
+    results_dir="run2/"
 )
 # Debug logs will show: "Cache hit for case: ..."
 ```
@@ -646,7 +646,7 @@ import fz
 import pandas as pd
 
 # Run parametric study
-results = fz.fzr("input.txt", variables, model, calculators, "results/")
+results = fz.fzr("input.txt", variables, model, calculators=calculators, results_dir="results/")
 
 # Advanced pandas operations
 summary = results.groupby('temp').agg({
@@ -670,7 +670,7 @@ results.to_json('results.json', orient='records')
 import fz
 import matplotlib.pyplot as plt
 
-results = fz.fzr("input.txt", variables, model, calculators, "results/")
+results = fz.fzr("input.txt", variables, model, calculators=calculators, results_dir="results/")
 
 # Create subplot for each parameter
 fig, axes = plt.subplots(2, 2, figsize=(12, 10))
@@ -697,7 +697,7 @@ import fz
 from IPython.display import display
 
 # Run study
-results = fz.fzr("input.txt", variables, model, calculators, "results/")
+results = fz.fzr("input.txt", variables, model, calculators=calculators, results_dir="results/")
 
 # Interactive display
 display(results.head())
@@ -754,8 +754,8 @@ results = fz.fzr(
     str(INPUT),
     {"temp": [10, 20, 30], "pressure": [1, 10]},
     "my_model",  # Loads from .fz/models/my_model.json
-    "cluster",   # Loads from .fz/calculators/cluster.json
-    str(RESULTS)
+    calculators="cluster",   # Loads from .fz/calculators/cluster.json
+    results_dir=str(RESULTS)
 )
 
 # Save results

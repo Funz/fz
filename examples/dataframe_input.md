@@ -33,7 +33,7 @@ input_variables = {
 # Creates 4 cases: 2 × 2 = 4
 # (100, 1.0), (100, 2.0), (200, 1.0), (200, 2.0)
 
-results = fzr(input_file, input_variables, model, calculators)
+results = fzr(input_file, input_variables, model, calculators=calculators)
 ```
 
 ### Non-Factorial (DataFrame) - SPECIFIC Combinations
@@ -51,7 +51,7 @@ input_variables = pd.DataFrame({
 # (100, 1.0), (200, 1.0), (100, 2.0)
 # Note: (200, 2.0) is NOT included
 
-results = fzr(input_file, input_variables, model, calculators)
+results = fzr(input_file, input_variables, model, calculators=calculators)
 ```
 
 ## Practical Examples
@@ -76,7 +76,7 @@ input_variables = pd.DataFrame({
 # Dict would create all 25 combinations (5×5), including invalid ones like:
 # (1000 RPM, 50 Load) - would stall the engine
 
-results = fzr("engine_input.txt", input_variables, model, calculators)
+results = fzr("engine_input.txt", input_variables, model, calculators=calculators)
 ```
 
 ### 2. Latin Hypercube Sampling (LHS)
@@ -103,7 +103,7 @@ input_variables = pd.DataFrame({
 #          would be 5×5×5 = 125 cases
 # LHS: Only 20 cases, but covers the design space well
 
-results = fzr("simulation.txt", input_variables, model, calculators)
+results = fzr("simulation.txt", input_variables, model, calculators=calculators)
 ```
 
 ### 3. Sobol Sequence Sampling
@@ -124,7 +124,7 @@ input_variables = pd.DataFrame({
     "y": sample[:, 1] * 50    # [0, 50]
 })
 
-results = fzr("input.txt", input_variables, model, calculators)
+results = fzr("input.txt", input_variables, model, calculators=calculators)
 ```
 
 ### 4. Imported Design from DOE Software
@@ -146,7 +146,7 @@ previous_results = pd.read_csv("results.csv")
 # Re-run with different settings
 input_variables = previous_results[["temp", "pressure", "flow"]]
 
-results = fzr("input.txt", input_variables, model, calculators)
+results = fzr("input.txt", input_variables, model, calculators=calculators)
 ```
 
 ### 5. Sensitivity Analysis (One-at-a-Time)
@@ -178,7 +178,7 @@ for flow in [10, 20, 30, 40, 50]:
 input_variables = pd.DataFrame(oat_cases)
 # Creates 13 cases instead of full factorial (5×5×5 = 125)
 
-results = fzr("input.txt", input_variables, model, calculators)
+results = fzr("input.txt", input_variables, model, calculators=calculators)
 ```
 
 ### 6. Custom Optimization Samples
@@ -204,7 +204,7 @@ input_variables = pd.DataFrame(
     columns=["temp", "pressure"]
 )
 
-results = fzr("input.txt", input_variables, model, calculators)
+results = fzr("input.txt", input_variables, model, calculators=calculators)
 
 # Use results to inform next iteration of optimization
 best_case = results.loc[results["efficiency"].idxmax()]
@@ -227,7 +227,7 @@ input_variables = pd.DataFrame({
     "pressure": 1.0 + 0.5 * np.sin(time/10)  # Oscillating pressure
 })
 
-results = fzr("input.txt", input_variables, model, calculators)
+results = fzr("input.txt", input_variables, model, calculators=calculators)
 ```
 
 ## DataFrame vs Dict Comparison
@@ -274,7 +274,7 @@ input_variables = pd.DataFrame({
     "y": [10, 20, 15, 25, 30]
 })
 
-results = fzr("input.txt", input_variables, model, calculators)
+results = fzr("input.txt", input_variables, model, calculators=calculators)
 
 # Results include all input variables
 print(results[["x", "y", "output"]])
@@ -298,7 +298,7 @@ input_variables.to_csv("my_design.csv", index=False)
 
 # Load and reuse
 input_variables = pd.read_csv("my_design.csv")
-results = fzr("input.txt", input_variables, model, calculators)
+results = fzr("input.txt", input_variables, model, calculators=calculators)
 ```
 
 ### 4. Append or Filter Cases
@@ -375,7 +375,7 @@ coarse_grid = pd.DataFrame({
     "y": [0, 50, 100]
 })
 
-results_coarse = fzr("input.txt", coarse_grid, model, calculators)
+results_coarse = fzr("input.txt", coarse_grid, model, calculators=calculators)
 
 # Identify region of interest (e.g., high output)
 threshold = results_coarse["output"].quantile(0.75)
@@ -387,7 +387,7 @@ refined_grid = pd.DataFrame({
     "y": np.linspace(40, 60, 10)
 })
 
-results_refined = fzr("input.txt", refined_grid, model, calculators)
+results_refined = fzr("input.txt", refined_grid, model, calculators=calculators)
 ```
 
 ## Summary

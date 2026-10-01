@@ -2,11 +2,18 @@
 
 ## What is a Calculator?
 
-A calculator is an execution backend that runs your computational code. FZ supports three types:
+A calculator is an execution backend that runs your computational code. FZ supports six types:
 
 1. **`sh://`** - Local shell execution
-2. **`ssh://`** - Remote SSH execution
-3. **`cache://`** - Reuse cached results
+2. **`ssh://`** - Remote SSH execution (files transferred by SFTP)
+3. **`slurm://`** - SLURM via `srun` (local, or remote through SSH)
+4. **`slurm-array://`** - Local SLURM, all cases batched into one `sbatch --array` job
+5. **`funz://`** - Legacy Java Funz calculator server (TCP)
+6. **`cache://`** - Reuse results of previous runs (no computation)
+
+Each non-cache calculator entry runs **one case at a time**: the number of parallel cases
+equals the number of calculator entries (see [Multiple Calculators](#multiple-calculators)).
+See [limitations.md](limitations.md) for the constraints that apply to all calculators.
 
 ## Calculator URI Format
 
@@ -84,6 +91,12 @@ directory. Each rewritten word is logged at info level. A helper script that liv
 to the caller (`sh://bash calc.sh`) therefore works, while per-case files must be referred to
 by bare name. Earlier versions rewrote every file-looking word, which could make a command
 read the un-substituted template and write outside the case directory (see `NEWS.md`).
+
+The input file names are appended to the end of the **whole** command line, after any
+pipe or redirection: `sh://cat input.txt > res.txt` runs
+`cat input.txt > res.txt input.txt`, so `res.txt` holds the input twice. Put anything
+beyond a single command in a script (`sh://bash run.sh`), where `$1`, `$2`, ... are the
+compiled input files.
 
 ### Example Calculator Script
 
@@ -178,38 +191,26 @@ calculators = [
 
 ### Authentication
 
-**Key-based (recommended)**:
-```python
-# Uses SSH keys from ~/.ssh/
-calculators = "ssh://user@host/bash script.sh"
-```
-
-**Password-based** (not recommended):
-```python
-# Password in URI (insecure, avoid in production)
-calculators = "ssh://user:password@host/bash script.sh"
-```
-
-**Interactive**:
-```python
-# FZ will prompt for password if needed
-calculators = "ssh://user@host/bash script.sh"
-# Prompt: "Enter password for user@host:"
-```
+- **SSH key / agent** (recommended): `ssh://user@host/...`; keys from `~/.ssh/` and the
+  SSH agent are used.
+- **Password in URI**: `ssh://user:password@host/...`; keys and agent are then not
+  tried. The password is masked in results, logs and manifests (a warning is logged once
+  per host) but stays in your scripts.
+- There is **no interactive password prompt**. Without `user@`, the user name is
+  `$SSH_USER`, else the local user name.
 
 ### Host Key Verification
 
-First-time connection to a new host:
-```
-WARNING: Host key verification for host.edu
-Fingerprint: SHA256:abc123def456...
-Do you want to accept this host key? (yes/no):
-```
+Behavior for a host absent from `~/.ssh/known_hosts`:
 
-**Auto-accept** (use with caution):
-```bash
-export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1
-```
+| Authentication | Behavior |
+|----------------|----------|
+| SSH key (no password in URI) | Host key added automatically (paramiko `AutoAddPolicy`, no fingerprint check) |
+| Password in URI | Interactive prompt on stdin: `Accept this host key? [y/N/fingerprint]` (blocks unattended runs) |
+| `FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1` | Host key added automatically, whatever the authentication |
+
+When host identity matters, populate `~/.ssh/known_hosts` beforehand
+(`ssh-keyscan host >> ~/.ssh/known_hosts`, then check the fingerprint).
 
 ### SSH Configuration
 
@@ -219,11 +220,12 @@ export FZ_SSH_KEEPALIVE=300           # Keepalive interval (seconds)
 export FZ_SSH_AUTO_ACCEPT_HOSTKEYS=1  # Auto-accept host keys
 ```
 
-**Python**:
+**Python** (environment variables are read at `import fz`; reload after changing them):
 ```python
-import os
+import os, fz
 os.environ['FZ_SSH_KEEPALIVE'] = '300'
 os.environ['FZ_SSH_AUTO_ACCEPT_HOSTKEYS'] = '0'
+fz.reload_config()
 ```
 
 ### Remote Script Example
@@ -355,124 +357,74 @@ export FZ_SSH_KEEPALIVE=300   # For remote SLURM
 
 **Python**:
 ```python
-import os
+import os, fz
 os.environ['FZ_RUN_TIMEOUT'] = '7200'  # 2 hours
+fz.reload_config()                     # FZ_* variables are read at import
 ```
 
 ## Funz Server Calculator (`funz://`)
 
-Execute calculations using legacy Java Funz calculator servers via TCP socket protocol.
+Execute calculations on legacy Java Funz calculator servers (TCP protocol), located by
+UDP discovery. Full protocol description: [funz-protocol.md](funz-protocol.md).
 
 ### Basic Syntax
 
 ```python
-# Local Funz server
-calculators = "funz://:port/code"
-
-# Remote Funz server
-calculators = "funz://host:port/code"
+calculators = "funz://:19001/R"                     # listen on UDP port 19001, code "R"
+calculators = "funz://server.example.com:19001/R"   # TCP connection to that host
 ```
 
-**URI Format**: `funz://[host]:<port>/<code>`
-- `host`: Server hostname (default: localhost)
-- `port`: Server port (required)
-- `code`: Calculator code/model name (e.g., "R", "Python", "Modelica", "bash")
+**URI Format**: `funz://[host]:<udp_port>/<code>`
+- `host`: host to open the TCP connection to (default: `localhost`)
+- `udp_port`: **UDP port on which calculators broadcast their availability** (required);
+  the TCP port is read from the broadcast, not from the URI
+- `code`: code name the calculator must offer (e.g. `R`, `Python`, `Modelica`, `bash`)
 
 ### Examples
-
-**Example 1: Connect to local Funz server**
-
-```python
-calculators = "funz://:5555/R"
-```
-
-**Example 2: Connect to remote Funz server**
-
-```python
-calculators = "funz://server.example.com:5555/Python"
-```
-
-**Example 3: Multiple Funz servers for parallel execution**
-
-```python
-calculators = [
-    "funz://:5555/R",
-    "funz://:5556/R",
-    "funz://:5557/R"
-]
-```
-
-**Example 4: Complete parametric study**
 
 ```python
 import fz
 
-model = {
-    "output": {
-        "pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"
-    }
-}
+model = {"output": {"pressure": "grep 'pressure = ' output.txt | awk '{print $3}'"}}
 
 results = fz.fzr(
     "input.txt",
     {"temp": [100, 200, 300]},
     model,
-    calculators="funz://:5555/bash"
+    calculators=["funz://:19001/bash"] * 3,   # up to 3 calculators in parallel
+    results_dir="results",
 )
 ```
 
 ### How it Works
 
-1. **Calculator reservation**: Connects to Funz server and reserves calculator
-2. **File upload**: Transfers input files to server
-3. **Remote execution**: Executes calculation via Funz protocol
-4. **Result download**: Retrieves output files
-5. **Unreservation**: Releases calculator and cleans up
+1. **Discovery**: listen on the UDP port (up to 10 s) for calculator broadcasts; prefer an
+   idle calculator offering `code`, then any calculator offering it, then the first seen.
+2. **Reservation**: connect to the advertised TCP port and reserve the calculator.
+3. **Upload / execute / download** through the Funz text protocol.
+4. **Unreservation**: release the calculator.
 
-### Funz Protocol
+Discovery can also be called directly:
 
-The Funz calculator uses a text-based TCP socket communication protocol:
-
-- **RESERVE**: Request calculator reservation with authentication
-- **EXECUTE**: Submit calculation job
-- **STATUS**: Check job status
-- **DOWNLOAD**: Retrieve result files
-- **UNRESERVE**: Release calculator
-
-### UDP Discovery
-
-Funz calculators broadcast their availability via UDP:
-
-```
-Port 5555 (UDP): Broadcasts availability every ~5 seconds
-  Message format:
-    Line 1: Protocol version (e.g., "FUNZ1.0")
-    Line 2: TCP port number
-    Line 3+: Available codes (bash, R, Python, etc.)
-
-Port <TCP> (dynamic): Actual calculator communication
+```python
+from fz import discover_funz_servers
+servers = discover_funz_servers(19001, listen_duration=10)
+# [{'host': ..., 'tcp_port': 5555, 'name': 'calc1', 'os': ..., 'activity': 'idle',
+#   'idle': True, 'codes': ['R', 'Python']}, ...]
 ```
 
-See `funz-protocol.md` for detailed protocol documentation.
+### UDP broadcast format
 
-### Features
-
-- **Compatible with legacy Java Funz servers**
-- **Automatic file upload/download**
-- **TCP socket communication**
-- **Calculator reservation system**
-- **Interrupt handling support**
-- **Authentication support**
+Newline-separated, as built by the Java calculator: name, TCP port, start timestamp,
+operating system, activity (`idle` when free), number of codes, then one code per line.
 
 ### Requirements
 
-- Funz calculator server running (Java-based)
-- Network access to server port
-- No Python dependencies beyond standard library
-
-### Starting a Funz Calculator
-
-See `tools/start_funz_calculator.sh` and `tools/setup_funz_calculator.sh` for helper scripts.
+- A running Java Funz calculator (see `tools/setup_funz_calculator.sh` and
+  `tools/start_funz_calculator.sh`)
+- UDP broadcasts from the calculator must reach the machine running fz, and its TCP
+  port must be reachable
+- Default timeout: 3600 s (like `sh://`)
 
 ## Cache Calculator (`cache://`)
 
@@ -551,6 +503,20 @@ f6e5d4c3b2a1...  config.dat
 - If match: reuse results (no calculation)
 - If mismatch: fall through to next calculator
 
+### Reusing the same results directory (`cache://_`)
+
+An existing `results_dir` is renamed with a timestamp suffix before a run. The special
+entry `cache://_` points to that renamed copy, so a study can be resumed or extended in
+place:
+
+```python
+fz.fzr("input.txt", variables, model,
+       calculators=["cache://_", "sh://bash calc.sh"], results_dir="results")
+```
+
+`cache://results` with `results_dir="results"` finds nothing: it designates the new,
+empty directory.
+
 ### Cache Identity (`code_id`)
 
 The command is deliberately excluded from the cache key: the same code can be
@@ -598,40 +564,40 @@ previous_run/
 **Resume interrupted runs**:
 ```python
 # First run (interrupted with Ctrl+C)
-fz.fzr("input.txt", variables, model, "sh://bash calc.sh", "run1/")
+fz.fzr("input.txt", variables, model, calculators="sh://bash calc.sh", results_dir="run1/")
 
 # Resume from cache
 fz.fzr(
     "input.txt",
     variables,
     model,
-    ["cache://run1", "sh://bash calc.sh"],  # Cache + fallback
-    "run2/"
+    calculators=["cache://run1", "sh://bash calc.sh"],  # Cache + fallback
+    results_dir="run2/"
 )
 ```
 
 **Expand parameter space**:
 ```python
 # Original run: 10 cases
-fz.fzr("input.txt", {"temp": range(10)}, model, "sh://bash calc.sh", "run1/")
+fz.fzr("input.txt", {"temp": range(10)}, model, calculators="sh://bash calc.sh", results_dir="run1/")
 
 # Expanded run: 20 cases (reuses first 10)
 fz.fzr(
     "input.txt",
     {"temp": range(20)},  # 10 new cases
     model,
-    ["cache://run1", "sh://bash calc.sh"],
-    "run2/"
+    calculators=["cache://run1", "sh://bash calc.sh"],
+    results_dir="run2/"
 )
 ```
 
 **Compare methods using same inputs**:
 ```python
 # Method 1
-fz.fzr("input.txt", variables, model, "sh://method1.sh", "results_m1/")
+fz.fzr("input.txt", variables, model, calculators="sh://method1.sh", results_dir="results_m1/")
 
 # Method 2 (reuses inputs, different calculator)
-fz.fzr("input.txt", variables, model, "sh://method2.sh", "results_m2/")
+fz.fzr("input.txt", variables, model, calculators="sh://method2.sh", results_dir="results_m2/")
 ```
 
 ## Multiple Calculators
@@ -777,7 +743,7 @@ if is_heavy_calculation(variables):
 else:
     calculators = "sh://bash light.sh"
 
-results = fz.fzr("input.txt", variables, model, calculators)
+results = fz.fzr("input.txt", variables, model, calculators=calculators)
 ```
 
 ### Pattern 4: Development vs Production
@@ -843,7 +809,7 @@ calculators = [
 ### 5. Monitor Calculator Usage
 
 ```python
-results = fz.fzr("input.txt", variables, model, calculators, "results/")
+results = fz.fzr("input.txt", variables, model, calculators=calculators, results_dir="results/")
 
 # Check which calculator was used
 print(results[['calculator', 'status', 'error']].value_counts())
