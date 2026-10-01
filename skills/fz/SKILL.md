@@ -62,10 +62,9 @@ fz install model modelica        # name → https://github.com/Funz/fz-modelica
 fz list --check --format json    # verify what got installed
 ```
 
-This drops into the project's `.fz/` directory (`--global` for `~/.fz/` — but then the
-calculator alias still runs the relative `bash .fz/calculators/<Code>.sh`, never found in
-`~/.fz/`, so it fails outside the install directory: prefer project-local installs, or edit the alias to an
-absolute script path):
+This drops into the project's `.fz/` directory (add `--global` for `~/.fz/`; the alias's
+`.fz/...` script path is resolved against the `.fz/` it was loaded from, so a global
+install works from any directory):
 
 - `.fz/models/<Code>.json` — the model definition (variable syntax + output parsers);
   refer to it by bare alias, e.g. `--model Modelica`.
@@ -97,8 +96,8 @@ T_kelvin=@{$T_celsius + 273.15}
 V_m3=@{L_to_m3($V_L)}
 ```
 
-Syntax (with model settings `varprefix="$"`, `formulaprefix="@"`, `delim="{}"`,
-`commentline="#"` — set `delim` explicitly, see below):
+Syntax (with the default model settings `varprefix="$"`, `formulaprefix="@"`,
+`commentline="#"`, no `delim`):
 
 - `$name` or `${name}` — a variable to substitute.
 - `${name~default}` — variable with a default value used when not provided.
@@ -106,10 +105,10 @@ Syntax (with model settings `varprefix="$"`, `formulaprefix="@"`, `delim="{}"`,
   R optional). Formulas may reference variables: `@{$T_celsius + 273.15}`.
 - Lines starting with `#@` (commentline + formulaprefix) define context for formulas:
   imports, constants, function definitions. Multi-line functions are supported.
-- **Always set `"delim"` in the model.** Without it, variables use `()` (`$x`, `$(x)`) and
-  `${x}` is NOT recognized, while formulas still use `@{...}` (Java-Funz convention). The
-  CLI without `--model` applies `delim="{}"`, so results can differ from Python. `?name`
-  is only a variable with `varprefix="?"` (no automatic conversion).
+- Without `"delim"` in the model, variables may be `$x`, `$(x)` or `${x}` and formulas
+  `@{...}` (CLI and Python alike). Set `"delim"` when the code's own syntax contains
+  `${...}`/`$(...)` text that must not be read as variables. `?name` is only a variable
+  with `varprefix="?"` (no automatic conversion).
 
 If `$`, `@`, `{}`, or `#` collide with the simulation code's own syntax, change them in the
 model (e.g. `varprefix="%"`, `commentline="//"`).
@@ -222,7 +221,9 @@ fzr --input_path input.txt --model perfectgas \
   constrained combinations, or designs imported from CSV).
 - Returns a DataFrame with one row per case: variable columns, output columns, and
   metadata columns `status` (`done`/`failed`/`error`/`timeout`/`interrupted`; a cache hit
-  is `done` with a `cache://...` calculator), `calculator`, `error`, `command`.
+  is `done` with a `cache://...` calculator; `done` with `None` outputs and
+  `Missing output: ...` in `error` means the run ended but nothing was parsed),
+  `calculator`, `error`, `command`.
 - List-valued outputs (e.g. time series) become list columns — one whole trajectory per
   row. The Modelica wrapper, for instance, yields `res_<Model>_time`, `res_<Model>_T`, …
   per case; plot directly with
@@ -273,11 +274,8 @@ Calculator aliases live in `.fz/calculators/<name>.json` with the command per mo
 Run `fz list --check --format json` (alias `fzl`) to list and validate installed
 models/calculators — prefer the `fz <subcommand>` forms, which survive stale or
 partially-installed standalone scripts.
-`fz list` limitation: calculator aliases are shown by their `uri`, not their file name,
-and an alias whose command is in its `models` map (`{"uri": "sh://", "models": {...}}`,
-the layout of installed wrappers) is reported `check_status: failed` /
-`"Empty sh:// command"` by `--check` although it works. Trust the model's
-`check_status` and a real `fzr` run without `--calculators`, not that calculator line.
+`fz list` shows calculator aliases by file name with their `uri`, and `--check` validates
+each command of an alias's `models` map.
 
 ## Design of experiments / optimization (fzd)
 
@@ -360,9 +358,8 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
   `FZ_MAX_WORKERS` only caps the worker count; it never adds workers.
 - `FZ_*` environment variables are read at `import fz`: set them before starting Python,
   or call `fz.reload_config()` after changing `os.environ`.
-- Timeouts: default 3600 s for `sh://`/`funz://`, none for `ssh://`/`slurm://`. To lift it
-  for one model, set `"timeout": null` in the model; `FZ_RUN_TIMEOUT=0` or `timeout=0`
-  makes every case time out immediately.
+- Timeouts: default 3600 s for `sh://`/`funz://`, none for `ssh://`/`slurm://`. `0` means
+  no timeout (`timeout=0`, model `"timeout": 0`/`null`, `FZ_RUN_TIMEOUT=0`).
 - Long studies: run `fzr` in the background, then monitor `results/*/log.txt` and the
   per-case `out.txt`/`err.txt`; on interrupt, partial results survive and `cache://` resumes.
 - Full API and CLI details, environment variables, and the model/calculator JSON schemas:
@@ -376,9 +373,9 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
 | All cases `failed`, `N calculator failures` | The calculator command itself errors — read the case's `err.txt`/`log.txt`. |
 | Output column is `null` but case is `done` | Output command matched nothing: wrong path/field, missing subdir output (see directory codes), locale (`LC_ALL=C`), or `python` vs `python3`. |
 | `fzi` lists extra/unexpected variables | `varprefix` collides with the code's own syntax — change it. |
-| A directory literally named `sh:/...` appears; all cases fail | Calculator URI passed as 4th positional arg of `fz.fzr` (that slot is `results_dir`) — use `calculators=`. |
+| `ValueError: results_dir looks like a calculator URI` | Calculator URI passed as 4th positional arg of `fz.fzr` (that slot is `results_dir`) — use `calculators=`. |
 | Output column holds the program's stdout instead of a file's content | The code writes a reserved name (`out.txt`, `err.txt`, `log.txt`, ...) that fz overwrites — rename it. |
-| Every case `timeout` immediately | `FZ_RUN_TIMEOUT=0` / `timeout=0`: zero is a real limit, not "unlimited". |
+| Case `done` but outputs `None`, `error` = `Missing output: ...` | No declared output could be parsed: wrong file name/pattern, output written elsewhere, or a reserved file name. |
 | Output file holds its content twice / odd arguments | The compiled input names are appended to the end of the `sh://` command line — move the logic into a script. |
 | `fzd` runs an empty `sh://` / every case fails | fz 1.0 only: `fzd` didn't auto-discover calculators — pass them explicitly, or upgrade to fz ≥ 1.1. |
 

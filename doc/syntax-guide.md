@@ -22,7 +22,7 @@ Pressure: ${pressure}
 ```python
 model = {
     "varprefix": "$",     # Variable prefix
-    "delim": "{}"         # Delimiters; if omitted, variables use "()" and formulas "{}"
+    "delim": "{}"         # Delimiters; if omitted, variables accept $(x) and ${x}, formulas use @{...}
 }
 ```
 
@@ -35,8 +35,9 @@ model = {
 ### Legacy Funz Syntax Compatibility
 
 Templates written for the Java Funz framework use `$(var)` for variables and `@{expr}` for
-formulas. This is exactly what fz applies when the model has **no `delim` key**
-(variables delimited by `()`, formulas by `{}`), or explicitly:
+formulas. They work unchanged with a model that has **no `delim` key** (variables then
+accept both `$(x)` and `${x}`, formulas use `@{...}`), or with the explicit Java-Funz
+delimiters:
 
 ```python
 model = {"var_prefix": "$", "var_delim": "()", "formula_prefix": "@", "formula_delim": "{}"}

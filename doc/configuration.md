@@ -118,8 +118,9 @@ model (the calculation may run indefinitely):
 model = {"timeout": None, "output": {"result": "cat output.txt"}}
 ```
 
-`FZ_RUN_TIMEOUT=0` and `timeout=0` do **not** disable the timeout: every case then times
-out immediately. Only the model entry disables it.
+`0` means "no timeout" at every level: `timeout=0`, a model `"timeout": 0`, or
+`FZ_RUN_TIMEOUT=0` (which then also applies to `ssh://`/`slurm://`). Negative values are
+refused.
 
 ### 3. `fzr()`/`fzc()` `timeout=` Argument (Per-Call)
 

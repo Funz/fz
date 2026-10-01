@@ -381,8 +381,8 @@ fz uninstall algorithm myalgo
 --version                 Show version
 --model MODEL             Model alias or inline definition
 --varprefix PREFIX        Variable prefix (default: $)
---delim DELIMITERS        Variable and formula delimiters ({} when --model is absent;
-                          a --model without "delim" keeps () for variables)
+--delim DELIMITERS        Variable and formula delimiters (default: variables accept
+                          both $(x) and ${x}, formulas use @{...})
 --formulaprefix PREFIX    Formula prefix (default: @)
 --commentline CHAR        Comment character (default: #)
 --format FORMAT           Output format: json, table, csv, markdown, html

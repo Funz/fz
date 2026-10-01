@@ -245,7 +245,9 @@ def parse_algorithm_options(opts_str):
 # definition without --model.
 
 _MODEL_FIELD_ARGS = ("varprefix", "formulaprefix", "delim", "commentline", "interpreter")
-_DEFAULT_MODEL = {"varprefix": "$", "formulaprefix": "@", "delim": "{}", "commentline": "#"}
+# No "delim": variables then accept both $(x) and ${x}, formulas use @{...}, exactly as
+# a Python model without "delim" (see fz.interpreter.DEFAULT_VAR_DELIM).
+_DEFAULT_MODEL = {"varprefix": "$", "formulaprefix": "@", "commentline": "#"}
 
 
 def _add_input_path_args(parser):
@@ -277,7 +279,7 @@ def _add_model_args(parser):
     parser.add_argument("--varprefix", default=None, help="Variable prefix (default: $)")
     parser.add_argument("--formulaprefix", default=None, help="Formula prefix (default: @)")
     parser.add_argument("--delim", default=None,
-                        help="Variable/formula delimiters (default: {})")
+                        help="Variable/formula delimiters, e.g. {} or () (default: variables accept both $(x) and ${x}, formulas use @{...})")
     parser.add_argument("--commentline", default=None,
                         help="Comment line character (default: #)")
     parser.add_argument("--interpreter", default=None,
@@ -510,6 +512,104 @@ def format_output(data, format_type='markdown'):
         raise ValueError(f"Unsupported format: {format_type}")
 
 
+def _print_fzl_result(result, fmt):
+    """Print an fzl() result in json, table or markdown format (fzl and fz list)."""
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    elif fmt == "table":
+        # Table format
+        print("\n=== MODELS ===")
+        if result["models"]:
+            for model_name, model_info in result["models"].items():
+                # Show check mark or cross
+                check_mark = ""
+                if model_info.get("check_status") == "passed":
+                    check_mark = " ✓"
+                elif model_info.get("check_status") == "failed":
+                    check_mark = " ✗"
+
+                print(f"\nModel: {model_name}{check_mark}")
+                print(f"  Path: {model_info['path']}")
+                if model_info.get("check_status") == "failed" and model_info.get("check_error"):
+                    print(f"  Error: {model_info['check_error']}")
+                print(f"  Supported Calculators: {len(model_info['supported_calculators'])}")
+                for calc in model_info['supported_calculators']:
+                    print(f"    - {calc}")
+        else:
+            print("No models found matching pattern.")
+
+        print("\n=== CALCULATORS ===")
+        if result["calculators"]:
+            for calc_name, calc_info in result["calculators"].items():
+                # Show check mark or cross
+                check_mark = ""
+                if calc_info.get("check_status") == "passed":
+                    check_mark = " ✓"
+                elif calc_info.get("check_status") == "failed":
+                    check_mark = " ✗"
+
+                print(f"\nCalculator: {calc_name}{check_mark}")
+                if calc_info.get("uri") and calc_info["uri"] != calc_name:
+                    print(f"  URI: {calc_info['uri']}")
+                if calc_info.get("check_status") == "failed" and calc_info.get("check_error"):
+                    print(f"  Error: {calc_info['check_error']}")
+                if calc_info['supports_models'] == "all":
+                    print(f"  Supports: All models")
+                else:
+                    print(f"  Supports Models: {', '.join(calc_info['supports_models'])}")
+        else:
+            print("No calculators found matching pattern.")
+    else:
+        # Markdown format (default)
+        print("# Models and Calculators\n")
+
+        print("## Models\n")
+        if result["models"]:
+            for model_name, model_info in result["models"].items():
+                # Show check mark or cross
+                check_mark = ""
+                if model_info.get("check_status") == "passed":
+                    check_mark = " ✓"
+                elif model_info.get("check_status") == "failed":
+                    check_mark = " ✗"
+
+                print(f"### {model_name}{check_mark}")
+                print(f"- **Path**: `{model_info['path']}`")
+                if model_info.get("check_status") == "failed" and model_info.get("check_error"):
+                    print(f"- **Error**: {model_info['check_error']}")
+                print(f"- **Supported Calculators**: {len(model_info['supported_calculators'])}")
+                if model_info['supported_calculators']:
+                    for calc in model_info['supported_calculators']:
+                        print(f"  - `{calc}`")
+                print()
+        else:
+            print("No models found matching pattern.\n")
+
+        print("## Calculators\n")
+        if result["calculators"]:
+            for calc_name, calc_info in result["calculators"].items():
+                # Show check mark or cross
+                check_mark = ""
+                if calc_info.get("check_status") == "passed":
+                    check_mark = " ✓"
+                elif calc_info.get("check_status") == "failed":
+                    check_mark = " ✗"
+
+                print(f"### `{calc_name}`{check_mark}")
+                if calc_info.get("uri") and calc_info["uri"] != calc_name:
+                    print(f"- **URI**: `{calc_info['uri']}`")
+                if calc_info.get("check_status") == "failed" and calc_info.get("check_error"):
+                    print(f"- **Error**: {calc_info['check_error']}")
+                if calc_info['supports_models'] == "all":
+                    print(f"- **Supports**: All models")
+                else:
+                    models_list = ', '.join(f"`{m}`" for m in calc_info['supports_models'])
+                    print(f"- **Supports Models**: {models_list}")
+                print()
+        else:
+            print("No calculators found matching pattern.\n")
+
+
 def fzl_main():
     """Entry point for fzl command"""
     parser = argparse.ArgumentParser(description="fzl - List installed models and calculators")
@@ -531,96 +631,7 @@ def fzl_main():
 
         result = fzl_func(models=args.models, calculators=args.calculators, check=args.check)
 
-        if args.format == "json":
-            print(json.dumps(result, indent=2))
-        elif args.format == "table":
-            # Table format
-            print("\n=== MODELS ===")
-            if result["models"]:
-                for model_name, model_info in result["models"].items():
-                    # Show check mark or cross
-                    check_mark = ""
-                    if model_info.get("check_status") == "passed":
-                        check_mark = " ✓"
-                    elif model_info.get("check_status") == "failed":
-                        check_mark = " ✗"
-
-                    print(f"\nModel: {model_name}{check_mark}")
-                    print(f"  Path: {model_info['path']}")
-                    if model_info.get("check_status") == "failed" and model_info.get("check_error"):
-                        print(f"  Error: {model_info['check_error']}")
-                    print(f"  Supported Calculators: {len(model_info['supported_calculators'])}")
-                    for calc in model_info['supported_calculators']:
-                        print(f"    - {calc}")
-            else:
-                print("No models found matching pattern.")
-
-            print("\n=== CALCULATORS ===")
-            if result["calculators"]:
-                for calc_name, calc_info in result["calculators"].items():
-                    # Show check mark or cross
-                    check_mark = ""
-                    if calc_info.get("check_status") == "passed":
-                        check_mark = " ✓"
-                    elif calc_info.get("check_status") == "failed":
-                        check_mark = " ✗"
-
-                    print(f"\nCalculator: {calc_name}{check_mark}")
-                    if calc_info.get("check_status") == "failed" and calc_info.get("check_error"):
-                        print(f"  Error: {calc_info['check_error']}")
-                    if calc_info['supports_models'] == "all":
-                        print(f"  Supports: All models")
-                    else:
-                        print(f"  Supports Models: {', '.join(calc_info['supports_models'])}")
-            else:
-                print("No calculators found matching pattern.")
-        else:
-            # Markdown format (default)
-            print("# Models and Calculators\n")
-
-            print("## Models\n")
-            if result["models"]:
-                for model_name, model_info in result["models"].items():
-                    # Show check mark or cross
-                    check_mark = ""
-                    if model_info.get("check_status") == "passed":
-                        check_mark = " ✓"
-                    elif model_info.get("check_status") == "failed":
-                        check_mark = " ✗"
-
-                    print(f"### {model_name}{check_mark}")
-                    print(f"- **Path**: `{model_info['path']}`")
-                    if model_info.get("check_status") == "failed" and model_info.get("check_error"):
-                        print(f"- **Error**: {model_info['check_error']}")
-                    print(f"- **Supported Calculators**: {len(model_info['supported_calculators'])}")
-                    if model_info['supported_calculators']:
-                        for calc in model_info['supported_calculators']:
-                            print(f"  - `{calc}`")
-                    print()
-            else:
-                print("No models found matching pattern.\n")
-
-            print("## Calculators\n")
-            if result["calculators"]:
-                for calc_name, calc_info in result["calculators"].items():
-                    # Show check mark or cross
-                    check_mark = ""
-                    if calc_info.get("check_status") == "passed":
-                        check_mark = " ✓"
-                    elif calc_info.get("check_status") == "failed":
-                        check_mark = " ✗"
-
-                    print(f"### `{calc_name}`{check_mark}")
-                    if calc_info.get("check_status") == "failed" and calc_info.get("check_error"):
-                        print(f"- **Error**: {calc_info['check_error']}")
-                    if calc_info['supports_models'] == "all":
-                        print(f"- **Supports**: All models")
-                    else:
-                        models_list = ', '.join(f"`{m}`" for m in calc_info['supports_models'])
-                        print(f"- **Supports Models**: {models_list}")
-                    print()
-            else:
-                print("No calculators found matching pattern.\n")
+        _print_fzl_result(result, args.format)
 
         return 0
     except Exception as e:
@@ -1053,96 +1064,7 @@ def main():
             from fz.core import fzl as fzl_func
             result = fzl_func(models=args.models, calculators=args.calculators, check=args.check)
 
-            if args.format == "json":
-                print(json.dumps(result, indent=2))
-            elif args.format == "table":
-                # Table format
-                print("\n=== MODELS ===")
-                if result["models"]:
-                    for model_name, model_info in result["models"].items():
-                        # Show check mark or cross
-                        check_mark = ""
-                        if model_info.get("check_status") == "passed":
-                            check_mark = " ✓"
-                        elif model_info.get("check_status") == "failed":
-                            check_mark = " ✗"
-
-                        print(f"\nModel: {model_name}{check_mark}")
-                        print(f"  Path: {model_info['path']}")
-                        if model_info.get("check_status") == "failed" and model_info.get("check_error"):
-                            print(f"  Error: {model_info['check_error']}")
-                        print(f"  Supported Calculators: {len(model_info['supported_calculators'])}")
-                        for calc in model_info['supported_calculators']:
-                            print(f"    - {calc}")
-                else:
-                    print("No models found matching pattern.")
-
-                print("\n=== CALCULATORS ===")
-                if result["calculators"]:
-                    for calc_name, calc_info in result["calculators"].items():
-                        # Show check mark or cross
-                        check_mark = ""
-                        if calc_info.get("check_status") == "passed":
-                            check_mark = " ✓"
-                        elif calc_info.get("check_status") == "failed":
-                            check_mark = " ✗"
-
-                        print(f"\nCalculator: {calc_name}{check_mark}")
-                        if calc_info.get("check_status") == "failed" and calc_info.get("check_error"):
-                            print(f"  Error: {calc_info['check_error']}")
-                        if calc_info['supports_models'] == "all":
-                            print(f"  Supports: All models")
-                        else:
-                            print(f"  Supports Models: {', '.join(calc_info['supports_models'])}")
-                else:
-                    print("No calculators found matching pattern.")
-            else:
-                # Markdown format (default)
-                print("# Models and Calculators\n")
-
-                print("## Models\n")
-                if result["models"]:
-                    for model_name, model_info in result["models"].items():
-                        # Show check mark or cross
-                        check_mark = ""
-                        if model_info.get("check_status") == "passed":
-                            check_mark = " ✓"
-                        elif model_info.get("check_status") == "failed":
-                            check_mark = " ✗"
-
-                        print(f"### {model_name}{check_mark}")
-                        print(f"- **Path**: `{model_info['path']}`")
-                        if model_info.get("check_status") == "failed" and model_info.get("check_error"):
-                            print(f"- **Error**: {model_info['check_error']}")
-                        print(f"- **Supported Calculators**: {len(model_info['supported_calculators'])}")
-                        if model_info['supported_calculators']:
-                            for calc in model_info['supported_calculators']:
-                                print(f"  - `{calc}`")
-                        print()
-                else:
-                    print("No models found matching pattern.\n")
-
-                print("## Calculators\n")
-                if result["calculators"]:
-                    for calc_name, calc_info in result["calculators"].items():
-                        # Show check mark or cross
-                        check_mark = ""
-                        if calc_info.get("check_status") == "passed":
-                            check_mark = " ✓"
-                        elif calc_info.get("check_status") == "failed":
-                            check_mark = " ✗"
-
-                        print(f"### `{calc_name}`{check_mark}")
-                        if calc_info.get("check_status") == "failed" and calc_info.get("check_error"):
-                            print(f"- **Error**: {calc_info['check_error']}")
-                        if calc_info['supports_models'] == "all":
-                            print(f"- **Supports**: All models")
-                        else:
-                            models_list = ', '.join(f"`{m}`" for m in calc_info['supports_models'])
-                            print(f"- **Supports Models**: {models_list}")
-                        print()
-                else:
-                    print("No calculators found matching pattern.\n")
+            _print_fzl_result(result, args.format)
 
         elif args.command == "uninstall":
             if args.uninstall_type == "model":

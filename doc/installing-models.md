@@ -82,12 +82,9 @@ alongside it.
 
 ## Install location and discovery
 
-> **`--global` and runner scripts.** `fz install model <X> --global` copies the wrapper to `~/.fz/`, but its calculator
-> alias keeps the relative command `bash .fz/calculators/<X>.sh`, looked up in the
-> launch directory, then the case directory, never in `~/.fz/`: runs from any other
-> directory fail (`Command not found locally: '.fz/calculators/<X>.sh'`). Prefer project-local installs, or edit
-> `~/.fz/calculators/localhost_<X>.json` to use the absolute path of the script (`~` is
-> not expanded).
+> **Runner paths.** Installed calculator aliases run `bash .fz/calculators/<X>.sh`; such
+> `.fz/...` paths are resolved against the `.fz/` directory the alias was loaded from, so a
+> `--global` install (in `~/.fz/`) works from any project directory.
 
 - **Project-local** (default): `./.fz/` — visible only inside the current project.
 - **Global** (`--global`): `~/.fz/` — visible from every project for the current user.

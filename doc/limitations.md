@@ -20,9 +20,10 @@ rule, the consequence, and what to do instead. Items are checked against the cod
 
 ## Templates and models
 
-- **Default delimiters differ for variables and formulas.** A model without `delim`
-  (nor `var_delim`) delimits variables with `()` and formulas with `{}`: `${x}` is then
-  not a variable. The CLI without `--model` uses `delim: "{}"`. Set `delim` explicitly.
+- **Default delimiters.** A model without `delim` (nor `var_delim`) accepts both `$(x)`
+  and `${x}` for variables and uses `@{...}` for formulas; the CLI without `--model` uses
+  the same default. Setting `"delim": "{}"` or `"()"` restricts variables to one form.
+  Templates that contain other `${...}` text (shell snippets) should set `delim`.
 - **No automatic `?var` conversion.** `?var` is a variable only with `"varprefix": "?"`.
 - A variable absent from `input_variables` and without `~default` is left as-is in the
   compiled file (no error from `fzc`).
@@ -32,10 +33,9 @@ rule, the consequence, and what to do instead. Items are checked against the cod
 
 - **`fzr` argument order is `(input_path, input_variables, model, results_dir,
   calculators, ...)`.** `results_dir` comes *before* `calculators`. A call such as
-  `fz.fzr("input.txt", variables, model, "sh://bash calc.sh")` puts the calculator URI into
-  `results_dir` (a directory literally named `sh:/bash calc.sh` is created) and runs with
-  no calculator, so every case fails. **Always pass `calculators=` and `results_dir=` by
-  keyword.**
+  `fz.fzr("input.txt", variables, model, "sh://bash calc.sh")` is refused with a
+  `ValueError` (a `results_dir` that looks like a URI is rejected). **Always pass
+  `calculators=` and `results_dir=` by keyword.**
 - **A DataFrame design must not contain duplicate rows** (`ValueError`): each row is one
   case. Variables given but absent from the templates only trigger a warning.
 - **`FZ_*` environment variables are read once, at `import fz`.** Setting
@@ -64,10 +64,9 @@ rule, the consequence, and what to do instead. Items are checked against the cod
   (inline or file) or the short form `'a=1,b=[4,5,6]'`, always crossed as a full
   factorial; a list of cases requires a pandas DataFrame from Python.
 - **No `--timeout` flag.** Use the model's `"timeout"` entry or `FZ_RUN_TIMEOUT`.
-- **`fz list` / `fzl`** shows calculator aliases by their `uri`, not their file name, and
-  `--check` reports an alias whose command sits in its `models` map
-  (`{"uri": "sh://", "models": {...}}`, the layout of installed wrappers) as failed
-  (`Empty sh:// command`) although `fzr` uses it correctly. Algorithms are not listed.
+- **`fz list` / `fzl`** shows calculator aliases by file name with their `uri`; `--check`
+  validates the command of each entry of an alias's `models` map. Algorithms are not
+  listed (`fz.list_installed_algorithms()`).
 - **`fzr` exits with status 1 when no case succeeds**; data goes to stdout, logs and
   progress to stderr. Use `--format json` for machine-readable output.
 
@@ -85,6 +84,9 @@ rule, the consequence, and what to do instead. Items are checked against the cod
   attempt moves to another calculator.
 - **Case `status` values:** `done`, `failed`, `error`, `timeout`, `interrupted`. A cache
   hit is `done` with a `calculator` value starting with `cache://`.
+- **`done` does not mean "outputs found"**: a run that exits normally stays `done` even
+  when no output can be parsed (by design: the calculation ran); the outputs are `None`
+  and `error` holds `Missing output: ...`. Filter on the output columns or on `error`.
 
 ## Timeouts
 
@@ -92,9 +94,8 @@ rule, the consequence, and what to do instead. Items are checked against the cod
   `FZ_RUN_TIMEOUT`.
 - **Default:** 3600 s for `sh://` and `funz://`; **no timeout** for `ssh://` and
   `slurm://` unless `FZ_RUN_TIMEOUT` is set explicitly (a warning is logged).
-- **Only a model `"timeout"` of `null`/`None` or `0` disables the timeout.**
-  `FZ_RUN_TIMEOUT=0` or `timeout=0` does *not* disable it: every case times out
-  immediately.
+- **`0` means "no timeout"** at every level (`timeout=0`, model `"timeout": 0` or
+  `null`, `FZ_RUN_TIMEOUT=0`). A negative value is refused.
 
 ## `sh://` command line
 
@@ -127,12 +128,11 @@ rule, the consequence, and what to do instead. Items are checked against the cod
   the input declares variables, even when all values are scalars. Run the code and
   `fzo` inside that sub-directory (or on the glob `output_dir/*`); `fzo output_dir`
   itself returns a row of `None`.
-- **Global wrapper installs:** `fz install model <X> --global` copies the wrapper to `~/.fz/`, but its calculator
-  alias keeps the relative command `bash .fz/calculators/<X>.sh`, looked up in the
-  launch directory, then the case directory, never in `~/.fz/`: runs from any other
-  directory fail (`Command not found locally: '.fz/calculators/<X>.sh'`). Prefer project-local installs, or edit
-  `~/.fz/calculators/localhost_<X>.json` to use the absolute path of the script (`~` is
-  not expanded).
+- **Installed calculator aliases**: `.fz/...` paths in an alias (`bash
+  .fz/calculators/<X>.sh`) are resolved against the `.fz/` directory the alias was loaded
+  from, so `fz install --global` wrappers work from any directory.
+- **Temporary directories**: `.fz/tmp/fz_temp_*` directories are removed after a run
+  when empty; leftover files are kept for inspection.
 - **Existing results directories are not overwritten in place**: an existing
   `results_dir` is renamed with a timestamp suffix before the new run (and can be reused
   via `cache://`).

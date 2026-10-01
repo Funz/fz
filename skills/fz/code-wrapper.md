@@ -157,10 +157,8 @@ worked wrapper of this kind.
 
 **Definition of done** — the wrapper is finished only when both hold:
 
-1. `fz list --check --format json` shows the model with `check_status: passed` (the
-   calculator line shows the alias's `uri`, e.g. `sh://`, and may read
-   `"Empty sh:// command"` for a `{"uri": "sh://", "models": {...}}` alias — a known
-   `fz list` limitation, not a wrapper defect);
+1. `fz list --check --format json` shows the model and its `localhost_<Code>` calculator
+   alias, both with `check_status: passed`;
 2. `fzr --model MyCode ...` **without any `--calculators` argument** runs a case
    successfully (proves alias discovery works, not just a hand-built `sh://` URI).
 
@@ -170,7 +168,7 @@ From a scratch directory:
 
 ```bash
 fz install model ./fz-mycode.zip        # or the repo path / URL
-fz list --check --format json           # model must pass (see the calculator caveat above)
+fz list --check --format json           # model + calculator must validate
 
 # then the SKILL.md verification ladder on a sample input:
 fzi --input_path tests/input.txt --model MyCode --format json     # variables found?

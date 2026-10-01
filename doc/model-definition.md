@@ -42,17 +42,18 @@ Every syntax field is optional. The defaults, as applied by the code
 |--------------------------------------|---------|
 | `var_prefix`, `varprefix`, `var_char`, `varchar` | `$` |
 | `formula_prefix`, `formulaprefix`, `form_prefix`, `formprefix`, `formula_char`, `form_char` | `@` |
-| `var_delim`, then `delim` (delimiters of **variables**) | **`()`** |
+| `var_delim`, then `delim` (delimiters of **variables**) | both `()` and `{}` (`$(x)` and `${x}`) |
 | `formula_delim`, then `delim` (delimiters of **formulas**) | `{}` |
 | `commentline`, `comment_line`, `comment_char`, `commentchar`, `comment` | `#` |
 | `interpreter` | `FZ_INTERPRETER` (default `python`) |
 
-> **Set `delim` explicitly.** Without a `delim` key, `${x}` is **not** a variable (only
-> `$x` and `$(x)` are), while formulas use `@{...}`. The CLI used *without* `--model`
-> applies `delim: "{}"` instead, so the same template can behave differently from Python
-> and from the CLI. `"delim": "{}"` sets both delimiters to braces; `var_delim` /
-> `formula_delim` set them separately (the Java-Funz convention is
-> `var_delim: "()"`, `formula_delim: "{}"`).
+> **Default delimiters.** Without `delim`/`var_delim`, variables may be written `$x`,
+> `$(x)` or `${x}` (with or without `~default`), and formulas `@{...}`; the CLI without
+> `--model` uses the same default. `"delim": "{}"` (or `"()"`) restricts both variables
+> and formulas to that pair; `var_delim` / `formula_delim` set them separately (the
+> Java-Funz convention is `var_delim: "()"`, `formula_delim: "{}"`). Set `delim` when
+> the code's own syntax contains `${...}` or `$(...)` text that must not be read as
+> variables.
 
 ## Model Fields
 

@@ -234,8 +234,9 @@ def resolve_timeout(
     Resolve the effective run timeout in seconds.
 
     Precedence: explicit `timeout` argument > model's own "timeout" entry >
-    FZ_RUN_TIMEOUT config default. A model "timeout" of None/null or 0 disables
-    the timeout for that model (returns None, meaning no timeout).
+    FZ_RUN_TIMEOUT config default. At every level, 0 means "no timeout" (and so
+    does a model "timeout" of None/null): returns None. A negative value raises
+    ValueError.
 
     When FZ_RUN_TIMEOUT is not set explicitly, the built-in 3600 s default applies
     to sh:// and funz:// only; ssh:// and slurm:// default to no timeout (queue
@@ -248,13 +249,19 @@ def resolve_timeout(
         effective = timeout
     elif isinstance(model, dict) and "timeout" in model:
         model_timeout = model["timeout"]
-        effective = None if (model_timeout is None or model_timeout == 0) else int(model_timeout)
+        effective = None if model_timeout is None else model_timeout
     else:
         config = get_config()
         if scheme in ("ssh", "slurm") and not config.run_timeout_explicit:
             effective = None
         else:
             effective = config.run_timeout
+    if effective is not None:
+        effective = int(effective)
+        if effective < 0:
+            raise ValueError(f"timeout must be >= 0 seconds (0 = no timeout), got {effective}")
+        if effective == 0:
+            effective = None
     if effective is None:
         if scheme in ("ssh", "slurm"):
             with _unlimited_timeout_lock:

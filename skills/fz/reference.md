@@ -72,11 +72,12 @@ fz.fzr(input_path: str,
 
 - dict `input_variables` ⇒ factorial (Cartesian product); DataFrame ⇒ one case per row.
 - **Pass `calculators=` and `results_dir=` by keyword**: `results_dir` is the 4th
-  positional parameter, so `fzr(path, vars, model, "sh://bash run.sh")` silently uses the
-  URI as a directory name and runs without calculator (every case fails).
+  positional parameter; `fzr(path, vars, model, "sh://bash run.sh")` raises
+  `ValueError: results_dir looks like a calculator URI`.
 - Returns a DataFrame: variable columns + output columns + `status` (`done`, `failed`,
   `error`, `timeout`, `interrupted`; a cache hit is `done` with a `cache://...`
-  `calculator`), `calculator`, `error`, `command`.
+  `calculator`; a run without parsable outputs stays `done` with `Missing output: ...`
+  in `error`), `calculator`, `error`, `command`.
 - `case_naming` controls each case's result/temp subdirectory name: `"path"`
   (`var1=val1,var2=val2,...`, default, but can exceed filesystem filename length
   limits with many variables - unsafe characters in a key/value are percent-encoded
@@ -101,8 +102,8 @@ fz.fzr(input_path: str,
   `on_progress(completed, total, eta_seconds)`, `on_complete(total_cases,
   completed_cases, results_df)`. Unknown keys raise `ValueError`; callbacks run in worker
   threads and their exceptions are logged, not raised.
-- `timeout` (seconds) overrides the model's `"timeout"` and `FZ_RUN_TIMEOUT`. `0` does
-  not disable it (every case times out at once); only a model `"timeout": null`/`0` does.
+- `timeout` (seconds) overrides the model's `"timeout"` and `FZ_RUN_TIMEOUT`; `0` means
+  no timeout, negative values raise `ValueError`.
 - Ctrl+C interrupts gracefully; completed cases stay in `results_dir` and can be reused
   with a `cache://results_dir` calculator.
 
@@ -157,13 +158,9 @@ fz.fzl(models: str = "*", calculators: str = "*", check: bool = False) -> dict
 ```
 
 Returns `{"models": {name: {"path", "properties", "supported_calculators",
-"check_status"...}}, "calculators": {uri: {"supports_models", "check_status"...}}}`.
-Algorithms are not listed (`fz.list_installed_algorithms()`).
-`fz list` limitation: calculator aliases are shown by their `uri`, not their file name,
-and an alias whose command is in its `models` map (`{"uri": "sh://", "models": {...}}`,
-the layout of installed wrappers) is reported `check_status: failed` /
-`"Empty sh:// command"` by `--check` although it works. Trust the model's
-`check_status` and a real `fzr` run without `--calculators`, not that calculator line.
+"check_status"...}}, "calculators": {alias_name: {"path", "uri", "supports_models",
+"check_status"...}}}`. With `check=True`, each command of an alias's `models` map is
+validated. Algorithms are not listed (`fz.list_installed_algorithms()`).
 
 ### Configuration helpers
 
@@ -252,9 +249,9 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
 ```
 
 All fields optional except `output` (required to parse results). Defaults when absent:
-`varprefix` `$`, `formulaprefix` `@`, `commentline` `#`, `interpreter` python, and — the
-trap — variable delimiters `()` / formula delimiters `{}` (`var_delim` / `formula_delim`
-keys set them separately; `delim` sets both). `id` links the model to
+`varprefix` `$`, `formulaprefix` `@`, `commentline` `#`, `interpreter` python; variables
+accept both `$(x)` and `${x}`, formulas use `@{...}` (`delim` restricts both to one pair;
+`var_delim` / `formula_delim` set them separately). `id` links the model to
 calculator alias files. Search path for aliases: `./.fz/models/<alias>.json` then
 `~/.fz/models/<alias>.json`. `timeout` (int seconds, or `null`/`0` to disable) overrides
 `FZ_RUN_TIMEOUT` for this model; an explicit `timeout=` argument to `fzr()` still
@@ -333,7 +330,7 @@ FZ_MAX_WORKERS               cap on parallel cases (never above the number of ca
 FZ_MAX_RETRIES               attempts for failed cases (default 5)
 FZ_RUN_TIMEOUT                per-calculation timeout in seconds (default 3600 = 1h for sh://,
                               funz://; unlimited for ssh://, slurm:// when unset);
-                              a model's own "timeout" entry overrides this; 0 is NOT "unlimited"
+                              a model's own "timeout" entry overrides this; 0 = no timeout
 FZ_SLURM_POLL_INTERVAL       seconds between sacct/squeue polls for slurm-array:// (default 2)
 FZ_SLURM_ARRAY_WINDOW        seconds slurm-array:// gathers cases before one sbatch (default 1)
 FZ_RO_CRATE                  0 to disable the ro-crate-metadata.json written (default 1) next to
