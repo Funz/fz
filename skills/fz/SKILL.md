@@ -373,6 +373,7 @@ read [algorithm-wrapper.md](algorithm-wrapper.md).
 | All cases `failed`, `N calculator failures` | The calculator command itself errors — read the case's `err.txt`/`log.txt`. |
 | Output column is `null` but case is `done` | Output command matched nothing: wrong path/field, missing subdir output (see directory codes), locale (`LC_ALL=C`), or `python` vs `python3`. |
 | `fzi` lists extra/unexpected variables | `varprefix` collides with the code's own syntax — change it. |
+| `fzi` lists `HOME` (or other shell `${...}` names) / warning `The model sets no "delim"` | A model without `delim` reads `${x}` as well as `$(x)`: set `"delim": "()"` (or `"{}"`) in the model. |
 | `ValueError: results_dir looks like a calculator URI` | Calculator URI passed as 4th positional arg of `fz.fzr` (that slot is `results_dir`) — use `calculators=`. |
 | Output column holds the program's stdout instead of a file's content | The code writes a reserved name (`out.txt`, `err.txt`, `log.txt`, ...) that fz overwrites — rename it. |
 | Case `done` but outputs `None`, `error` = `Missing output: ...` | No declared output could be parsed: wrong file name/pattern, output written elsewhere, or a reserved file name. |
