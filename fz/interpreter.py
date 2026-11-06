@@ -5,6 +5,7 @@ import re
 import json
 import ast
 import math
+import threading
 from pathlib import Path
 from typing import Dict, List, Union, Any, Set, Optional
 
@@ -366,6 +367,61 @@ def parse_variables_from_path(input_path: Path, varprefix: str = "$", delim: str
         raise FileNotFoundError(f"Input path '{input_path}' not found")
 
     return variables
+
+
+def find_default_delim_brace_variables(input_path: Path, model: Dict, varprefix: str = "$",
+                                       exclude_paths: Optional[Set[Path]] = None):
+    """
+    Variables recognized only through the ``${name}`` form because the model sets
+    no delimiter (neither "var_delim" nor "delim", see DEFAULT_VAR_DELIM).
+
+    Returns ``(brace_only, has_paren_variables)``: the names found as ``${name}``
+    and never as ``$(name)``, and whether the input also uses ``$(name)``
+    variables. Returns ``(set(), False)`` when the model sets its delimiters.
+    """
+    if not isinstance(model, dict) or "var_delim" in model or "delim" in model:
+        return set(), False
+    braces = parse_variables_from_path(input_path, varprefix, "{}", exclude_paths)
+    parens = parse_variables_from_path(input_path, varprefix, "()", exclude_paths)
+    return braces - parens, bool(parens)
+
+
+_default_delim_warned: Set[Any] = set()
+_default_delim_lock = threading.Lock()
+
+
+def warn_default_delim_brace_variables(input_path: Path, names: Set[str], varprefix: str = "$") -> None:
+    """
+    Warn, once per process for a given input path and set of names, that a model
+    without "delim" reads ``${name}`` text as variables next to ``$(name)`` ones
+    (typically shell snippets such as ``${HOME}``). Logged on stderr only.
+    """
+    if not names:
+        return
+    key = (str(input_path), frozenset(names))
+    with _default_delim_lock:
+        if key in _default_delim_warned:
+            return
+        _default_delim_warned.add(key)
+    from .logging import log_warning
+    listed = ", ".join(f"{varprefix}{{{n}}}" for n in sorted(names))
+    log_warning(
+        f"⚠️  The model sets no \"delim\", so both {varprefix}(x) and {varprefix}{{x}} are variables: "
+        f"{listed} in {input_path} is read as a variable next to {varprefix}(...) variables. "
+        f"If it is not one (e.g. shell text), set \"delim\": \"()\" in the model; "
+        f"set \"delim\" explicitly to silence this warning."
+    )
+
+
+def default_delim_hint(names: Set[str], varprefix: str = "$") -> str:
+    """Hint appended to the "input_variables is required" error for ${name}-only variables."""
+    if not names:
+        return ""
+    listed = ", ".join(f"{varprefix}{{{n}}}" for n in sorted(names))
+    return (
+        f" ({listed} counted as variable(s) because the model sets no \"delim\": "
+        f"set \"delim\": \"()\" if this is not a variable, e.g. shell text)"
+    )
 
 
 def replace_variables_in_content(content: str, input_variables: Dict[str, Any],
