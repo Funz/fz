@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## Version 1.3 (2026-11-06)
+
+**This release contains behavior changes that are not backward compatible** (Python 3.8
+dropped, cache key, default delimiters, timeouts, `sh://` path resolution, `fz list`
+JSON). Read the summary below before upgrading. It also fixes wrong results with some
+`sh://` commands and a command-injection issue present in 1.2: upgrading is recommended.
+
 ### Upgrading from 1.2: behavior changes at a glance
 
 Each item is detailed in its section below.
@@ -155,8 +162,8 @@ Each item is detailed in its section below.
   documentation review (keyword arguments for `fzr`, `fzc` sub-directories, status
   values, timeouts, default delimiters, `cache://_`, reserved file names).
 - `/fz:run` reports all status values and warns about `fzr`'s argument order.
-- The plugin manifests (`.claude-plugin/plugin.json`, `marketplace.json`) still say
-  `1.2.0`: bump them with the release.
+- The plugin manifests (`.claude-plugin/plugin.json`, `marketplace.json`) are bumped to
+  `1.3.0`, aligned with the package release.
 
 ### Project metadata (P1-5)
 
@@ -166,6 +173,15 @@ Each item is detailed in its section below.
   matrix (Linux, macOS, Windows) and declared via a classifier (P0-5). The
   project's guard `tests/test_python_version_support.py` requires the two to
   match. Dependency wheel availability on 3.14 is verified by that CI run only.
+
+### Release tooling: one version source
+
+- `manifest.json` (`fz_version`, and the RO-Crate `fz` entity) and `fz.config`'s
+  summary reported `1.0`: they read the never-updated `fz/_version.py`. They now read
+  `fz.__version__` (`fz/__init__.py`), the same source as `pyproject.toml` and
+  `fz --version`. `tests/test_manifest.py` checks it.
+- `release.yml` now runs `scripts/stamp_version.py` before building, so released
+  packages carry the commit date and hash of the released commit.
 
 ### Breaking changes
 

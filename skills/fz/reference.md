@@ -162,16 +162,33 @@ Returns `{"models": {name: {"path", "properties", "supported_calculators",
 "check_status"...}}}`. With `check=True`, each command of an alias's `models` map is
 validated. Algorithms are not listed (`fz.list_installed_algorithms()`).
 
-### Configuration helpers
+### Configuration, installer and discovery helpers
 
 ```python
 fz.set_interpreter("R")        # formula interpreter: "python" (default) or "R"
+fz.get_interpreter()           # -> "python" | "r"
+fz.set_log_level("DEBUG")      # or a fz.logging.LogLevel; fz.get_log_level() reads it
+fz.reload_config()             # re-read FZ_* env vars changed after `import fz`
+fz.get_config()                # current Config object; fz.print_config() prints it
+
+# Python twins of `fz install` / `fz uninstall` (global_install=True -> ~/.fz/)
+fz.install_model(source, global_install=False)        # name, git URL or zip -> dict
+fz.uninstall_model(model_name, global_uninstall=False)  # -> bool
+fz.list_installed_models(global_list=False)           # -> {name: model dict}
+fz.install_algorithm(source, global_install=False)
+fz.uninstall_algorithm(algorithm_name, global_uninstall=False)
+fz.list_installed_algorithms(global_list=False)
+# short aliases: fz.install(model), fz.uninstall(model), fz.list_models()
+
+fz.discover_funz_servers(udp_port, listen_duration=10.0, stop_when=None)
+# -> list of Funz calculators broadcasting on that UDP port (the funz:// port)
 ```
 
 ## CLI
 
 Every Python function has a CLI twin: `fzi`, `fzc`, `fzo`, `fzr`, `fzl`, `fzd`
-(also available as subcommands: `fz run ...`, `fz design ...`). `fz install model|algorithm
+(also available as subcommands of `fz`: `fz input`, `fz compile`, `fz output`, `fz run`,
+`fz design`, `fz list`). `fz install model|algorithm
 <name|git-url>` installs aliases into `.fz/` (`--global` for `~/.fz/`): a bare name resolves
 to `https://github.com/Funz/fz-<name>` (official wrappers, e.g. `fz-modelica`; browse
 <https://github.com/orgs/Funz/repositories?q=fz->), and the install provides the model JSON
@@ -251,7 +268,10 @@ non-zero on failure, and `fzr` exits 1 when no case reached status `done`. Use
 All fields optional except `output` (required to parse results). Defaults when absent:
 `varprefix` `$`, `formulaprefix` `@`, `commentline` `#`, `interpreter` python; variables
 accept both `$(x)` and `${x}`, formulas use `@{...}` (`delim` restricts both to one pair;
-`var_delim` / `formula_delim` set them separately). `id` links the model to
+`var_delim` / `formula_delim` set them separately). Accepted key aliases:
+`var_prefix`/`varchar`/`var_char` (= `varprefix`), `formula_prefix`/`formprefix`/
+`form_prefix`/`formula_char`/`form_char` (= `formulaprefix`), `comment_line`/
+`comment_char`/`commentchar`/`comment` (= `commentline`). `id` links the model to
 calculator alias files. Search path for aliases: `./.fz/models/<alias>.json` then
 `~/.fz/models/<alias>.json`. `timeout` (int seconds, or `null`/`0` to disable) overrides
 `FZ_RUN_TIMEOUT` for this model; an explicit `timeout=` argument to `fzr()` still
@@ -359,8 +379,10 @@ ${name}           variable, explicit delimiters
 ${name~default}   variable with default value
 @{expr}           formula, evaluated at compile time (may reference $vars)
 #@ code           interpreter context line (imports, constants, function defs)
-$(name)           variable with the Java-Funz "()" delimiters (the default when the model has
-                  no "delim"/"var_delim" key; ${name} is then NOT a variable)
+$(name)           variable with the Java-Funz "()" delimiters. A model with no "delim"/
+                  "var_delim" key reads both $(name) and ${name} (fz >= 1.3; fz 1.2 read
+                  only $(name) in Python, only ${name} on the CLI): set "delim" when the
+                  template contains other ${...} text, e.g. shell snippets
 ```
 
 ## MCP server

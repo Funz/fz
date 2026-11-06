@@ -36,6 +36,7 @@ def test_manifest_written(tmp_path, monkeypatch):
     assert m["schema"] == "fz-manifest/1"
     assert m["n_cases"] == 2 and len(m["cases"]) == 2
     assert m["fz_version"] and m["python_version"] and m["model_sha256"]
+    assert m["fz_version"] == fz.__version__  # single version source (fz/__init__.py)
     assert m["start_time"] <= m["end_time"]
     assert all(len(c["fz_hash_sha256"]) == 64 for c in m["cases"])
     assert not (out / "ro-crate-metadata.json").exists()  # FZ_RO_CRATE=0

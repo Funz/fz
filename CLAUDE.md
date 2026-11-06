@@ -11,7 +11,8 @@ codes to run parameter studies locally, over SSH, or on SLURM. Python rewrite of
   Python and R evaluation), `io.py`, `config.py` (env vars), `installer.py` (`fz install`).
 - `tests/` — pytest suite. `doc/` — modular user docs. `skills/fz/` — Agent Skill
   (workflow + condensed reference). `examples/` — example models, algorithms, notebooks.
-- `fz/_version.py` is stamped by CI (`scripts/stamp_version.py`) — never edit manually.
+- The version number lives in `fz/__init__.py` only. `fz/_version.py` (commit date/hash) is
+  stamped by `release.yml` (`scripts/stamp_version.py`) — never edit it manually.
 
 ## Setup and tests
 
