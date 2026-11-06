@@ -168,6 +168,18 @@ Each item is detailed in its section below.
 - `/fz:run` reports all status values and warns about `fzr`'s argument order.
 - The plugin manifests (`.claude-plugin/plugin.json`, `marketplace.json`) are bumped to
   `2.0.0`, aligned with the package release.
+- Skill audit against the code and by running fz: the `fzd` example passed
+  `max_iterations` to `bfgs.py`, which reads only `max_iter` (the option was silently
+  ignored and 100 iterations ran); a failed runner gives status `failed`, not `error`;
+  reserved names are described as they behave (`out.txt`/`err.txt` are shared with the
+  captured streams, last writer wins); retries use the same calculator when it is the
+  only one; `cache://_` to resume into the same `results_dir`; `#title`/`#author` are
+  not displayed by fz; official repository names keep the code's case (`fz-Modelica`).
+  Added: `nsga2.py` and `montecarlo_uniform.R`, the `fz-Model`/`fz-Algorithm`/
+  `fz-AlgorithmR` templates, `fzo`'s `_output_error` column, `fzd`'s `algorithm` key,
+  `grep(group=, cast=)`, the `FZ_SSH_KEEPALIVE` default. Two new
+  `tests/test_skill_static.py` checks: every example algorithm is mentioned, and the
+  `algorithm_options` keys of the skill's examples exist in the algorithm's `#options`.
 
 ### Project metadata (P1-5)
 

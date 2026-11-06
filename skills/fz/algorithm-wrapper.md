@@ -3,7 +3,10 @@
 An fzd algorithm is a Python (or R) file containing one class that proposes points to
 evaluate, receives results, and decides when to stop. Pass its path as `algorithm=` to
 `fz.fzd` (or `--algorithm` on the CLI). Built-in examples live in `examples/algorithms/`
-(`randomsampling.py`, `montecarlo_uniform.py`, `bfgs.py`, `brent.py`).
+(`randomsampling.py`, `montecarlo_uniform.py` and `montecarlo_uniform.R`, `bfgs.py`,
+`brent.py`, and `nsga2.py`, a multi-objective algorithm used with a list of
+`output_expression`). Template repositories: <https://github.com/Funz/fz-Algorithm>
+(Python) and <https://github.com/Funz/fz-AlgorithmR> (R).
 
 This is the algorithm analog of [code-wrapper.md](code-wrapper.md): the two kinds of
 reusable, installable `fz-<name>` packages are **code wrappers** (bind a simulation code)
@@ -63,7 +66,8 @@ class MyAlgorithm:
 
 The leading `#key: value` comment lines (before the first code line) are parsed by fz:
 
-- **`#title`** / **`#author`** — descriptive metadata, shown when listing algorithms.
+- **`#title`** / **`#author`** — descriptive metadata for readers; fz parses them but does
+  not use them (`fz.list_installed_algorithms()` reports only name, file, type and scope).
 - **`#options: key=value;key2=value2`** — default constructor options. They arrive in
   `__init__(**options)` as **strings** (cast them yourself). A user overrides any of them
   via `algorithm_options=` on `fz.fzd` (`--options '{"max_iter": 50}'` / `-o` on the CLI,
@@ -87,7 +91,7 @@ The leading `#key: value` comment lines (before the first code line) are parsed 
 ## Packaging as an installable `fz-<name>` algorithm
 
 To make an algorithm installable with `fz install algorithm <name>`, ship it in a GitHub
-repo named `fz-<name>` (lowercase) with the file under `.fz/algorithms/`:
+repo named `fz-<name>` (e.g. `fz-brent`, `fz-PSO`) with the file under `.fz/algorithms/`:
 
 ```
 fz-myalgo/                         # GitHub repo named fz-<name>

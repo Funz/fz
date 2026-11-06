@@ -21,7 +21,7 @@ auto-discovered calculators. No Python code is involved — a wrapper is data + 
 The convention consumed by the installer (`fz/installer.py`):
 
 ```
-fz-mycode/                         # GitHub repo named fz-<code> (lowercase)
+fz-MyCode/                         # GitHub repo named fz-<Code> (e.g. fz-Modelica)
 ├── .fz/
 │   ├── models/
 │   │   └── MyCode.json            # the model definition (file name = alias)
@@ -39,7 +39,7 @@ fz-mycode/                         # GitHub repo named fz-<code> (lowercase)
   `fz install model https://github.com/you/fz-mycode.git`).
 - On install, every `.fz/models/*.json` is copied to the project's (or, with `--global`,
   the user's) `.fz/models/` (one repository may ship several models, e.g. variants or a
-  code chain; fz > 1.2, earlier versions install only the first one); every other `.fz/` subdirectory (`calculators/`, optionally
+  code chain; fz ≥ 2.0, earlier versions install only the first one); every other `.fz/` subdirectory (`calculators/`, optionally
   `algorithms/`) is copied wholesale, and `.sh`/`.bash`/`.zsh` scripts are made executable.
 
 ## 1. The model JSON
@@ -83,13 +83,15 @@ The contract (see "Per-case execution lifecycle" in [reference.md](reference.md)
 - receives the compiled input file names as arguments (`$1`, `$2`, ... — appended after
   the command of the calculator alias);
 - must write the output files that the model's `output` commands parse;
-- exit status `0` = case done, non-zero = case failed (fz retries it elsewhere);
+- exit status `0` = case done, non-zero = case `failed` (fz retries it, on another
+  calculator when there is one, up to `FZ_MAX_RETRIES` attempts);
 - the command is written relative to the case directory: bare names (`input.txt`, `out.dat`)
   refer to the case's own files; a bare word is resolved to the launch directory only when it
   exists there and not in the case directory, and `>` targets are never resolved;
 - stdout/stderr are captured to `out.txt`/`err.txt` automatically — print freely, but
   never make the code write its own results to `out.txt`, `err.txt`, `log.txt`,
-  `info.txt` or `history.txt`: fz overwrites these names;
+  `info.txt` or `history.txt`: fz rewrites them (and `out.txt`/`err.txt` receive the
+  captured streams, so the last writer wins);
 - if the code spawns long-lived subprocesses, write their PID to a `PID` file so
   interrupts can kill them.
 
@@ -107,7 +109,7 @@ wait $!
 status=$?
 rm -f PID
 
-# fail loudly if the expected output is missing, so the case is marked "error"
+# fail loudly if the expected output is missing, so the case is marked "failed"
 [ $status -eq 0 ] && [ -f out/results.log ] || exit 1
 ```
 
@@ -195,6 +197,7 @@ fz, bash, and the simulation code).
 
 ## Existing wrappers to imitate
 
-Browse <https://github.com/orgs/Funz/repositories?q=fz-> — e.g. `fz-modelica` and
-`fz-moret` are reference implementations of this layout (the `plugin-*`/`algorithm-*`
+Start from the template repository <https://github.com/Funz/fz-Model>. Browse
+<https://github.com/orgs/Funz/repositories?q=fz-> — e.g. `fz-Modelica` and
+`fz-Moret` are reference implementations of this layout (the `plugin-*`/`algorithm-*`
 repos are legacy Java-Funz, different format).

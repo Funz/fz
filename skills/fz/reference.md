@@ -40,7 +40,8 @@ fz.fzo(output_path: str, model: str | dict) -> pandas.DataFrame
 ```
 
 Runs each `model["output"]` command in every directory matched by `output_path` (plain
-path or glob like `results/*`). Returns one row per directory. Directory names following
+path or glob like `results/*`). Returns one row per directory, plus an `_output_error`
+column describing outputs that could not be parsed. Directory names following
 `key=val,key=val` are parsed back into variable columns; if they don't follow that
 pattern (e.g. `fzr` ran with `case_naming="hash"`/`"index"`), `fzo` reads `cases.csv`
 (a single manifest `fzr` writes at the results root mapping each case directory to its
@@ -105,7 +106,9 @@ fz.fzr(input_path: str,
 - `timeout` (seconds) overrides the model's `"timeout"` and `FZ_RUN_TIMEOUT`; `0` means
   no timeout, negative values raise `ValueError`.
 - Ctrl+C interrupts gracefully; completed cases stay in `results_dir` and can be reused
-  with a `cache://results_dir` calculator.
+  with `cache://_` when re-running into the same `results_dir` (fz renames the old one
+  first, so `cache://<results_dir>` would not hit), or with `cache://<results_dir>`
+  from a run into another directory.
 
 ### fz.fzd — adaptive design of experiments
 
@@ -122,7 +125,7 @@ fz.fzd(input_path: str | None,
 ```
 
 Returns `{"XY": DataFrame, "analysis": ..., "iterations": int,
-"total_evaluations": int, "summary": str}`. Duplicate points within a batch are
+"total_evaluations": int, "summary": str, "algorithm": str}`. Duplicate points within a batch are
 deduplicated; previously evaluated points are cached across iterations and re-runs.
 For file-based models, each iteration's cases live under
 `<analysis_dir>/iter<NNN>/case_<i>/` — fzd always calls `fzr()` internally with
@@ -325,12 +328,14 @@ on the calculator (under `.fz/tmp/`); runs the command with the input file names
 at the end of the command line; captures `out.txt` (stdout), `err.txt` (stderr), `log.txt`
 (command, host, env, timings, exit status), plus `info.txt`, `history.txt`, `.fz_hash`;
 copies everything back; runs the `output` parsing commands; sets `status`. Failed cases
-are retried on another calculator (default 5 attempts).
+are retried, on another calculator when there is one, up to `FZ_MAX_RETRIES` attempts
+(default 5).
 
 Constraints worth knowing (full list: `doc/limitations.md` in the fz repo):
 
-- **Reserved file names**: a code output named `out.txt`, `err.txt`, `log.txt`,
-  `info.txt` or `history.txt` is overwritten by fz. Results root: `manifest.json`,
+- **Reserved file names**: fz rewrites `log.txt`, `info.txt`, `history.txt` and
+  `.fz_hash`; `out.txt`/`err.txt` receive the captured stdout/stderr, so a code file
+  with one of these names holds whichever was written last. Results root: `manifest.json`,
   `ro-crate-metadata.json`, `cases.csv`.
 - **`sh://` command line**: the compiled input names are appended to the end of the whole
   command (after pipes/redirections); a bare file name is made absolute in the launch
@@ -357,7 +362,7 @@ FZ_RO_CRATE                  0 to disable the ro-crate-metadata.json written (de
                               each campaign's manifest.json (fzr and fzd always write manifest.json)
 FZ_SSH_AUTO_ACCEPT_HOSTKEYS  1 to skip the interactive host-key prompt shown with password auth
                               (key auth already auto-adds unknown hosts)
-FZ_SSH_KEEPALIVE             SSH keepalive seconds
+FZ_SSH_KEEPALIVE             SSH keepalive interval in seconds (default 300)
 FZ_INTERPRETER               default formula interpreter: python (default) | R
 FZ_SHELL_PATH                bash location on Windows (MSYS2/Git Bash bin dirs)
 FZ_CASE_NAMING                fzr case dir naming: path (default) | hash | index
