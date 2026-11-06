@@ -40,7 +40,11 @@ Each item is detailed in its section below.
   compiled files), and the CLI without `--model` uses the same default (it used `{}`
   only). A model with an explicit `delim` is unchanged. Templates containing other
   `${...}` text (e.g. shell snippets) with a model that sets no `delim` now report those
-  names as variables: set `delim` in such models.
+  names as variables: set `delim` in such models. To make this visible, `fzi()` (and so
+  `fzc()`/`fzr()`) logs a warning, once per input and set of names, when `${...}` names
+  appear next to `$(...)` variables in a model without `delim`, and the
+  `input_variables is required` error names the `${...}`-only variables. Results are
+  unchanged; a template using only `${x}` does not warn (issue #101).
 - **`fzr()` rejects a `results_dir` that looks like a calculator URI** (`ValueError`):
   `fzr(path, vars, model, "sh://bash run.sh")` used to create a directory named after the
   URI and run every case without calculator.

@@ -23,7 +23,10 @@ rule, the consequence, and what to do instead. Items are checked against the cod
 - **Default delimiters.** A model without `delim` (nor `var_delim`) accepts both `$(x)`
   and `${x}` for variables and uses `@{...}` for formulas; the CLI without `--model` uses
   the same default. Setting `"delim": "{}"` or `"()"` restricts variables to one form.
-  Templates that contain other `${...}` text (shell snippets) should set `delim`.
+  Templates that contain other `${...}` text (shell snippets) should set `delim`:
+  `fzi` (hence `fzc`/`fzr`) logs a warning (`FZ_LOG_LEVEL=WARNING` or lower) when
+  `${...}` names sit next to `$(...)` variables in a model without `delim`, and the
+  `input_variables is required` error names the `${...}`-only variables.
 - **No automatic `?var` conversion.** `?var` is a variable only with `"varprefix": "?"`.
 - A variable absent from `input_variables` and without `~default` is left as-is in the
   compiled file (no error from `fzc`).

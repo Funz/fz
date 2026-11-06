@@ -107,6 +107,9 @@ from .interpreter import (
     _get_formula_prefix,
     _delim_pairs,
     get_var_delim,
+    find_default_delim_brace_variables,
+    warn_default_delim_brace_variables,
+    default_delim_hint,
 )
 from .runners import resolve_calculators, resolve_calculators_with_metadata, run_calculation
 from .algorithms import (
@@ -835,6 +838,12 @@ def fzi(input_path: str, model: Union[str, Dict], input_static: Optional[List[st
         from .helpers import resolve_static_file_paths
         static_paths = resolve_static_file_paths(input_static, working_dir)
         variables = parse_variables_from_path(input_path, varprefix, var_delim, exclude_paths=static_paths)
+        # A model without "delim" reads both $(x) and ${x}: warn when ${...} text sits next to
+        # $(...) variables, the usual sign of shell snippets (e.g. ${HOME}) read as variables
+        brace_only, has_paren_vars = find_default_delim_brace_variables(
+            input_path, model, varprefix, exclude_paths=static_paths)
+        if has_paren_vars:
+            warn_default_delim_brace_variables(input_path, brace_only, varprefix)
 
         # Read content to extract defaults and formulas
         if input_path.is_file():
@@ -988,9 +997,12 @@ def fzc(
 
     if input_variables is None:
         if found_variables:
+            varprefix = _get_var_prefix(model)
+            brace_only, _ = find_default_delim_brace_variables(input_path, model, varprefix)
             raise ValueError(
                 "input_variables is required: input files declare variable(s) "
                 f"{', '.join(sorted(found_variables))}"
+                + default_delim_hint(brace_only & set(found_variables), varprefix)
             )
         input_variables = {}
 
@@ -1482,9 +1494,12 @@ def fzr(
 
     if input_variables is None:
         if found_variables:
+            varprefix = _get_var_prefix(model)
+            brace_only, _ = find_default_delim_brace_variables(input_path, model, varprefix)
             raise ValueError(
                 "input_variables is required: input files declare variable(s) "
                 f"{', '.join(sorted(found_variables))}"
+                + default_delim_hint(brace_only & set(found_variables), varprefix)
             )
         input_variables = {}
 
