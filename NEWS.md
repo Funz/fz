@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-## Version 1.3 (2026-11-06)
+## Version 2.0 (2026-11-06)
 
-**This release contains behavior changes that are not backward compatible** (Python 3.8
-dropped, cache key, default delimiters, timeouts, `sh://` path resolution, `fz list`
-JSON). Read the summary below before upgrading. It also fixes wrong results with some
+**This release contains behavior changes that are not backward compatible, hence the
+major version** (Python 3.8 dropped, cache key, default delimiters, timeouts, `sh://`
+path resolution, `fz list` JSON). Read the summary below before upgrading. It also fixes wrong results with some
 `sh://` commands and a command-injection issue present in 1.2: upgrading is recommended.
 
 ### Upgrading from 1.2: behavior changes at a glance
@@ -163,7 +163,7 @@ Each item is detailed in its section below.
   values, timeouts, default delimiters, `cache://_`, reserved file names).
 - `/fz:run` reports all status values and warns about `fzr`'s argument order.
 - The plugin manifests (`.claude-plugin/plugin.json`, `marketplace.json`) are bumped to
-  `1.3.0`, aligned with the package release.
+  `2.0.0`, aligned with the package release.
 
 ### Project metadata (P1-5)
 

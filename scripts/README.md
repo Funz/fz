@@ -39,7 +39,7 @@ The version number itself has a single source, `fz/__init__.py` (read by
 The generated `fz/_version.py` file contains:
 
 ```python
-__version__ = "1.3"             # From fz/__init__.py
+__version__ = "2.0"             # From fz/__init__.py
 __commit_date__ = "2025-10-..."  # From git log
 __commit_hash__ = "42d1e24"      # From git rev-parse
 ```

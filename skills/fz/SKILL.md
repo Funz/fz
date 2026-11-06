@@ -18,8 +18,8 @@ fz wraps any simulation code that reads input files and writes output files, so 
 run as a parametric study: variables in input files are substituted for each case, cases run
 in parallel (locally, SSH, SLURM), and outputs are parsed back into a pandas DataFrame.
 
-Install: `pip install 'funz-fz>=1.3'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
-`fzd` plus the `fz` Python package; Python >= 3.9). 1.3 is recommended — it fixes `sh://`
+Install: `pip install 'funz-fz>=2.0'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
+`fzd` plus the `fz` Python package; Python >= 3.9). 2.0 is recommended — it fixes `sh://`
 commands that could read the un-substituted template from the launch directory (wrong
 results with 1.2), case-name/remote-command injection, and `timeout=0` (now "no timeout");
 it adds `slurm-array://`, the `fz-mcp` server, `manifest.json`/RO-Crate traceability, and
@@ -29,7 +29,7 @@ ignored (`FZ_CACHE_ACCEPT_LEGACY=1` to reuse them). 1.2 added shell-free output 
 `input_static` files, and configurable `case_naming`.
 On PEP 668 externally-managed systems
 (`error: externally-managed-environment`), use a venv:
-`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=1.3'`.
+`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=2.0'`.
 
 ## The workflow
 

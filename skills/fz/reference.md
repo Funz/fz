@@ -380,7 +380,7 @@ ${name~default}   variable with default value
 @{expr}           formula, evaluated at compile time (may reference $vars)
 #@ code           interpreter context line (imports, constants, function defs)
 $(name)           variable with the Java-Funz "()" delimiters. A model with no "delim"/
-                  "var_delim" key reads both $(name) and ${name} (fz >= 1.3; fz 1.2 read
+                  "var_delim" key reads both $(name) and ${name} (fz >= 2.0; fz 1.2 read
                   only $(name) in Python, only ${name} on the CLI): set "delim" when the
                   template contains other ${...} text, e.g. shell snippets
 ```
