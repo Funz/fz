@@ -37,22 +37,7 @@ jobs:
     - name: Check distributions
       env:
         TAG_NAME: ${{ github.event.release.tag_name }}
-      run: |
-        twine check --strict dist/*
-        wheels=(dist/*.whl)
-        if [ "${#wheels[@]}" -ne 1 ]; then
-          echo "::error::expected exactly one wheel, found ${#wheels[@]}"; exit 1
-        fi
-        case "${wheels[0]}" in
-          *-py3-none-any.whl) ;;
-          *) echo "::error::wheel is not pure Python: ${wheels[0]}"; exit 1 ;;
-        esac
-        version=$(basename "${wheels[0]}" | cut -d- -f2)
-        echo "Built version: $version"
-        if [ -n "$TAG_NAME" ] && [ "${TAG_NAME#v}" != "$version" ]; then
-          echo "::error::release tag '$TAG_NAME' does not match fz.__version__ '$version' (fz/__init__.py)"
-          exit 1
-        fi
+      run: python scripts/check_dist.py dist --tag "$TAG_NAME"
 
     - name: Upload distributions
       uses: actions/upload-artifact@v4

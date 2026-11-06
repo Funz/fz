@@ -250,42 +250,12 @@ jobs:
         name: codecov-umbrella
         fail_ci_if_error: false
 
-  build-wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    needs: test
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build wheel
-
-    - name: Build wheel
-      run: |
-        python -m build --wheel --outdir dist/
-
-    - name: Upload wheel artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheels-${{ matrix.os }}
-        path: dist/*.whl
-        retention-days: 30
-
-  build-sdist:
-    name: Build source distribution
+  # fz is pure Python: one build gives the single py3-none-any wheel (identical on every
+  # OS) and the sdist. The wheel is installed in a fresh venv, outside the checkout, to
+  # catch packaging errors (missing modules or package data) that the editable install
+  # used by the test job cannot see. release.yml runs the same check before publishing.
+  build:
+    name: Build and check distributions
     runs-on: ubuntu-latest
     needs: test
 
@@ -301,17 +271,29 @@ jobs:
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build
+        pip install build twine
 
-    - name: Build sdist
+    - name: Build wheel and source distribution
       run: |
-        python -m build --sdist --outdir dist/
+        python -m build --outdir dist/
+        ls -lh dist/
 
-    - name: Upload sdist artifact
+    - name: Check distributions
+      run: python scripts/check_dist.py dist
+
+    - name: Install the wheel in a fresh venv
+      run: |
+        python -m venv "$RUNNER_TEMP/venv"
+        "$RUNNER_TEMP/venv/bin/pip" install dist/*.whl
+        cd "$RUNNER_TEMP"
+        "$RUNNER_TEMP/venv/bin/fz" --version
+        "$RUNNER_TEMP/venv/bin/python" -c "import fz, fz.runners; print('import OK', fz.__version__)"
+
+    - name: Upload distributions
       uses: actions/upload-artifact@v4
       with:
-        name: sdist
-        path: dist/*.tar.gz
+        name: dist
+        path: dist/
         retention-days: 30
 
   lint:
