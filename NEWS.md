@@ -186,6 +186,17 @@ Each item is detailed in its section below.
   `fz --version`. `tests/test_manifest.py` checks it.
 - `release.yml` now runs `scripts/stamp_version.py` before building, so released
   packages carry the commit date and hash of the released commit.
+- `release.yml` builds the pure-Python wheel and the sdist once (it built 16 identical
+  wheels on an OS x Python matrix that excluded 3.14 on Windows/macOS), checks them
+  (`twine check`, single `py3-none-any` wheel, release tag equal to `fz.__version__`),
+  then installs that wheel on the same OS x Python matrix as `ci.yml` and runs a smoke
+  test (`fz --version`, `fzi`/`fzc`, and `fzr` with `sh://` except on Windows) before
+  anything is published (issue #102).
+- `ci.yml` likewise replaces its 3 identical per-OS wheel builds and separate sdist job
+  with one `build` job, which also installs the wheel in a fresh venv outside the
+  checkout, so packaging errors (a module or package data missing from the wheel) are
+  caught on every pull request instead of at release time. Both workflows share
+  `scripts/check_dist.py` (`tests/test_check_dist.py`).
 
 ### Breaking changes
 

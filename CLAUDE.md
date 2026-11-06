@@ -61,7 +61,11 @@ R-dependent code or tests.
   the workflow); those run in dedicated workflows: `ssh-localhost.yml`,
   `slurm-localhost.yml`, `cli-tests.yml`, `examples.yml`, `funz-calculator.yml`.
 - Some workflows skip branches named `claude/*`.
-- Releases: `release.yml` builds wheels and publishes `funz-fz` to PyPI on tag.
+- Releases: `release.yml` (on a published GitHub release) builds the wheel and sdist once,
+  installs and smoke-tests the wheel on the `ci.yml` OS x Python matrix, then publishes
+  `funz-fz` to PyPI and attaches the files to the release. The tag must equal
+  `fz.__version__`. `ci.yml`'s `build` job runs the same `scripts/check_dist.py` and installs
+  the wheel in a fresh venv on every push/PR.
 
 ## Conventions
 

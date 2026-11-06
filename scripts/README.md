@@ -58,3 +58,20 @@ Static stamping (vs. dynamic git queries at runtime) provides:
 - ✓ No subprocess overhead at runtime
 - ✓ Reliable and consistent version information
 - ✓ No dependency on git being installed in production
+
+## check_dist.py
+
+Checks the output of `python -m build`, in `ci.yml` (every push/PR) and `release.yml`
+(before publishing):
+
+- exactly one wheel, pure Python (`py3-none-any`), and exactly one sdist;
+- `twine check --strict` on both;
+- with `--tag TAG` (release tag, leading `v` allowed): the tag equals the built version,
+  i.e. `fz.__version__`.
+
+```bash
+python -m build --outdir dist/
+python scripts/check_dist.py dist --tag 2.0
+```
+
+Tests: `tests/test_check_dist.py`.

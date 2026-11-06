@@ -6,57 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-wheels:
-    name: Build wheels for Python ${{ matrix.python }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
-        exclude:
-          # Python 3.14 may not be available on all platforms
-          - os: windows-latest
-            python: '3.14'
-          - os: macos-latest
-            python: '3.14'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
-        allow-prereleases: true
-
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build wheel setuptools
-
-    - name: Stamp commit metadata into fz/_version.py
-      run: python scripts/stamp_version.py
-
-    - name: Build wheel
-      run: |
-        python -m build --wheel --outdir dist/
-
-    - name: List built wheels
-      shell: bash
-      run: |
-        ls -lh dist/
-
-    - name: Upload wheel artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheel-${{ matrix.os }}-py${{ matrix.python }}
-        path: dist/*.whl
-        retention-days: 90
-
-  build-sdist:
-    name: Build source distribution
+  # fz is pure Python: one build produces the single py3-none-any wheel and the
+  # sdist. The verify job then installs that exact wheel on the CI matrix.
+  build:
+    name: Build wheel and sdist
     runs-on: ubuntu-latest
 
     steps:
@@ -71,29 +24,94 @@ jobs:
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build
+        pip install build twine
 
     - name: Stamp commit metadata into fz/_version.py
       run: python scripts/stamp_version.py
 
-    - name: Build source distribution
+    - name: Build wheel and source distribution
       run: |
-        python -m build --sdist --outdir dist/
-
-    - name: List built distributions
-      run: |
+        python -m build --outdir dist/
         ls -lh dist/
 
-    - name: Upload sdist artifact
+    - name: Check distributions
+      env:
+        TAG_NAME: ${{ github.event.release.tag_name }}
+      run: python scripts/check_dist.py dist --tag "$TAG_NAME"
+
+    - name: Upload distributions
       uses: actions/upload-artifact@v4
       with:
-        name: sdist
-        path: dist/*.tar.gz
+        name: dist
+        path: dist/
         retention-days: 90
+
+  verify:
+    name: Verify wheel on ${{ matrix.os }} with Python ${{ matrix.python-version }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Same matrix as ci.yml
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        exclude:
+          - os: windows-latest
+            python-version: '3.9'
+
+    steps:
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+
+    - name: Download distributions
+      uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+    - name: Install the wheel
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install dist/*.whl
+
+    - name: Smoke test
+      shell: bash
+      run: |
+        version=$(basename dist/*.whl | cut -d- -f2)
+        out=$(fz --version)
+        echo "$out"
+        if [ "$out" != "fz $version" ]; then
+          echo "::error::'fz --version' printed '$out', expected 'fz $version'"; exit 1
+        fi
+        mkdir smoke && cd smoke
+        python - <<'PY'
+        import platform
+        from pathlib import Path
+        import fz, fz.runners
+
+        Path("input.txt").write_text("x = $(x)\n")
+        Path("run.sh").write_text("cut -d= -f2 input.txt > y.txt\n")
+        model = {"varprefix": "$", "delim": "()", "output": {"y": "cat y.txt"}}
+        assert fz.fzi("input.txt", model) == {"x": None}
+        fz.fzc("input.txt", {"x": [1, 2]}, model, output_dir="compiled")
+        assert sorted(p.name for p in Path("compiled").iterdir()) == ["x=1", "x=2"]
+        if platform.system() != "Windows":  # sh:// needs bash (MSYS2 on Windows)
+            df = fz.fzr("input.txt", {"x": [1, 2]}, model,
+                        calculators="sh://bash run.sh",
+                        results_dir="results")
+            assert list(df["status"]) == ["done", "done"], df
+            assert [float(v) for v in df["y"]] == [1.0, 2.0], df
+        print("smoke test passed:", fz.__version__)
+        PY
 
   publish-to-pypi:
     name: Publish to PyPI
-    needs: [build-wheels, build-sdist]
+    needs: [build, verify]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     environment:
@@ -103,16 +121,14 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
 
     steps:
-    - name: Download all artifacts
+    - name: Download distributions
       uses: actions/download-artifact@v4
       with:
-        path: dist-artifacts/
+        name: dist
+        path: dist/
 
-    - name: Consolidate artifacts
-      run: |
-        mkdir -p dist/
-        find dist-artifacts/ -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp {} dist/ \;
-        ls -lh dist/
+    - name: List distributions
+      run: ls -lh dist/
 
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
@@ -122,23 +138,21 @@ jobs:
 
   publish-to-github:
     name: Publish to GitHub Releases
-    needs: [build-wheels, build-sdist]
+    needs: [build, verify]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
       contents: write
 
     steps:
-    - name: Download all artifacts
+    - name: Download distributions
       uses: actions/download-artifact@v4
       with:
-        path: dist-artifacts/
+        name: dist
+        path: dist/
 
-    - name: Consolidate artifacts
-      run: |
-        mkdir -p dist/
-        find dist-artifacts/ -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp {} dist/ \;
-        ls -lh dist/
+    - name: List distributions
+      run: ls -lh dist/
 
     - name: Upload to GitHub Release
       uses: softprops/action-gh-release@v1
