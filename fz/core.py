@@ -2246,9 +2246,11 @@ def fzd(
             iteration += 1
             log_info(f"\n📊 Iteration {iteration}: Evaluating {len(current_design)} point(s)...")
 
-            # Create results subdirectory for this iteration
+            # Results subdirectory for this iteration. Not created here: fzr()
+            # creates it for file-based models (and renames an existing one, which
+            # left an empty iterNNN_<timestamp>/ per iteration, issue #106); the
+            # function-model branch creates it before writing values.csv.
             iteration_result_dir = results_dir / f"iter{iteration:03d}"
-            iteration_result_dir.mkdir(parents=True, exist_ok=True)
 
             # Run fzr (or the target function) for all points in parallel using calculators
             try:
@@ -2277,6 +2279,7 @@ def fzd(
                     unique_results = _run_function_model_design(
                         model_func, unique_design, output_expression, function_workers
                     )
+                    iteration_result_dir.mkdir(parents=True, exist_ok=True)
                     _save_function_model_iteration_csv(
                         iteration_result_dir, all_var_names, unique_design, unique_results
                     )
