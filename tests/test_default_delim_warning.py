@@ -98,9 +98,12 @@ def test_required_error_without_hint_when_delim_set(tmp_path):
 
 def test_cli_stdout_stays_json(tmp_path):
     inp = _write(tmp_path, "in.sh", "x=$(x)\necho ${HOME}\n")
+    # The warning contains a non-ASCII emoji: decode as UTF-8 explicitly (the
+    # Windows default, cp1252, cannot decode it) and make the child write UTF-8
     proc = subprocess.run(
         [sys.executable, "-m", "fz.cli", "input", str(inp), "--format", "json"],
-        capture_output=True, text=True, env={**os.environ, "FZ_LOG_LEVEL": "WARNING"},
+        capture_output=True, encoding="utf-8", errors="replace",
+        env={**os.environ, "FZ_LOG_LEVEL": "WARNING", "PYTHONIOENCODING": "utf-8"},
     )
     if proc.returncode != 0 and "No module named" in proc.stderr:
         pytest.skip("fz.cli not runnable as a module")
