@@ -190,3 +190,41 @@ def test_mcp_env_vars_documented_in_skill():
     ref = (SKILL_DIR / "reference.md").read_text(encoding="utf-8")
     for var in ("FZ_MCP_ROOT", "FZ_MCP_TRUSTED"):
         assert var in ref and var in FZ_SRC
+
+
+def _algorithm_option_names(path: Path) -> set:
+    """Option names declared in an algorithm file's '#options: k=v;k2=v2' header."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("#options:"):
+            return {kv.split("=", 1)[0].strip() for kv in line[len("#options:"):].split(";") if kv.strip()}
+    return set()
+
+
+def test_example_algorithms_documented_in_skill():
+    """Completeness: every algorithm shipped in examples/algorithms/ is mentioned in the skill"""
+    text = _skill_text()
+    algos = sorted(p for p in (REPO / "examples" / "algorithms").iterdir()
+                   if p.suffix in (".py", ".R") and not p.name.startswith("demo_"))
+    assert algos, "no example algorithm found"
+    missing = [p.name for p in algos if p.name not in text and p.stem not in text]
+    assert not missing, f"example algorithms missing from skills/fz/: {missing}"
+
+
+def test_skill_algorithm_options_match_algorithm_headers():
+    """Exactness: algorithm_options keys in skill examples exist in the algorithm's #options
+
+    An unknown key is silently ignored by the algorithm (e.g. bfgs reads only max_iter)."""
+    import ast
+
+    checked = 0
+    for f in SKILL_FILES:
+        text = f.read_text(encoding="utf-8")
+        for m in re.finditer(r'algorithm="examples/algorithms/(\w+)\.py".*?algorithm_options=(\{[^}]*\})',
+                             text, re.S):
+            declared = _algorithm_option_names(REPO / "examples" / "algorithms" / f"{m.group(1)}.py")
+            used = set(ast.literal_eval(m.group(2)))
+            assert used <= declared, (
+                f"{f.name}: options {sorted(used - declared)} not declared by {m.group(1)}.py "
+                f"(#options: {sorted(declared)})")
+            checked += 1
+    assert checked, "no algorithm_options example found in the skill"

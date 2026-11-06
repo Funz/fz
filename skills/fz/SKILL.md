@@ -142,8 +142,9 @@ possible. For reusability, save as `.fz/models/perfectgas.json` (project) or
 **Prefer shell-free native outputs** when authoring new models: values prefixed with
 `python://` are evaluated as Python expressions in the result directory (no bash, no
 locale or quoting pitfalls, portable to Windows). Helpers available: `read(path)`,
-`lines(path)`, `line(path, n)`, `grep(pattern, path, all=False)` (returns first capture
-group, cast to number when possible), `json_file(path)`, `csv_file(path, column=None)`,
+`lines(path)`, `line(path, n)`, `grep(pattern, path, group=None, all=False, cast=True)`
+(returns the first capture group, or the whole match without groups, or `group=`; cast to
+number when possible), `json_file(path)`, `csv_file(path, column=None)`,
 `hdf5_file(path, dataset=None)` (optional `h5py` dependency), plus `re`, `json`,
 `math`, `statistics`, `np`, `pd`, `Path`:
 
@@ -234,11 +235,13 @@ fzr --input_path input.txt --model perfectgas \
   `for _, row in results.iterrows(): plt.plot(row["res_M_time"], row["res_M_T"])`.
 - Each case directory under `results/` keeps compiled inputs, outputs, `out.txt`,
   `err.txt`, `log.txt` — read these to diagnose failed cases. These names (plus
-  `info.txt`, `history.txt`, `.fz_hash`) are **reserved**: a code output called
-  `out.txt` is overwritten by the captured stdout. The results root also gets
+  `info.txt`, `history.txt`, `.fz_hash`) are **reserved**: fz rewrites `log.txt`,
+  `info.txt`, `history.txt` and `.fz_hash`, and `out.txt`/`err.txt` receive the captured
+  stdout/stderr, so a code file with one of these names ends up with whichever was
+  written last. The results root also gets
   `manifest.json` (+ `ro-crate-metadata.json`) for traceability.
-- Failed cases are retried automatically on another calculator (default 5 attempts,
-  `FZ_MAX_RETRIES`).
+- Failed cases are retried automatically, on another calculator when there is one (else on
+  the same), up to `FZ_MAX_RETRIES` attempts (default 5).
 
 ## Calculators (where cases run)
 
@@ -293,7 +296,7 @@ results = fz.fzd(
     output_expression="pressure",            # any expression of the outputs
     algorithm="examples/algorithms/bfgs.py", # or randomsampling, montecarlo_uniform, brent...
     calculators="sh://bash PerfectGazPressure.sh",
-    algorithm_options={"max_iterations": 50},
+    algorithm_options={"max_iter": 50},       # keys must match the #options header
     analysis_dir="results_fzd",
 )
 results["XY"]       # DataFrame of all evaluated points
@@ -311,8 +314,10 @@ fz install algorithm brent        # name → https://github.com/Funz/fz-brent
 Algorithm repos share the `fz-<name>` naming with model wrappers — browse
 <https://github.com/orgs/Funz/repositories?q=fz-> for both (as of 2026-06: `fz-brent`,
 `fz-gradientdescent`, `fz-PSO`; the `algorithm-*` repos are legacy Java-Funz). The fz repo
-itself also ships ready-to-use algorithms in `examples/algorithms/` (`montecarlo_uniform`,
-`randomsampling`, `bfgs`, `brent`) — copy one into `.fz/algorithms/`:
+itself also ships ready-to-use algorithms in `examples/algorithms/` (`montecarlo_uniform`
+(also as `montecarlo_uniform.R`), `randomsampling`, `bfgs`, `brent`, and `nsga2` for
+multi-objective optimization with a list of `output_expression`) — copy one into
+`.fz/algorithms/`:
 
 ```bash
 curl -s https://raw.githubusercontent.com/Funz/fz/main/examples/algorithms/montecarlo_uniform.py \
