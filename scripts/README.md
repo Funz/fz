@@ -25,29 +25,21 @@ python scripts/stamp_version.py
 
 #### CI/CD Integration
 
-The script is automatically run by GitHub Actions workflows:
-- `.github/workflows/ci.yml` - Stamps version before running tests and building packages
-- `.github/workflows/stamp-version.yml` - Dedicated workflow for version stamping
+`.github/workflows/release.yml` runs the script before building the wheels and the
+sdist, so published packages carry the commit date and hash of the released commit.
+No other workflow runs it: in a source checkout, `fz/_version.py` may hold older
+commit metadata.
 
-### CI Workflow Integration
-
-All CI workflows that build or test the package have been updated to:
-
-1. Checkout with full git history (`fetch-depth: 0`)
-2. Run the stamp script early in the workflow
-3. Proceed with building/testing using the stamped version
-
-This ensures that:
-- All built packages contain accurate version information
-- Tests run with the correct version metadata
-- The version information matches the exact git commit being built
+The version number itself has a single source, `fz/__init__.py` (read by
+`pyproject.toml`, `fz --version`, `fz.config` and `manifest.json`); the
+`__version__` copied into `fz/_version.py` is informative only.
 
 ### Version File Structure
 
 The generated `fz/_version.py` file contains:
 
 ```python
-__version__ = "0.9.0"           # From fz/__init__.py
+__version__ = "2.0"             # From fz/__init__.py
 __commit_date__ = "2025-10-..."  # From git log
 __commit_hash__ = "42d1e24"      # From git rev-parse
 ```

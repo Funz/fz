@@ -10,17 +10,12 @@ from enum import Enum
 
 
 def _get_version() -> str:
-    """Get package version from static version file"""
+    """Get the package version (single source: fz/__init__.py)"""
     try:
-        from fz._version import __version__
+        from fz import __version__
         return __version__
     except ImportError:
-        # Fallback to __init__.py if _version.py not found
-        try:
-            from fz import __version__
-            return __version__
-        except ImportError:
-            return "unknown"
+        return "unknown"
 
 
 def _get_last_commit_date() -> str:

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Funz/fz/workflows/CI/badge.svg)](https://github.com/Funz/fz/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Version](https://img.shields.io/badge/version-1.2-blue.svg)](https://github.com/Funz/fz/releases)
+[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/Funz/fz/releases)
 
 FZ wraps a simulation code driven by text input files and turns it into a parametric
 study: it substitutes variable values into input templates, runs every case (locally, over

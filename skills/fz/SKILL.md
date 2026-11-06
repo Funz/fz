@@ -18,14 +18,18 @@ fz wraps any simulation code that reads input files and writes output files, so 
 run as a parametric study: variables in input files are substituted for each case, cases run
 in parallel (locally, SSH, SLURM), and outputs are parsed back into a pandas DataFrame.
 
-Install: `pip install 'funz-fz>=1.2'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
-`fzd` plus the `fz` Python package). 1.2 is recommended — on top of the 1.1 fixes (`fzd`
-on the CLI, calculator auto-discovery for `fzd`, directory-tree inputs staged intact) it
-adds shell-free output extraction (`python://`/`jq://`/`yq://`/`xpath://`), vector outputs,
-multi-objective `fzd`, shared `input_static` files, and configurable `case_naming`.
+Install: `pip install 'funz-fz>=2.0'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
+`fzd` plus the `fz` Python package; Python >= 3.9). 2.0 is recommended — it fixes `sh://`
+commands that could read the un-substituted template from the launch directory (wrong
+results with 1.2), case-name/remote-command injection, and `timeout=0` (now "no timeout");
+it adds `slurm-array://`, the `fz-mcp` server, `manifest.json`/RO-Crate traceability, and
+reads both `$(x)` and `${x}` when a model sets no `delim`. Caches written by fz <= 1.2 are
+ignored (`FZ_CACHE_ACCEPT_LEGACY=1` to reuse them). 1.2 added shell-free output extraction
+(`python://`/`jq://`/`yq://`/`xpath://`), vector outputs, multi-objective `fzd`, shared
+`input_static` files, and configurable `case_naming`.
 On PEP 668 externally-managed systems
 (`error: externally-managed-environment`), use a venv:
-`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=1.2'`.
+`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=2.0'`.
 
 ## The workflow
 

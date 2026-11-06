@@ -163,6 +163,28 @@ class TestSkillCodeDrift:
             assert hasattr(fz, name), f"fz.{name} missing from public API"
 
 
+def _skill_text() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in SKILL_FILES)
+
+
+def test_public_api_documented_in_skill():
+    """Completeness: every name exported in fz.__all__ is mentioned in the skill"""
+    import fz
+
+    text = _skill_text()
+    missing = [n for n in fz.__all__ if n not in text]
+    assert not missing, f"fz.__all__ names missing from skills/fz/: {missing}"
+
+
+def test_cli_subcommands_documented_in_skill():
+    """Completeness: every top-level `fz <subcommand>` is mentioned in the skill"""
+    text = _skill_text()
+    subs = re.findall(r'(?<!\w)subparsers\.add_parser\(\s*"([a-z_-]+)"', CLI_SRC)
+    assert subs, "no fz subcommand found in fz/cli.py"
+    missing = [s for s in subs if f"fz {s}" not in text]
+    assert not missing, f"fz subcommands missing from skills/fz/: {missing}"
+
+
 def test_mcp_env_vars_documented_in_skill():
     """The fz-mcp env vars are documented in the skill and exist in the code"""
     ref = (SKILL_DIR / "reference.md").read_text(encoding="utf-8")

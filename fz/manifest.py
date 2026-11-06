@@ -61,7 +61,7 @@ def build_manifest(
     interrupted: bool = False,
 ) -> Dict[str, Any]:
     """Assemble the manifest dict of a finished ``fzr`` campaign."""
-    from ._version import __version__ as fz_version
+    from . import __version__ as fz_version
 
     results_dir = Path(results_dir)
     model_json = json.dumps(model, sort_keys=True, default=str)
@@ -131,7 +131,7 @@ def build_fzd_manifest(
     interrupted: bool = False,
 ) -> Dict[str, Any]:
     """Assemble the manifest dict of a finished ``fzd`` (design/optimization) campaign."""
-    from ._version import __version__ as fz_version
+    from . import __version__ as fz_version
 
     results_dir = Path(results_dir)
     if callable(model):
