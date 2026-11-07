@@ -269,6 +269,10 @@ Each item is detailed in its section below.
 - The once-per-host de-duplication of SSH/SLURM security warnings (P0-3 below) is keyed
   by host *and* message, so a second distinct warning for the same host (e.g. "no
   username provided" after "password in URI") is still shown.
+- `fzd` with a file-based model left an empty `iterNNN_<timestamp>/` directory next to
+  each `iterNNN/` of its `analysis_dir`: it created `iterNNN/` before calling `fzr()`,
+  which renames an existing `results_dir`. Results and cross-run cache reuse were not
+  affected (Funz/fz#106).
 
 ### `cache://` key: SHA-256, versioned `.fz_hash`, calculator `code_id` (P0-1)
 
