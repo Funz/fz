@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## Version 2.0 (2026-11-06)
+## Version 2.0 (2026-11-07)
 
 **This release contains behavior changes that are not backward compatible, hence the
 major version** (Python 3.8 dropped, cache key, default delimiters, timeouts, `sh://`
