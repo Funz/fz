@@ -14,7 +14,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # ubuntu-24.04, not ubuntu-latest: the ubuntu-latest image moved to Ubuntu 26.04
+        # (no Python 3.9; pip auto-install fails on Python 3.14), see issue #110
+        os: [ubuntu-24.04, windows-latest, macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         exclude:
           # Disable Windows + Python 3.9 combination
