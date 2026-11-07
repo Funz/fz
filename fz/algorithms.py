@@ -414,6 +414,16 @@ def _parse_algorithm_metadata(file_path: Path) -> Dict[str, Any]:
     return metadata
 
 
+def _pip_error_tail(error: "subprocess.CalledProcessError", max_lines: int = 20) -> str:
+    """Last lines of a failed pip run's stderr, else of its stdout (pip prints some errors there)."""
+    for stream in (error.stderr, error.output):
+        if isinstance(stream, bytes):
+            stream = stream.decode("utf-8", errors="replace")
+        if stream and stream.strip():
+            return "\n".join(stream.strip().splitlines()[-max_lines:])
+    return f"pip exited with status {error.returncode} and printed nothing"
+
+
 def _load_algorithm_from_file(file_path: Path, **options):
     """
     Load algorithm class from a Python file
@@ -440,12 +450,18 @@ def _load_algorithm_from_file(file_path: Path, **options):
             except ImportError:
                 logging.info(f"⚠️  Package '{package}' not found - attempting to install...")
                 try:
-                    # Install the package using pip
-                    subprocess.check_call(
+                    # Install the package using pip. Capture its output (check_call with
+                    # stderr=PIPE never read the pipe, so the error message was always
+                    # empty) and report the end of it if the install fails.
+                    proc = subprocess.run(
                         [sys.executable, "-m", "pip", "install", package],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.PIPE
+                        capture_output=True,
+                        text=True,
                     )
+                    if proc.returncode != 0:
+                        raise subprocess.CalledProcessError(
+                            proc.returncode, proc.args, output=proc.stdout, stderr=proc.stderr
+                        )
                     logging.info(f"✓ Successfully installed '{package}'")
 
                     # Verify the installation
@@ -457,7 +473,7 @@ def _load_algorithm_from_file(file_path: Path, **options):
                             f"You may need to restart your Python session."
                         )
                 except subprocess.CalledProcessError as e:
-                    error_msg = e.stderr.decode('utf-8') if e.stderr else ''
+                    error_msg = _pip_error_tail(e)
                     raise RuntimeError(
                         f"Failed to install required package '{package}'. "
                         f"Please install it manually with: pip install {package}\n"

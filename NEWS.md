@@ -273,6 +273,9 @@ Each item is detailed in its section below.
   each `iterNNN/` of its `analysis_dir`: it created `iterNNN/` before calling `fzr()`,
   which renames an existing `results_dir`. Results and cross-run cache reuse were not
   affected (Funz/fz#106).
+- A failed `#require:` auto-install of an algorithm reported an empty `Error:`: pip's
+  stderr was piped but never read. The message now ends with pip's output (stderr, else
+  stdout), or states its exit status when pip printed nothing (Funz/fz#110).
 
 ### `cache://` key: SHA-256, versioned `.fz_hash`, calculator `code_id` (P0-1)
 
