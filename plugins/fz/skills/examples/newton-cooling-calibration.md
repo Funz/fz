@@ -33,14 +33,15 @@ zero. (The analytic answer, for checking: `T(t) = T_env + (T0−T_env)·e^{−kt
 
 ## Prerequisites
 
-- `fz` on PATH (`pip install 'funz-fz>=1.1'`; the CLI `fzd` used here is fixed in 1.1).
-- The **fz skill** installed (see [../howto.md](../howto.md)).
+- `fz` >= 1.1 on PATH (the CLI `fzd` used here is fixed in 1.1); see
+  <https://github.com/Funz/fz#installation>.
+- The **fz skill** installed (see the [howto](https://github.com/Funz/fz/blob/main/skills/howto.md)).
 - **OpenModelica** (`omc` on PATH) — the Modelica wrapper shells out to it.
-  Ubuntu/Debian: `sudo apt-get install openmodelica`; macOS: `brew install openmodelica`.
+  See <https://openmodelica.org/download/> for installation.
 - **R with rpy2** — the installed `brent` algorithm is implemented in R (`brent.R`), so fz
-  evaluates it through rpy2; it also needs the R package `base64enc`. (`pip install rpy2`,
-  and an R install; fz auto-installs `base64enc` via its `#require` header on first use.)
-- `claude` CLI, logged in or `ANTHROPIC_API_KEY` set.
+  evaluates it through rpy2; it also needs the R package `base64enc`. (install rpy2 and R
+  following their own instructions; fz auto-installs `base64enc` via its `#require` header on first use.)
+- `claude` CLI, logged in.
 
 Work in a scratch directory **outside any git repository** (Claude Code resolves its
 project at the enclosing repo root, which would otherwise hide a project-level skill):

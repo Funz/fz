@@ -1,6 +1,6 @@
 ---
 description: Run an fz parametric study over a variable grid and collect the results
-argument-hint: [variables + ranges, calculator/host, outputs wanted]
+argument-hint: "[variables + ranges, calculator/host, outputs wanted]"
 ---
 Run a parametric study with **fz** (`fzr`), following the fz Agent Skill.
 

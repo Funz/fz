@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Claude Code plugin moved to `plugins/fz/` (skill now in `plugins/fz/skills/fz/`, slash
+  commands in `plugins/fz/commands/`) so it can be submitted to the Claude plugin
+  directory, which only accepts a folder of Markdown/JSON/images. The marketplace
+  (`/plugin install fz@funz`) points to it; reinstall the plugin to pick up the new path.
+  Adds a listing icon (the Funz logo) and a `displayName` ("Funz fz"). Copy the skill
+  from `plugins/fz/skills/fz/` instead of `skills/fz/`. `skills/fz` remains as a symbolic
+  link to it, so old links keep working; copy through it with `cp -rL skills/fz ...`
+  (a plain `cp -r skills/fz` copies the link itself, which then points nowhere).
+
 ## Version 2.0 (2026-11-08)
 
 **This release contains behavior changes that are not backward compatible, hence the

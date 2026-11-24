@@ -1,5 +1,5 @@
 """
-Static validation of the agent skill in skills/fz/.
+Static validation of the agent skill in plugins/fz/skills/fz/.
 
 These tests need no API key and no claude CLI: they check that the skill is
 well-formed (frontmatter, links) and that everything it claims about fz still
@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
-SKILL_DIR = REPO / "skills" / "fz"
+SKILL_DIR = REPO / "plugins" / "fz" / "skills" / "fz"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 SKILL_FILES = sorted(SKILL_DIR.glob("*.md"))
 CLI_SRC = (REPO / "fz" / "cli.py").read_text(encoding="utf-8")
@@ -173,7 +173,7 @@ def test_public_api_documented_in_skill():
 
     text = _skill_text()
     missing = [n for n in fz.__all__ if n not in text]
-    assert not missing, f"fz.__all__ names missing from skills/fz/: {missing}"
+    assert not missing, f"fz.__all__ names missing from plugins/fz/skills/fz/: {missing}"
 
 
 def test_cli_subcommands_documented_in_skill():
@@ -182,7 +182,7 @@ def test_cli_subcommands_documented_in_skill():
     subs = re.findall(r'(?<!\w)subparsers\.add_parser\(\s*"([a-z_-]+)"', CLI_SRC)
     assert subs, "no fz subcommand found in fz/cli.py"
     missing = [s for s in subs if f"fz {s}" not in text]
-    assert not missing, f"fz subcommands missing from skills/fz/: {missing}"
+    assert not missing, f"fz subcommands missing from plugins/fz/skills/fz/: {missing}"
 
 
 def test_mcp_env_vars_documented_in_skill():
@@ -207,7 +207,7 @@ def test_example_algorithms_documented_in_skill():
                    if p.suffix in (".py", ".R") and not p.name.startswith("demo_"))
     assert algos, "no example algorithm found"
     missing = [p.name for p in algos if p.name not in text and p.stem not in text]
-    assert not missing, f"example algorithms missing from skills/fz/: {missing}"
+    assert not missing, f"example algorithms missing from plugins/fz/skills/fz/: {missing}"
 
 
 def test_skill_algorithm_options_match_algorithm_headers():

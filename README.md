@@ -196,7 +196,7 @@ default (trusted) mode is equivalent to giving that agent shell access.
 
 ## Using fz with AI Coding Agents
 
-An [Agent Skill](https://agentskills.io) is bundled in [`skills/fz/`](skills/fz/): it teaches
+An [Agent Skill](https://agentskills.io) is bundled in [`plugins/fz/skills/fz/`](plugins/fz/skills/fz/): it teaches
 coding agents (Claude Code and other agents supporting the skills format) the fz workflow.
 In Claude Code:
 
@@ -205,9 +205,9 @@ In Claude Code:
 /plugin install fz@funz
 ```
 
-or copy `skills/fz/` into `.claude/skills/` (project) or `~/.claude/skills/` (user). The
-skill holds the workflow ([`skills/fz/SKILL.md`](skills/fz/SKILL.md)), a condensed
-API/CLI reference ([`skills/fz/reference.md`](skills/fz/reference.md)) and wrapper guides.
+or copy `plugins/fz/skills/fz/` into `.claude/skills/` (project) or `~/.claude/skills/` (user). The
+skill holds the workflow ([`plugins/fz/skills/fz/SKILL.md`](plugins/fz/skills/fz/SKILL.md)), a condensed
+API/CLI reference ([`plugins/fz/skills/fz/reference.md`](plugins/fz/skills/fz/reference.md)) and wrapper guides.
 Walkthrough with example prompts: [`skills/howto.md`](skills/howto.md); plugin slash commands
 and manual install: [AI agents](doc/ai-agents.md).
 

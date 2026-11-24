@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "fz",
-      "source": "./",
+      "source": "./plugins/fz",
       "description": "Wrap simulation codes and run parametric studies with fz: the fz Agent Skill plus /fz:wrap, /fz:run, /fz:design and /fz:install commands (sweeps, SSH/SLURM execution, design of experiments, wrapper authoring).",
       "category": "scientific-computing",
       "keywords": [

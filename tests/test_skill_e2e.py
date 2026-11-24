@@ -1,5 +1,5 @@
 """
-End-to-end tests of the agent skill in skills/fz/, driven by the claude CLI.
+End-to-end tests of the agent skill in plugins/fz/skills/fz/, driven by the claude CLI.
 
 These tests launch a headless Claude Code session in a sandbox containing the
 skill and a small deterministic simulation (perfect gas pressure), then assert
@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
-SKILL_SRC = REPO / "skills" / "fz"
+SKILL_SRC = REPO / "plugins" / "fz" / "skills" / "fz"
 
 CLAUDE = shutil.which("claude")
 MODEL = os.environ.get("FZ_SKILL_TEST_MODEL", "claude-haiku-4-5")

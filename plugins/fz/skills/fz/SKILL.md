@@ -18,7 +18,8 @@ fz wraps any simulation code that reads input files and writes output files, so 
 run as a parametric study: variables in input files are substituted for each case, cases run
 in parallel (locally, SSH, SLURM), and outputs are parsed back into a pandas DataFrame.
 
-Install: `pip install 'funz-fz>=2.0'` (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
+Install: the `funz-fz` package (>= 2.0) from PyPI, following
+<https://github.com/Funz/fz#installation> (CLI commands `fz`, `fzi`, `fzc`, `fzo`, `fzr`, `fzl`,
 `fzd` plus the `fz` Python package; Python >= 3.9). 2.0 is recommended — it fixes `sh://`
 commands that could read the un-substituted template from the launch directory (wrong
 results with 1.2), case-name/remote-command injection, and `timeout=0` (now "no timeout");
@@ -28,8 +29,7 @@ ignored (`FZ_CACHE_ACCEPT_LEGACY=1` to reuse them). 1.2 added shell-free output 
 (`python://`/`jq://`/`yq://`/`xpath://`), vector outputs, multi-objective `fzd`, shared
 `input_static` files, and configurable `case_naming`.
 On PEP 668 externally-managed systems
-(`error: externally-managed-environment`), use a venv:
-`python3 -m venv .venv && .venv/bin/pip install 'funz-fz>=2.0'`.
+(`error: externally-managed-environment`), install it in a virtual environment.
 
 ## The workflow
 
@@ -317,12 +317,8 @@ Algorithm repos share the `fz-<name>` naming with model wrappers — browse
 itself also ships ready-to-use algorithms in `examples/algorithms/` (`montecarlo_uniform`
 (also as `montecarlo_uniform.R`), `randomsampling`, `bfgs`, `brent`, and `nsga2` for
 multi-objective optimization with a list of `output_expression`) — copy one into
-`.fz/algorithms/`:
-
-```bash
-curl -s https://raw.githubusercontent.com/Funz/fz/main/examples/algorithms/montecarlo_uniform.py \
-  -o .fz/algorithms/montecarlo_uniform.py
-```
+`.fz/algorithms/` (e.g. `montecarlo_uniform.py` from
+<https://github.com/Funz/fz/tree/main/examples/algorithms>).
 
 Installed algorithms land in `.fz/algorithms/` (`--global` for `~/.fz/`) and are referenced
 by bare name (or glob): `algorithm="montecarlo_uniform"`. Check the `#options:` and

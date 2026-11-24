@@ -1,6 +1,6 @@
 ---
 description: Wrap a simulation code with fz and verify it step by step
-argument-hint: [path to the solver/script + input file, or a short description]
+argument-hint: "[path to the solver/script + input file, or a short description]"
 ---
 Wrap a simulation code with the **fz** package so it can be driven as a parametric
 study, following the fz Agent Skill workflow. Do the steps in order and verify each

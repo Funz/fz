@@ -1,7 +1,10 @@
 name: Skill Tests
 
-# Validates the agent skill in skills/fz/:
-# - static: format and code-drift checks (free, deterministic, blocking)
+# Validates the agent skill in plugins/fz/skills/fz/:
+# - static: format and code-drift checks (free, deterministic, blocking), plus the
+#   Claude plugin directory rules for plugins/fz/ (tests/test_plugin_directory.py and
+#   `claude plugin validate --strict`, with `--profile directory` when the CLI offers it;
+#   no API key needed)
 # - e2e: headless Claude Code drives the skill on a sample simulation
 #   (needs ANTHROPIC_API_KEY secret; costs tokens; mildly nondeterministic,
 #   so advisory rather than release-blocking)
@@ -10,16 +13,22 @@ on:
   push:
     branches: [ main ]
     paths:
+      - 'plugins/fz/**'
+      - '.claude-plugin/**'
       - 'skills/**'
       - 'tests/test_skill_*.py'
+      - 'tests/test_plugin_directory.py'
       - 'fz/cli.py'
       - 'fz/mcp_server.py'
       - '.github/workflows/skill-tests.yml'
   pull_request:
     branches: [ main ]
     paths:
+      - 'plugins/fz/**'
+      - '.claude-plugin/**'
       - 'skills/**'
       - 'tests/test_skill_*.py'
+      - 'tests/test_plugin_directory.py'
       - 'fz/mcp_server.py'
       - 'tests/test_mcp_server.py'
   workflow_dispatch:
@@ -33,12 +42,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install claude CLI (for the offline plugin validator)
+        run: npm install -g @anthropic-ai/claude-code
       - name: Install fz
         run: |
           pip install -e .
-          pip install pytest mcp
-      - name: Run static skill and MCP tests
-        run: pytest tests/test_skill_static.py tests/test_mcp_server.py -v
+          pip install pytest mcp pyyaml
+      - name: Run static skill, plugin and MCP tests
+        run: pytest tests/test_skill_static.py tests/test_plugin_directory.py tests/test_mcp_server.py -v
 
   e2e:
     name: End-to-end (headless Claude Code)

@@ -1,6 +1,6 @@
 ---
 description: Adaptive design of experiments, optimization or calibration with fz (fzd)
-argument-hint: [objective, variables + [min;max] ranges, algorithm]
+argument-hint: "[objective, variables + [min;max] ranges, algorithm]"
 ---
 Solve an adaptive design-of-experiments problem with **fz** (`fzd`), following the
 fz Agent Skill.
