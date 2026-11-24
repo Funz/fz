@@ -3,7 +3,8 @@ name: Skill Tests
 # Validates the agent skill in plugins/fz/skills/fz/:
 # - static: format and code-drift checks (free, deterministic, blocking), plus the
 #   Claude plugin directory rules for plugins/fz/ (tests/test_plugin_directory.py and
-#   `claude plugin validate --profile directory --strict`, which needs no API key)
+#   `claude plugin validate --strict`, with `--profile directory` when the CLI offers it;
+#   no API key needed)
 # - e2e: headless Claude Code drives the skill on a sample simulation
 #   (needs ANTHROPIC_API_KEY secret; costs tokens; mildly nondeterministic,
 #   so advisory rather than release-blocking)

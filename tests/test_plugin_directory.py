@@ -237,15 +237,22 @@ class TestLegacySkillPath:
         assert legacy.resolve() == (PLUGIN / "skills" / "fz").resolve()
 
 
+def _claude(*args):
+    return subprocess.run(["claude", "plugin", "validate", *args], capture_output=True,
+                          text=True, timeout=120, shell=sys.platform == "win32")
+
+
 @pytest.mark.skipif(shutil.which("claude") is None, reason="claude CLI not installed")
-def test_official_validator_directory_profile():
-    """`claude plugin validate --profile directory --strict` (no API call)"""
+def test_official_validator():
+    """`claude plugin validate --strict` (no API call), with the directory profile
+    when this claude build offers it (`--profile` is not available in every
+    environment, even at the same version)"""
     if os.environ.get("FZ_SKILL_E2E") == "0":
         pytest.skip("FZ_SKILL_E2E=0")
-    for target in (PLUGIN, MARKETPLACE):
-        args = ["claude", "plugin", "validate", str(target)]
-        if target == PLUGIN:
-            args += ["--profile", "directory", "--strict"]
-        r = subprocess.run(args, capture_output=True, text=True, timeout=120,
-                           shell=sys.platform == "win32")
-        assert r.returncode == 0, f"{' '.join(args)} failed:\n{r.stdout}\n{r.stderr}"
+    plugin_args = [str(PLUGIN), "--strict"]
+    if "--profile" in _claude("--help").stdout:
+        plugin_args += ["--profile", "directory"]
+    for args in (plugin_args, [str(MARKETPLACE)]):
+        r = _claude(*args)
+        assert r.returncode == 0, (f"claude plugin validate {' '.join(args)} failed:\n"
+                                   f"{r.stdout}\n{r.stderr}")
