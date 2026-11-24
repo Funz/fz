@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Claude Code plugin: adds a listing icon (`.claude-plugin/icon.png`, the Funz logo)
+  for submission to the Claude plugin directory.
+
 ## Version 2.0 (2026-11-08)
 
 **This release contains behavior changes that are not backward compatible, hence the
