@@ -39,7 +39,7 @@ cd "$SANDBOX"
 
 # the skill, project-level
 mkdir -p .claude/skills
-cp -r "$FZ_REPO/skills/fz" .claude/skills/
+cp -r "$FZ_REPO/plugins/fz/skills/fz" .claude/skills/
 ```
 
 The simulation: an input file parameterized with fz syntax (`$var` variables, `@{...}`

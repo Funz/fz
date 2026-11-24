@@ -2,8 +2,12 @@
 
 ## Unreleased
 
-- Claude Code plugin: adds a listing icon (`.claude-plugin/icon.png`, the Funz logo)
-  for submission to the Claude plugin directory.
+- Claude Code plugin moved to `plugins/fz/` (skill now in `plugins/fz/skills/fz/`, slash
+  commands in `plugins/fz/commands/`) so it can be submitted to the Claude plugin
+  directory, which only accepts a folder of Markdown/JSON/images. The marketplace
+  (`/plugin install fz@funz`) points to it; reinstall the plugin to pick up the new path.
+  Adds a listing icon (the Funz logo) and a `displayName` ("Funz fz"). Copy the skill
+  from `plugins/fz/skills/fz/` instead of `skills/fz/`.
 
 ## Version 2.0 (2026-11-08)
 

@@ -1,6 +1,6 @@
 ---
 description: Find and install an official fz-<code> model wrapper or fzd algorithm
-argument-hint: [simulation code or algorithm name]
+argument-hint: "[simulation code or algorithm name]"
 ---
 Find and install a ready-made **fz** package for: $ARGUMENTS
 

@@ -1,6 +1,6 @@
 name: Skill Tests
 
-# Validates the agent skill in skills/fz/:
+# Validates the agent skill in plugins/fz/skills/fz/:
 # - static: format and code-drift checks (free, deterministic, blocking)
 # - e2e: headless Claude Code drives the skill on a sample simulation
 #   (needs ANTHROPIC_API_KEY secret; costs tokens; mildly nondeterministic,
@@ -10,7 +10,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'skills/**'
+      - 'plugins/fz/**'
       - 'tests/test_skill_*.py'
       - 'fz/cli.py'
       - 'fz/mcp_server.py'
@@ -18,7 +18,7 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - 'skills/**'
+      - 'plugins/fz/**'
       - 'tests/test_skill_*.py'
       - 'fz/mcp_server.py'
       - 'tests/test_mcp_server.py'

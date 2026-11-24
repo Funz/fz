@@ -9,7 +9,7 @@ codes to run parameter studies locally, over SSH, or on SLURM. Python rewrite of
   `cli.py` (entry points `fz`, `fzi`, ... defined in pyproject.toml), `runners/` (package: sh, ssh, slurm, funz, cache)
   (sh/ssh/slurm/funz/cache calculators), `interpreter.py` (variable/formula parsing,
   Python and R evaluation), `io.py`, `config.py` (env vars), `installer.py` (`fz install`).
-- `tests/` — pytest suite. `doc/` — modular user docs. `skills/fz/` — Agent Skill
+- `tests/` — pytest suite. `doc/` — modular user docs. `plugins/fz/skills/fz/` — Agent Skill
   (workflow + condensed reference). `examples/` — example models, algorithms, notebooks.
 - The version number lives in `fz/__init__.py` only. `fz/_version.py` (commit date/hash) is
   stamped by `release.yml` (`scripts/stamp_version.py`) — never edit it manually.
@@ -27,7 +27,7 @@ pytest tests/test_core.py -k name     # single test
   `requires_paramiko`, `requires_claude`.
 - The agent skill is tested: `tests/test_skill_static.py` (always runs; checks the skill's
   claims — CLI flags, env vars, defaults, signatures — against the code, so CLI changes can
-  fail it legitimately: update `skills/fz/` accordingly) and `tests/test_skill_e2e.py`
+  fail it legitimately: update `plugins/fz/skills/fz/` accordingly) and `tests/test_skill_e2e.py`
   (headless Claude Code; skipped unless the `claude` CLI is installed and a cheap probe
   shows it can answer — works with `ANTHROPIC_API_KEY` or CLI login; `FZ_SKILL_E2E=0`
   forces a skip).
@@ -76,7 +76,12 @@ R-dependent code or tests.
   `README.md` (overview only, kept under 300 lines: `tests/test_readme_structure.py`),
   `doc/` (the whole documentation, one file per topic; do not duplicate a topic across pages),
   and
-  `skills/fz/reference.md` (the agent skill ships to users).
+  `plugins/fz/skills/fz/reference.md` (the agent skill ships to users).
 - Default values live in `fz/config.py` and are env-overridable (`FZ_LOG_LEVEL`,
   `FZ_MAX_WORKERS`, `FZ_MAX_RETRIES` (default 5), `FZ_SSH_*`, `FZ_SHELL_PATH`).
 - User-facing release notes go in `NEWS.md`.
+- `plugins/fz/` is the Claude Code plugin submitted to the Claude plugin directory
+  (`.claude-plugin/marketplace.json` at the root points to it). Keep it to Markdown, JSON
+  and the PNG icon: no scripts, no `pip install`/`curl`/download commands (link to
+  <https://github.com/Funz/fz#installation> instead), no API-key variables. Check with
+  `claude plugin validate plugins/fz --profile directory --strict`.

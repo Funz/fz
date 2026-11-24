@@ -37,9 +37,9 @@ downstream location.
 - **OpenFOAM** installed and its environment **sourced** (`blockMesh`, `setFields`, and the
   solver — `interFoam` or `foamRun` depending on your distribution — on PATH). The tutorial
   case ships under `$FOAM_TUTORIALS/multiphase/interFoam/laminar/damBreak/damBreak`.
-- `fz` on PATH (`pip install 'funz-fz>=1.1'`) and the **fz skill** installed (see
-  [../howto.md](../howto.md)).
-- `claude` CLI, logged in or `ANTHROPIC_API_KEY` set.
+- `fz` >= 1.1 on PATH (see <https://github.com/Funz/fz#installation>) and the **fz skill**
+  installed (see the [howto](https://github.com/Funz/fz/blob/main/skills/howto.md)).
+- `claude` CLI, logged in.
 
 Work in a scratch directory **outside any git repository** (Claude Code resolves its
 project at the enclosing repo root, which would otherwise hide a project-level skill):

@@ -392,7 +392,7 @@ $(name)           variable with the Java-Funz "()" delimiters. A model with no "
 
 ## MCP server
 
-`fz-mcp` (extra: `pip install 'funz-fz[mcp]'`) serves `fzi`, `fzc`, `fzr`, `fzo`, `fzl` over
+`fz-mcp` (the `mcp` extra of `funz-fz`) serves `fzi`, `fzc`, `fzr`, `fzo`, `fzl` over
 MCP `stdio` only (network transport refused unless `FZ_MCP_TRANSPORT` + `FZ_MCP_ALLOW_NETWORK_TRANSPORT=1`
 are both set). `fzc`/`fzr` are tagged `destructiveHint`/`openWorldHint`, `fzi`/`fzo`/`fzl` are
 `readOnlyHint` (advisory - a client ignoring them can still trigger code execution via prompt

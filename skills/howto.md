@@ -24,13 +24,13 @@ describing the goal in plain language works just as well.
 
 ```bash
 mkdir -p ~/.claude/skills
-cp -r /path/to/fz/skills/fz ~/.claude/skills/
+cp -r /path/to/fz/plugins/fz/skills/fz ~/.claude/skills/
 ```
 
 Or symlink it so it tracks your fz checkout:
 
 ```bash
-ln -s /path/to/fz/skills/fz ~/.claude/skills/fz
+ln -s /path/to/fz/plugins/fz/skills/fz ~/.claude/skills/fz
 ```
 
 **Project-level** (shared with anyone working in that project):
@@ -38,7 +38,7 @@ ln -s /path/to/fz/skills/fz ~/.claude/skills/fz
 ```bash
 cd ~/my-simulation-project
 mkdir -p .claude/skills
-cp -r /path/to/fz/skills/fz .claude/skills/
+cp -r /path/to/fz/plugins/fz/skills/fz .claude/skills/
 ```
 
 > Note: don't install project-level *inside the fz repository itself* — nested directories
@@ -111,10 +111,10 @@ same test as explained, copy-pasteable shell commands.
 End-to-end walkthroughs of solving a real problem with the skill (natural-language ask +
 the path the agent follows, with checkable outcomes):
 
-- [examples/newton-cooling-calibration.md](examples/newton-cooling-calibration.md) —
+- [plugins/fz/skills/examples/newton-cooling-calibration.md](../plugins/fz/skills/examples/newton-cooling-calibration.md) —
   calibrate a Newton's-law-of-cooling model: the agent discovers the Modelica wrapper and
   the brent algorithm to solve a 1-parameter inverse problem.
-- [examples/openfoam-dambreak-random-sampling.md](examples/openfoam-dambreak-random-sampling.md) —
+- [plugins/fz/skills/examples/openfoam-dambreak-random-sampling.md](../plugins/fz/skills/examples/openfoam-dambreak-random-sampling.md) —
   random-sample the obstacle height in an OpenFOAM dam break: the agent builds *both* the
   code wrapper and the sampling algorithm from scratch (the "no official wrapper" path).
 
