@@ -84,4 +84,6 @@ R-dependent code or tests.
   (`.claude-plugin/marketplace.json` at the root points to it). Keep it to Markdown, JSON
   and the PNG icon: no scripts, no `pip install`/`curl`/download commands (link to
   <https://github.com/Funz/fz#installation> instead), no API-key variables. Check with
-  `claude plugin validate plugins/fz --profile directory --strict`.
+  `claude plugin validate plugins/fz --profile directory --strict`; `tests/test_plugin_directory.py`
+  enforces these rules (and runs that validator when `claude` is installed). Bump
+  `plugin.json` `version` with `fz.__version__` (major.minor must match).
