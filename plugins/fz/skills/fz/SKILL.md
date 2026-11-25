@@ -251,7 +251,7 @@ the number of entries is the number of parallel cases (`["sh://bash run.sh"] * 4
 | URI | Meaning |
 |-----|---------|
 | `sh://command` | Local shell, run in the case's temp directory; the compiled input file names are appended to the end of `command`. |
-| `ssh://user[:password]@host[:port]/command` | Remote via SSH (files transferred automatically; prefer key auth; use absolute paths in `command`). No default timeout. |
+| `ssh://user@host[:port]/command` | Remote via SSH (files transferred automatically; uses the user's SSH key setup; use absolute paths in `command`). No default timeout. |
 | `slurm://[user@host[:port]]:partition/command` | SLURM via `srun` (local form: `slurm://:partition/...`); resources as `?cores=4&mem=8G&time=01:00:00`. No default timeout. |
 | `slurm-array://:partition/command` | Local SLURM only: all cases batched into one sbatch job array (`?maxrunning=M` throttles). |
 | `cache://path` | Reuse results from a previous results directory (match by input hash). Put it first in the list. |

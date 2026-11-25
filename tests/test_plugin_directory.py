@@ -57,6 +57,7 @@ FORBIDDEN_PATTERNS = {
     "package index override": r"--(extra-)?index-url|\bgit\+https?://",
     "pipe to shell": r"\|\s*(ba|z)?sh\b",
     "API key variable": r"\b[A-Z][A-Z0-9_]*_(API_KEY|TOKEN|SECRET)\b",
+    "password in a URI": r"\[:password\]|://[^\s/@]+:[^\s/@]+@",
 }
 
 MAX_TEXT_BYTES = 256 * 1024

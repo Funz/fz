@@ -312,7 +312,7 @@ its calculators); a `version_cmd` that exits non-zero leaves the calculator with
 
 ```
 sh://command                                  local shell (default when omitted)
-ssh://user[:password]@host[:port]/command     remote SSH (paramiko, SFTP transfer)
+ssh://user@host[:port]/command               remote SSH (paramiko, SFTP transfer, key auth)
 slurm://[user@host[:port]]:partition/command  SLURM srun; local form slurm://:partition/cmd
                                               (both SLURM forms accept ?cores=&mem=&time=&nodes=
                                                &ntasks=&gres=&account=&qos=)

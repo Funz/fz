@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Agent skill: the `ssh://` syntax is shown as `ssh://user@host[:port]/command` (key auth);
+  a password in the URI still works but fz warns against it.
 - Claude Code plugin moved to `plugins/fz/` (skill now in `plugins/fz/skills/fz/`, slash
   commands in `plugins/fz/commands/`) so it can be submitted to the Claude plugin
   directory, which only accepts a folder of Markdown/JSON/images. The marketplace
